@@ -1,4 +1,5 @@
 -- Warp Gate Component: Handles warp gate functionality and interaction
+local ModelUtil = require("src.core.model_util")
 local WarpGate = {}
 WarpGate.__index = WarpGate
 
@@ -7,7 +8,12 @@ function WarpGate.new(config)
 
     -- Basic warp gate properties
     self.name = config.name or "Warp Gate"
-    self.interactionRange = config.interactionRange or 1500
+    if config.visuals then
+        -- Set interaction range to be the visual radius of the gate
+        self.interactionRange = ModelUtil.calculateModelWidth(config.visuals) / 2
+    else
+        self.interactionRange = config.interactionRange or 1500
+    end
     self.isActive = config.isActive ~= false -- Default to true
     self.activationCost = config.activationCost or 0
 
