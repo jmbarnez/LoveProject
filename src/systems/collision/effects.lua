@@ -1,0 +1,161 @@
+local Effects = require("src.systems.effects")
+local Events = require("src.core.events")
+local Config = require("src.content.config")
+local StationShields = require("src.systems.collision.station_shields")
+
+local CollisionEffects = {}
+
+-- Check if entity is a player with active shields
+function CollisionEffects.isPlayerShieldActive(entity)
+    if entity and entity.isPlayer then
+        return (entity.shieldChannel or false) or
+               (entity.components and entity.components.health and entity.components.health.shield and entity.components.health.shield > 0)
+    end
+    return false
+end
+
+-- Simple cooldown for repeated collision FX between the same pair to prevent spam
+local COLLISION_FX_COOLDOWN = (Config and Config.EFFECTS and Config.EFFECTS.COLLISION_FX_COOLDOWN) or 0.25 -- seconds
+
+function CollisionEffects.canEmitCollisionFX(a, b, now)
+  if not a or not b or not a.id or not b.id then return true end
+  a._collisionFx = a._collisionFx or {}
+  b._collisionFx = b._collisionFx or {}
+  local t = a._collisionFx[b.id] or 0
+  if (now - t) >= COLLISION_FX_COOLDOWN then
+    a._collisionFx[b.id] = now
+    b._collisionFx[a.id] = now
+    return true
+  end
+  return false
+end
+
+-- Create collision effects for both entities in a collision
+function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x, e2y, nx, ny, e1Radius, e2Radius)
+    if not Effects then return end
+
+    -- Calculate collision points for each entity
+    local e1CollisionX = e1x - nx * e1Radius
+    local e1CollisionY = e1y - ny * e1Radius
+    local e2CollisionX = e2x + nx * e2Radius
+    local e2CollisionY = e2y + ny * e2Radius
+
+    -- Determine if each entity has shields active
+    local e1HasShield = StationShields.hasActiveShield(entity1) or CollisionEffects.isPlayerShieldActive(entity1)
+    local e2HasShield = StationShields.hasActiveShield(entity2) or CollisionEffects.isPlayerShieldActive(entity2)
+
+    -- Create appropriate impact effects for entity1
+    if e1HasShield then
+        -- Shield impact effect
+        if Effects.spawnImpact then
+            local impactAngle = math.atan2(e1CollisionY - e1y, e1CollisionX - e1x)
+            Effects.spawnImpact('shield', e1x, e1y, e1Radius, e1CollisionX, e1CollisionY, impactAngle, nil, 'collision', entity1)
+        elseif Effects.createImpactEffect then
+            Effects.createImpactEffect(e1CollisionX, e1CollisionY, "shield_collision")
+        end
+    else
+        -- Hull impact effect
+        if Effects.spawnImpact then
+            local impactAngle = math.atan2(e1CollisionY - e1y, e1CollisionX - e1x)
+            Effects.spawnImpact('hull', e1x, e1y, e1Radius, e1CollisionX, e1CollisionY, impactAngle, nil, 'collision', entity1)
+        elseif Effects.createImpactEffect then
+            Effects.createImpactEffect(e1CollisionX, e1CollisionY, "hull_collision")
+        end
+    end
+
+    -- Create appropriate impact effects for entity2
+    if e2HasShield then
+        -- Shield impact effect
+        if Effects.spawnImpact then
+            local impactAngle = math.atan2(e2CollisionY - e2y, e2CollisionX - e2x)
+            Effects.spawnImpact('shield', e2x, e2y, e2Radius, e2CollisionX, e2CollisionY, impactAngle, nil, 'collision', entity2)
+        elseif Effects.createImpactEffect then
+            Effects.createImpactEffect(e2CollisionX, e2CollisionY, "shield_collision")
+        end
+    else
+        -- Hull impact effect
+        if Effects.spawnImpact then
+            local impactAngle = math.atan2(e2CollisionY - e2y, e2CollisionX - e2x)
+            Effects.spawnImpact('hull', e2x, e2y, e2Radius, e2CollisionX, e2CollisionY, impactAngle, nil, 'collision', entity2)
+        elseif Effects.createImpactEffect then
+            Effects.createImpactEffect(e2CollisionX, e2CollisionY, "hull_collision")
+        end
+    end
+end
+
+function CollisionEffects.applyDamage(entity, damageValue, source)
+    if not entity.components.health then return false end
+
+    local health = entity.components.health
+    -- Player invulnerability during dash
+    if entity.isPlayer and (entity.iFrames or 0) > 0 then
+        return (health.shield or 0) > 0
+    end
+
+    -- Handle damage value - could be a number or a table with min/max
+    local incoming = damageValue
+    if type(damageValue) == "table" then
+        if damageValue.min and damageValue.max then
+            incoming = math.random(damageValue.min, damageValue.max)
+        elseif damageValue.value then
+            incoming = damageValue.value
+        else
+            incoming = damageValue[1] or 1 -- fallback
+        end
+    end
+
+    -- Active shield ability: reduce damage by 50% when active
+    local reducedByShield = 0
+    if entity.isPlayer and entity.shieldChannel then
+        local damageReduction = (Config and Config.COMBAT and Config.COMBAT.SHIELD_DAMAGE_REDUCTION) or 0.5
+        reducedByShield = incoming * damageReduction
+        incoming = incoming * (1 - damageReduction)
+    end
+    local hadShield = (health.shield or 0) > 0
+    local shieldBefore = health.shield or 0
+    local shieldDamage = math.min(shieldBefore, incoming)
+
+    if shieldDamage > 0 then
+        Effects.addDamageNumber(entity.components.position.x, entity.components.position.y, math.floor(shieldDamage), "shield")
+    end
+
+    health.shield = math.max(0, shieldBefore - shieldDamage)
+    local remainingDamage = incoming - shieldDamage
+
+    if remainingDamage > 0 then
+        Effects.addDamageNumber(entity.components.position.x, entity.components.position.y, math.floor(remainingDamage), "hull")
+        health.hp = math.max(0, (health.hp or 0) - remainingDamage)
+    end
+
+    -- Emit damage event
+    local eventData = {
+        entity = entity,
+        damage = incoming,
+        shieldDamage = shieldDamage,
+        hullDamage = remainingDamage,
+        hadShield = hadShield or (reducedByShield > 0),
+        source = source
+    }
+    -- Mark recently damaged by player for enemy HUD bars
+    if source and (source.isPlayer or (source.components and source.components.player ~= nil)) then
+        entity._hudDamageTime = love.timer.getTime()
+    end
+
+    if entity.isPlayer then
+        Events.emit(Events.GAME_EVENTS.PLAYER_DAMAGED, eventData)
+    else
+        Events.emit(Events.GAME_EVENTS.ENTITY_DAMAGED, eventData)
+    end
+
+    if (health.hp or 0) <= 0 then
+        -- Mark as dead and stash context for DestructionSystem to handle uniformly
+        entity.dead = true
+        entity._killedBy = source
+        entity._finalDamage = damageValue
+        -- Do NOT emit destruction here; DestructionSystem will emit exactly once
+    end
+
+    return hadShield or (reducedByShield > 0)
+end
+
+return CollisionEffects
