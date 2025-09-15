@@ -183,8 +183,11 @@ function PortfolioManager.useNodeWallet()
     local node = NodeMarket.getNodeBySymbol(symbol)
     local price = node and node.price or 10  -- fallback price
 
-    -- Add a small random amount (0.1 to 1.0 nodes)
-    local quantity = math.random(10, 100) / 100  -- 0.1 to 1.0
+    -- Generate a weighted random amount between 0.01 and 0.49
+    -- Using a power function to make higher values exponentially rarer
+    local rand = math.random() ^ 1.5  -- Adjust exponent to control distribution
+    local quantity = 0.01 + (rand * 0.48)  -- Scale to 0.01-0.49 range
+    quantity = math.floor(quantity * 100) / 100  -- Round to 2 decimal places
 
     if not PortfolioManager.holdings[symbol] then
       PortfolioManager.holdings[symbol] = { quantity = 0, avgPrice = 0 }

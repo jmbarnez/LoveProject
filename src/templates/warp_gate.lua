@@ -14,10 +14,55 @@ function WarpGateTemplate.new(x, y, config)
     self.tag = "warp_gate"
     self.name = config.name or "Warp Gate"
 
+    -- Determine visuals for this gate (from config or default design)
+    local visuals = config.visuals or {
+        {
+            type = "circle",
+            radius = 400,
+            color = {0.2, 0.8, 1.0, 0.8},
+            fill = false,
+            line_width = 3
+        },
+        {
+            type = "circle",
+            radius = 300,
+            color = {0.4, 0.9, 1.0, 0.6},
+            fill = false,
+            line_width = 2
+        },
+        {
+            type = "circle",
+            radius = 200,
+            color = {0.6, 1.0, 1.0, 0.4},
+            fill = true
+        }
+    }
+
+    -- Compute interaction radius from the visual design (outermost ring)
+    local designRadius = 0
+    for _, shape in ipairs(visuals) do
+        if shape.type == "circle" then
+            designRadius = math.max(designRadius, shape.radius or shape.r or 0)
+        elseif shape.type == "rectangle" then
+            local w = shape.w or shape.width or 0
+            local h = shape.h or shape.height or 0
+            designRadius = math.max(designRadius, math.max(w, h) / 2)
+        end
+    end
+    -- Effective interaction range prefers config only if explicitly provided; otherwise use design radius
+    local effectiveRange = (type(config.interactionRange) == "number" and config.interactionRange) or designRadius
+
     -- Entity components
     self.components = {
         position = Position.new({ x = x, y = y, angle = config.angle or 0 }),
-        warp_gate = WarpGate.new(config)
+        -- Pass visuals and effective interaction range to component so it can compute correctly
+        warp_gate = WarpGate.new((function()
+            local cfg = {}
+            for k, v in pairs(config) do cfg[k] = v end
+            cfg.visuals = visuals
+            cfg.interactionRange = effectiveRange
+            return cfg
+        end)())
     }
 
     -- Add renderable component for visual representation
@@ -25,28 +70,7 @@ function WarpGateTemplate.new(x, y, config)
         local renderConfig = {
             type = "warp_gate",
             props = {
-                visuals = config.visuals or {
-                    {
-                        type = "circle",
-                        radius = 400,
-                        color = {0.2, 0.8, 1.0, 0.8},
-                        fill = false,
-                        line_width = 3
-                    },
-                    {
-                        type = "circle",
-                        radius = 300,
-                        color = {0.4, 0.9, 1.0, 0.6},
-                        fill = false,
-                        line_width = 2
-                    },
-                    {
-                        type = "circle",
-                        radius = 200,
-                        color = {0.6, 1.0, 1.0, 0.4},
-                        fill = true
-                    }
-                }
+                visuals = visuals
             }
         }
         self.components.renderable = Renderable.new(renderConfig.type, renderConfig.props)
@@ -56,7 +80,7 @@ function WarpGateTemplate.new(x, y, config)
     if config.collidable ~= false then
         local collisionConfig = {
             type = "circle",
-            radius = config.interactionRange or 1500,
+            radius = effectiveRange,
             isSensor = true -- Non-blocking collision for interaction detection
         }
         self.components.collidable = Collidable.new(collisionConfig)
@@ -64,12 +88,15 @@ function WarpGateTemplate.new(x, y, config)
 
     -- Add interaction component for tooltip/UI hints
     self.components.interactable = {
-        range = config.interactionRange or 1500,
+        range = effectiveRange,
         hint = function()
             return self.components.warp_gate:getInteractionHint()
         end,
         activate = function(player)
-            return self.components.warp_gate:activate(player)
+            -- Open the warp interface via UI manager
+            local UIManager = require("src.core.ui_manager")
+            UIManager.open("warp")
+            return true
         end
     }
 

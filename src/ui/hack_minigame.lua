@@ -4,206 +4,258 @@ local Util = require("src.core.util")
 
 local HackMinigame = {
     visible = false,
-    keyFragments = {},
-    targetKey = "",
-    playerKey = "",
-    currentFragmentIndex = 1,
+    nodes = {},
+    connections = {},
+    targetPath = {},
+    playerPath = {},
     difficulty = 1,
     timer = 0,
-    maxTime = 20,
+    maxTime = 15,
     success = false,
     failed = false,
     animTime = 0,
-    sparkles = {},
-    glitchEffect = 0,
-
+    gridSize = 5, -- 5x5 grid
+    nodeSize = 40,
+    keyLength = 6, -- Default key length
+    playerKey = "", -- Player's current key input
+    keyFragments = {}, -- Key fragments to select from
+    sparkles = {}, -- Visual effects
+    fragmentSize = 60, -- Size of key fragment buttons
+    
     -- Callbacks
     onSuccess = nil,
     onFailure = nil,
-
-    -- Visual effects
-    fragmentSize = 60,
-    keyLength = 8,
 }
 
+-- Generate a new puzzle
+function HackMinigame.generatePuzzle()
+    HackMinigame.nodes = {}
+    HackMinigame.connections = {}
+    HackMinigame.targetPath = {}
+    HackMinigame.playerPath = {}
+    HackMinigame.playerKey = ""
+    HackMinigame.keyFragments = {}
+    HackMinigame.sparkles = {}
+    
+    -- Generate a random target key (6 hex digits)
+    local chars = "0123456789ABCDEF"
+    HackMinigame.targetKey = ""
+    for i = 1, HackMinigame.keyLength do
+        HackMinigame.targetKey = HackMinigame.targetKey .. string.char(string.byte("0") + math.random(0, 15))
+    end
+    
+    -- Generate key fragments (correct ones and decoys)
+    local numFragments = 12
+    local correctPositions = {}
+    
+    -- Add correct fragments
+    for i = 1, HackMinigame.keyLength do
+        local pos = math.random(1, numFragments)
+        while correctPositions[pos] do
+            pos = math.random(1, numFragments)
+        end
+        correctPositions[pos] = true
+        
+        table.insert(HackMinigame.keyFragments, {
+            keyPiece = string.sub(HackMinigame.targetKey, i, i),
+            position = i,
+            isCorrect = true,
+            selected = false,
+            x = 0,
+            y = 0
+        })
+    end
+    
+    -- Add decoy fragments
+    for i = 1, numFragments - HackMinigame.keyLength do
+        table.insert(HackMinigame.keyFragments, {
+            keyPiece = string.char(string.byte("0") + math.random(0, 15)),
+            position = 0,
+            isCorrect = false,
+            selected = false,
+            x = 0,
+            y = 0
+        })
+    end
+    
+    -- Shuffle the fragments
+    for i = #HackMinigame.keyFragments, 2, -1 do
+        local j = math.random(i)
+        HackMinigame.keyFragments[i], HackMinigame.keyFragments[j] = HackMinigame.keyFragments[j], HackMinigame.keyFragments[i]
+    end
+    
+    -- Create nodes in a grid
+    for y = 1, HackMinigame.gridSize do
+        for x = 1, HackMinigame.gridSize do
+            table.insert(HackMinigame.nodes, {
+                x = x,
+                y = y,
+                value = string.format("%X", math.random(0, 15)), -- Hex digit
+                active = false,
+                inPath = false
+            })
+        end
+    end
+    
+    -- Generate a random path of 4-6 nodes
+    local pathLength = 4 + math.random(3)
+    local startNode = HackMinigame.getNode(1, math.random(1, HackMinigame.gridSize))
+    local currentNode = startNode
+    
+    table.insert(HackMinigame.targetPath, {x = currentNode.x, y = currentNode.y})
+    
+    for i = 2, pathLength do
+        local possibleMoves = {}
+        local x, y = currentNode.x, currentNode.y
+        
+        -- Find all valid adjacent nodes
+        for _, dir in ipairs({{0,1}, {1,0}, {0,-1}, {-1,0}}) do
+            local nx, ny = x + dir[1], y + dir[2]
+            if nx >= 1 and nx <= HackMinigame.gridSize and 
+               ny >= 1 and ny <= HackMinigame.gridSize then
+                local alreadyInPath = false
+                for _, p in ipairs(HackMinigame.targetPath) do
+                    if p.x == nx and p.y == ny then
+                        alreadyInPath = true
+                        break
+                    end
+                end
+                if not alreadyInPath then
+                    table.insert(possibleMoves, {x = nx, y = ny})
+                end
+            end
+        end
+        
+        if #possibleMoves == 0 then break end -- No valid moves
+        
+        -- Choose random move
+        local nextMove = possibleMoves[math.random(#possibleMoves)]
+        table.insert(HackMinigame.targetPath, {x = nextMove.x, y = nextMove.y})
+        currentNode = HackMinigame.getNode(nextMove.x, nextMove.y)
+    end
+    
+    -- Mark nodes in path
+    for _, pos in ipairs(HackMinigame.targetPath) do
+        local node = HackMinigame.getNode(pos.x, pos.y)
+        if node then node.inPath = true end
+    end
+end
 
+-- Helper to get node at grid position
+function HackMinigame.getNode(x, y)
+    for _, node in ipairs(HackMinigame.nodes) do
+        if node.x == x and node.y == y then
+            return node
+        end
+    end
+    return nil
+end
+
+-- Show the minigame
 function HackMinigame.show(difficulty, onSuccess, onFailure)
     HackMinigame.visible = true
     HackMinigame.difficulty = math.max(1, math.min(5, difficulty or 1))
     HackMinigame.onSuccess = onSuccess
     HackMinigame.onFailure = onFailure
-
     HackMinigame.success = false
     HackMinigame.failed = false
     HackMinigame.timer = 0
-    HackMinigame.maxTime = 18 + (HackMinigame.difficulty * 3) -- More time for harder puzzles
+    HackMinigame.maxTime = 15 - (HackMinigame.difficulty * 1.5) -- Less time for higher difficulty
     HackMinigame.animTime = 0
-    HackMinigame.currentFragmentIndex = 1
     HackMinigame.playerKey = ""
     HackMinigame.sparkles = {}
-    HackMinigame.glitchEffect = 0
-
+    
+    -- Initialize key fragments and target key
     HackMinigame.generatePuzzle()
+    
+    -- Make sure keyFragments is initialized
+    HackMinigame.keyFragments = HackMinigame.keyFragments or {}
+    HackMinigame.keyLength = HackMinigame.keyLength or 6
 end
 
+-- Hide the minigame
 function HackMinigame.hide()
     HackMinigame.visible = false
-    HackMinigame.keyFragments = {}
-    HackMinigame.targetKey = ""
-    HackMinigame.playerKey = ""
-    HackMinigame.sparkles = {}
 end
 
-function HackMinigame.generatePuzzle()
-    HackMinigame.keyFragments = {}
-    HackMinigame.targetKey = ""
-    HackMinigame.playerKey = ""
-
-    -- Generate target encryption key
-    local keyChars = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"}
-    HackMinigame.keyLength = 6 + HackMinigame.difficulty -- 7-11 character key
-
-    for i = 1, HackMinigame.keyLength do
-        HackMinigame.targetKey = HackMinigame.targetKey .. keyChars[math.random(#keyChars)]
-    end
-
-    -- Create encrypted fragments with patterns
-    local fragmentCount = 4 + HackMinigame.difficulty -- 5-9 fragments to choose from
-    local correctFragmentCount = math.min(HackMinigame.keyLength, 4 + math.floor(HackMinigame.difficulty / 2))
-
-    -- Generate all fragments (correct + decoy)
-    for i = 1, fragmentCount do
-        local fragment = {}
-
-        if i <= correctFragmentCount then
-            -- Correct fragment - contains actual key piece
-            local startPos = math.floor((i - 1) * HackMinigame.keyLength / correctFragmentCount) + 1
-            local endPos = math.floor(i * HackMinigame.keyLength / correctFragmentCount)
-
-            fragment.isCorrect = true
-            fragment.keyPiece = HackMinigame.targetKey:sub(startPos, endPos)
-            fragment.position = i
-            fragment.pattern = HackMinigame.generatePattern(fragment.keyPiece, true)
-        else
-            -- Decoy fragment - looks similar but wrong
-            fragment.isCorrect = false
-            fragment.keyPiece = ""
-            for j = 1, math.random(2, 4) do
-                fragment.keyPiece = fragment.keyPiece .. keyChars[math.random(#keyChars)]
-            end
-            fragment.pattern = HackMinigame.generatePattern(fragment.keyPiece, false)
-        end
-
-        fragment.id = i
-        fragment.x = 0 -- Will be set during draw
-        fragment.y = 0
-        fragment.selected = false
-        fragment.glowing = false
-
-        table.insert(HackMinigame.keyFragments, fragment)
-    end
-
-    -- Shuffle fragments
-    for i = #HackMinigame.keyFragments, 2, -1 do
-        local j = math.random(i)
-        HackMinigame.keyFragments[i], HackMinigame.keyFragments[j] = HackMinigame.keyFragments[j], HackMinigame.keyFragments[i]
-    end
-end
-
-function HackMinigame.generatePattern(keyPiece, isCorrect)
-    -- Generate a visual pattern that represents the key fragment
-    local pattern = {}
-
-    for i = 1, #keyPiece do
-        local char = keyPiece:sub(i, i)
-        local value = tonumber(char, 16) or 0
-
-        -- Create visual pattern based on hex value
-        table.insert(pattern, {
-            char = char,
-            intensity = value / 15, -- 0-1 range
-            color = isCorrect and {0.2, 1.0, 0.4} or {1.0, 0.6, 0.2}, -- Green for correct, orange for decoy
-            bars = {}
-        })
-
-        -- Generate mini bar chart for each character
-        for j = 1, 4 do
-            table.insert(pattern[i].bars, (value % (j + 1)) / j * 0.8 + 0.2)
-        end
-    end
-
-    return pattern
-end
-
+-- Update game state
 function HackMinigame.update(dt)
-    if not HackMinigame.visible then return end
-
+    if not HackMinigame.visible or HackMinigame.success or HackMinigame.failed then return end
+    
     HackMinigame.animTime = HackMinigame.animTime + dt
-
-    -- Update timer
-    if not HackMinigame.success and not HackMinigame.failed then
-        HackMinigame.timer = HackMinigame.timer + dt
-        if HackMinigame.timer >= HackMinigame.maxTime then
-            HackMinigame.failed = true
-            if HackMinigame.onFailure then
-                HackMinigame.onFailure("Decryption timeout!")
-            end
-        end
-    end
-
-    -- Update sparkle effects
-    for i = #HackMinigame.sparkles, 1, -1 do
-        local sparkle = HackMinigame.sparkles[i]
-        sparkle.life = sparkle.life - dt
-        sparkle.y = sparkle.y - dt * 30
-        sparkle.x = sparkle.x + math.sin(sparkle.life * 10) * 20 * dt
-        if sparkle.life <= 0 then
-            table.remove(HackMinigame.sparkles, i)
-        end
-    end
-
-    -- Update glitch effects
-    HackMinigame.glitchEffect = math.max(0, HackMinigame.glitchEffect - dt * 3)
-
-    -- Update fragment glowing effect
-    for i, fragment in ipairs(HackMinigame.keyFragments) do
-        if fragment.selected then
-            fragment.glowing = math.sin(HackMinigame.animTime * 12) * 0.3 + 0.7
-        else
-            fragment.glowing = math.sin(HackMinigame.animTime * 4 + i) * 0.1 + 0.9
+    HackMinigame.timer = HackMinigame.timer + dt
+    
+    -- Check for timeout
+    if HackMinigame.timer >= HackMinigame.maxTime then
+        HackMinigame.failed = true
+        if HackMinigame.onFailure then
+            HackMinigame.onFailure("Connection lost!")
         end
     end
 end
 
+-- Draw the minigame
 function HackMinigame.draw()
     if not HackMinigame.visible then return end
-
+    
     local sw, sh = Viewport.getDimensions()
-    local panelW, panelH = 600, 500
+    local panelW, panelH = 400, 450
     local panelX = (sw - panelW) / 2
     local panelY = (sh - panelH) / 2
-
+    
     -- Background overlay
     Theme.setColor({0, 0, 0, 0.8})
     love.graphics.rectangle("fill", 0, 0, sw, sh)
-
+    
     -- Main panel
     Theme.drawGradientGlowRect(panelX, panelY, panelW, panelH, 8,
         Theme.colors.bg1, Theme.colors.bg0, Theme.colors.accent, Theme.effects.glowStrong)
-
+    
     -- Title
-    love.graphics.setFont(Theme.fonts.large or love.graphics.getFont())
+    love.graphics.setFont(Theme.fonts.medium or love.graphics.getFont())
     Theme.setColor(Theme.colors.textHighlight)
-    love.graphics.printf("ENCRYPTED WALLET DECRYPTION", panelX, panelY + 20, panelW, "center")
-
-    -- Instructions
-    love.graphics.setFont(Theme.fonts.small or love.graphics.getFont())
-    Theme.setColor(Theme.colors.textSecondary)
-    local instruction = HackMinigame.success and "DECRYPTION COMPLETE!" or
-                       HackMinigame.failed and "SECURITY LOCKOUT ACTIVATED!" or
-                       "Decrypt the access key: Select the correct cipher fragments in order"
-    love.graphics.printf(instruction, panelX, panelY + 55, panelW, "center")
-
+    love.graphics.printf("SYSTEM BYPASS", panelX, panelY + 15, panelW, "center")
+    
+    -- Timer
+    local timeLeft = math.max(0, HackMinigame.maxTime - HackMinigame.timer)
+    local timeColor = timeLeft < 5 and {1, 0.2, 0.2} or {1, 1, 1}
+    Theme.setColor(timeColor)
+    love.graphics.printf(string.format("TIME: %.1fs", timeLeft), panelX, panelY + 50, panelW, "center")
+    
+    -- Draw grid background
+    local gridSize = HackMinigame.gridSize * (HackMinigame.nodeSize + 10) + 10
+    local gridX = panelX + (panelW - gridSize) / 2
+    local gridY = panelY + 100
+    
+    Theme.setColor(Theme.colors.bg2)
+    love.graphics.rectangle("fill", gridX, gridY, gridSize, gridSize, 4)
+    
+    -- Draw connections
+    for i = 1, #HackMinigame.playerPath - 1 do
+        local node1 = HackMinigame.getNode(HackMinigame.playerPath[i].x, HackMinigame.playerPath[i].y)
+        local node2 = HackMinigame.getNode(HackMinigame.playerPath[i+1].x, HackMinigame.playerPath[i+1].y)
+        
+        if node1 and node2 then
+            local x1 = gridX + (node1.x - 0.5) * (HackMinigame.nodeSize + 10) + 5
+            local y1 = gridY + (node1.y - 0.5) * (HackMinigame.nodeSize + 10) + 5
+            local x2 = gridX + (node2.x - 0.5) * (HackMinigame.nodeSize + 10) + 5
+            local y2 = gridY + (node2.y - 0.5) * (HackMinigame.nodeSize + 10) + 5
+            
+            -- Draw connection line with glow
+            local progress = (HackMinigame.animTime * 2) % 1
+            local midX = x1 + (x2 - x1) * progress
+            local midY = y1 + (y2 - y1) * progress
+            
+            Theme.setColor(Theme.colors.accent)
+            love.graphics.setLineWidth(2)
+            love.graphics.line(x1, y1, x2, y2)
+            
+            -- Draw moving dot
+            Theme.setColor(Theme.colors.highlight)
+            love.graphics.circle("fill", midX, midY, 3)
+        end
+    end
+    
     -- Timer bar
     local timerBarW = panelW - 40
     local timerBarH = 8
@@ -242,6 +294,7 @@ function HackMinigame.draw()
     local rowSpacing = gameAreaH / rows
 
     -- Draw key fragments
+    HackMinigame.keyFragments = HackMinigame.keyFragments or {}
     for i, fragment in ipairs(HackMinigame.keyFragments) do
         local col = ((i - 1) % fragmentsPerRow)
         local row = math.floor((i - 1) / fragmentsPerRow)
@@ -336,6 +389,7 @@ function HackMinigame.mousepressed(x, y, button)
 
     if button == 1 then
         -- Check fragment clicks
+        HackMinigame.keyFragments = HackMinigame.keyFragments or {}
         for i, fragment in ipairs(HackMinigame.keyFragments) do
             if fragment.x and fragment.y then
                 local hitX = fragment.x - HackMinigame.fragmentSize/2

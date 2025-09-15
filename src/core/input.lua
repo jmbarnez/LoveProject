@@ -103,42 +103,43 @@ function Input.keypressed(key)
 
     if mainState.UIManager.isOpen("inventory") then
         local Inventory = getInventoryModule()
-        if Inventory.keypressed and Inventory.keypressed(key) then return end
+        -- Loot container UI has been removed
     end
     if key == keymap.toggle_inventory then mainState.UIManager.toggle("inventory") end
     if key == keymap.toggle_bounty then mainState.UIManager.toggle("bounty") end
     if key == keymap.toggle_skills then SkillsPanel.toggle() end
     if key == keymap.toggle_map then Map.toggle(gameState and gameState.world) end
     if key == keymap.dock or key == "space" then
-        -- Space key priority: warp gate > dock > container
+        -- Universal interaction key: interactables > dock > containers
         if gameState.player and gameState.world then
-            -- Check if player is near warp gate
-            local allWarpGates = gameState.world:getEntitiesWithComponents("warp_gate")
-            for _, warpGate in ipairs(allWarpGates) do
-                if warpGate.canInteractWith and warpGate:canInteractWith(gameState.player) then
-                    -- Open warp UI directly
-                    mainState.UIManager.open("warp")
-                    return
+            local px = gameState.player.components.position.x
+            local py = gameState.player.components.position.y
+
+            -- 1) Generic interactables (nearest within range)
+            local nearest, nearestDist = nil, math.huge
+            for _, e in ipairs(gameState.world:getEntitiesWithComponents("interactable")) do
+                local inter = e.components and e.components.interactable
+                local pos = e.components and e.components.position
+                local range = inter and inter.range or nil
+                if inter and inter.activate and pos and type(range) == "number" then
+                    local d = Util.distance(px, py, pos.x, pos.y)
+                    if d <= range and d < nearestDist then
+                        nearest, nearestDist = e, d
+                    end
                 end
             end
-            
-            -- Check if player can dock
+            if nearest then
+                local ok = nearest.components.interactable.activate(gameState.player)
+                if ok ~= false then return end
+            end
+
+            -- 2) Docking
             if gameState.player.canDock then
                 Events.emit(Events.GAME_EVENTS.DOCK_REQUESTED)
                 return
             end
-            
-            -- Check for nearby containers
-            local px, py = gameState.player.components.position.x, gameState.player.components.position.y
-            for _, container in ipairs(gameState.world:getEntitiesWithComponents("lootContainer")) do
-                local cx = container.components.position.x
-                local cy = container.components.position.y
-                local r = (container.components.collidable and container.components.collidable.radius) or 35
-                if Util.distance(px, py, cx, cy) <= math.max(100, r) then
-                    require("src.ui.loot_container_window").open(container.components.lootContainer, gameState.player, gameState.camera)
-                    return
-                end
-            end
+
+            -- Loot containers have been removed, items drop directly now
         end
     end
 
@@ -315,17 +316,6 @@ function Input.mousepressed(x, y, button)
     local wx, wy
     if gameState.camera and gameState.camera.screenToWorld then
         wx, wy = gameState.camera:screenToWorld(x, y)
-        for _, container in ipairs(gameState.world:getEntitiesWithComponents("lootContainer")) do
-            local r = (container.components.collidable and container.components.collidable.radius) or 35
-            if Util.distance(wx, wy, container.components.position.x, container.components.position.y) <= r then
-                if Util.distance(gameState.player.components.position.x, gameState.player.components.position.y, container.components.position.x, container.components.position.y) <= 100 then
-                    require("src.ui.loot_container_window").open(container.components.lootContainer, gameState.player, gameState.camera)
-                else
-                    Notifications.info("Move closer to open container")
-                end
-                return
-            end
-        end
     end
     if Map and Map.mousepressed then
         local consumed, shouldClose = Map.mousepressed(x, y, button)
@@ -344,8 +334,7 @@ function Input.mousepressed(x, y, button)
         if consumed then return end
     end
     
-    local LootContainerWindow = require("src.ui.loot_container_window")
-    if LootContainerWindow.isOpen() and LootContainerWindow.mousepressed(x, y, button) then return end
+    -- Loot container UI has been removed
 
     if SkillsPanel.isVisible() then
         local consumed, shouldClose = SkillsPanel.mousepressed(x, y, button)
@@ -391,7 +380,7 @@ function Input.mousereleased(x, y, button)
         if consumed then return end
     end
     
-    if require("src.ui.loot_container_window").isOpen() and require("src.ui.loot_container_window").mousereleased(x, y, button) then return end
+    -- Loot container UI has been removed
     
     if button == 1 then
         mouseState.leftButtonDown = false
@@ -431,7 +420,7 @@ function Input.mousemoved(x, y, dx, dy, istouch)
     local DockedUI = require("src.ui.docked")
     if DockedUI.isVisible() and DockedUI.mousemoved(x, y, dx, dy) then return end
     
-    if require("src.ui.loot_container_window").isOpen() and require("src.ui.loot_container_window").mousemoved(x, y, dx, dy) then return end
+    -- Loot container UI has been removed
     if SkillsPanel.isVisible() and SkillsPanel.mousemoved(x, y, dx, dy) then return end
 
     if mainState.UIManager.isOpen("inventory") and getInventoryModule().mousemoved(x, y, dx, dy) then return end
@@ -442,19 +431,11 @@ function Input.mousemoved(x, y, dx, dy, istouch)
 
     local best, bestDist, hoverType = nil, 99999, nil
 
-    for _, container in ipairs(gameState.world:getEntitiesWithComponents("lootContainer")) do
-        local d = Util.distance(wx, wy, container.components.position.x, container.components.position.y)
-        if d < ((container.components.collidable and container.components.collidable.radius) or 35) and d < bestDist then
-            best, bestDist, hoverType = container, d, "lootContainer"
-        end
-    end
-
-    if not best then
-        for _, a in ipairs(gameState.world:getEntitiesWithComponents("mineable")) do
-            local d = Util.distance(wx, wy, a.components.position.x, a.components.position.y)
-            if d < (((a.components.collidable and a.components.collidable.radius) or 20) * 1.5) and d < bestDist then
-                best, bestDist, hoverType = a, d, "neutral"
-            end
+    -- Start with mineable entities first
+    for _, a in ipairs(gameState.world:getEntitiesWithComponents("mineable")) do
+        local d = Util.distance(wx, wy, a.components.position.x, a.components.position.y)
+        if d < (((a.components.collidable and a.components.collidable.radius) or 20) * 1.5) and d < bestDist then
+            best, bestDist, hoverType = a, d, "neutral"
         end
     end
 

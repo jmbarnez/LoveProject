@@ -3,6 +3,8 @@ local Viewport = require("src.core.viewport")
 local Util = require("src.core.util")
 local NodeMarket = require("src.systems.node_market")
 local TechnicalIndicators = require("src.systems.technical_indicators")
+local ChartRenderer = require("src.ui.nodes.chart_renderer")
+local History = require("src.core.history")
 local ChartAnimations = require("src.systems.chart_animations")
 local PortfolioManager = require("src.managers.portfolio")
 
@@ -26,6 +28,8 @@ function Nodes:new()
     o.lastPrices = {}
     o.intervalSeconds = 60
     o.activeBottomTab = "portfolio"
+    o.history = History.new(200)
+    o.nodeViewStates = {} -- Store view state per node
 
     -- Trading interface state
     o.tradingMode = "buy" -- "buy" or "sell"
@@ -37,6 +41,18 @@ function Nodes:new()
     o.limitPrice = ""
     o.limitPriceInputActive = false
 
+    -- Push initial view state
+    if o.history then
+        o.history:push({
+            range = o.range,
+            zoom = o.zoom,
+            yScale = o.yScale,
+            yOffset = o.yOffset,
+            xPanBars = o.xPanBars,
+            selectedSymbol = o.selectedSymbol,
+            chartType = o.chartType,
+        })
+    end
     return o
 end
 
@@ -130,12 +146,30 @@ local function formatPrice(p)
     if p >= 1 then return string.format("%.3f", p) end
     return string.format("%.5f", p)
 end
+
+-- Calculate slippage percentage for a given amount
+local function calculateSlippage(amount, node)
+    local depth = (node.liquidity and node.liquidity.orderBookDepth) or 1
+    local slipFactor = (node.liquidity and node.liquidity.slippageFactor) or 1.0
+    local slippage = math.min(0.10, (amount / depth) * slipFactor) * 100  -- Cap at 10%
+    return slippage
+end
 -- #endregion
 
 -- #region New UI Panel Drawing Functions
+local function formatMarketCap(marketCap)
+    if marketCap >= 1e9 then
+        return string.format("$%.2fB", marketCap / 1e9)
+    elseif marketCap >= 1e6 then
+        return string.format("$%.2fM", marketCap / 1e6)
+    else
+        return string.format("$%.2f", marketCap)
+    end
+end
+
 local function drawHeader(self, node, stats, x, y, w, h)
     Theme.setColor(Theme.colors.textHighlight)
-    love.graphics.setFont(Theme.fonts.medium)  -- Reduced from large to medium
+    love.graphics.setFont(Theme.fonts.medium)
     local headerText = node.symbol .. "/GC"
     local textW = love.graphics.getFont():getWidth(headerText)
     love.graphics.print(headerText, x, y)
@@ -149,7 +183,20 @@ local function drawHeader(self, node, stats, x, y, w, h)
     love.graphics.print(arrowText, arrowX, arrowY)
     self._nodeDropdownButton = { x = x, y = y, w = arrowX + arrowW - x, h = 25 }  -- Reduced height
 
-    love.graphics.setFont(Theme.fonts.small)  -- Reduced from medium to small
+    -- Format market cap for display
+    local function formatMarketCap(marketCap)
+        if not marketCap then return "N/A" end
+        if marketCap >= 1e9 then
+            return string.format("$%.2fB", marketCap / 1e9)
+        elseif marketCap >= 1e6 then
+            return string.format("$%.2fM", marketCap / 1e6)
+        else
+            return string.format("$%.2f", marketCap)
+        end
+    end
+
+    -- Price and change
+    love.graphics.setFont(Theme.fonts.small)
     local priceStr = formatPrice(stats.price)
     local priceColor = Theme.colors.textHighlight
     local lastPrice = self.lastPrices[node.symbol]
@@ -158,168 +205,112 @@ local function drawHeader(self, node, stats, x, y, w, h)
         elseif stats.price < lastPrice then priceColor = Theme.colors.negative end
     end
     Theme.setColor(priceColor)
-    love.graphics.print(priceStr, x, y + 20)  -- Reduced spacing
+    love.graphics.print(priceStr, x, y + 16)
 
+    -- Market data points
     local dataPoints = {
-        {"24h Chg", string.format("%+.2f%%", stats.changePct), stats.changePct >= 0 and Theme.colors.positive or Theme.colors.negative},  -- Shortened label
-        {"High", formatPrice(stats.dayHigh)},  -- Shortened label
-        {"Low", formatPrice(stats.dayLow)},   -- Shortened label
-        {"Vol", Util.formatNumber(math.floor(stats.dayVolume)) .. " " .. node.symbol}  -- Shortened label
+        {"24h Chg", string.format("%+.2f%%", stats.changePct), stats.changePct >= 0 and Theme.colors.positive or Theme.colors.negative},
+        {"Market Cap", formatMarketCap(node.marketCap)},
+        {"Liquidity", formatMarketCap(node.liquidity and node.liquidity.orderBookDepth or 0)},
+        {"24h Vol", formatMarketCap(node.liquidity and node.liquidity.volume24h or 0)},
+        {"Supply", string.format("%.0fM", (node.supply or 0) / 1e6)}
     }
+    -- Draw data points in two rows to save horizontal space
     love.graphics.setFont(Theme.fonts.small)
-    local dataX = x + 150  -- Reduced spacing
-    for i, dp in ipairs(dataPoints) do
-        Theme.setColor(Theme.colors.textSecondary)
-        love.graphics.print(dp[1], dataX, y + 4)  -- Adjusted positioning
-        Theme.setColor(dp[3] or Theme.colors.text)
-        love.graphics.print(dp[2], dataX, y + 18)  -- Adjusted positioning
-        dataX = dataX + 120  -- Reduced spacing between columns
+    local dataX = x + 140
+    local rowSpacing = 14
+    local colSpacing = 116
+    
+    -- First row (top)
+    for i = 1, 3 do
+        if dataPoints[i] then
+            Theme.setColor(Theme.colors.textSecondary)
+            love.graphics.print(dataPoints[i][1], dataX, y + 2)
+            Theme.setColor(dataPoints[i][3] or Theme.colors.text)
+            love.graphics.print(dataPoints[i][2], dataX, y + 14)
+        end
+        dataX = dataX + colSpacing
+    end
+    
+    -- Second row (bottom) - shifted down for clearer separation
+    dataX = x + 140
+    for i = 4, 5 do
+        if dataPoints[i] then
+            Theme.setColor(Theme.colors.textSecondary)
+            love.graphics.print(dataPoints[i][1], dataX, y + 28)
+            Theme.setColor(dataPoints[i][3] or Theme.colors.text)
+            love.graphics.print(dataPoints[i][2], dataX, y + 40)
+        end
+        dataX = dataX + colSpacing
     end
 
-    -- No need to reserve space in header anymore
+    -- Volatility regime badge (Calm / Normal / High)
+    local vol = (stats.sigma or 0) * (stats.volMultiplier or 1)
+    local regimeLabel = "Normal"
+    local regimeColor = Theme.colors.warning or Theme.colors.accent
+    if vol < 0.01 then
+        regimeLabel = "Calm"
+        regimeColor = Theme.colors.success
+    elseif vol >= 0.03 then
+        regimeLabel = "High Vol"
+        regimeColor = Theme.colors.danger
+    end
+    local badgeText = regimeLabel
+    love.graphics.setFont(Theme.fonts.small)
+    local btW = love.graphics.getFont():getWidth(badgeText) + 10
+    local badgeW, badgeH = btW, 16
+    local badgeX, badgeY = x + w - badgeW - 8, y + 2
+    Theme.setColor(regimeColor)
+    love.graphics.rectangle("fill", badgeX, badgeY, badgeW, badgeH, 6, 6)
+    Theme.setColor(Theme.colors.bg0 or {0,0,0,1})
+    love.graphics.printf(badgeText, badgeX, badgeY + 2, badgeW, "center")
+
+    -- Buy/Sell pressure bar (left=Sell red, right=Buy green) - move to right side
+    local pressure = (node.liquidity and node.liquidity.buyPressure) or 0.5
+    local barW, barH = 110, 4
+    local barX, barY = x + w - barW - 8, y + 44
+    Theme.setColor(Theme.colors.bg3)
+    love.graphics.rectangle("fill", barX, barY, barW, barH, 2, 2)
+    local buyW = math.floor(barW * pressure)
+    local sellW = barW - buyW
+    Theme.setColor(Theme.colors.danger)
+    love.graphics.rectangle("fill", barX + buyW, barY, sellW, barH, 2, 2)
+    Theme.setColor(Theme.colors.success)
+    love.graphics.rectangle("fill", barX, barY, buyW, barH, 2, 2)
+    Theme.setColor(Theme.colors.textSecondary)
+    love.graphics.print("Flow", barX, barY - 10)
 end
 
 local function drawChartPanel(self, node, x, y, w, h)
-    -- Chart background
-    Theme.drawGradientGlowRect(x, y, w, h, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+    ChartRenderer.draw(self, node, x, y, w, h)
+end
 
-    -- Chart controls (Time ranges)
-    local opts = { "1m", "5m", "15m", "30m", "1h", "4h", "1d" }
-    local bw, bh = 38, 22
-    local pad = 5
-    self._rangeButtons = {}
-    for i, opt in ipairs(opts) do
-        local bx = x + 10 + (i - 1) * (bw + pad)
-        local by = y + 8
-        local selected = (self.range == opt)
-        Theme.drawGradientGlowRect(bx, by, bw, bh, 4, selected and Theme.colors.primary or Theme.colors.bg2, Theme.colors.bg1, selected and Theme.colors.accent or Theme.colors.border, Theme.effects.glowWeak)
-        Theme.setColor(selected and Theme.colors.textHighlight or Theme.colors.text)
-        love.graphics.setFont(Theme.fonts.small)
-        love.graphics.printf(opt, bx, by + 4, bw, "center")
-        table.insert(self._rangeButtons, { x = bx, y = by, w = bw, h = bh, id = opt })
-    end
 
-    -- Chart area
-    local chartX = x + 8
-    local chartY = y + 40
-    local chartW = w - 16
-    local chartH = h - 48
-    self._chartRect = { x = chartX, y = chartY, w = chartW, h = chartH }
+-- Draw a compact global stats strip showing total market cap and 24h volume
+local function drawGlobalStrip(self, x, y, w, h)
+    local gs = NodeMarket.getGlobalStats()
+    if not gs then return end
 
-    local baseCandles = NodeMarket.getCandles(node)
-    local candles = TechnicalIndicators.aggregateCandles(baseCandles, self.intervalSeconds)
-    local basePxPerCandle = 8
-    local zoom = math.max(0.05, math.min(32.0, self.zoom or 1.0))
-    local pxPerCandle = basePxPerCandle * zoom
+    -- Background
+    Theme.drawGradientGlowRect(x, y, w, h, 3, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
 
-    -- Calculate how many candles fit in the chart width with proper spacing
-    local gapPx = math.max(1, math.floor(pxPerCandle * 0.15))  -- 15% gap between candles
-    local candleWithGapPx = pxPerCandle + gapPx
-    local requestedVisible = math.max(1, math.floor(chartW / candleWithGapPx))
-    local visible = math.max(1, math.min(#candles, requestedVisible))
-    local n = #candles
-
-    love.graphics.push()
-    love.graphics.setScissor(chartX, chartY, chartW, chartH)
-
-    -- Reduce padding to give more space for actual candles
-    local padL = math.max(2, math.floor(requestedVisible * 0.05))
-    local padR = math.max(3, math.floor(requestedVisible * 0.08))
-
-    -- Constrain xPanBars to prevent chart from disappearing off edges
-    local maxPanLeft = math.max(0, n - visible)  -- Can't pan past the start of data
-    local maxPanRight = 0  -- Can't pan past the end (newest data)
-    self.xPanBars = math.max(-maxPanRight, math.min(maxPanLeft, self.xPanBars or 0))
-
-    -- Calculate start index: newest data on the right, pan left to see older data
-    local startIndex = n - visible + 1 - (self.xPanBars or 0)
-    startIndex = math.max(1, math.min(n - visible + 1, startIndex))
-
-    local mn, mx, cw, i0, i1 = drawCandles(candles, chartX, chartY, chartW, chartH, visible, padL, padR, self.yScale, self.yOffset, startIndex)
-    love.graphics.setScissor()
-    love.graphics.pop()
-
-    -- Draw Y-axis (Price) - positioned to not overlap with right panels
     love.graphics.setFont(Theme.fonts.small)
+    Theme.setColor(Theme.colors.textSecondary)
+
+    local capStr = string.format("Global Cap: %s", formatMarketCap(gs.totalMarketCap or 0))
+    local volStr = string.format("Global 24h Vol: %s", formatMarketCap(gs.totalVolume24h or 0))
+    local nodesStr = string.format("Assets: %d", gs.nodeCount or 0)
+
+    local pad = 8
+    love.graphics.print(capStr, x + pad, y + 4)
+
+    local volW = love.graphics.getFont():getWidth(volStr)
+    local nodesW = love.graphics.getFont():getWidth(nodesStr)
+    -- Right-align vol and nodes
+    love.graphics.print(volStr, x + w - pad - volW, y + 4)
+
     Theme.setColor(Theme.colors.text)
-    self._yAxisLabels = {}  -- Store label positions for drag detection
-
-    -- Calculate optimal number of Y-axis labels based on chart height
-    local font = love.graphics.getFont()
-    local textHeight = font:getHeight()
-    local minSpacing = textHeight + 8  -- Minimum 8px between labels
-    local maxLabels = math.max(3, math.min(8, math.floor(chartH / minSpacing)))
-
-    for i = 0, maxLabels - 1 do
-        local price = mn + (mx - mn) * (i / (maxLabels - 1))
-        local py = chartY + chartH - (chartH * i / (maxLabels - 1))
-
-        -- Position labels inside the chart area on the right side
-        local priceText = formatPrice(price)
-        local textW = font:getWidth(priceText)
-        local labelX = chartX + chartW - textW - 8  -- Position inside chart with margin
-        local labelY = py - textHeight / 2  -- Center text vertically on the line
-
-        -- Store label area for drag detection (expanded hit area)
-        table.insert(self._yAxisLabels, {
-            x = labelX - 20,  -- Expand hit area to the left
-            y = labelY - 5,   -- Expand hit area up
-            w = textW + 40,   -- Make hit area wider
-            h = textHeight + 10  -- Proper height based on text
-        })
-
-        -- Draw semi-transparent background for better readability
-        Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.7))
-        love.graphics.rectangle("fill", labelX - 2, labelY - 1, textW + 4, textHeight + 2)
-
-        -- Draw the price text
-        Theme.setColor(Theme.colors.text)
-        love.graphics.print(priceText, labelX, labelY)
-    end
-
-    -- Draw X-axis (Time)
-    love.graphics.setFont(Theme.fonts.small)
-    local font = love.graphics.getFont()
-
-    -- Calculate optimal number of X-axis labels based on chart width and text width
-    local sampleTimeStr = "00:00:00"
-    local timeTextWidth = font:getWidth(sampleTimeStr)
-    local minSpacing = timeTextWidth + 20  -- Minimum 20px between time labels
-    local maxLabels = math.max(2, math.min(10, math.floor(chartW / minSpacing)))
-
-    -- Only draw labels if we have enough candles to show
-    if i1 > i0 then
-        for i = 0, maxLabels - 1 do
-            local progress = i / (maxLabels - 1)
-            local idx = math.floor(i0 + progress * (i1 - i0))
-            local candle = candles[idx]
-
-            if candle and idx >= i0 and idx <= i1 then
-                local tx = chartX + (padL + (idx - i0)) * cw + cw * 0.5  -- Center on candle
-
-                -- Choose appropriate time format based on interval
-                local timeStr
-                if self.intervalSeconds >= 86400 then  -- 1 day or more
-                    timeStr = os.date("%m/%d", candle.t)
-                elseif self.intervalSeconds >= 3600 then  -- 1 hour or more
-                    timeStr = os.date("%H:%M", candle.t)
-                else  -- Less than 1 hour
-                    timeStr = os.date("%H:%M:%S", candle.t)
-                end
-
-                local actualWidth = font:getWidth(timeStr)
-                local labelX = tx - actualWidth / 2  -- Center the text
-
-                -- Draw semi-transparent background for better readability
-                Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.7))
-                love.graphics.rectangle("fill", labelX - 2, chartY + chartH + 2, actualWidth + 4, font:getHeight() + 4)
-
-                -- Draw the time text
-                Theme.setColor(Theme.colors.text)
-                love.graphics.print(timeStr, labelX, chartY + chartH + 4)
-            end
-        end
-    end
+    love.graphics.print(nodesStr, x + (w - nodesW) / 2, y + 4)
 end
 
 
@@ -494,6 +485,18 @@ local function drawBuyInterface(self, player, node, stats, x, y, w, h)
         Theme.colors.bg0,
         self.buyInputActive and Theme.colors.accent or Theme.colors.border,
         Theme.effects.glowWeak)
+        
+    -- Show slippage if amount is entered (convert token amount to GC value)
+    if self._buyAmount and #self._buyAmount > 0 then
+        local amount = tonumber(self._buyAmount) or 0
+        if amount > 0 then
+            local gcValue = amount * stats.price
+            local slippage = calculateSlippage(gcValue, node)
+            local slippageText = string.format("Slippage: %.2f%%", slippage)
+            Theme.setColor(Theme.colors.textSecondary)
+            love.graphics.print(slippageText, inputX, inputY + inputH + 4)
+        end
+    end
 
     -- Input text with smaller font
     Theme.setColor(Theme.colors.text)
@@ -568,33 +571,6 @@ local function drawSellInterface(self, player, node, stats, x, y, w, h)
     love.graphics.setFont(Theme.fonts.small)
     local font = love.graphics.getFont()
     local lineHeight = font:getHeight() + 4
-
-    local yPos = y + 8
-
-    -- Market info section
-    local holdings = PortfolioManager.getAllHoldings()
-    local holding = holdings[node.symbol] or { quantity = 0 }
-    local lastPrice = self.lastPrices[node.symbol]
-    local priceChange = lastPrice and (stats.price - lastPrice) or 0
-    local priceChangeColor = priceChange > 0 and Theme.colors.positive or
-                           priceChange < 0 and Theme.colors.negative or Theme.colors.text
-
-    -- Current price with smaller font
-    Theme.setColor(Theme.colors.textSecondary)
-    love.graphics.print("Current Price:", x, yPos)
-    Theme.setColor(priceChangeColor)
-    love.graphics.setFont(Theme.fonts.small)
-    love.graphics.print(formatPrice(stats.price) .. " GC", x + 130, yPos - 2)
-    love.graphics.setFont(Theme.fonts.small)
-    yPos = yPos + lineHeight + 2
-
-    -- Holdings with smaller display
-    Theme.setColor(Theme.colors.textSecondary)
-    love.graphics.print("Available Holdings:", x, yPos)
-    Theme.setColor(Theme.colors.text)
-    love.graphics.setFont(Theme.fonts.small)
-    love.graphics.print(string.format("%.4f %s", holding.quantity, node.symbol), x + 150, yPos - 2)
-    love.graphics.setFont(Theme.fonts.small)
     yPos = yPos + lineHeight + 8
 
     -- Amount input
@@ -627,6 +603,18 @@ local function drawSellInterface(self, player, node, stats, x, y, w, h)
 
     self._sellAmountInput = { x = inputX, y = inputY, w = inputW, h = inputH }
     yPos = yPos + inputH + 8
+    
+    -- Show slippage if amount is entered
+    if self.sellAmount and #self.sellAmount > 0 then
+        local amount = tonumber(self.sellAmount) or 0
+        if amount > 0 then
+            local slippage = calculateSlippage(amount * stats.price, node)  -- Convert to GC value
+            local slippageText = string.format("Slippage: %.2f%%", slippage)
+            Theme.setColor(Theme.colors.textSecondary)
+            love.graphics.print(slippageText, x, yPos)
+            yPos = yPos + lineHeight + 4
+        end
+    end
 
     -- Revenue calculation
     local amount = tonumber(self.sellAmount) or 0
@@ -737,7 +725,8 @@ function Nodes:draw(player, x, y, w, h)
     local stats = NodeMarket.getStats(node)
 
     -- Layout definitions with trading interface in bottom-right
-    local headerH = 50
+    local headerH = 56  -- Tighter header height
+    local globalStripH = 18  -- Tighter global strip
     local bottomPanelH = 250
     local margin = 6
     local tradingW = 300  -- Wider trading interface
@@ -745,9 +734,9 @@ function Nodes:draw(player, x, y, w, h)
 
     -- Chart takes full width
     local chartW = w - margin * 2
-    local chartH = h - headerH - bottomPanelH - margin * 4
+    local chartH = h - headerH - globalStripH - bottomPanelH - margin * 5
     local chartX = x + margin
-    local chartY = y + headerH + margin * 2
+    local chartY = y + headerH + globalStripH + margin * 2
 
     -- Bottom panel leaves space for trading interface
     local bottomPanelW = chartW - tradingW - margin
@@ -760,6 +749,7 @@ function Nodes:draw(player, x, y, w, h)
 
     -- Draw components
     drawHeader(self, node, stats, x + margin, y + margin, w - margin * 2, headerH)
+    drawGlobalStrip(self, x + margin, y + headerH + margin, w - margin * 2, globalStripH)
     drawChartPanel(self, node, chartX, chartY, chartW, chartH)
     drawBottomPanel(self, player, bottomPanelX, bottomPanelY, bottomPanelW, bottomPanelH)
 
@@ -876,7 +866,36 @@ function Nodes:mousepressed(player, x, y, button)
     if self.nodeDropdownOpen and self._nodeDropdownItems then
         for _, item in ipairs(self._nodeDropdownItems) do
             if Util.rectContains(x, y, item.rect.x, item.rect.y, item.rect.w, item.rect.h) then
-                self.selectedSymbol = item.node.symbol
+                -- Only update if we're actually changing nodes
+                if self.selectedSymbol ~= item.node.symbol then
+                    -- Save current node's view state
+                    if self.nodeViewStates then
+                        self.nodeViewStates[self.selectedSymbol] = {
+                            yScale = self.yScale,
+                            yOffset = self.yOffset,
+                            xPanBars = self.xPanBars,
+                            zoom = self.zoom
+                        }
+                    end
+                    
+                    -- Update to new node
+                    self.selectedSymbol = item.node.symbol
+                    
+                    -- Restore new node's view state or reset to defaults
+                    local savedState = self.nodeViewStates and self.nodeViewStates[self.selectedSymbol]
+                    if savedState then
+                        self.yScale = savedState.yScale
+                        self.yOffset = savedState.yOffset
+                        self.xPanBars = savedState.xPanBars
+                        self.zoom = savedState.zoom
+                    else
+                        -- Reset to default view for new node
+                        self.yScale = 1.0
+                        self.yOffset = 0.0
+                        self.xPanBars = 0
+                        self.zoom = 1.0
+                    end
+                end
                 self.nodeDropdownOpen = false
                 return true
             end
@@ -911,9 +930,46 @@ function Nodes:mousepressed(player, x, y, button)
     if self._rangeButtons then
         for _, rb in ipairs(self._rangeButtons) do
             if Util.rectContains(x, y, rb.x, rb.y, rb.w, rb.h) then
+                if self.history then
+                    self.history:push({
+                        range = self.range,
+                        zoom = self.zoom,
+                        yScale = self.yScale,
+                        yOffset = self.yOffset,
+                        xPanBars = self.xPanBars,
+                        selectedSymbol = self.selectedSymbol,
+                        chartType = self.chartType,
+                    })
+                end
                 self.range = rb.id
-                local secs = { ["1m"]=60, ["5m"]=300, ["15m"]=900, ["30m"]=1800, ["1h"]=3600, ["4h"]=14400, ["1d"]=86400 }
+                local secs = { 
+                    ["5s"]=5, ["15s"]=15, ["30s"]=30, 
+                    ["1m"]=60, ["5m"]=300, ["15m"]=900, 
+                    ["30m"]=1800, ["1h"]=3600, ["4h"]=14400, 
+                    ["1d"]=86400 
+                }
                 self.intervalSeconds = secs[rb.id]
+                return true
+            end
+        end
+    end
+
+    -- Style buttons (Candle / Line)
+    if self._styleButtons then
+        for _, sb in ipairs(self._styleButtons) do
+            if Util.rectContains(x, y, sb.x, sb.y, sb.w, sb.h) then
+                if self.history then
+                    self.history:push({
+                        range = self.range,
+                        zoom = self.zoom,
+                        yScale = self.yScale,
+                        yOffset = self.yOffset,
+                        xPanBars = self.xPanBars,
+                        selectedSymbol = self.selectedSymbol,
+                        chartType = self.chartType,
+                    })
+                end
+                self.chartType = sb.id
                 return true
             end
         end
@@ -977,6 +1033,17 @@ end
 function Nodes:wheelmoved(player, dx, dy)
     local mx, my = Viewport.getMousePosition()
     if self._chartRect and Util.rectContains(mx, my, self._chartRect.x, self._chartRect.y, self._chartRect.w, self._chartRect.h) then
+        if self.history then
+            self.history:push({
+                range = self.range,
+                zoom = self.zoom,
+                yScale = self.yScale,
+                yOffset = self.yOffset,
+                xPanBars = self.xPanBars,
+                selectedSymbol = self.selectedSymbol,
+                chartType = self.chartType,
+            })
+        end
         local factor = (dy > 0) and 1.2 or 1 / 1.2
         if love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift") then
             self.yScale = math.max(0.1, math.min(20.0, (self.yScale or 1.0) * factor))
@@ -985,6 +1052,36 @@ function Nodes:wheelmoved(player, dx, dy)
             self.yScale = math.max(0.1, math.min(20.0, (self.yScale or 1.0) * factor))
         end
         return true
+    end
+    return false
+end
+
+function Nodes:keypressed(player, key)
+    local ctrl = love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")
+    if ctrl and key == "z" and self.history then
+        local s = self.history:undo()
+        if s then
+            self.range = s.range
+            self.zoom = s.zoom
+            self.yScale = s.yScale
+            self.yOffset = s.yOffset
+            self.xPanBars = s.xPanBars
+            self.selectedSymbol = s.selectedSymbol
+            self.chartType = s.chartType or self.chartType
+            return true
+        end
+    elseif ctrl and key == "y" and self.history then
+        local s = self.history:redo()
+        if s then
+            self.range = s.range
+            self.zoom = s.zoom
+            self.yScale = s.yScale
+            self.yOffset = s.yOffset
+            self.xPanBars = s.xPanBars
+            self.selectedSymbol = s.selectedSymbol
+            self.chartType = s.chartType or self.chartType
+            return true
+        end
     end
     return false
 end
@@ -1061,8 +1158,8 @@ function Nodes:executeBuy(player)
         return
     end
 
-    -- Execute the trade through NodeMarket
-    local success = NodeMarket.executeTrade(self.selectedSymbol, "BUY", amount, stats.price, true)  -- true for player trade
+    -- Place order via PortfolioManager (handles market submission + portfolio updates)
+    local success, message = PortfolioManager.placeBuyOrder(self.selectedSymbol, amount, stats.price, false)
 
     if success then
         -- Clear the input after successful trade
@@ -1071,10 +1168,6 @@ function Nodes:executeBuy(player)
 
         -- Show success message or notification
         print("Successfully bought", amount, self.selectedSymbol, "for", formatPrice(totalCost), "GC")
-
-        -- Update portfolio
-        PortfolioManager.updateHolding(self.selectedSymbol, amount)
-        PortfolioManager.spendFunds(totalCost)
     else
         print("Trade execution failed")
     end
@@ -1100,8 +1193,8 @@ function Nodes:executeSell(player)
     local stats = NodeMarket.getStats(node)
     local totalRevenue = amount * stats.price
 
-    -- Execute the trade through NodeMarket
-    local success = NodeMarket.executeTrade(self.selectedSymbol, "SELL", amount, stats.price, true)  -- true for player trade
+    -- Place order via PortfolioManager (handles market submission + portfolio updates)
+    local success, message = PortfolioManager.placeSellOrder(self.selectedSymbol, amount, stats.price, false)
 
     if success then
         -- Clear the input after successful trade
@@ -1111,9 +1204,7 @@ function Nodes:executeSell(player)
         -- Show success message or notification
         print("Successfully sold", amount, self.selectedSymbol, "for", formatPrice(totalRevenue), "GC")
 
-        -- Update portfolio
-        PortfolioManager.updateHolding(self.selectedSymbol, -amount)  -- Negative amount to subtract
-        PortfolioManager.addFunds(totalRevenue)
+        -- PortfolioManager already updated holdings and funds
     else
         print("Trade execution failed")
     end

@@ -11,6 +11,23 @@ Hotbar.state = {
     }
 }
 
+-- Ensure each item appears at most once across all hotbar slots
+function Hotbar.normalizeSlots()
+    if not Hotbar.slots then return end
+    local seen = {}
+    for i, slot in ipairs(Hotbar.slots) do
+        local it = slot.item
+        if it ~= nil then
+            if seen[it] then
+                -- Remove duplicate occurrences, keep the first
+                Hotbar.slots[i].item = nil
+            else
+                seen[it] = true
+            end
+        end
+    end
+end
+
 function Hotbar.load()
     -- Initialize slots and load items from settings
     Hotbar.slots = {
@@ -27,6 +44,8 @@ function Hotbar.load()
             local it = hb.items[i]
             Hotbar.slots[i].item = (it == 'boost') and nil or it
         end
+        -- Deduplicate on load to avoid conflicting bindings (e.g., shield on E and R)
+        Hotbar.normalizeSlots()
     end
 end
 
@@ -94,6 +113,8 @@ function Hotbar.populateFromPlayer(player)
     end
 
     -- Persist the changes
+    -- Normalize first to guarantee uniqueness (no duplicate shield or turret slots)
+    Hotbar.normalizeSlots()
     if Hotbar.save then Hotbar.save() end
 end
 
@@ -129,19 +150,7 @@ function Hotbar.keypressed(key, player)
             -- One-shot or toggle/hold depending on item
             local item = slot.item
             Log.debug("Hotbar: matched slot", i, "item=", tostring(item))
-            -- Fallback: if the slot has no assigned item but the player has a turret
-            -- corresponding to this hotbar position, toggle that turret.
-            if not item and player and player.components and player.components.equipment and player.components.equipment.turrets then
-                local turretIndex = i - 2 -- hotbar slot 3 -> turret index 1 (second turret)
-                local tdata = player.components.equipment.turrets[turretIndex]
-                Log.debug("Hotbar: fallback looking at turretIndex", turretIndex, "tdata=", tostring(tdata and tdata.id))
-                if tdata and tdata.slot then
-                    Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
-                    Hotbar.state.active.turret_slots[tdata.slot] = not Hotbar.state.active.turret_slots[tdata.slot]
-                    Log.debug("Hotbar: fallback turret_slot_" .. tostring(tdata.slot) .. " toggled ->", tostring(Hotbar.state.active.turret_slots[tdata.slot]))
-                    return
-                end
-            end
+            -- No fallback behavior - only process if there's an item in the slot
             if item == "shield" then
                 if bound ~= "mouse2" then
                     Hotbar.state.active.shield = not Hotbar.state.active.shield

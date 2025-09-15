@@ -4,7 +4,6 @@ local Viewport = require("src.core.viewport")
 -- UI components
 local Inventory = require("src.ui.inventory")
 local Bounty = require("src.ui.bounty")
-local LootContainerWindow = require("src.ui.loot_container_window")
 local DockedUI = require("src.ui.docked")
 local EscapeMenu = require("src.ui.escape_menu")
 local Notifications = require("src.ui.notifications")
@@ -37,7 +36,6 @@ local warpInstance = Warp:new()
 UIManager.state = {
   inventory = { open = false, zIndex = 10 },
   bounty = { open = false, zIndex = 15 },
-  lootContainer = { open = false, zIndex = 25 },
   docked = { open = false, zIndex = 30 },
   escape = { open = false, zIndex = 100 }, -- Escape menu should be on top
   skills = { open = false, zIndex = 35 },
@@ -52,7 +50,6 @@ UIManager.topZ = 120
 UIManager.layerOrder = {
   "inventory",
   "bounty",
-  "lootContainer",
   "skills",
   "docked",
   "map",
@@ -89,7 +86,6 @@ function UIManager.update(dt, player)
   -- Sync with legacy UI state variables
   UIManager.state.inventory.open = Inventory.visible or false
   UIManager.state.bounty.open = Bounty.visible or false
-  UIManager.state.lootContainer.open = LootContainerWindow.isOpen() or false
   UIManager.state.docked.open = DockedUI.isVisible()
   UIManager.state.escape.open = EscapeMenu.visible or false
   UIManager.state.skills.open = SkillsPanel.visible or false
@@ -149,13 +145,6 @@ function UIManager.isMouseOverUI()
 
   -- Warp interface window
 
-  -- Loot container window
-  local LootContainerWindow = require("src.ui.loot_container_window")
-  if LootContainerWindow.isOpen and LootContainerWindow.isOpen() and LootContainerWindow.getRect then
-    local r = LootContainerWindow.getRect()
-    if r and mx >= r.x and mx <= r.x + r.w and my >= r.y and my <= r.y + r.h then return true end
-  end
-
   -- Hotbar
   local Hotbar = require("src.ui.hud.hotbar")
   if Hotbar.getRect and Hotbar.getRect() then
@@ -203,8 +192,6 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
       Inventory.draw(player)
     elseif component == "bounty" then
       Bounty.draw(bounty, player.docked)
-    elseif component == "lootContainer" then
-      LootContainerWindow.draw()
     elseif component == "docked" then
       if DockedUI.setBounty then DockedUI.setBounty(bounty) end
       DockedUI.draw(player)
@@ -262,17 +249,6 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
     if topComponent == "inventory" and Inventory.hoveredItem and Inventory.hoverTimer > 0.5 then
       local mx, my = love.mouse.getPosition()
       Tooltip.drawShopTooltip(Inventory.hoveredItem.def, mx, my)
-    elseif topComponent == "lootContainer" and LootContainerWindow.isOpen() then
-      -- Loot containers have their own tooltip handling
-      if LootContainerWindow.hoveredItem and LootContainerWindow.hoverTimer > 0.5 then
-        local mx, my = love.mouse.getPosition()
-        if LootContainerWindow.hoveredItem.def then
-          Tooltip.drawShopTooltip(LootContainerWindow.hoveredItem.def, mx, my)
-        end
-      end
-    elseif topComponent == "docked" and DockedUI.hoveredItem and DockedUI.hoverTimer > 0.5 then
-      local mx, my = love.mouse.getPosition()
-      Tooltip.drawShopTooltip(DockedUI.hoveredItem.item, mx, my)
     end
   end
 
@@ -420,8 +396,6 @@ function UIManager.mousepressed(x, y, button)
       if shouldClose then
         UIManager.close("bounty")
       end
-    elseif component == "lootContainer" and LootContainerWindow.mousepressed then
-      handled = LootContainerWindow.mousepressed(x, y, button)
     elseif component == "docked" and DockedUI.mousepressed then
       handled, shouldClose = DockedUI.mousepressed(x, y, button)
       if shouldClose then
@@ -471,8 +445,6 @@ function UIManager.mousereleased(x, y, button)
         Inventory.mousereleased(x, y, button)
       elseif component == "bounty" and Bounty.mousereleased then
         Bounty.mousereleased(x, y, button)
-      elseif component == "lootContainer" and LootContainerWindow.mousereleased then
-        LootContainerWindow.mousereleased(x, y, button)
       elseif component == "docked" and DockedUI.mousereleased then
         DockedUI.mousereleased(x, y, button)
       elseif component == "escape" and EscapeMenu.mousereleased then

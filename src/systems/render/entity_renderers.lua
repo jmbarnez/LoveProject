@@ -749,9 +749,11 @@ function EntityRenderers.warp_gate(entity, player)
     local lineWidth = love.graphics.getLineWidth()
 
     -- Unique hexagonal portal design
-    local outerRadius = 500
-    local middleRadius = 350
-    local innerRadius = 200
+    -- Derive radii from the gate's actual interaction range so visuals match gameplay
+    local baseR = (entity.components and entity.components.warp_gate and entity.components.warp_gate.interactionRange) or 500
+    local outerRadius = baseR
+    local middleRadius = math.max(50, math.floor(baseR * 0.7))
+    local innerRadius = math.max(30, math.floor(baseR * 0.4))
 
     -- Create hexagon vertices
     local function createHexagon(radius, offsetAngle)
@@ -945,28 +947,7 @@ function EntityRenderers.warp_gate(entity, player)
         love.graphics.pop()
     end
 
-    -- Interaction hint (if player is nearby)
-    if player and entity.canInteractWith and entity:canInteractWith(player) then
-        local hintText, hintColor = entity:getInteractionHint()
-        if hintText then
-            local font = love.graphics.getFont()
-            local textWidth = font:getWidth(hintText)
-            local textHeight = font:getHeight()
-            local textY = -outerRadius - textHeight - 25
-
-            -- Hexagonal background for hint
-            love.graphics.push()
-            love.graphics.translate(0, textY + textHeight/2)
-            local hintHex = createHexagon(textWidth/2 + 8, 0)
-            RenderUtils.setColor({0, 0, 0, 0.8})
-            love.graphics.polygon("fill", hintHex)
-            love.graphics.pop()
-
-            -- Text
-            RenderUtils.setColor(hintColor or {1, 1, 1})
-            love.graphics.print(hintText, -textWidth/2, textY)
-        end
-    end
+    -- Interaction hint is now handled by the UI system to respect helper settings
 
     -- Restore graphics state
     love.graphics.setColor(r, g, b, a)

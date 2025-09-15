@@ -1,9 +1,10 @@
 local Effects = require("src.systems.effects")
 local Wreckage = require("src.entities.wreckage")
-local LootContainer = require("src.entities.loot_container")
+local ItemPickup = require("src.entities.item_pickup")
 local Events = require("src.core.events")
 local Content = require("src.content.content")
 local ProceduralGen = require("src.core.procedural_gen")
+local Util = require("src.core.util")
 
 local DestructionSystem = {}
 
@@ -90,8 +91,19 @@ local function dropPlayerLoot(world, player, x, y)
   if next(byId) == nil then return end
   local items = {}
   for id, qty in pairs(byId) do table.insert(items, { id = id, qty = qty }) end
-  local container = LootContainer.new(x, y, items)
-  world:addEntity(container)
+  -- Create item pickups for each item
+  for _, item in ipairs(items) do
+    if item.id and item.qty and item.qty > 0 then
+      -- Add some random offset to spread out the items
+      local angle = math.random() * math.pi * 2
+      local dist = math.random(10, 30)
+      local px = x + math.cos(angle) * dist
+      local py = y + math.sin(angle) * dist
+      
+      local pickup = ItemPickup.new(px, py, item.id, item.qty)
+      world:addEntity(pickup)
+    end
+  end
 end
 
 function DestructionSystem.update(world, gameState)
@@ -128,8 +140,19 @@ function DestructionSystem.update(world, gameState)
           if dropsSource then
             local items = rollLoot(dropsSource)
             if #items > 0 then
-              local container = LootContainer.new(x, y, items, sizeScale)
-              world:addEntity(container)
+              -- Create item pickups for each item
+              for _, item in ipairs(items) do
+                if item.id and item.qty and item.qty > 0 then
+                  -- Add some random offset to spread out the items
+                  local angle = math.random() * math.pi * 2
+                  local dist = math.random(10, 30) * sizeScale
+                  local px = x + math.cos(angle) * dist
+                  local py = y + math.sin(angle) * dist
+                  
+                  local pickup = ItemPickup.new(px, py, item.id, item.qty)
+                  world:addEntity(pickup)
+                end
+              end
             end
           end
 

@@ -70,11 +70,30 @@ local function drawLiquidSpiralEnergy(x, y, size, energyPct, time)
         end
     end
     
-    -- Critical energy warning effect
+    -- Critical energy warning effect - pulses along entire spiral channel
     if energyPct < 0.25 then
         local flash = math.sin(time * 8) * 0.5 + 0.5
-        Theme.setColor(Theme.withAlpha(Theme.colors.danger, flash * 0.2))
-        love.graphics.circle("fill", centerX, centerY, outerRadius)
+        local oldLineWidth = love.graphics.getLineWidth()
+        Theme.setColor(Theme.withAlpha(Theme.colors.danger, flash * 0.3))
+        love.graphics.setLineWidth(spiralWidth)
+        
+        -- Draw warning effect along the entire spiral channel
+        for i = 0, segments - 1 do
+            local t1 = i / segments
+            local t2 = (i + 1) / segments
+            local angle1 = totalAngle * t1 - math.pi / 2
+            local angle2 = totalAngle * t2 - math.pi / 2
+            local radius1 = outerRadius - (outerRadius - innerRadius) * t1
+            local radius2 = outerRadius - (outerRadius - innerRadius) * t2
+            
+            local x1 = centerX + math.cos(angle1) * radius1
+            local y1 = centerY + math.sin(angle1) * radius1
+            local x2 = centerX + math.cos(angle2) * radius2
+            local y2 = centerY + math.sin(angle2) * radius2
+            
+            love.graphics.line(x1, y1, x2, y2)
+        end
+        love.graphics.setLineWidth(oldLineWidth)
     end
     
     -- Energy percentage text in center - REMOVED

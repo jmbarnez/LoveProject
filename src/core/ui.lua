@@ -158,89 +158,77 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
     end
   end
 
-  -- Helper tooltip for warp gates
+  -- Helper tooltip above warp gates (same visual style as stations)
   do
     local Settings = require("src.core.settings")
     local g = Settings.getGraphicsSettings()
     local helpersEnabled = (g.helpers_enabled ~= false)
 
-    if helpersEnabled then
-      for _, gate in ipairs(world:getEntitiesWithComponents("warp_gate")) do
-        if gate.components.position and not player.docked then
-          local gx, gy = gate.components.position.x, gate.components.position.y
-          local dx = gx - player.components.position.x
-          local dy = gy - player.components.position.y
-          local distance = math.sqrt(dx * dx + dy * dy)
+    local allGates = world:getEntitiesWithComponents("warp_gate")
+    for _, gate in ipairs(allGates) do
+      if helpersEnabled and gate and gate.components and gate.components.position and not player.docked then
+        local gx, gy = gate.components.position.x, gate.components.position.y
+        local sw, sh = Viewport.getDimensions()
+        local camScale = camera and camera.scale or 1
+        local camX = (camera and camera.x) or 0
+        local camY = (camera and camera.y) or 0
 
-          local sw, sh = Viewport.getDimensions()
-          local camScale = camera and camera.scale or 1
-          local camX = (camera and camera.x) or 0
-          local camY = (camera and camera.y) or 0
+        -- Calculate distance to player
+        local dx = gx - player.components.position.x
+        local dy = gy - player.components.position.y
+        local distance = math.sqrt(dx * dx + dy * dy)
 
-          local screenX = (gx - camX) * camScale + sw * 0.5
-          local screenY = (gy - camY) * camScale + sh * 0.5
+        -- World -> screen
+        local screenX = (gx - camX) * camScale + sw * 0.5
+        local screenY = (gy - camY) * camScale + sh * 0.5
 
-          local range = (gate.components.interactable and gate.components.interactable.range) or (gate.components.warp_gate and gate.components.warp_gate.interactionRange) or 150
-          if screenX > 0 and screenX < sw and screenY > 0 and screenY < sh and distance <= range then
-            local text, color = gate:getInteractionHint()
-            if not text then
-              local keymap = Settings.getKeymap()
-              local dockKey = ((keymap and keymap.dock) or "space"):upper()
-              text = string.format("Press [%s] to open warp interface", dockKey)
-            end
+        -- Determine interaction range from interactable/component
+        local range = (gate.components.interactable and gate.components.interactable.range)
+          or (gate.components.warp_gate and gate.components.warp_gate.interactionRange) or 300
 
-            -- Style and layout
-            local paddingX, paddingY = 10, 6
-            local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
-            local oldFont = love.graphics.getFont()
-            love.graphics.setFont(font)
+        -- Only draw if on-screen and close enough
+        if screenX > 0 and screenX < sw and screenY > 0 and screenY < sh and distance <= range then
+          local keymap = Settings.getKeymap()
+          local dockKey = (keymap and keymap.dock or "space"):upper()
+          local text = string.format("Press [%s] to Use Warp Gate", dockKey)
 
-            -- Handle multi-line text
-            local lines = {}
-            for line in text:gmatch("[^\n]+") do
-              table.insert(lines, line)
-            end
+          -- Style and layout (same as station helper)
+          local paddingX, paddingY = 10, 6
+          local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
+          local oldFont = love.graphics.getFont()
+          love.graphics.setFont(font)
 
-            local maxWidth = 0
-            local totalHeight = 0
-            for _, line in ipairs(lines) do
-              local lineWidth = font:getWidth(line)
-              maxWidth = math.max(maxWidth, lineWidth)
-              totalHeight = totalHeight + font:getHeight()
-            end
+          local lines = { text }
+          local maxWidth = font:getWidth(text)
+          local totalHeight = font:getHeight()
 
-            local boxW = maxWidth + paddingX * 2
-            local boxH = totalHeight + paddingY * 2
-            local boxX = math.floor(screenX - boxW * 0.5 + 0.5)
-            local boxY = math.floor(screenY - boxH - 50 + 0.5) -- 50px above gate
-            -- Keep on-screen
-            boxX = math.max(8, math.min(sw - boxW - 8, boxX))
-            boxY = math.max(8, math.min(sh - boxH - 8, boxY))
+          local boxW = maxWidth + paddingX * 2
+          local boxH = totalHeight + paddingY * 2
+          local boxX = math.floor(screenX - boxW * 0.5 + 0.5)
+          local boxY = math.floor(screenY - boxH - 50 + 0.5) -- 50px above gate
+          -- Keep on-screen
+          boxX = math.max(8, math.min(sw - boxW - 8, boxX))
+          boxY = math.max(8, math.min(sh - boxH - 8, boxY))
 
-            -- Background and border
-            Theme.drawGradientGlowRect(boxX, boxY, boxW, boxH, 4,
-              Theme.colors.bg2, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak * 0.2)
-            Theme.drawEVEBorder(boxX, boxY, boxW, boxH, 4, Theme.colors.border, 2)
+          -- Background and border
+          Theme.drawGradientGlowRect(boxX, boxY, boxW, boxH, 4,
+            Theme.colors.bg2, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak * 0.2)
+          Theme.drawEVEBorder(boxX, boxY, boxW, boxH, 4, Theme.colors.border, 2)
 
-            -- Pointer triangle
-            local triCx = math.floor(screenX + 0.5)
-            local triY = boxY + boxH
-            Theme.setColor(Theme.colors.bg2)
-            love.graphics.polygon('fill', triCx - 6, triY, triCx + 6, triY, triCx, triY + 8)
-            Theme.setColor(Theme.colors.border)
-            love.graphics.line(triCx - 6, triY, triCx, triY + 8)
-            love.graphics.line(triCx + 6, triY, triCx, triY + 8)
+          -- Pointer triangle
+          local triCx = math.floor(screenX + 0.5)
+          local triY = boxY + boxH
+          Theme.setColor(Theme.colors.bg2)
+          love.graphics.polygon('fill', triCx - 6, triY, triCx + 6, triY, triCx, triY + 8)
+          Theme.setColor(Theme.colors.border)
+          love.graphics.line(triCx - 6, triY, triCx, triY + 8)
+          love.graphics.line(triCx + 6, triY, triCx, triY + 8)
 
-            -- Multi-line text rendering
-            Theme.setColor(Theme.colors.text)
-            local currentY = boxY + paddingY
-            for _, line in ipairs(lines) do
-              love.graphics.print(line, boxX + paddingX, currentY)
-              currentY = currentY + font:getHeight()
-            end
+          -- Text
+          Theme.setColor(Theme.colors.text)
+          love.graphics.print(text, boxX + paddingX, boxY + paddingY)
 
-            if oldFont then love.graphics.setFont(oldFont) end
-          end
+          if oldFont then love.graphics.setFont(oldFont) end
         end
       end
     end

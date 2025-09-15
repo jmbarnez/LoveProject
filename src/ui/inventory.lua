@@ -378,56 +378,48 @@ function Inventory.useItem(player, itemId)
 
   print("Inventory.useItem: Processing consumable item:", itemId)
 
-  -- Handle specific item types
+  -- Handle node wallet consumption
   if itemId == "node_wallet" then
-    print("Inventory.useItem: Starting node_wallet hack minigame")
-    local HackMinigame = require("src.ui.hack_minigame")
-
-    -- Start hack minigame with random difficulty based on player's skill/items
-    local difficulty = math.random(1, 3)  -- Easy to medium for now
-
-    HackMinigame.show(difficulty,
-      -- On success
-      function()
-        local PortfolioManager = require("src.managers.portfolio")
-        local success, message = PortfolioManager.useNodeWallet()
-
-        if success then
-          -- Remove one node wallet from inventory
-          player.inventory[itemId] = player.inventory[itemId] - 1
-          if player.inventory[itemId] <= 0 then
-            player.inventory[itemId] = nil
-          end
-
-          -- Show success notification with fitting hacker theme
-          local Notifications = require("src.ui.notifications")
-
-          -- Extract node info from the original message
-          local nodeInfo = message:match("Connected to: (.+)")
-          if nodeInfo then
-            Notifications.action("🔓 NEURAL NETWORK BREACHED • ACCESS GRANTED TO " .. nodeInfo:upper())
-          else
-            Notifications.action("🔓 NEURAL NETWORK BREACHED • WALLET DECRYPTED SUCCESSFULLY")
-          end
-        end
-
-        HackMinigame.hide()
-      end,
-
-      -- On failure
-      function(reason)
-        local Notifications = require("src.ui.notifications")
-        local failureMessages = {
-          ["Time's up!"] = "⚠️ INTRUSION DETECTED • NEURAL LINK SEVERED",
-          ["Wrong sequence!"] = "❌ SECURITY PROTOCOL ACTIVATED • INCORRECT PATHWAY",
-        }
-        local message = failureMessages[reason] or "⚠️ NETWORK BREACH FAILED • " .. (reason or "UNKNOWN ERROR"):upper()
-        Notifications.action(message)
-        HackMinigame.hide()
+    print("Inventory.useItem: Using node wallet")
+    
+    -- Get the portfolio manager
+    local PortfolioManager = require("src.managers.portfolio")
+    
+    -- Use the node wallet to add random nodes
+    local success, message = PortfolioManager.useNodeWallet()
+    
+    -- Remove one node wallet from inventory if successful
+    if success then
+      player.inventory[itemId] = (player.inventory[itemId] or 1) - 1
+      if player.inventory[itemId] <= 0 then
+        player.inventory[itemId] = nil
       end
-    )
-
-    return true  -- Don't process normally, minigame will handle it
+      
+      -- Show success notification with details
+      local Notifications = require("src.ui.notifications")
+      
+      -- Extract the node list from the message
+      local nodeList = message:match(": (.+)$") or ""
+      
+      -- Show main notification first
+      Notifications.action("🔓 WALLET DECRYPTED • NODES ADDED")
+      
+      -- Parse and show each node's information
+      for symbol, amount in nodeList:gmatch("([A-Z]+)%s*%(([0-9.]+)") do
+        if symbol and amount then
+          amount = tonumber(amount) or 0
+          local formattedAmount = string.format("%.2f", amount)
+          Notifications.action(string.format("   • %s +%s", symbol, formattedAmount))
+        end
+      end
+    else
+      -- Show error notification
+      local Notifications = require("src.ui.notifications")
+      Notifications.action("⚠️ " .. (message or "FAILED TO PROCESS NODE WALLET"))
+      print("Error processing node wallet:", message)
+    end
+    
+    return true  -- Item was consumed
   end
 
   -- Add more consumable items here as needed

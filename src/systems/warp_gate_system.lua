@@ -10,7 +10,7 @@ function WarpGateSystem.createWarpGate(world, x, y, config)
     -- Default warp gate configuration
     local warpGateConfig = {
         name = config.name or "Warp Gate",
-        interactionRange = config.interactionRange or 150,
+        interactionRange = config.interactionRange or 500,
         isActive = config.isActive ~= false,
         activationCost = config.activationCost or 0,
         requiresPower = config.requiresPower or false,

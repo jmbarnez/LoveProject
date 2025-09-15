@@ -8,12 +8,56 @@ function WarpGate.new(config)
 
     -- Basic warp gate properties
     self.name = config.name or "Warp Gate"
-    if config.visuals then
-        -- Set interaction range to be the visual radius of the gate
-        self.interactionRange = ModelUtil.calculateModelWidth(config.visuals) / 2
-    else
-        self.interactionRange = config.interactionRange or 1500
+
+    -- Compute interaction range with proper fallbacks:
+    -- 1) Respect explicit config.interactionRange if provided
+    -- 2) Derive from visuals (handles both {shapes=...} and array-of-shapes formats)
+    -- 3) Fallback to a sane default
+    local function computeInteractionRange(cfg)
+        if type(cfg.interactionRange) == "number" then
+            return cfg.interactionRange
+        end
+
+        local vis = cfg.visuals
+        if not vis then
+            return 1500
+        end
+
+        -- If visuals provided in legacy format with .shapes, use ModelUtil
+        if vis.shapes then
+            local w = ModelUtil.calculateModelWidth(vis)
+            if w and w > 0 then
+                return w / 2
+            end
+        end
+
+        -- Otherwise, visuals is likely an array of shape descriptors as used by the template
+        local maxExtent = 0
+        if type(vis) == "table" then
+            for _, shape in ipairs(vis) do
+                if shape and shape.type == "circle" then
+                    -- Template uses `radius`
+                    local r = shape.radius or shape.r or 0
+                    if r > maxExtent then maxExtent = r end
+                elseif shape and shape.type == "rectangle" then
+                    -- Approximate extent as half of the larger dimension
+                    local w = shape.w or shape.width or 0
+                    local h = shape.h or shape.height or 0
+                    local extent = math.max(w, h) / 2
+                    if extent > maxExtent then maxExtent = extent end
+                end
+            end
+        end
+
+        -- If still zero, use default
+        if maxExtent <= 0 then
+            return 1500
+        end
+        return maxExtent
     end
+
+    self.interactionRange = computeInteractionRange(config)
+
     self.isActive = config.isActive ~= false -- Default to true
     self.activationCost = config.activationCost or 0
 

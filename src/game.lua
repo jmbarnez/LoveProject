@@ -155,7 +155,6 @@ function Game.load()
     -- Place warp gate at (12000, 12000) - well away from stations but within 30000x30000 world
     local warpGate = EntityFactory.create("warp_gate", "basic_warp_gate", 12000, 12000, {
         name = "Warp Gate",
-        interactionRange = 200,
         isActive = true,
         activationCost = 0,
         requiresPower = false

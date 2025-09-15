@@ -67,6 +67,39 @@ function TechnicalIndicators.aggregateCandles(candles, intervalSeconds)
   return aggregated
 end
 
+-- Downsample candles to a target maximum count by aggregating consecutive candles.
+-- This preserves OHLC semantics and volume while greatly reducing draw calls.
+-- Useful for rendering long ranges where pixel resolution would overplot data.
+function TechnicalIndicators.downsampleToCount(candles, maxCount)
+  if not candles or maxCount == nil or maxCount <= 0 then return candles end
+  local n = #candles
+  if n <= maxCount then return candles end
+
+  local groupSize = math.ceil(n / maxCount)
+  local result = {}
+  local i = 1
+  while i <= n do
+    local jEnd = math.min(n, i + groupSize - 1)
+    local first = candles[i]
+    local last = candles[jEnd]
+    local o = first.o
+    local h = first.h
+    local l = first.l
+    local c = last.c
+    local v = 0
+    local t = last.t
+    for j = i, jEnd do
+      local cj = candles[j]
+      if cj.h > h then h = cj.h end
+      if cj.l < l then l = cj.l end
+      v = (v or 0) + (cj.v or 0)
+    end
+    table.insert(result, { o = o, h = h, l = l, c = c, v = v, t = t })
+    i = jEnd + 1
+  end
+  return result
+end
+
 -- RSI (Relative Strength Index)
 function TechnicalIndicators.calculateRSI(candles, period)
   period = period or 14

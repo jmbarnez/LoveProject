@@ -208,6 +208,17 @@ function EntityCollision.handleEntityCollisions(collisionSystem, entity, world, 
                 goto continue
             end
 
+            -- Ignore collisions between the player and warp gates or stations (purely non-blocking)
+            do
+                local eIsPlayer = entity.isPlayer or (entity.components and entity.components.player)
+                local oIsPlayer = other.isPlayer or (other.components and other.components.player)
+                local eIsStructure = (entity.tag == "warp_gate" or entity.tag == "station")
+                local oIsStructure = (other.tag == "warp_gate" or other.tag == "station")
+                if (eIsPlayer and oIsStructure) or (oIsPlayer and eIsStructure) then
+                    goto continue
+                end
+            end
+
             -- Check for collision
             local collided = checkEntityCollision(entity, other)
             if collided then
