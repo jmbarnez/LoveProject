@@ -124,7 +124,7 @@ function EscapeMenu.draw()
 end
 
 function EscapeMenu.mousepressed(x, y, button)
-    if not EscapeMenu.visible then return false, false end
+    if not EscapeMenu.visible or button ~= 1 then return false, false end
     
     if SettingsPanel.visible then
         return SettingsPanel.mousepressed(x, y, button)
@@ -139,8 +139,12 @@ function EscapeMenu.mousepressed(x, y, button)
         -- Check back button
         local backButtonW, backButtonH = 80, 30
         local backButtonX, backButtonY = saveSlotsX + 10, saveSlotsY + 10
-        if pointIn(x, y, backButtonX, backButtonY, backButtonW, backButtonH) and button == 1 then
+        
+        -- Create a back button object for Theme.handleButtonClick
+        local backButton = {_rect = {x = backButtonX, y = backButtonY, w = backButtonW, h = backButtonH}}
+        if Theme.handleButtonClick(backButton, x, y, function()
             EscapeMenu.showSaveSlots = false
+        end) then
             return true, false
         end
         
@@ -177,34 +181,19 @@ function EscapeMenu.mousepressed(x, y, button)
 
     local menuX, menuY, menuW, menuH, buttonX, resumeButtonY, saveButtonY, loadButtonY, settingsButtonY, exitButtonY, buttonW, buttonH = getLayout()
     
-    if button == 1 then
-        -- Check resume button
-        if pointIn(x, y, buttonX, resumeButtonY, buttonW, buttonH) then
-            EscapeMenu.resumeButtonDown = true
-            return true, false
-        end
-        
-        -- Check save game button
-        if pointIn(x, y, buttonX, saveButtonY, buttonW, buttonH) then
-            EscapeMenu.saveButtonDown = true
-            return true, false
-        end
-        
-        -- Check load game button
-        if pointIn(x, y, buttonX, loadButtonY, buttonW, buttonH) then
-            EscapeMenu.loadButtonDown = true
-            return true, false
-        end
-
-        -- Check settings button
-        if pointIn(x, y, buttonX, settingsButtonY, buttonW, buttonH) then
-            EscapeMenu.settingsButtonDown = true
-            return true, false
-        end
-
-        -- Check exit button
-        if pointIn(x, y, buttonX, exitButtonY, buttonW, buttonH) then
-            EscapeMenu.exitButtonDown = true
+    -- Create button objects for Theme.handleButtonClick
+    local buttons = {
+        {name = "resume", y = resumeButtonY, action = function() EscapeMenu.resumeButtonDown = true end},
+        {name = "save", y = saveButtonY, action = function() EscapeMenu.saveButtonDown = true end},
+        {name = "load", y = loadButtonY, action = function() EscapeMenu.loadButtonDown = true end},
+        {name = "settings", y = settingsButtonY, action = function() EscapeMenu.settingsButtonDown = true end},
+        {name = "exit", y = exitButtonY, action = function() EscapeMenu.exitButtonDown = true end}
+    }
+    
+    -- Check all buttons
+    for _, btn in ipairs(buttons) do
+        local button = {_rect = {x = buttonX, y = btn.y, w = buttonW, h = buttonH}}
+        if Theme.handleButtonClick(button, x, y, btn.action) then
             return true, false
         end
     end

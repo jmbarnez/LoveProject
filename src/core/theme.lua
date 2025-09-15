@@ -1,5 +1,6 @@
 local Theme = {}
 local Viewport = require("src.core.viewport")
+local Sound = require("src.core.sound")
 
 -- ===== MODERN DARK SLEEK THEME =====
 -- A contemporary dark UI theme with sleek modern design
@@ -497,12 +498,17 @@ end
 
 -- Optional opts: { compact=true } to use smaller text
 function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
-  local pulseColor = {0, 0, 0, 0.1} -- Barely visible black border
-  local glowIntensity = hover and Theme.effects.glowMedium or Theme.effects.glowWeak
+  local pulseColor = {0, 0, 0, 0.05} -- More transparent black border
+  local glowIntensity = hover and Theme.effects.glowMedium * 0.7 or Theme.effects.glowWeak * 0.7
 
-  local topColor = color or (hover and Theme.colors.bg3 or Theme.colors.bg2)
+  -- Create transparent versions of the colors
+  local bg3 = {Theme.colors.bg3[1], Theme.colors.bg3[2], Theme.colors.bg3[3], 0.7}
+  local bg2 = {Theme.colors.bg2[1], Theme.colors.bg2[2], Theme.colors.bg2[3], 0.5}
+  local bg4 = {Theme.colors.bg4[1], Theme.colors.bg4[2], Theme.colors.bg4[3], 0.8}
+  
+  local topColor = color or (hover and bg3 or bg2)
   if down then
-    topColor = Theme.colors.bg4
+    topColor = bg4
   end
 
   Theme.drawGradientGlowRect(x, y, w, h, 10,
@@ -555,15 +561,39 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
   local textX = math.floor(x + (w - tw) * 0.5 + 0.5)
   local textY = math.floor(y + (h - th) * 0.5 + 0.5)
 
-  -- Shadow
-  Theme.setColor(Theme.colors.shadow)
+  -- Shadow with reduced opacity
+  local shadowColor = {Theme.colors.shadow[1], Theme.colors.shadow[2], Theme.colors.shadow[3], Theme.colors.shadow[4] * 0.7}
+  Theme.setColor(shadowColor)
   love.graphics.print(text, textX, textY + 1)
 
-  -- Use plain white text
-  Theme.setColor({1, 1, 1, 1}) -- Plain white
+  -- Semi-transparent white text
+  Theme.setColor({1, 1, 1, 0.9}) -- 90% opacity white
   love.graphics.print(text, textX, textY)
 
+  -- Restore font
   if oldFont then love.graphics.setFont(oldFont) end
+end
+
+-- Handle button clicks with sound
+-- Returns true if the button was clicked, false otherwise
+function Theme.handleButtonClick(button, x, y, callback, playSound)
+  if not button._rect then return false end
+  
+  local isClicked = x >= button._rect.x and 
+                   x <= button._rect.x + button._rect.w and 
+                   y >= button._rect.y and 
+                   y <= button._rect.y + button._rect.h
+  
+  if isClicked then
+    if playSound ~= false then -- Default to playing sound unless explicitly set to false
+      Sound.playSFX("button_click")
+    end
+    if type(callback) == "function" then
+      callback()
+    end
+  end
+  
+  return isClicked
 end
 
 -- === MODERN SLEEK COMPONENT PRESETS ===

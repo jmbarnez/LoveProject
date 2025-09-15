@@ -6,6 +6,7 @@ local SaveSlots = require("src.ui.save_slots")
 local StateManager = require("src.managers.state_manager")
 local World = require("src.core.world")
 local AuroraTitle = require("src.shaders.aurora_title")
+local Sound = require("src.core.sound")
 
 local Start = {}
 Start.__index = Start
@@ -14,33 +15,35 @@ Start.__index = Start
 local startScreenHandler = function(self, x, y, button)
   if button ~= 1 then return false end
 
-  -- Multiplayer button click
-  local mr = self.multiplayerButton._rect
-  if mr and x >= mr.x and x <= mr.x + mr.w and y >= mr.y and y <= mr.y + mr.h then
+  -- Handle button clicks with sound using the theme's handler
+  if Theme.handleButtonClick(self.multiplayerButton, x, y, function()
     self.multiplayerMenu:show()
+  end) then
     return false -- don't start game, open multiplayer menu
   end
 
   -- Load Game button click
-  local lr = self.loadButton._rect
-  if lr and x >= lr.x and x <= lr.x + lr.w and y >= lr.y and y <= lr.y + lr.h then
+  if Theme.handleButtonClick(self.loadButton, x, y, function()
     self.showLoadUI = true
+  end) then
     return false -- don't start game, show load UI
   end
 
   -- Exit Game button click
-  local er = self.exitButton._rect
-  if er and x >= er.x and x <= er.x + er.w and y >= er.y and y <= er.y + er.h then
+  if Theme.handleButtonClick(self.exitButton, x, y, function()
+    love.timer.sleep(0.2) -- Small delay to hear the sound before quitting
     love.event.quit()
+  end) then
     return false -- exit game
   end
 
-
-  local r = self.button._rect
-  if not r then return false end
-  if x >= r.x and x <= r.x + r.w and y >= r.y and y <= r.y + r.h then
+  -- Start button click
+  if Theme.handleButtonClick(self.button, x, y, function()
+    -- The actual start action is handled by returning true
+  end) then
     return true -- signal start
   end
+
   return false
 end
 
