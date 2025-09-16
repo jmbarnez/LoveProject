@@ -159,6 +159,27 @@ function World.new(width, height)
   self.starLayers[2].stars = genScreenStars(sw, sh, math.floor(80  * math.max(1, scale)))
   return self
 end
+function World:setQuadtree(quadtree)
+    self.quadtree = quadtree
+end
+
+function World:getEntitiesInRect(bounds)
+    if not self.quadtree then
+        -- Fallback to iterating all entities if quadtree is not available
+        local allEntities = {}
+        for _, entity in pairs(self:getEntities()) do
+            table.insert(allEntities, entity)
+        end
+        return allEntities
+    end
+
+    local results = self.quadtree:query(bounds)
+    local entities = {}
+    for _, item in ipairs(results) do
+        table.insert(entities, item.entity)
+    end
+    return entities
+end
 
 function World:addEntity(entity)
     if not entity.components then
@@ -187,18 +208,18 @@ function World:getEntities()
     return self.entities
 end
 
-function World:getEntitiesWithComponents(...)
+function World:get_entities_with_components(...)
     local components = {...}
     local result = {}
     for id, entity in pairs(self.entities) do
-        local hasAll = true
-        for _, componentName in ipairs(components) do
-            if not entity.components[componentName] then
-                hasAll = false
+        local has_all = true
+        for _, component_name in ipairs(components) do
+            if not entity.components[component_name] then
+                has_all = false
                 break
             end
         end
-        if hasAll then
+        if has_all then
             table.insert(result, entity)
         end
     end
@@ -269,7 +290,7 @@ end
 
 function World:contains(x, y, r)
   -- Handle nil values gracefully
-  if not x or not y or not r then return false end
+  if not x or not y or not r or r < 0 then return false end
   return x > r and y > r and x < self.width - r and y < self.height - r
 end
 

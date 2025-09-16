@@ -146,6 +146,7 @@ function Reticle.draw(player)
   Reticle.drawPreset(style, scale, color)
 
   -- Do not alter reticle when shield ability is active (no arc/ring).
+  -- No specific loot container targeting; item_pickup handled by pickups system
 
   love.graphics.pop()
 end

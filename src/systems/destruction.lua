@@ -170,7 +170,7 @@ function DestructionSystem.update(world, gameState)
             addBountyReward(gameState, e, enemyName)
             
             -- Grant XP to the player
-            local players = world:getEntitiesWithComponents("player")
+            local players = world:get_entities_with_components("player")
             if players and #players > 0 and e.xpReward then
               players[1]:addXP(e.xpReward)
             end

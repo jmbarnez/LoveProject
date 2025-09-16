@@ -44,7 +44,7 @@ local function isPositionSafeFromStations(x, y, world, hub)
   end
   
   -- Also check any other stations with the station component
-  local stations = world:getEntitiesWithComponents("station")
+  local stations = world:get_entities_with_components("station")
 
   for _, station in ipairs(stations) do
     if station.components and station.components.position then
@@ -123,7 +123,7 @@ end
 local function spawnBoss(player, hub, world)
   -- Count existing bosses
   local count = 0
-  for _, e in ipairs(world:getEntitiesWithComponents("ai")) do
+  for _, e in ipairs(world:get_entities_with_components("ai")) do
     if e.isBoss or e.shipId == 'boss_drone' then count = count + 1 end
   end
   if count >= maxBosses then return end
@@ -162,48 +162,48 @@ local function spawnAsteroid(hub, world)
   local margin = 100
   local x, y
   local attempts = 0
-  local existingAsteroids = world:getEntitiesWithComponents("mineable")
+  local existing_asteroids = world:get_entities_with_components("mineable")
   repeat
     attempts = attempts + 1
     x = math.random(margin, world.width - margin)
     y = math.random(margin, world.height - margin)
     
     -- Check distance from all stations (asteroids can be closer than enemy safe zones)
-    local asteroidBuffer = ((Config.SPAWN and Config.SPAWN.STATION_BUFFER) or 300) * 0.5  -- Half buffer for asteroids
-    local okStations = true
+    local asteroid_buffer = ((Config.SPAWN and Config.SPAWN.STATION_BUFFER) or 300) * 0.5  -- Half buffer for asteroids
+    local ok_stations = true
     
     -- First check the hub directly
     if hub and hub.components and hub.components.position then
       local dx = x - hub.components.position.x
       local dy = y - hub.components.position.y
-      local distanceSquared = dx * dx + dy * dy
-      local safeDistanceSquared = asteroidBuffer * asteroidBuffer
+      local distance_squared = dx * dx + dy * dy
+      local safe_distance_squared = asteroid_buffer * asteroid_buffer
       
-      if distanceSquared <= safeDistanceSquared then
-        okStations = false
+      if distance_squared <= safe_distance_squared then
+        ok_stations = false
       end
     end
     
     -- Also check other stations
-    if okStations then
-      local stations = world:getEntitiesWithComponents("station")
+    if ok_stations then
+      local stations = world:get_entities_with_components("station")
       for _, station in ipairs(stations) do
         if station.components and station.components.position then
           local dx = x - station.components.position.x
           local dy = y - station.components.position.y
-          local distanceSquared = dx * dx + dy * dy
+          local distance_squared = dx * dx + dy * dy
 
           -- Use custom no-spawn radius for beacon stations (only if repaired), otherwise use asteroid buffer
-          local buffer = asteroidBuffer
+          local buffer = asteroid_buffer
 
           -- For beacon stations, only apply large no-spawn radius if repaired
           if station.noSpawnRadius and (not station.broken) then
             buffer = station.noSpawnRadius
           end
-          local safeDistanceSquared = buffer * buffer
+          local safe_distance_squared = buffer * buffer
 
-          if distanceSquared <= safeDistanceSquared then
-            okStations = false
+          if distance_squared <= safe_distance_squared then
+            ok_stations = false
             break
           end
         end
@@ -211,25 +211,25 @@ local function spawnAsteroid(hub, world)
     end
     
     -- Legacy hub check for backward compatibility
-    local okHub = true
+    local ok_hub = true
     if hub then
       local dxh, dyh = x - hub.components.position.x, y - hub.components.position.y
-      local minHub = (hub.radius or 0) + 200
-      okHub = (dxh*dxh + dyh*dyh) > (minHub * minHub)
+      local min_hub = (hub.radius or 0) + 200
+      ok_hub = (dxh*dxh + dyh*dyh) > (min_hub * min_hub)
     end
     
-    local okOthers = true
+    local ok_others = true
     -- Check distance from other asteroids
-    for _, ast in ipairs(existingAsteroids) do
+    for _, ast in ipairs(existing_asteroids) do
       local dxa, dya = x - ast.components.position.x, y - ast.components.position.y
       local r = (ast.components.collidable and ast.components.collidable.radius) or 30
-      local minDist = r + 80
-      if (dxa*dxa + dya*dya) <= (minDist * minDist) then
-        okOthers = false
+      local min_dist = r + 80
+      if (dxa*dxa + dya*dya) <= (min_dist * min_dist) then
+        ok_others = false
         break
       end
     end
-  until (okStations and okHub and okOthers) or attempts > 200
+  until (ok_stations and ok_hub and ok_others) or attempts > 200
   
   -- For now, we only have one type of asteroid defined.
   -- This could be expanded to randomly select from different asteroid data files.
@@ -250,21 +250,21 @@ local function spawnInitialEntities(player, hub, world)
 
     -- Seed one boss at game start if under cap
     local bosses = 0
-    for _, e in ipairs(world:getEntitiesWithComponents("ai")) do
+    for _, e in ipairs(world:get_entities_with_components("ai")) do
       if e.isBoss or e.shipId == 'boss_drone' then bosses = bosses + 1 end
     end
     if bosses < maxBosses then
       spawnBoss(player, hub, world)
     end
-end
+  end
 
 function SpawningSystem.init(player, hub, world)
   spawnInitialEntities(player, hub, world)
 end
 
 function SpawningSystem.update(dt, player, hub, world)
-  local enemies = world:getEntitiesWithComponents("ai")
-  local asteroids = world:getEntitiesWithComponents("mineable")
+  local enemies = world:get_entities_with_components("ai")
+  local asteroids = world:get_entities_with_components("mineable")
 
   enemySpawnTimer = enemySpawnTimer - dt
   if enemySpawnTimer <= 0 and #enemies < maxEnemies then
@@ -286,11 +286,11 @@ function SpawningSystem.update(dt, player, hub, world)
   -- Boss spawn logic: slow timer, cap at 3
   bossSpawnTimer = bossSpawnTimer - dt
   if bossSpawnTimer <= 0 then
-    local bossCount = 0
+    local boss_count = 0
     for _, e in ipairs(enemies) do
-      if e.isBoss or e.shipId == 'boss_drone' then bossCount = bossCount + 1 end
+      if e.isBoss or e.shipId == 'boss_drone' then boss_count = boss_count + 1 end
     end
-    if bossCount < maxBosses then
+    if boss_count < maxBosses then
       spawnBoss(player, hub, world)
     end
     bossSpawnTimer = 12 + math.random() * 10 -- 12-22s between boss spawn attempts

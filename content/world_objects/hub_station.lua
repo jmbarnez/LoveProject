@@ -11,9 +11,7 @@ return {
         }
     },
 
-    collidable = {
-        radius = 80,  -- Small radius for station structure collision
-    },
+    -- No collidable component for stations (no physics collisions)
 
     -- Simple Clean Station Design
     visuals = {

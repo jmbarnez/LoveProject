@@ -91,18 +91,32 @@ Theme.fonts = {
 function Theme.loadFonts()
   -- Get font scale (separate from UI scale)
   local fontScale = (Viewport.getFontScale() or 1.0) * (Viewport.getUIScale() or 1.0)
-
-  -- Scale font sizes based on font scale
-  Theme.fonts = {
-    normal = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", math.floor(10 * fontScale + 0.5)),
-    medium = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", math.floor(12 * fontScale + 0.5)),
-    large = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", math.floor(14 * fontScale + 0.5)),
-    small = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", math.floor(8 * fontScale + 0.5)),
-    xsmall = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", math.floor(6 * fontScale + 0.5)),
-    title = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", math.floor(16 * fontScale + 0.5)),
-    monospace = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", math.floor(10 * fontScale + 0.5)),
+  local fontSizes = {
+    xsmall = 6,
+    small = 8,
+    normal = 10,
+    medium = 12,
+    large = 14,
+    title = 16,
+    monospace = 10
   }
+
+  -- Initialize fonts table if it doesn't exist
+  Theme.fonts = Theme.fonts or {}
+  
+  -- Create or update each font with proper filtering
+  for name, size in pairs(fontSizes) do
+    local scaledSize = math.max(1, math.floor(size * fontScale + 0.5))
+    if not Theme.fonts[name] or Theme.fonts[name]:getHeight() ~= scaledSize then
+      Theme.fonts[name] = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", scaledSize)
+      -- Use nearest neighbor filtering for crisp pixel art fonts
+      Theme.fonts[name]:setFilter('nearest', 'nearest', 1)
+    end
+  end
+  
+  -- Set default font
   love.graphics.setFont(Theme.fonts.normal)
+  return Theme.fonts
 end
 
 -- Draw text scaled to fit a maximum width, centered or aligned

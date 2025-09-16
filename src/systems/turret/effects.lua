@@ -28,21 +28,7 @@ function TurretEffects.playFiringSound(turret)
     end
 end
 
--- Create muzzle flash effects
-function TurretEffects.createMuzzleFlash(turret, x, y, angle)
-    if not turret.muzzleFlash then return end
 
-    -- TODO: Implement muzzle flash particle effects
-    -- This would create temporary visual effects at the firing point
-end
-
--- Create tracer effects for projectiles
-function TurretEffects.createTracerEffect(turret, startX, startY, endX, endY)
-    if not turret.tracer then return end
-
-    -- TODO: Implement tracer rendering
-    -- This would draw the projectile trail/beam
-end
 
 -- Create impact effects
 function TurretEffects.createImpactEffect(turret, x, y, target, impactType)
@@ -80,13 +66,6 @@ function TurretEffects.createImpactEffect(turret, x, y, target, impactType)
     Effects.spawnImpact(impactKind, ex, ey, targetRadius, x, y, impactAngle, impactConfig, bulletKind, target)
 end
 
--- Handle heat effect visuals
-function TurretEffects.updateHeatEffects(turret, dt)
-    if not turret.currentHeat or turret.currentHeat <= 0 then return end
-
-    -- TODO: Add heat distortion, glow effects, etc.
-    -- Visual feedback for turret heat state
-end
 
 -- Handle beam rendering for continuous weapons
 function TurretEffects.renderBeam(turret, startX, startY, endX, endY, hitTarget)
@@ -126,14 +105,6 @@ function TurretEffects.handleSpecialEffects(turret, target, hitX, hitY)
     end
 end
 
--- Create mining particle effects
-function TurretEffects.createMiningParticles(x, y)
-    -- TODO: Create sparks, debris, and mining-specific effects
-end
 
--- Create salvage particle effects
-function TurretEffects.createSalvageParticles(x, y)
-    -- TODO: Create salvage beam effects and collected material visuals
-end
 
 return TurretEffects

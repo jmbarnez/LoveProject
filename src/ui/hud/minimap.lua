@@ -45,7 +45,7 @@ function Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePl
   local ox, oy = x + 8, y + 8
 
   -- Station blips (green with glow for all station types)
-  local stations = world:getEntitiesWithComponents("station")
+  local stations = world:get_entities_with_components("station")
   for _, station in ipairs(stations) do
     if station.components and station.components.position then
       local stationId = station.components.station and station.components.station.type
@@ -58,12 +58,6 @@ function Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePl
         love.graphics.circle("fill", stationX, stationY, 8)
         Theme.setColor(Theme.colors.success)
         love.graphics.circle("fill", stationX, stationY, 4)
-      elseif stationId == "processing_station" then
-        -- Processing station: green square with glow
-        Theme.setColor(Theme.withAlpha(Theme.colors.success, 0.4))
-        love.graphics.rectangle("fill", stationX - 4, stationY - 4, 8, 8)
-        Theme.setColor(Theme.colors.success)
-        love.graphics.rectangle("fill", stationX - 2, stationY - 2, 4, 4)
       elseif stationId == "beacon_station" then
         -- Beacon station: green diamond with glow
         Theme.setColor(Theme.withAlpha(Theme.colors.success, 0.4))
@@ -81,11 +75,11 @@ function Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePl
   end
 
   -- Warp gate blips (blue hexagons with glow)
-  local warpGates = world:getEntitiesWithComponents("warp_gate")
-  for _, warpGate in ipairs(warpGates) do
-    if warpGate.components and warpGate.components.position then
-      local gateX, gateY = ox + warpGate.components.position.x * sx, oy + warpGate.components.position.y * sy
-      local isActive = warpGate.components.warp_gate and warpGate.components.warp_gate.isActive
+  local warp_gates = world:get_entities_with_components("warp_gate")
+  for _, warp_gate in ipairs(warp_gates) do
+    if warp_gate.components and warp_gate.components.position then
+      local gateX, gateY = ox + warp_gate.components.position.x * sx, oy + warp_gate.components.position.y * sy
+      local isActive = warp_gate.components.warp_gate and warp_gate.components.warp_gate.isActive
 
       if isActive then
         -- Active warp gate: bright blue hexagon with glow
@@ -94,25 +88,25 @@ function Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePl
         Theme.setColor({0.4, 0.8, 1.0})
 
         -- Draw hexagon
-        local hexRadius = 5
-        local hexVertices = {}
+        local hex_radius = 5
+        local hex_vertices = {}
         for i = 0, 5 do
           local angle = (i / 6) * math.pi * 2
-          table.insert(hexVertices, gateX + math.cos(angle) * hexRadius)
-          table.insert(hexVertices, gateY + math.sin(angle) * hexRadius)
+          table.insert(hex_vertices, gateX + math.cos(angle) * hex_radius)
+          table.insert(hex_vertices, gateY + math.sin(angle) * hex_radius)
         end
-        love.graphics.polygon("fill", hexVertices)
+        love.graphics.polygon("fill", hex_vertices)
       else
         -- Inactive warp gate: gray hexagon
         Theme.setColor({0.4, 0.4, 0.4})
-        local hexRadius = 4
-        local hexVertices = {}
+        local hex_radius = 4
+        local hex_vertices = {}
         for i = 0, 5 do
           local angle = (i / 6) * math.pi * 2
-          table.insert(hexVertices, gateX + math.cos(angle) * hexRadius)
-          table.insert(hexVertices, gateY + math.sin(angle) * hexRadius)
+          table.insert(hex_vertices, gateX + math.cos(angle) * hex_radius)
+          table.insert(hex_vertices, gateY + math.sin(angle) * hex_radius)
         end
-        love.graphics.polygon("fill", hexVertices)
+        love.graphics.polygon("fill", hex_vertices)
       end
     end
   end

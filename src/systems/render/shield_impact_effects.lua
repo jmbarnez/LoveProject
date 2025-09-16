@@ -1,136 +1,201 @@
--- Realistic shield ripple effects
+-- Completely redesigned shield impact: Breach core with radiating energy veins and ejecting orbs
 local ShieldImpactEffects = {}
 
--- Active shield ripples
-local activeRipples = {}
+-- Active impacts
+local activeImpacts = {}
+local MAX_IMPACTS = 8
 
--- Create a simple shield ripple animation
+-- Effect parameters
+local BREACH_DURATION = 0.6
+local VEIN_COUNT = 7
+local ORB_COUNT = 6
+local WAVE_SPEED = 1.5
+local CORE_INTENSITY = {1.0, 1.0, 1.0, 1.0}  -- White core
+local VEIN_COLOR = {0.3, 0.8, 1.0, 0.8}  -- Cyan veins
+local WAVE_COLOR = {0.2, 0.6, 0.9, 0.3}  -- Subtle blue wave
+local ORB_COLORS = {{1.0, 0.9, 0.6, 1.0}, {0.8, 1.0, 0.9, 1.0}}  -- Yellow/cyan orbs
+
+-- Create a new shield impact
 function ShieldImpactEffects.createImpact(hitX, hitY, entityX, entityY, shieldRadius, impactAngle, bulletKind, entity)
-    local ripple = {
-        -- Entity reference for position tracking
+    if entity.tag == "station" then return nil end  -- No shield impacts for stations
+    
+    if #activeImpacts >= MAX_IMPACTS then
+        table.remove(activeImpacts, 1)
+    end
+
+    local impact = {
         entity = entity,
-        
-        -- Store impact offset relative to entity center
-        hitOffsetX = hitX - entityX,
-        hitOffsetY = hitY - entityY,
-        
-        -- Store initial entity position as a fallback
         entityX = entityX,
         entityY = entityY,
-        
-        -- Shield data
+        hitX = hitX,
+        hitY = hitY,
         shieldRadius = shieldRadius,
-        impactAngle = impactAngle,
-        
-        -- Animation timing
-        time = 0,
-        duration = 0.5,  -- Shorter, more realistic
-        
-        -- Effect intensity based on bullet type
-        intensity = (bulletKind == "missile") and 1.2 or ((bulletKind == "collision") and 1.05 or 0.8),
-        bulletKind = bulletKind or "default"
+        impactAngle = impactAngle or 0,
+        bulletKind = bulletKind or "default",
+        startTime = love.timer.getTime(),
+        veins = {},  -- Precompute vein angles
+        orbs = {}    -- Particle orbs
     }
-    
-    table.insert(activeRipples, ripple)
-    return ripple
+
+    -- Trigger shield visibility briefly on impact
+    impact.entity.shieldImpactTime = love.timer.getTime() + BREACH_DURATION
+
+    -- Initialize veins (radial lines)
+    local baseAngle = impactAngle
+    for i = 0, VEIN_COUNT - 1 do
+        local angle = baseAngle + (i / VEIN_COUNT) * math.pi * 2
+        table.insert(impact.veins, {
+            angle = angle,
+            length = 0,
+            targetLength = shieldRadius * 0.6
+        })
+    end
+
+    -- Initialize orbs (ejecting particles)
+    for i = 1, ORB_COUNT do
+        local angle = baseAngle + (i / ORB_COUNT) * math.pi * 2 + math.random() * 0.5 - 0.25
+        local speed = 50 + math.random() * 100
+        table.insert(impact.orbs, {
+            x = hitX,
+            y = hitY,
+            vx = math.cos(angle) * speed,
+            vy = math.sin(angle) * speed,
+            life = 1.0,
+            decay = 0.02 + math.random() * 0.01,
+            size = 2 + math.random() * 3,
+            colorIndex = i % 2 + 1
+        })
+    end
+
+    -- Adjust for bullet type
+    if bulletKind == "missile" then
+        impact.intensity = 1.8
+        VEIN_COLOR[1] = 1.0  -- Red tint for explosives
+        VEIN_COLOR[2] = 0.4
+    elseif bulletKind == "collision" then
+        impact.intensity = 1.3
+    else
+        impact.intensity = 1.0
+    end
+
+    table.insert(activeImpacts, impact)
+    return impact
 end
 
--- Draw shield ripple effect similar to the shield bubble
-local function drawShieldRipple(ripple)
-    local progress = ripple.time / ripple.duration
-    local intensity = ripple.intensity * (1 - progress * progress)  -- Quadratic fade
-    
-    -- Get current entity position (tracks movement)
-    local currentEntityX, currentEntityY
-    if ripple.entity and ripple.entity.components and ripple.entity.components.position then
-        currentEntityX = ripple.entity.components.position.x
-        currentEntityY = ripple.entity.components.position.y
-    else
-        -- Fallback if entity is gone: use last known position
-        currentEntityX = ripple.entityX
-        currentEntityY = ripple.entityY
-    end
-    
-    -- Calculate accurate hit point on shield surface (guard against zero-length offsets)
-    local hitOffsetLength = math.sqrt((ripple.hitOffsetX or 0) * (ripple.hitOffsetX or 0) + (ripple.hitOffsetY or 0) * (ripple.hitOffsetY or 0))
-    local normalizedX, normalizedY
-    if hitOffsetLength and hitOffsetLength > 0.0001 then
-        normalizedX = ripple.hitOffsetX / hitOffsetLength
-        normalizedY = ripple.hitOffsetY / hitOffsetLength
-    else
-        -- Fallback: if hit offset is zero (e.g. rounding or centered hit), derive direction from impactAngle
-        local a = ripple.impactAngle or 0
-        normalizedX = math.cos(a)
-        normalizedY = math.sin(a)
+-- Update a single impact
+local function updateImpact(impact, dt)
+    local elapsed = love.timer.getTime() - impact.startTime
+    if elapsed > BREACH_DURATION then
+        return false  -- Expired
     end
 
-    -- Project hit point onto shield surface
-    local currentHitX = currentEntityX + normalizedX * ripple.shieldRadius
-    local currentHitY = currentEntityY + normalizedY * ripple.shieldRadius
-    
-    -- Draw the shield bubble with ripple effect
-    local baseRadius = ripple.shieldRadius
-    local rippleStrength = intensity * 8  -- Ripple amplitude
-    local time = love.timer.getTime()
-    
-    -- Create multiple concentric ripples
-    for i = 1, 3 do
-        local ripplePhase = progress + (i - 1) * 0.15
-        local rippleAlpha = intensity * (0.3 - i * 0.08)
-        
-        if rippleAlpha > 0 then
-            -- Main shield bubble with ripple distortion
-            local distortedRadius = baseRadius + math.sin(ripplePhase * math.pi * 4) * rippleStrength * (1 - progress)
+    local progress = elapsed / BREACH_DURATION
+
+    -- Update veins
+    for _, vein in ipairs(impact.veins) do
+        local ease = 1 - (progress ^ 2)  -- Quadratic ease out
+        vein.length = vein.targetLength * ease * impact.intensity
+    end
+
+    -- Update orbs
+    for _, orb in ipairs(impact.orbs) do
+        orb.x = orb.x + orb.vx * dt
+        orb.y = orb.y + orb.vy * dt
+        orb.vy = orb.vy + 100 * dt  -- Gravity for arc
+        orb.life = math.max(0, orb.life - orb.decay)
+        orb.size = orb.size * (1 - progress * 0.5)  -- Shrink over time
+    end
+
+    return true
+end
+
+-- Draw a single impact
+local function drawImpact(impact)
+    -- Update entity position
+    local ex, ey = impact.entityX, impact.entityY
+    if impact.entity and impact.entity.components.position then
+        ex = impact.entity.components.position.x
+        ey = impact.entity.components.position.y
+    end
+
+    local elapsed = love.timer.getTime() - impact.startTime
+    local progress = elapsed / BREACH_DURATION
+    local alphaMult = (1 - progress) ^ 1.5  -- Smooth fade
+
+    -- Breach core: Expanding glow
+    local coreSize = 4 + 20 * progress
+    love.graphics.setColor(
+        CORE_INTENSITY[1], CORE_INTENSITY[2], CORE_INTENSITY[3],
+        CORE_INTENSITY[4] * alphaMult * impact.intensity
+    )
+    love.graphics.circle("fill", impact.hitX, impact.hitY, coreSize)
+
+    -- Radiating energy veins
+    love.graphics.setLineWidth(2 * alphaMult)
+    for _, vein in ipairs(impact.veins) do
+        local endX = impact.hitX + math.cos(vein.angle) * vein.length
+        local endY = impact.hitY + math.sin(vein.angle) * vein.length
+        love.graphics.setColor(
+            VEIN_COLOR[1], VEIN_COLOR[2], VEIN_COLOR[3],
+            VEIN_COLOR[4] * alphaMult * (0.5 + 0.5 * math.sin(elapsed * 8 + vein.angle))
+        )
+        love.graphics.line(impact.hitX, impact.hitY, endX, endY)
+    end
+
+    -- Distortion wave: Expanding ellipse
+    local waveRadius = impact.shieldRadius * (progress * WAVE_SPEED)
+    if waveRadius > 0 then
+        love.graphics.setColor(
+            WAVE_COLOR[1], WAVE_COLOR[2], WAVE_COLOR[3],
+            WAVE_COLOR[4] * alphaMult * 0.7
+        )
+        love.graphics.setLineWidth(1.5 * alphaMult)
+        love.graphics.ellipse("line", impact.hitX, impact.hitY, waveRadius * 1.2, waveRadius * 0.8)
+    end
+
+    -- Energy orbs
+    for _, orb in ipairs(impact.orbs) do
+        if orb.life > 0 then
+            local orbAlpha = orb.life * alphaMult
+            local col = ORB_COLORS[orb.colorIndex]
+            love.graphics.setColor(col[1], col[2], col[3], col[4] * orbAlpha)
+            love.graphics.circle("fill", orb.x, orb.y, orb.size)
             
-            love.graphics.setColor(0.2, 0.7, 1.0, rippleAlpha * 0.6)
-            love.graphics.circle('fill', currentEntityX, currentEntityY, distortedRadius)
-            
-            love.graphics.setColor(0.4, 0.8, 1.0, rippleAlpha)
-            love.graphics.setLineWidth(1.5)
-            love.graphics.circle('line', currentEntityX, currentEntityY, distortedRadius)
+            -- Trail glow
+            love.graphics.setColor(col[1] * 0.5, col[2] * 0.5, col[3] * 0.5, col[4] * orbAlpha * 0.5)
+            love.graphics.circle("fill", orb.x - orb.vx * 0.05, orb.y - orb.vy * 0.05, orb.size * 1.5)
         end
     end
-    
-    -- Bright impact flash at current hit point (moves with entity)
-    local flashIntensity = intensity * (1 - progress)
-    if flashIntensity > 0 then
-        love.graphics.setColor(1.0, 1.0, 1.0, flashIntensity * 0.8)
-        love.graphics.circle("fill", currentHitX, currentHitY, 6 * (1 - progress))
-        
-        love.graphics.setColor(0.6, 0.9, 1.0, flashIntensity * 0.6)
-        love.graphics.circle("fill", currentHitX, currentHitY, 12 * (1 - progress))
-    end
-    
+
     love.graphics.setLineWidth(1)
 end
 
--- Update all active ripples
+-- Update all impacts
 function ShieldImpactEffects.update(dt)
-    for i = #activeRipples, 1, -1 do
-        local ripple = activeRipples[i]
-        ripple.time = ripple.time + dt
-        
-        if ripple.time >= ripple.duration then
-            table.remove(activeRipples, i)
+    for i = #activeImpacts, 1, -1 do
+        local impact = activeImpacts[i]
+        if not updateImpact(impact, dt) then
+            table.remove(activeImpacts, i)
         end
     end
 end
 
--- Draw all active ripples
+-- Draw all impacts
 function ShieldImpactEffects.draw()
-    for _, ripple in ipairs(activeRipples) do
-        drawShieldRipple(ripple)
+    for _, impact in ipairs(activeImpacts) do
+        if impact.entity.tag ~= "station" then  -- Skip stations
+            drawImpact(impact)
+        end
     end
 end
 
--- Get count of active ripples (for performance monitoring)
+-- Utilities
 function ShieldImpactEffects.getActiveCount()
-    return #activeRipples
+    return #activeImpacts
 end
 
--- Clear all active ripples
 function ShieldImpactEffects.clear()
-    activeRipples = {}
+    activeImpacts = {}
 end
 
 return ShieldImpactEffects

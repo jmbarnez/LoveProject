@@ -25,7 +25,7 @@ function WorldObject.new(x, y, angle, friendly, config)
         self.components.renderable = Renderable.new(config.renderable.type, renderableProps)
     end
 
-    if config.collidable then
+    if config.collidable and (config.renderable.type ~= "planet") then
         self.components.collidable = Collidable.new(config.collidable)
     end
 

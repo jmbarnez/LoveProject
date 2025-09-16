@@ -1,8 +1,8 @@
 local SalvageSystem = {}
 
 function SalvageSystem.update(dt, world, player)
-    for _, entity in ipairs(world:getEntitiesWithComponents("wreckage", "timed_life")) do
-        local wreckage = entity.components.wreckage
+  for _, entity in ipairs(world:get_entities_with_components("wreckage", "timed_life")) do
+      local wreckage = entity.components.wreckage
         if wreckage.isBeingSalvaged then
             wreckage.salvageProgress = wreckage.salvageProgress + dt
             if wreckage.salvageProgress >= wreckage.salvageCycleTime then

@@ -29,8 +29,5 @@ return {
     }
   },
 
-  -- Keep the collider tiny so it doesn't affect gameplay collisions
-  collidable = {
-    radius = 1,
-  },
+  -- No collidable component for decorative planets (no physics collisions)
 }

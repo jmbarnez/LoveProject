@@ -35,8 +35,8 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
     local helpersEnabled = (g.helpers_enabled ~= false)
 
     -- Check all stations for tooltip display
-    local allStations = world:getEntitiesWithComponents("station")
-    for _, station in ipairs(allStations) do
+    local all_stations = world:get_entities_with_components("station")
+    for _, station in ipairs(all_stations) do
       if helpersEnabled and station and station.components and station.components.position and not player.docked then
         local sx, sy = station.components.position.x, station.components.position.y
         local sw, sh = Viewport.getDimensions()
@@ -164,8 +164,8 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
     local g = Settings.getGraphicsSettings()
     local helpersEnabled = (g.helpers_enabled ~= false)
 
-    local allGates = world:getEntitiesWithComponents("warp_gate")
-    for _, gate in ipairs(allGates) do
+    local all_gates = world:get_entities_with_components("warp_gate")
+    for _, gate in ipairs(all_gates) do
       if helpersEnabled and gate and gate.components and gate.components.position and not player.docked then
         local gx, gy = gate.components.position.x, gate.components.position.y
         local sw, sh = Viewport.getDimensions()
@@ -254,7 +254,7 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
       local worldMouseY = (my - sh * 0.5) / camScale + camY
       
       -- Check if mouse is hovering over any asteroid with resources
-      for _, a in ipairs(world:getEntitiesWithComponents("mineable")) do
+      for _, a in ipairs(world:get_entities_with_components("mineable")) do
         local m = a.components and a.components.mineable
         local pos = a.components and a.components.position
         if m and (m.resources or 0) > 0 and pos then
@@ -270,7 +270,7 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
 
       -- If no asteroid found, check salvageable wreckage
       if not best then
-        for _, w in ipairs(world:getEntitiesWithComponents("wreckage")) do
+        for _, w in ipairs(world:get_entities_with_components("wreckage")) do
           local pos = w.components and w.components.position
           local canSalvage = (w.canBeSalvaged and w:canBeSalvaged())
             or (w.salvageAmount and w.salvageAmount > 0)
@@ -382,7 +382,7 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
   if not overUI then
     Reticle.draw(player)
   end
-  Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, world:getEntitiesWithComponents("mineable"))
+  Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, world:get_entities_with_components("mineable"))
   Hotbar.draw(player)
   
   -- Skills panel

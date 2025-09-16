@@ -22,17 +22,19 @@ end
 
 local function getLayout()
     local sw, sh = Viewport.getDimensions()
-    local w, h = 320, 280 -- Decreased height to fit buttons tighter
+    local w, h = 300, 240 -- Smaller overall menu
     local x = (sw - w) / 2
     local y = (sh - h) / 2
 
-    local buttonW, buttonH = w - 40, 40 -- Wider buttons, taller buttons
+    local buttonW, buttonH = w - 40, 32 -- Smaller buttons
     local buttonX = x + (w - buttonW) / 2
-    local resumeButtonY = y + 30
-    local saveButtonY = y + 75
-    local loadButtonY = y + 120
-    local settingsButtonY = y + 165
-    local exitButtonY = y + 210
+    local buttonSpacing = 8 -- Reduced spacing between buttons
+    local startY = y + 20
+    local resumeButtonY = startY
+    local saveButtonY = resumeButtonY + buttonH + buttonSpacing
+    local loadButtonY = saveButtonY + buttonH + buttonSpacing
+    local settingsButtonY = loadButtonY + buttonH + buttonSpacing
+    local exitButtonY = settingsButtonY + buttonH + buttonSpacing
 
     return x, y, w, h, buttonX, resumeButtonY, saveButtonY, loadButtonY, settingsButtonY, exitButtonY, buttonW, buttonH
 end
@@ -98,21 +100,25 @@ function EscapeMenu.draw()
     
     -- No title text
     
-    -- Draw buttons
+    -- Draw buttons with smaller text
     local mx, my = Viewport.getMousePosition()
     local t = love.timer.getTime()
     
+    -- Save current font and set to small
+    local oldFont = love.graphics.getFont()
+    love.graphics.setFont(Theme.fonts and (Theme.fonts.small or Theme.fonts.normal) or oldFont)
+    
     -- Resume button
     local resumeHover = pointIn(mx, my, buttonX, resumeButtonY, buttonW, buttonH)
-    Theme.drawStyledButton(buttonX, resumeButtonY, buttonW, buttonH, "Resume Game", resumeHover, t, nil, EscapeMenu.resumeButtonDown, {compact=true})
+    Theme.drawStyledButton(buttonX, resumeButtonY, buttonW, buttonH, "Resume", resumeHover, t, nil, EscapeMenu.resumeButtonDown, {compact=true})
 
     -- Save Game button
     local saveHover = pointIn(mx, my, buttonX, saveButtonY, buttonW, buttonH)
-    Theme.drawStyledButton(buttonX, saveButtonY, buttonW, buttonH, "Save Game", saveHover, t, nil, EscapeMenu.saveButtonDown, {compact=true})
+    Theme.drawStyledButton(buttonX, saveButtonY, buttonW, buttonH, "Save", saveHover, t, nil, EscapeMenu.saveButtonDown, {compact=true})
 
     -- Load Game button
     local loadHover = pointIn(mx, my, buttonX, loadButtonY, buttonW, buttonH)
-    Theme.drawStyledButton(buttonX, loadButtonY, buttonW, buttonH, "Load Game", loadHover, t, nil, EscapeMenu.loadButtonDown, {compact=true})
+    Theme.drawStyledButton(buttonX, loadButtonY, buttonW, buttonH, "Load", loadHover, t, nil, EscapeMenu.loadButtonDown, {compact=true})
 
     -- Settings button
     local settingsHover = pointIn(mx, my, buttonX, settingsButtonY, buttonW, buttonH)
@@ -120,7 +126,10 @@ function EscapeMenu.draw()
 
     -- Exit button
     local exitHover = pointIn(mx, my, buttonX, exitButtonY, buttonW, buttonH)
-    Theme.drawStyledButton(buttonX, exitButtonY, buttonW, buttonH, "Exit to Main Menu", exitHover, t, Theme.colors.danger, EscapeMenu.exitButtonDown, {compact=true})
+    Theme.drawStyledButton(buttonX, exitButtonY, buttonW, buttonH, "Exit", exitHover, t, Theme.colors.danger, EscapeMenu.exitButtonDown, {compact=true})
+    
+    -- Restore original font
+    love.graphics.setFont(oldFont)
 end
 
 function EscapeMenu.mousepressed(x, y, button)

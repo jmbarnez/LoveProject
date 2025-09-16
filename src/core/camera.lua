@@ -45,6 +45,14 @@ end
 function Camera:reset()
   love.graphics.pop()
 end
+function Camera:getBounds()
+    local w = love.graphics.getWidth() / self.scale
+    local h = love.graphics.getHeight() / self.scale
+    local x = self.x - w / 2
+    local y = self.y - h / 2
+    return x, y, w, h
+end
+
 
 function Camera:screenToWorld(sx, sy)
   local w, h = Viewport.getDimensions()

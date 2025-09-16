@@ -98,6 +98,15 @@ function Ship.new(x, y, angle, friendly, shipConfig)
 
   -- Create the component table
   local Position = require("src.components.position")
+  local EngineTrail = require("src.components.engine_trail")
+  
+  -- Configure engine trail colors based on ship visuals
+  local engineColors = {
+    color1 = (self.visuals.engineColor and {self.visuals.engineColor[1], self.visuals.engineColor[2], self.visuals.engineColor[3], 1}) or {1, 1, 1, 1},
+    color2 = (self.visuals.engineColor and {self.visuals.engineColor[1] * 0.5, self.visuals.engineColor[2] * 0.5, self.visuals.engineColor[3], 0.5}) or {0.5, 0.5, 1, 0.5},
+    size = self.visuals.size or 1.0,
+    offset = ModelUtil.calculateModelWidth(shipConfig.visuals) * 0.4  -- Position emitter behind ship proportional to ship size
+  }
   
   self.components = {
       position = Position.new({ x = x, y = y, angle = 0 }),
@@ -117,6 +126,11 @@ function Ship.new(x, y, angle, friendly, shipConfig)
           { visuals = self.visuals }
       )
   }
+
+  -- Attach engine trail only for the player
+  if extraConfig.isPlayer then
+    self.components.engine_trail = EngineTrail.new(engineColors)
+  end
 
   -- Attach loot drop definition if provided by content
   if shipConfig.loot and shipConfig.loot.drops then
@@ -183,16 +197,6 @@ end
 
 -- Ship update function
 function Ship:update(dt, player, shootCallback)
-  -- Update physics component and sync position from body
-  if self.components.physics and self.components.physics.update then
-    self.components.physics:update(dt)
-    if self.components.physics.body then
-      self.components.position.x = self.components.physics.body.x
-      self.components.position.y = self.components.physics.body.y
-      self.components.position.angle = self.components.physics.body.angle
-    end
-  end
-
   if self.updateMovement then
     self:updateMovement(dt)
   end

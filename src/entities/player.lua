@@ -3,6 +3,7 @@ local Turret = require("src.systems.turret.core")
 local Content = require("src.content.content")
 local Config = require("src.content.config")
 local EntityFactory = require("src.templates.entity_factory")
+local Log = require("src.core.log")
 
 -- Inherit from the Ship template to get shared functionality like the 'hit' method.
 local Ship = require("src.templates.ship")
@@ -26,6 +27,11 @@ function Player.new(x, y, shipId)
             y = y
         })
     end
+
+  -- Set direct control mode for player physics (visual thrusters only, no force)
+  if self.components.physics and self.components.physics.body then
+    self.components.physics.body.skipThrusterForce = true
+  end
 
   -- Player-specific defaults
   self.moveTarget = nil
@@ -63,6 +69,15 @@ function Player.new(x, y, shipId)
   return self
 end
 
+-- Player update method
+function Player:update(dt, world, shootCallback)
+    -- Call parent Ship update first
+    Ship.update(self, dt, self, shootCallback)
+    
+    -- Update lock-on targeting
+    self:updateLockOn(dt, world)
+end
+
 -- Lock-on targeting system update
 function Player:updateLockOn(dt, world)
   if not world or self.docked then return end
@@ -75,7 +90,7 @@ function Player:updateLockOn(dt, world)
   local potentialTarget = nil
   local bestDistance = math.huge
   
-  local enemies = world:getEntitiesWithComponents("ai", "position")
+  local enemies = world:get_entities_with_components("ai", "position")
   for _, enemy in ipairs(enemies) do
     if not enemy.dead and enemy.components.position then
       local ex, ey = enemy.components.position.x, enemy.components.position.y

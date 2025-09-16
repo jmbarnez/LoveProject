@@ -842,7 +842,10 @@ function DockedUI.mousepressed(x, y, button)
     -- Close button
     if DockedUI._closeButton then
       local btn = DockedUI._closeButton
-      if x >= btn.x and x <= btn.x + btn.w and y >= btn.y and y <= btn.y + btn.h then
+      local closeButton = {_rect = {x = btn.x, y = btn.y, w = btn.w, h = btn.h}}
+      if Theme.handleButtonClick(closeButton, x, y, function()
+        -- Close action will be handled by the return value
+      end) then
         return true, true -- consumed, should close
       end
     end

@@ -78,8 +78,7 @@ end
 
 -- This is the existing game-logic keypressed
 function Input.keypressed(key)
-    if SettingsPanel.isBinding() then return end
-  Log.debug("Input.keypressed", key)
+    Log.debug("Input.keypressed", key)
     local keymap = Settings.getKeymap()
 
     if Map and Map.keypressed and Map.keypressed(key, gameState and gameState.world) then return end
@@ -117,7 +116,7 @@ function Input.keypressed(key)
 
             -- 1) Generic interactables (nearest within range)
             local nearest, nearestDist = nil, math.huge
-            for _, e in ipairs(gameState.world:getEntitiesWithComponents("interactable")) do
+            for _, e in ipairs(gameState.world:get_entities_with_components("interactable")) do
                 local inter = e.components and e.components.interactable
                 local pos = e.components and e.components.position
                 local range = inter and inter.range or nil
@@ -148,7 +147,7 @@ function Input.keypressed(key)
         -- Check if player is near a repairable beacon station
         if gameState.player and gameState.world then
             local RepairSystem = require("src.systems.repair_system")
-            local allStations = gameState.world:getEntitiesWithComponents("repairable")
+            local all_stations = gameState.world:get_entities_with_components("repairable")
 
             for _, station in ipairs(allStations) do
                 if station.components.repairable and station.components.repairable.broken then
@@ -183,7 +182,7 @@ end
 
 -- This is the new LÖVE callback handler
 function Input.love_keypressed(key)
-  if SettingsPanel.keypressed(key) then return end
+  if SettingsPanel.keypressed(key) then return true end
   if key == "f11" then
     local fs = love.window.getFullscreen()
     love.window.setFullscreen(not fs, "desktop")
@@ -244,6 +243,11 @@ function Input.love_mousepressed(x, y, button)
     end
   else
     local vx, vy = Viewport.toVirtual(x, y)
+    if SettingsPanel.visible then
+        if SettingsPanel.mousepressed(vx, vy, button) then
+            return
+        end
+    end
     if mainState.UIManager and mainState.UIManager.mousepressed(vx, vy, button) then
       return
     end
@@ -272,6 +276,11 @@ function Input.love_mousemoved(x, y, dx, dy, istouch)
   elseif mainState.screen == "game" then
     local vx, vy = Viewport.toVirtual(x, y)
     local s = Viewport.getScale()
+    if SettingsPanel.visible then
+        if SettingsPanel.mousemoved(vx, vy, dx, dy) then
+            return
+        end
+    end
     if mainState.UIManager and mainState.UIManager.mousemoved(vx, vy, dx / s, dy / s, istouch) then
       return
     end
@@ -432,7 +441,7 @@ function Input.mousemoved(x, y, dx, dy, istouch)
     local best, bestDist, hoverType = nil, 99999, nil
 
     -- Start with mineable entities first
-    for _, a in ipairs(gameState.world:getEntitiesWithComponents("mineable")) do
+    for _, a in ipairs(gameState.world:get_entities_with_components("mineable")) do
         local d = Util.distance(wx, wy, a.components.position.x, a.components.position.y)
         if d < (((a.components.collidable and a.components.collidable.radius) or 20) * 1.5) and d < bestDist then
             best, bestDist, hoverType = a, d, "neutral"
@@ -440,7 +449,7 @@ function Input.mousemoved(x, y, dx, dy, istouch)
     end
 
     if not best then
-        for _, w in ipairs(gameState.world:getEntitiesWithComponents("wreckage")) do
+        for _, w in ipairs(gameState.world:get_entities_with_components("wreckage")) do
             if w.components and w.components.position then
                 local d = Util.distance(wx, wy, w.components.position.x, w.components.position.y)
                 if d < ((w.components.collidable and w.components.collidable.radius) or 25) and d < bestDist then
@@ -451,7 +460,7 @@ function Input.mousemoved(x, y, dx, dy, istouch)
     end
 
     if not best then
-        for _, e in ipairs(gameState.world:getEntitiesWithComponents("ai")) do
+        for _, e in ipairs(gameState.world:get_entities_with_components("ai")) do
             local d = Util.distance(wx, wy, e.components.position.x, e.components.position.y)
             if d < (((e.components.collidable and e.components.collidable.radius) or 10) * 1.5) and d < bestDist then
                 best, bestDist, hoverType = e, d, "enemy"
@@ -464,14 +473,32 @@ function Input.mousemoved(x, y, dx, dy, istouch)
 end
 
 function Input.wheelmoved(dx, dy)
-    if SettingsPanel and SettingsPanel.visible and SettingsPanel.wheelmoved and SettingsPanel.wheelmoved(dx, dy) then return end
-    if Map and Map.wheelmoved and Map.wheelmoved(dx, dy, gameState and gameState.world) then return end
-    local DockedUI = require("src.ui.docked")
-    if DockedUI and DockedUI.isVisible and DockedUI.isVisible() and DockedUI.wheelmoved and DockedUI.wheelmoved(dx, dy) then return end
+    -- Handle mouse wheel events for the game
+    if not gameState or not gameState.camera then return false end
     
-    if dy == 0 then return end
-    local mx, my = Viewport.getMousePosition()
-    gameState.camera:zoomAtFactor((dy > 0) and 1.1 or 1/1.1, mx, my)
+    -- Forward to settings panel if visible
+    if SettingsPanel and SettingsPanel.visible and SettingsPanel.wheelmoved and SettingsPanel.wheelmoved(dx, dy) then 
+        return true 
+    end
+    
+    -- Forward to map if it handles wheel events
+    if Map and Map.wheelmoved and Map.wheelmoved(dx, dy, gameState and gameState.world) then 
+        return true 
+    end
+    
+    local DockedUI = require("src.ui.docked")
+    if DockedUI and DockedUI.wheelmoved and DockedUI.wheelmoved(dx, dy) then
+        return true
+    end
+    
+    -- Default behavior: zoom the camera
+    if dy ~= 0 then
+        local mx, my = Viewport.getMousePosition()
+        gameState.camera:zoomAtFactor((dy > 0) and 1.1 or 1/1.1, mx, my)
+        return true
+    end
+    
+    return false
 end
 
 function Input.init(state)

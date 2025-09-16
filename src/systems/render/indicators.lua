@@ -5,7 +5,7 @@ local Indicators = {}
 
 function Indicators.drawTargetingBorder(world)
     local isTargeted = false
-    for _, entity in ipairs(world:getEntitiesWithComponents("ai")) do
+    for _, entity in ipairs(world:get_entities_with_components("ai")) do
         if entity.components.ai.targeting then
             isTargeted = true
             break

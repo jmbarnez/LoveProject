@@ -56,10 +56,10 @@ end
 function WarpGateSystem.updateWarpGates(world, dt)
     if not world then return end
 
-    local warpGates = world:getEntitiesWithComponents("warp_gate")
-    for _, warpGate in ipairs(warpGates) do
-        if warpGate.update then
-            warpGate:update(dt)
+    local warp_gates = world:get_entities_with_components("warp_gate")
+    for _, warp_gate in ipairs(warp_gates) do
+        if warp_gate.update then
+            warp_gate:update(dt)
         end
     end
 end
@@ -69,24 +69,24 @@ function WarpGateSystem.getWarpGatesNear(world, x, y, range)
     if not world then return {} end
 
     range = range or 500
-    local nearbyGates = {}
-    local warpGates = world:getEntitiesWithComponents("warp_gate")
+    local nearby_gates = {}
+    local warp_gates = world:get_entities_with_components("warp_gate")
 
-    for _, warpGate in ipairs(warpGates) do
-        if warpGate.components.position then
-            local gx, gy = warpGate.components.position.x, warpGate.components.position.y
+    for _, warp_gate in ipairs(warp_gates) do
+        if warp_gate.components.position then
+            local gx, gy = warp_gate.components.position.x, warp_gate.components.position.y
             local distance = math.sqrt((gx - x)^2 + (gy - y)^2)
             if distance <= range then
-                table.insert(nearbyGates, {gate = warpGate, distance = distance})
+                table.insert(nearby_gates, {gate = warp_gate, distance = distance})
             end
         end
     end
 
     -- Sort by distance
-    table.sort(nearbyGates, function(a, b) return a.distance < b.distance end)
+    table.sort(nearby_gates, function(a, b) return a.distance < b.distance end)
 
     local gates = {}
-    for _, entry in ipairs(nearbyGates) do
+    for _, entry in ipairs(nearby_gates) do
         table.insert(gates, entry.gate)
     end
 
@@ -104,11 +104,11 @@ function WarpGateSystem.activateAllWarpGates(world)
     if not world then return 0 end
 
     local count = 0
-    local warpGates = world:getEntitiesWithComponents("warp_gate")
+    local warp_gates = world:get_entities_with_components("warp_gate")
 
-    for _, warpGate in ipairs(warpGates) do
-        if warpGate.setActive then
-            warpGate:setActive(true)
+    for _, warp_gate in ipairs(warp_gates) do
+        if warp_gate.setActive then
+            warp_gate:setActive(true)
             count = count + 1
         end
     end
@@ -121,11 +121,11 @@ function WarpGateSystem.deactivateAllWarpGates(world)
     if not world then return 0 end
 
     local count = 0
-    local warpGates = world:getEntitiesWithComponents("warp_gate")
+    local warp_gates = world:get_entities_with_components("warp_gate")
 
-    for _, warpGate in ipairs(warpGates) do
-        if warpGate.setActive then
-            warpGate:setActive(false)
+    for _, warp_gate in ipairs(warp_gates) do
+        if warp_gate.setActive then
+            warp_gate:setActive(false)
             count = count + 1
         end
     end

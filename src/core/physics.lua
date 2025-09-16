@@ -87,6 +87,9 @@ function PhysicsBody.new(mass, x, y)
     -- Optional boost multiplier controlled by gameplay code
     self.boostFactor = 1.0
 
+    -- Skip thruster force application (for direct control modes like player)
+    self.skipThrusterForce = false
+
     return self
 end
 
@@ -121,50 +124,86 @@ function PhysicsBody:updateThrusters(dt)
     local thrust = self.thrusterPower.main * Physics.constants.thrusterEfficiency * boost
     local lateralThrust = self.thrusterPower.lateral * Physics.constants.thrusterEfficiency * boost
 
+    -- Initialize thruster state for visual effects
+    self.thrusterState = self.thrusterState or {
+        forward = 0,
+        reverse = 0,
+        strafeLeft = 0,
+        strafeRight = 0,
+        boost = 0,
+        brake = 0,
+        isThrusting = false
+    }
+    
+    -- Reset thruster state
+    for k, _ in pairs(self.thrusterState) do
+        if k ~= 'isThrusting' then
+            self.thrusterState[k] = 0
+        end
+    end
+    self.thrusterState.isThrusting = false
+
     -- Main thrusters (forward/backward)
     if self.thrusters.forward then
-        local fx = math.cos(self.angle) * thrust
-        local fy = math.sin(self.angle) * thrust
-        self:applyForce(fx, fy, dt)
+        if not self.skipThrusterForce then
+            local fx = math.cos(self.angle) * thrust
+            local fy = math.sin(self.angle) * thrust
+            self:applyForce(fx, fy, dt)
+        end
+        self.thrusterState.forward = 1.0
+        self.thrusterState.isThrusting = true
     end
 
     if self.thrusters.backward then
-        local fx = -math.cos(self.angle) * thrust * 0.5 -- reverse thrust is weaker
-        local fy = -math.sin(self.angle) * thrust * 0.5
-        self:applyForce(fx, fy, dt)
+        if not self.skipThrusterForce then
+            local fx = -math.cos(self.angle) * thrust * 0.5 -- reverse thrust is weaker
+            local fy = -math.sin(self.angle) * thrust * 0.5
+            self:applyForce(fx, fy, dt)
+        end
+        self.thrusterState.reverse = 0.7
+        self.thrusterState.isThrusting = true
     end
 
     -- Lateral thrusters (strafing)
     if self.thrusters.left then
-        local fx = -math.sin(self.angle) * lateralThrust
-        local fy = math.cos(self.angle) * lateralThrust
-        self:applyForce(fx, fy, dt)
+        if not self.skipThrusterForce then
+            local fx = -math.sin(self.angle) * lateralThrust
+            local fy = math.cos(self.angle) * lateralThrust
+            self:applyForce(fx, fy, dt)
+        end
+        self.thrusterState.strafeLeft = 0.8
+        self.thrusterState.isThrusting = true
     end
 
     if self.thrusters.right then
-        local fx = math.sin(self.angle) * lateralThrust
-        local fy = -math.cos(self.angle) * lateralThrust
-        self:applyForce(fx, fy, dt)
+        if not self.skipThrusterForce then
+            local fx = math.sin(self.angle) * lateralThrust
+            local fy = -math.cos(self.angle) * lateralThrust
+            self:applyForce(fx, fy, dt)
+        end
+        self.thrusterState.strafeRight = 0.8
+        self.thrusterState.isThrusting = true
     end
 
-    -- Rotational thrusters
-    if self.thrusters.rotateLeft then
-        self:applyTorque(-self.thrusterPower.rotational, dt)
-    end
-
-    if self.thrusters.rotateRight then
-        self:applyTorque(self.thrusterPower.rotational, dt)
+    -- Handle boost
+    if boost > 1.0 then
+        self.thrusterState.boost = boost - 1.0
+        self.thrusterState.isThrusting = true
     end
     
     -- Braking thrusters (omnidirectional RCS to oppose current motion)
     if self.thrusters.brake then
         local currentSpeed = math.sqrt(self.vx * self.vx + self.vy * self.vy)
         if currentSpeed > 0.1 then -- Only brake if moving
-            local brakingThrust = thrust * Physics.constants.brakingPower
-            -- Apply force opposite to current velocity vector
-            local brakeForceX = -(self.vx / currentSpeed) * brakingThrust
-            local brakeForceY = -(self.vy / currentSpeed) * brakingThrust
-            self:applyForce(brakeForceX, brakeForceY, dt)
+            if not self.skipThrusterForce then
+                local brakingThrust = thrust * Physics.constants.brakingPower
+                -- Apply force opposite to current velocity vector
+                local brakeForceX = -(self.vx / currentSpeed) * brakingThrust
+                local brakeForceY = -(self.vy / currentSpeed) * brakingThrust
+                self:applyForce(brakeForceX, brakeForceY, dt)
+            end
+            self.thrusterState.brake = 1.0
+            self.thrusterState.isThrusting = true
         end
     end
 end
@@ -307,12 +346,91 @@ function PhysicsBody:resetThrusters()
     for key, _ in pairs(self.thrusters) do
         self.thrusters[key] = false
     end
+    
+    -- Also reset the thruster state
+    if self.thrusterState then
+        for k, _ in pairs(self.thrusterState) do
+            if k ~= 'isThrusting' then
+                self.thrusterState[k] = 0
+            end
+        end
+        self.thrusterState.isThrusting = false
+    end
 end
 
 -- Set thruster state
 function PhysicsBody:setThruster(thruster, active)
     if self.thrusters[thruster] ~= nil then
         self.thrusters[thruster] = active
+        
+        -- Map generic thruster names to specific ones used in thrusterState
+        local thrusterMap = {
+            forward = 'forward',
+            backward = 'reverse',
+            left = 'strafeLeft',
+            right = 'strafeRight',
+            boost = 'boost',
+            brake = 'brake'
+        }
+        
+        -- Update the thruster state if this is a known thruster
+        local stateKey = thrusterMap[thruster]
+        if stateKey then
+            -- Initialize thrusterState if it doesn't exist
+            self.thrusterState = self.thrusterState or {
+                forward = 0,
+                reverse = 0,
+                strafeLeft = 0,
+                strafeRight = 0,
+                boost = 0,
+                brake = 0,
+                isThrusting = false
+            }
+            
+            -- Update the specific thruster state
+            if active then
+                -- Set default values based on thruster type
+                if thruster == 'forward' then
+                    self.thrusterState.forward = 1.0
+                elseif thruster == 'backward' then
+                    self.thrusterState.reverse = 0.7
+                elseif thruster == 'left' then
+                    self.thrusterState.strafeLeft = 0.8
+                elseif thruster == 'right' then
+                    self.thrusterState.strafeRight = 0.8
+                elseif thruster == 'boost' then
+                    self.thrusterState.boost = 1.0
+                elseif thruster == 'brake' then
+                    self.thrusterState.brake = 1.0
+                end
+                self.thrusterState.isThrusting = true
+            else
+                -- Only reset if not already set by another thruster
+                if thruster == 'forward' then
+                    self.thrusterState.forward = 0
+                elseif thruster == 'backward' then
+                    self.thrusterState.reverse = 0
+                elseif thruster == 'left' then
+                    self.thrusterState.strafeLeft = 0
+                elseif thruster == 'right' then
+                    self.thrusterState.strafeRight = 0
+                elseif thruster == 'boost' then
+                    self.thrusterState.boost = 0
+                elseif thruster == 'brake' then
+                    self.thrusterState.brake = 0
+                end
+                
+                -- Check if any thrusters are still active
+                local anyActive = false
+                for k, v in pairs(self.thrusterState) do
+                    if k ~= 'isThrusting' and v > 0 then
+                        anyActive = true
+                        break
+                    end
+                end
+                self.thrusterState.isThrusting = anyActive
+            end
+        end
     end
 end
 

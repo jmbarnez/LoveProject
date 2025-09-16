@@ -27,5 +27,4 @@ function ItemPickup.new(x, y, itemId, qty, sizeScale)
 
   return self
 end
-
 return ItemPickup

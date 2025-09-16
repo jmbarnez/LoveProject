@@ -111,13 +111,17 @@ end
 -- Draw a full shield bubble around the ship when in station bounds
 function ShieldEffects.drawShieldBubble(entity)
     if not entity or not entity.components then return end
+    if entity.tag == "station" then return end  -- No shields for stations
     
     local h = entity.components.health
     local col = entity.components.collidable
     
-    -- Allow drawing when shield channeling even if current shield value is 0
+    -- Draw only on recent impact or special cases (channeling, disabled)
+    local currentTime = love.timer.getTime()
+    local hasRecentImpact = entity.shieldImpactTime and currentTime < entity.shieldImpactTime
+    local isSpecialCase = entity.shieldChannel or entity.weaponsDisabled
     if not col then return end
-    if (not h or (h.shield or 0) <= 0) and not entity.shieldChannel then return end
+    if not (hasRecentImpact or isSpecialCase) then return end
     
     local shieldRadius
     -- Recompute if visuals.size changed or cache missing

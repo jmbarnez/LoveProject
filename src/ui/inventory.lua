@@ -223,7 +223,10 @@ function Inventory.mousepressed(x, y, button, player)
     -- Close button
     if Inventory._closeButton then
       local btn = Inventory._closeButton
-      if x >= btn.x and x <= btn.x + btn.w and y >= btn.y and y <= btn.y + btn.h then
+      local closeButton = {_rect = {x = btn.x, y = btn.y, w = btn.w, h = btn.h}}
+      if Theme.handleButtonClick(closeButton, x, y, function()
+        Inventory.visible = false
+      end) then
         return true, true
       end
     end

@@ -27,12 +27,12 @@ function Pickups.update(dt, world, player)
 
   -- Resolve / keep target
   local target
-  for _, e in ipairs(world:getEntitiesWithComponents("item_pickup", "position")) do
+  for _, e in ipairs(world:get_entities_with_components("item_pickup", "position")) do
     if not e.dead and e.id == currentTargetId then target = e break end
   end
   if not target then
     local bestD = math.huge
-    for _, e in ipairs(world:getEntitiesWithComponents("item_pickup", "position")) do
+    for _, e in ipairs(world:get_entities_with_components("item_pickup", "position")) do
       if not e.dead then
         local ex, ey = e.components.position.x, e.components.position.y
         local d = dist(ex, ey, px, py)

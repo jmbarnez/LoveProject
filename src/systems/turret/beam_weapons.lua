@@ -69,7 +69,7 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
     local bestHitX, bestHitY = endX, endY
 
     -- Get ALL collidable entities from world (beam stops at first object hit)
-    local entities = world:getEntitiesWithComponents("collidable", "position")
+    local entities = world:get_entities_with_components("collidable", "position")
 
     for _, entity in ipairs(entities) do
         if entity ~= turret.owner and not entity.dead then

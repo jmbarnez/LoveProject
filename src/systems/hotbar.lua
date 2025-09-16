@@ -138,23 +138,14 @@ end
 
 -- Handle keyboard presses routed from Input
 function Hotbar.keypressed(key, player)
-    Log.debug("Hotbar.keypressed received", key)
-    Log.debug("Hotbar.slots contents:", #Hotbar.slots, "slots")
-    for i, slot in ipairs(Hotbar.slots) do
-        Log.debug("Hotbar slot", i, "item:", tostring(slot.item))
-    end
     for i, slot in ipairs(Hotbar.slots) do
         local bound = Hotbar.getSlotKey(i)
-        Log.debug("Hotbar key compare", i, "bound=", tostring(bound), "pressed=", tostring(key))
         if key == bound then
-            -- One-shot or toggle/hold depending on item
             local item = slot.item
-            Log.debug("Hotbar: matched slot", i, "item=", tostring(item))
             -- No fallback behavior - only process if there's an item in the slot
             if item == "shield" then
                 if bound ~= "mouse2" then
                     Hotbar.state.active.shield = not Hotbar.state.active.shield
-                    Log.debug("Hotbar: shield state toggled ->", tostring(Hotbar.state.active.shield))
                 end
             elseif type(item) == 'string' and item:match('^turret_slot_%d+$') then
                 -- Toggle specific turret slot on non-mouse hotkeys
@@ -163,7 +154,6 @@ function Hotbar.keypressed(key, player)
                     if idx then
                         Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
                         Hotbar.state.active.turret_slots[idx] = not Hotbar.state.active.turret_slots[idx]
-                        Log.debug("Hotbar: turret_slot_" .. tostring(idx) .. " toggled ->", tostring(Hotbar.state.active.turret_slots[idx]))
                     end
                 end
             else
@@ -238,10 +228,8 @@ function Hotbar.activate(slotIndex, player)
 
     if slot.item == "turret" then
         -- Turret activation is handled by state/hold; nothing on tap
-        Log.debug("Hotbar.activate: turret slot tapped", slotIndex)
     elseif slot.item == "shield" then
         -- Shield is handled via hold/toggle state
-        Log.debug("Hotbar.activate: shield slot tapped", slotIndex)
     end
 end
 

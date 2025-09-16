@@ -49,4 +49,20 @@ function Physics:setThruster(thruster, active)
     end
 end
 
+-- Get the current thruster state from the physics body
+function Physics:getThrusterState()
+    if self.body and self.body.thrusterState then
+        return self.body.thrusterState
+    end
+    return {
+        forward = 0,
+        reverse = 0,
+        strafeLeft = 0,
+        strafeRight = 0,
+        boost = 0,
+        brake = 0,
+        isThrusting = false
+    }
+end
+
 return Physics

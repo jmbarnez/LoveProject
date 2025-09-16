@@ -4,7 +4,6 @@ local Renderable = require("src.components.renderable")
 local TimedLife = require("src.components.timed_life")
 local Collidable = require("src.components.collidable")
 local WreckageComponent = require("src.components.wreckage")
-local LootContainer = require("src.entities.loot_container")
 
 local Wreckage = {}
 
@@ -148,7 +147,15 @@ function Wreckage.spawnFromEnemy(originPos, visuals, sizeScale)
     local py = oy + (math.random() - 0.5) * 40
     table.insert(pieces, newPiece(px, py, vx, vy, math.random() * math.pi * 2, angularVel, lifetime, visuals))
     if pieceLoot then
-      table.insert(pieces, LootContainer.new(px, py, pieceLoot, sizeScale))
+      for _, stack in ipairs(pieceLoot) do
+        local angle = math.random() * math.pi * 2
+        local dist = math.random(10, 30)
+        local lpx = px + math.cos(angle) * dist
+        local lpy = py + math.sin(angle) * dist
+        local ItemPickup = require("src.entities.item_pickup")
+        local pickup = ItemPickup.new(lpx, lpy, stack.id, stack.qty)
+        table.insert(pieces, pickup)
+      end
     end
   end
 

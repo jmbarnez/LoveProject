@@ -12,7 +12,8 @@ AI.INTELLIGENCE_LEVELS = {
         aggressiveness = 0.5,
         evasion = 0.3,
         packCoordination = false,
-        persistentHunting = false
+        persistentHunting = false,
+        retreatHealthPercent = 0.2,
     },
     STANDARD = {
         level = 2,
@@ -23,7 +24,8 @@ AI.INTELLIGENCE_LEVELS = {
         aggressiveness = 0.7,
         evasion = 0.6,
         packCoordination = true,
-        persistentHunting = true
+        persistentHunting = true,
+        retreatHealthPercent = 0.3,
     },
     ELITE = {
         level = 3,
@@ -34,7 +36,8 @@ AI.INTELLIGENCE_LEVELS = {
         aggressiveness = 0.9,
         evasion = 0.8,
         packCoordination = true,
-        persistentHunting = true
+        persistentHunting = true,
+        retreatHealthPercent = 0.4,
     },
     ACE = {
         level = 4,
@@ -45,7 +48,8 @@ AI.INTELLIGENCE_LEVELS = {
         aggressiveness = 1.0,
         evasion = 0.9,
         packCoordination = true,
-        persistentHunting = true
+        persistentHunting = true,
+        retreatHealthPercent = 0.5,
     }
 }
 
@@ -74,6 +78,11 @@ function AI.new(args)
     ai.wanderDir = math.random() * math.pi * 2
     ai.wanderSpeed = (args.wanderSpeed or 80)
     
+    -- Tactical timers and properties
+    ai.evadeTimer = 0
+    ai.repositionTimer = 0
+    ai.specialManeuverTimer = 0
+
     return ai
 end
 

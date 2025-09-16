@@ -38,6 +38,49 @@ local function shapeExtent(shape, size)
     return 0
 end
 
+local function computeVisualRadius(entity)
+    local renderable = entity.components.renderable
+    if not renderable or not renderable.props or not renderable.props.visuals then
+        return 0
+    end
+    local visuals = renderable.props.visuals
+    local size = (visuals.size or 1.0)
+    local maxExtent = 0
+
+    -- Handle visuals as direct array of shapes (warp gates) or object with .shapes
+    local shapes = visuals
+    if type(visuals) == "table" and visuals.shapes then
+        shapes = visuals.shapes
+    end
+
+    -- Check for explicit radius (e.g., planets)
+    if visuals.radius then
+        maxExtent = math.max(maxExtent, visuals.radius * size)
+    end
+    if visuals.ringOuter then
+        maxExtent = math.max(maxExtent, visuals.ringOuter * size)
+    end
+
+    -- Compute from shapes if present (stations, asteroids, warp gates)
+    if shapes and type(shapes) == "table" then
+        for _, shape in ipairs(shapes) do
+            if shape then
+                maxExtent = math.max(maxExtent, shapeExtent(shape, size))
+            end
+        end
+    end
+
+    -- For asteroids with vertices
+    if visuals.vertices then
+        for _, vertex in ipairs(visuals.vertices) do
+            local vx, vy = vertex[1] or 0, vertex[2] or 0
+            maxExtent = math.max(maxExtent, math.sqrt(vx*vx + vy*vy) * size)
+        end
+    end
+
+    return maxExtent
+end
+
 local function computeShieldRadius(entity)
     local renderable = entity.components.renderable
     if renderable and renderable.props and renderable.props.visuals then
@@ -93,15 +136,20 @@ function Radius.calculateEffectiveRadius(entity)
         return (entity.components.collidable.radius or baseRadius) + hitBuffer
     end
 
+    -- Compute visual radius for broad-phase culling (covers large renderables like planets/stations/asteroids)
+    local visualRadius = computeVisualRadius(entity)
+    local effectiveVisual = math.max(baseRadius, visualRadius)
+
     -- Use expanded, visually-accurate shield radius if entity has shields
     if entity.components.health and (entity.components.health.shield or 0) > 0 then
         local shieldRadius = computeShieldRadius(entity)
-        return (shieldRadius > 0 and shieldRadius or baseRadius) + hitBuffer
+        return math.max(effectiveVisual, (shieldRadius > 0 and shieldRadius or baseRadius)) + hitBuffer
     else
         -- When shields are gone, collide against visual hull extent
         local hullRadius = computeHullRadius(entity)
-        return (hullRadius > 0 and hullRadius or baseRadius) + hitBuffer
+        return math.max(effectiveVisual, (hullRadius > 0 and hullRadius or baseRadius)) + hitBuffer
     end
 end
 
+Radius.computeVisualRadius = computeVisualRadius
 return Radius

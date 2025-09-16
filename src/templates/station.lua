@@ -12,6 +12,7 @@ Station.__index = Station
 function Station.new(x, y, config)
     local self = setmetatable({}, Station)
     self.tag = "station"
+    self.isStation = true
 
     self.components = {
         position = Position.new({ x = x, y = y }),
@@ -21,12 +22,9 @@ function Station.new(x, y, config)
         }
     }
 
-    if config.id == "hub_station" or config.id == "processing_station" or config.id == "beacon_station" then
-        -- Set up station collidable based on config (polygon for structure)
-        if config.collidable then
-            self.components.collidable = Collidable.new(config.collidable)
-        end
-
+    if config.id == "hub_station" or config.id == "beacon_station" then
+        -- No collidable for stations (no physics collisions, handled by visuals for rendering culling)
+  
         -- Store shield radius for zones (weapons disable, docking, amber ring)
         self.radius = ModelUtil.calculateModelWidth(config.visuals)
         self.shieldRadius = self.radius / 2
@@ -62,18 +60,6 @@ function Station.new(x, y, config)
                 print("Beacon station config.repairable is false/nil!")
             end
         end
-
-        -- Give the station a massive shield so impacts light up the bubble
-        -- without making the station destructible.
-        local stationHealth = config.id == "hub_station" and 1000000000 or 500000000
-        self.components.health = Health.new({
-            hp = stationHealth,
-            maxHP = stationHealth,
-            shield = stationHealth,
-            maxShield = stationHealth,
-            energy = 0,
-            maxEnergy = 0,
-        })
 
         self.components.renderable = Renderable.new("station", {
             visuals = config.visuals

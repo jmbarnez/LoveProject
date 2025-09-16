@@ -14,28 +14,23 @@ function WarpGateTemplate.new(x, y, config)
     self.tag = "warp_gate"
     self.name = config.name or "Warp Gate"
 
-    -- Determine visuals for this gate (from config or default design)
+    -- More realistic warp gate visuals: toroidal ring with supports and energy core
     local visuals = config.visuals or {
-        {
-            type = "circle",
-            radius = 400,
-            color = {0.2, 0.8, 1.0, 0.8},
-            fill = false,
-            line_width = 3
-        },
-        {
-            type = "circle",
-            radius = 300,
-            color = {0.4, 0.9, 1.0, 0.6},
-            fill = false,
-            line_width = 2
-        },
-        {
-            type = "circle",
-            radius = 200,
-            color = {0.6, 1.0, 1.0, 0.4},
-            fill = true
-        }
+        -- Outer structural ring (toroidal)
+        { type = "ellipse", mode = "line", color = {0.3, 0.3, 0.4, 0.8}, x = 0, y = 0, rx = 500, ry = 100, line_width = 4 },
+        -- Ring supports/arches
+        { type = "line", mode = "line", color = {0.4, 0.4, 0.5, 0.9}, points = {-450, -80, -450, 80}, line_width = 3 },
+        { type = "line", mode = "line", color = {0.4, 0.4, 0.5, 0.9}, points = {450, -80, 450, 80}, line_width = 3 },
+        { type = "line", mode = "line", color = {0.4, 0.4, 0.5, 0.9}, points = {0, -100, 0, 100}, line_width = 3 }, -- Vertical support
+        -- Inner energy portal ring
+        { type = "ellipse", mode = "line", color = {0.2, 0.8, 1.0, 0.7}, x = 0, y = 0, rx = 300, ry = 80, line_width = 2 },
+        -- Central energy core/vortex
+        { type = "circle", mode = "fill", color = {0.1, 0.6, 1.0, 0.6}, x = 0, y = 0, r = 150 },
+        -- Emitters on ring
+        { type = "circle", mode = "fill", color = {1.0, 1.0, 0.5, 0.9}, x = 400, y = 0, r = 20 },
+        { type = "circle", mode = "fill", color = {1.0, 1.0, 0.5, 0.9}, x = -400, y = 0, r = 20 },
+        { type = "circle", mode = "fill", color = {1.0, 1.0, 0.5, 0.9}, x = 0, y = 300, r = 20 },
+        { type = "circle", mode = "fill", color = {1.0, 1.0, 0.5, 0.9}, x = 0, y = -300, r = 20 }
     }
 
     -- Compute interaction radius from the visual design (outermost ring)
@@ -76,15 +71,7 @@ function WarpGateTemplate.new(x, y, config)
         self.components.renderable = Renderable.new(renderConfig.type, renderConfig.props)
     end
 
-    -- Add collision for interaction detection
-    if config.collidable ~= false then
-        local collisionConfig = {
-            type = "circle",
-            radius = effectiveRange,
-            isSensor = true -- Non-blocking collision for interaction detection
-        }
-        self.components.collidable = Collidable.new(collisionConfig)
-    end
+    -- No collidable for warp gates (no physics collisions, interaction via distance checks)
 
     -- Add interaction component for tooltip/UI hints
     self.components.interactable = {

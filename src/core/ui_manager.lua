@@ -10,7 +10,6 @@ local Notifications = require("src.ui.notifications")
 local SkillsPanel = require("src.ui.skills")
 local Map = require("src.ui.map")
 local SettingsPanel = require("src.ui.settings_panel")
-local HackMinigame = require("src.ui.hack_minigame")
 local Warp = require("src.ui.warp")
 
 -- Normalize potentially-broken modules (protect against empty/incomplete inventory module)
@@ -41,10 +40,9 @@ UIManager.state = {
   skills = { open = false, zIndex = 35 },
   map = { open = false, zIndex = 90 }, -- Map should be high priority but below escape
   warp = { open = false, zIndex = 95 }, -- Warp should be high priority but below escape
-  settings = { open = false, zIndex = 110 }, -- Settings panel should be on top of escape
-  hackMinigame = { open = false, zIndex = 120 }, -- Hack minigame should be on top of everything
+  settings = { open = false, zIndex = 110 } -- Settings panel should be on top of escape
 }
-UIManager.topZ = 120
+UIManager.topZ = 110
 
 -- UI priorities for proper layering
 UIManager.layerOrder = {
@@ -55,8 +53,7 @@ UIManager.layerOrder = {
   "map",
   "warp",
   "escape",
-  "settings",
-  "hackMinigame"
+  "settings"
 }
 
 -- Modal state - when true, blocks input to lower layers
@@ -92,13 +89,10 @@ function UIManager.update(dt, player)
   UIManager.state.map.open = Map.isVisible()
   UIManager.state.warp.open = warpInstance.visible or false
   UIManager.state.settings.open = SettingsPanel.visible or false
-  UIManager.state.hackMinigame.open = HackMinigame.visible or false
   
   -- Update modal state
-  UIManager.modalActive = UIManager.state.escape.open or UIManager.state.map.open or UIManager.state.warp.open or SettingsPanel.visible or UIManager.state.hackMinigame.open
-  if UIManager.state.hackMinigame.open then
-    UIManager.modalComponent = "hackMinigame"
-  elseif SettingsPanel.visible then
+  UIManager.modalActive = UIManager.state.escape.open or UIManager.state.map.open or UIManager.state.warp.open or SettingsPanel.visible
+  if SettingsPanel.visible then
     UIManager.modalComponent = "settings"
   elseif UIManager.state.escape.open then
     UIManager.modalComponent = "escape"
@@ -118,7 +112,6 @@ function UIManager.update(dt, player)
   if EscapeMenu.update then EscapeMenu.update(dt) end
   if Map.update then Map.update(dt, player) end
   if warpInstance.update then warpInstance:update(dt) end
-  if HackMinigame.update then HackMinigame.update(dt) end
 end
 
 -- Returns true if the mouse is currently over any visible UI component
@@ -202,13 +195,13 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
     elseif component == "skills" then
       SkillsPanel.draw()
     elseif component == "map" then
-      local asteroids = world and world:getEntitiesWithComponents("mineable") or {}
-      local wrecks = world and world:getEntitiesWithComponents("wreckage") or {}
+      local asteroids = world and world:get_entities_with_components("mineable") or {}
+      local wrecks = world and world:get_entities_with_components("wreckage") or {}
       local stations = {}
 
       -- Collect all stations from world
       if world then
-        local worldStations = world:getEntitiesWithComponents("station") or {}
+        local world_stations = world:get_entities_with_components("station") or {}
         for _, station in ipairs(worldStations) do
           table.insert(stations, station)
         end
@@ -226,8 +219,6 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
       Map.draw(player, world, enemies, asteroids, wrecks, stations, lootDrops, remotePlayers)
     elseif component == "warp" then
       warpInstance:draw()
-    elseif component == "hackMinigame" then
-      HackMinigame.draw()
     end
   end
   
@@ -419,8 +410,6 @@ function UIManager.mousepressed(x, y, button)
       handled = SettingsPanel.mousepressed(x, y, button)
     elseif component == "warp" and warpInstance.mousepressed then
       handled = warpInstance:mousepressed(x, y, button)
-    elseif component == "hackMinigame" and HackMinigame.mousepressed then
-      handled = HackMinigame.mousepressed(x, y, button)
     end
     
     -- If handled, stop processing
@@ -489,16 +478,9 @@ end
 function UIManager.keypressed(key, scancode, isrepeat)
   -- Check for global hotkeys first
   if key == "escape" then
-    -- Priority order: hack minigame > escape menu > docked UI > other modals
+    -- Priority order: escape menu > docked UI > other modals
 
-    -- If hack minigame is open, let it handle escape first
-    if UIManager.state.hackMinigame.open and HackMinigame.keypressed then
-      if HackMinigame.keypressed(key, scancode, isrepeat) then
-        return true
-      end
-    end
-
-    -- If escape menu is open, let it handle the keypress internally.
+    -- Check escape menu is open, let it handle the keypress internally.
     -- This allows it to close the settings panel without closing itself.
     if UIManager.state.escape.open and EscapeMenu.keypressed(key, scancode, isrepeat) then
       return true
@@ -555,8 +537,6 @@ function UIManager.keypressed(key, scancode, isrepeat)
         handled = warpInstance:keypressed(key, scancode, isrepeat)
       elseif component == "escape" and EscapeMenu.keypressed then
         handled = EscapeMenu.keypressed(key, scancode, isrepeat)
-      elseif component == "hackMinigame" and HackMinigame.keypressed then
-        handled = HackMinigame.keypressed(key, scancode, isrepeat)
       end
       
       if handled then

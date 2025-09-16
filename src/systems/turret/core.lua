@@ -92,6 +92,7 @@ function Turret:update(dt, target, locked, world)
     if locked then
         self.firing = false
         self.currentTarget = nil
+        self.beamActive = false
         return
     end
 

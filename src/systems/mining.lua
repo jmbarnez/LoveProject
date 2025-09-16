@@ -8,7 +8,7 @@ local MiningSystem = {}
 -- Updates mining progress on all mineable entities being mined.
 -- Yields resources to the player every N cycles.
 function MiningSystem.update(dt, world, player)
-    local entities = world:getEntitiesWithComponents("mineable")
+    local entities = world:get_entities_with_components("mineable")
     for _, e in ipairs(entities) do
         local m = e.components and e.components.mineable
         if m and m.isBeingMined and (m.resources or 0) > 0 then

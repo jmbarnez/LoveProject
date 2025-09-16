@@ -8,6 +8,7 @@ local SettingsPanel = require("src.ui.settings_panel")
 local Settings = require("src.core.settings")
 local Sound = require("src.core.sound")
 local Effects = require("src.systems.effects")
+local DebugPanel = require("src.ui.debug_panel")
 
 local UIManager
 local screen = "start"
@@ -46,11 +47,14 @@ function love.load()
   math.randomseed(os.time())
   Settings.load()
   Sound.applySettings()
-  -- During debugging enable verbose output so Log.debug() calls are visible
+  
+  -- Enable debug logging with a whitelist that includes our debug messages
   local Log = require("src.core.log")
   Log.setLevel("debug")
-  -- Only allow debug lines from our input/hotbar checks to reduce noise
-  Log.setDebugWhitelist({"Input.keypressed", "Input.keypressed:", "Hotbar.keypressed", "Hotbar key compare", "Hotbar:", "KeymapDump", "KeymapReset"})
+  -- Temporarily disable whitelist to see all debug logs
+  Log.setDebugWhitelist(nil)  -- This will show all debug logs
+  Log.info("Debug logging enabled - showing all debug messages")
+  Log.info("Debug logging enabled with whitelist")
   -- Disable INFO level messages during debugging to avoid overlay clutter
   Log.setInfoEnabled(false)
   -- One-time dump of the active keymap so we can see what's bound to hotbar_X
@@ -107,6 +111,9 @@ function love.update(dt)
     lastFrameTime = love.timer.getTime()
   end
   
+  -- Update debug panel
+  DebugPanel.update(dt)
+  
   if screen == "start" then
     if startScreen and startScreen.update then
       startScreen:update(dt)
@@ -117,6 +124,8 @@ function love.update(dt)
 end
 
 function love.draw()
+  local drawStart = love.timer.getTime()
+  
   Viewport.begin()
   love.graphics.setFont(require("src.core.theme").fonts.normal)
   if screen == "start" then
@@ -126,11 +135,24 @@ function love.draw()
   end
   Effects.draw()
   Viewport.finish()
+  
+  -- Calculate and set draw time (in ms)
+  local drawTime = (love.timer.getTime() - drawStart) * 1000
+  DebugPanel.setRenderStats(drawTime)
+  
+  -- Draw debug panel last so it's always on top
+  DebugPanel.draw()
 end
 
--- Delegate all input handling to the Input module
-function love.keypressed(...)
-  Input.love_keypressed(...)
+-- Handle debug panel input first, then delegate to Input module
+function love.keypressed(key, scancode, isrepeat)
+  -- Let debug panel handle F1 and its own input
+  if DebugPanel.keypressed(key) then
+    return
+  end
+  
+  -- Handle other input through the Input module
+  Input.love_keypressed(key, scancode, isrepeat)
 end
 
 function love.mousepressed(x, y, button)
@@ -149,6 +171,14 @@ function love.wheelmoved(...)
   Input.love_wheelmoved(...)
 end
 
-function love.textinput(...)
-  Input.love_textinput(...)
+function love.textinput(text)
+  -- Let debug panel handle text input first
+  if DebugPanel.textinput and DebugPanel.textinput(text) then
+    return
+  end
+  
+  -- Pass to input module
+  if Input.love_textinput then
+    Input.love_textinput(text)
+  end
 end

@@ -7,6 +7,7 @@ local StateManager = require("src.managers.state_manager")
 local World = require("src.core.world")
 local AuroraTitle = require("src.shaders.aurora_title")
 local Sound = require("src.core.sound")
+local SettingsPanel = require("src.ui.settings_panel")
 
 local Start = {}
 Start.__index = Start
@@ -35,6 +36,13 @@ local startScreenHandler = function(self, x, y, button)
     love.event.quit()
   end) then
     return false -- exit game
+  end
+
+  -- Settings button click
+  if Theme.handleButtonClick(self.settingsButton, x, y, function()
+    SettingsPanel.visible = true
+  end) then
+    return false -- show settings
   end
 
   -- Start button click
@@ -117,11 +125,11 @@ function Start.new()
   self.multiplayerButton = { x = 0, y = 0, w = 260, h = 40 }
   self.loadButton = { x = 0, y = 0, w = 260, h = 40 }
   self.exitButton = { x = 0, y = 0, w = 260, h = 40 }
+  self.settingsButton = { x = 0, y = 0, w = 260, h = 40 }
   self.multiplayerMenu = MultiplayerMenu.new()
   self.loadSlotsUI = SaveSlots:new()
   self.loadSlotsUI:setMode("load")
   self.showLoadUI = false
-  self.nebulaCanvas = World.buildNebulaCanvas(self.w, self.h, 12345)
   -- Cache large title font (Press Start 2P)
   self.titleFont = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", 80)
   -- Aurora title shader
@@ -138,7 +146,6 @@ function Start:resize(w, h)
   self.layers[2].stars = genScreenStars(self.w, self.h, math.floor(80  * math.max(1, scale)))
   self.comets = genComets(self.w, self.h, math.floor(2 * math.max(1, scale)))
   self.twinkles = genTwinkles(self.w, self.h, math.floor(50 * math.max(1, scale)))
-  self.nebulaCanvas = World.buildNebulaCanvas(self.w, self.h, 12345)
 end
 
 local function uiScale()
@@ -150,6 +157,7 @@ function Start:update(dt)
   if self.multiplayerMenu then
     self.multiplayerMenu:update(dt)
   end
+  SettingsPanel.update(dt)
 end
 
 function Start:draw()
@@ -159,12 +167,6 @@ function Start:draw()
   -- Enhanced space background with theme colors
   Theme.setColor(Theme.colors.bg0)
   love.graphics.rectangle('fill', 0, 0, w, h)
-
-  -- Draw nebula background
-  if self.nebulaCanvas then
-    love.graphics.setColor(1,1,1,1)
-    love.graphics.draw(self.nebulaCanvas, 0, 0)
-  end
 
   -- Draw Title
   local titleFont = self.titleFont
@@ -194,8 +196,8 @@ function Start:draw()
     love.graphics.setColor(r, g, b, 1)
     love.graphics.printf(titleText, titleX, titleY, textWidth, "center")
   end
-  -- Use theme font instead of default Love font
-  love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
+  -- Use smaller theme font for menu items
+  love.graphics.setFont(Theme.fonts and (Theme.fonts.small or Theme.fonts.normal) or love.graphics.getFont())
 
   -- Animated star field with theme integration
   for i = 1, #self.sky do
@@ -313,9 +315,16 @@ function Start:draw()
   local mhover = mx >= mbx and mx <= mbx + bw and my >= mby and my <= mby + bh
 Theme.drawStyledButton(mbx, mby, bw, bh, 'MULTIPLAYER', mhover, t, nil, false, { compact = true })
 
+  -- Settings button
+  local settingsX = bx
+  local settingsY = mby + bh + 20 * s
+  self.settingsButton._rect = { x = settingsX, y = settingsY, w = bw, h = bh }
+  local settingsHover = mx >= settingsX and mx <= settingsX + bw and my >= settingsY and my <= settingsY + bh
+  Theme.drawStyledButton(settingsX, settingsY, bw, bh, 'SETTINGS', settingsHover, t, nil, false, { compact = true })
+
 -- Exit Game button
 local exitX = bx
-local exitY = mby + bh + 20 * s
+local exitY = settingsY + bh + 20 * s
 self.exitButton._rect = { x = exitX, y = exitY, w = bw, h = bh }
 local exitHover = mx >= exitX and mx <= exitX + bw and my >= exitY and my <= exitY + bh
 
@@ -353,6 +362,8 @@ Theme.drawStyledButton(exitX, exitY, bw, bh, 'EXIT GAME', exitHover, t, Theme.co
   elseif self.multiplayerMenu then
     self.multiplayerMenu:draw()
   end
+
+  SettingsPanel.draw()
   
   -- Version number in bottom right
   Theme.setColor(Theme.colors.textSecondary)
@@ -411,13 +422,19 @@ function Start:mousepressed(x, y, button)
     end
   end
   
+  if SettingsPanel.mousepressed(x, y, button) then
+    return false
+  end
+
   return startScreenHandler(self, x, y, button)
 end
 
 function Start:mousereleased(x, y, button)
+  SettingsPanel.mousereleased(x, y, button)
 end
 
 function Start:mousemoved(x, y, dx, dy)
+  SettingsPanel.mousemoved(x, y, dx, dy)
 end
 
 function Start:keypressed(key)
@@ -434,6 +451,10 @@ function Start:keypressed(key)
 
     if self.multiplayerMenu and self.multiplayerMenu:keypressed(key) then
         return true
+    end
+
+    if SettingsPanel.keypressed(key) then
+      return true
     end
     return false
 end

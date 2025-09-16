@@ -5,6 +5,7 @@ local Config = require("src.content.config")
 local Input = require("src.core.input")
 local HotbarSystem = require("src.systems.hotbar")
 local WarpGateSystem = require("src.systems.warp_gate_system")
+local Log = require("src.core.log")
 
 local PlayerSystem = {}
 
@@ -20,7 +21,27 @@ end
 
 function PlayerSystem.update(dt, player, input, world, hub)
     if not player or player.docked then return end
+    
+    -- Call the player's update method if it exists
+    if type(player.update) == "function" then
+        player:update(dt, world, function(projectile) 
+            world:addEntity(projectile) 
+        end)
+    end
+    
+    -- Engine effects are now updated after physics in game.lua to avoid thruster state reset issues
 
+    -- Initialize thruster state if not present
+    player.thrusterState = player.thrusterState or {
+        forward = 0,
+        reverse = 0,
+        strafeLeft = 0,
+        strafeRight = 0,
+        boost = 0,
+        brake = 0,
+        isThrusting = false
+    }
+    
     -- Initialize warp-related flags
     player.canWarp = player.canWarp or false
     player.wasInWarpRange = player.wasInWarpRange or false
@@ -33,14 +54,14 @@ function PlayerSystem.update(dt, player, input, world, hub)
     local ppos = player.components.position
     local body = player.components.physics and player.components.physics.body
     
-    -- Initialize thrust state tracking for visual effects
-    player.thrusterState = player.thrusterState or {}
-    player.thrusterState.forward = 0      -- W key thrust toward cursor
+    -- Reset thrust state tracking for visual effects
+    player.thrusterState.forward = 0      -- W key thrust forward
     player.thrusterState.reverse = 0      -- S key reverse thrust  
     player.thrusterState.strafeLeft = 0   -- A key strafe left
     player.thrusterState.strafeRight = 0  -- D key strafe right
     player.thrusterState.boost = 0        -- Boost multiplier effect
     player.thrusterState.brake = 0        -- Space key braking
+    player.thrusterState.isThrusting = false  -- Overall thrusting state
     
     if not body then return end
     -- Face the mouse cursor with smooth, high-turn-rate tracking
@@ -122,12 +143,26 @@ function PlayerSystem.update(dt, player, input, world, hub)
         body.vx = newVx
         body.vy = newVy
 
-        -- Thruster state for VFX
-        player.thrusterState.forward = (iy < 0) and 1.0 or 0
-        player.thrusterState.reverse = (iy > 0) and 0.7 or 0
-        player.thrusterState.strafeLeft = (ix < 0) and 0.8 or 0
-        player.thrusterState.strafeRight = (ix > 0) and 0.8 or 0
     end
+    
+    -- Update thruster state based on input
+    if w then 
+        player.thrusterState.forward = 1.0
+        player.thrusterState.isThrusting = true
+    end
+    if s then 
+        player.thrusterState.reverse = 0.7
+        player.thrusterState.isThrusting = true
+    end
+    if a then 
+        player.thrusterState.strafeLeft = 0.8
+        player.thrusterState.isThrusting = true
+    end
+    if d then 
+        player.thrusterState.strafeRight = 0.8
+        player.thrusterState.isThrusting = true
+    end
+    
 
     -- Boost multiplies thrust power when active
     -- (Boost effect is already applied above by increasing thrust power)
@@ -361,8 +396,6 @@ function PlayerSystem.update(dt, player, input, world, hub)
             end
 
             -- Debug: log hotbar/turret gating decisions
-            local Log = require("src.core.log")
-            Log.debug("PlayerSystem: turret slot check", "slot=", tostring(slot.slot), "action=", tostring(actionName), "Hotbar.isActive=", tostring(perSlotActive), "Hotbar.stateEntry=", tostring((HotbarSystem and HotbarSystem.state and HotbarSystem.state.active and HotbarSystem.state.active.turret_slots and HotbarSystem.state.active.turret_slots[slot.slot]) or nil), "turret.enabled=", tostring(slot.enabled), "allow=", tostring(allow), "isUtility=", tostring(isUtility), "canFire=", tostring(canFire))
 
             -- Special case: allow missiles to fire when locked onto a target
             if isMissile and missileLockFire then
@@ -373,6 +406,7 @@ function PlayerSystem.update(dt, player, input, world, hub)
         end
     end
 
+    
 end
 
 return PlayerSystem

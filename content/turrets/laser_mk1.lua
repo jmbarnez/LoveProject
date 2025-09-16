@@ -28,14 +28,14 @@ return {
   -- Superior at long range with excellent precision
   optimal = 1200, falloff = 600, tracking = 0.85, sigRes = 80,
   damage_range = { min = 1, max = 2 },
-  cycle = 2.0, capCost = 15, turnRate = 3.5,
+  cycle = 0.5, capCost = 5, turnRate = 3.5,  -- Faster cycle time, lower energy cost
   spread = { minDeg = 0.1, maxDeg = 0.3, decay = 800 }, -- Very precise
-  maxRange = 1500, -- Hard cap: full accuracy up to this distance (lasers are hitscan, so this is visual only)
-  -- Overheating parameters (lasers run hot)
-  maxHeat = 80, -- Lower heat capacity than guns
-  heatPerShot = 25, -- High heat per shot
-  cooldownRate = 20, -- Faster heat dissipation
-  overheatDuration = 4.0, -- Longer disable time due to energy systems
-  heatCycleMult = 0.5, -- Much slower firing when hot
-  heatEnergyMult = 1.8 -- Significant energy cost increase
+  maxRange = 1500, -- Hard cap: full accuracy up to this distance
+  -- Overheating parameters (reduced to allow more frequent firing)
+  maxHeat = 100, -- Increased heat capacity
+  heatPerShot = 10, -- Reduced heat per shot
+  cooldownRate = 30, -- Faster heat dissipation
+  overheatDuration = 2.0, -- Shorter disable time
+  heatCycleMult = 0.8, -- Less slowdown when hot
+  heatEnergyMult = 1.2 -- Reduced energy cost increase when hot
 }

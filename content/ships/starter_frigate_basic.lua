@@ -15,8 +15,8 @@ return {
       { type = "polygon", mode = "fill", color = {0.20,0.22,0.28,1}, points = { 10,12,  6,10,  8,14 } },
       { type = "polygon", mode = "fill", color = {0.20,0.22,0.28,1}, points = { 10,20,  8,18,  6,22 } },
       -- Engine glow dots
-      { type = "circle", mode = "fill", color = {0.95,0.55,0.15,0.9}, x = 8, y = 14, r = 1 },
-      { type = "circle", mode = "fill", color = {1.00,0.80,0.20,0.9}, x = 8, y = 18, r = 1 },
+      { type = "circle", mode = "fill", color = {0.0,1.0,1.0,0.9}, x = 8, y = 14, r = 1 },
+      { type = "circle", mode = "fill", color = {0.2,0.8,1.0,0.9}, x = 8, y = 18, r = 1 },
       -- Outline
       { type = "polygon", mode = "line", color = {0.35,0.75,1.0,0.9}, points = { 6,16,  14,10,  22,16,  14,22 } }
     }
@@ -35,7 +35,8 @@ return {
     size = 1.2, -- half previous size for sleeker feel
     hullColor = {0.24, 0.26, 0.32, 1.0},
     panelColor = {0.20, 0.22, 0.28, 1.0},
-    accentColor = {0.15, 0.55, 0.95, 0.9},
+    accentColor = {0.0, 1.0, 1.0, 0.9},
+    engineColor = {0.0, 1.0, 1.0},
     shapes = {
       -- Arrow hull (faces +X): diamond core
       { type = "polygon", mode = "fill", color = {0.24,0.26,0.32,1.0}, points = { -18,0,  6,-12,  24,0,  6,12 } },
@@ -51,8 +52,8 @@ return {
       { type = "rectangle", mode = "fill", color = {0.18,0.20,0.26,1.0}, x = -20, y = -6, w = 6, h = 5 },
       { type = "rectangle", mode = "fill", color = {0.18,0.20,0.26,1.0}, x = -20, y = 1,  w = 6, h = 5 },
       -- Warm engine glow (matches warp streak colors)
-      { type = "circle", mode = "fill", color = {1.00,0.80,0.20,0.9}, x = -18, y = -4, r = 2 },
-      { type = "circle", mode = "fill", color = {1.00,0.55,0.12,0.9}, x = -18, y = 3,  r = 2 },
+      { type = "circle", mode = "fill", color = {0.0,1.0,1.0,0.9}, x = -18, y = -4, r = 2 },
+      { type = "circle", mode = "fill", color = {0.2,0.8,1.0,0.9}, x = -18, y = 3,  r = 2 },
 
       -- Cockpit
       { type = "circle", mode = "fill", color = {0.15, 0.95, 0.85, 0.25}, x = 4, y = 0, r = 4 },

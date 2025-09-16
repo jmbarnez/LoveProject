@@ -35,7 +35,7 @@ function Collector.update(dt, world, player)
   local py = player.components.position.y
 
   -- Select target: keep current if valid; otherwise find nearest within radius
-  local containers = world:getEntitiesWithComponents("lootContainer", "position")
+  local containers = world:get_entities_with_components("lootContainer", "position")
   local target = nil
   for _, c in ipairs(containers) do
     if not c.dead then

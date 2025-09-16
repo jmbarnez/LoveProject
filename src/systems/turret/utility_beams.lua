@@ -193,7 +193,7 @@ function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, w
     local bestDistance = math.huge
     local bestHitX, bestHitY = endX, endY
 
-    local entities = world:getEntitiesWithComponents("collidable", "position")
+    local entities = world:get_entities_with_components("collidable", "position")
 
     for _, entity in ipairs(entities) do
         if entity ~= turret.owner and not entity.dead then
@@ -225,7 +225,7 @@ function UtilityBeams.performSalvageHitscan(startX, startY, endX, endY, turret, 
     local bestDistance = math.huge
     local bestHitX, bestHitY = endX, endY
 
-    local entities = world:getEntitiesWithComponents("collidable", "position")
+    local entities = world:get_entities_with_components("collidable", "position")
 
     for _, entity in ipairs(entities) do
         if entity ~= turret.owner and not entity.dead then

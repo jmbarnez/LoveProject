@@ -30,9 +30,9 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
         local vx = math.cos(angle) * projSpeed
         local vy = math.sin(angle) * projSpeed
 
-        -- Use world's spawnProjectile function to avoid circular dependency
-        if world and world.spawnProjectile then
-            world.spawnProjectile(sx, sy, angle, turret.owner.isPlayer or turret.owner.isFriendly, {
+        -- Use world's spawn_projectile function to avoid circular dependency
+        if world and world.spawn_projectile then
+            world.spawn_projectile(sx, sy, angle, turret.owner.isPlayer or turret.owner.isFriendly, {
                 projectile = projectileId,
                 vx = vx,
                 vy = vy,
@@ -83,9 +83,9 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         local vx = math.cos(angle) * projSpeed
         local vy = math.sin(angle) * projSpeed
 
-        -- Use world's spawnProjectile function to avoid circular dependency
-        if world and world.spawnProjectile then
-            world.spawnProjectile(sx, sy, angle, turret.owner.isPlayer or turret.owner.isFriendly, {
+        -- Use world's spawn_projectile function to avoid circular dependency
+        if world and world.spawn_projectile then
+            world.spawn_projectile(sx, sy, angle, turret.owner.isPlayer or turret.owner.isFriendly, {
                 projectile = projectileId,
                 vx = vx,
                 vy = vy,
@@ -135,9 +135,9 @@ function ProjectileWeapons.fireSecondaryProjectile(turret, target, primaryAngle,
         max = turret.damage_range.max
     } or {min = 1, max = 2}
 
-    -- Use world's spawnProjectile function to avoid circular dependency
-    if world and world.spawnProjectile then
-        world.spawnProjectile(sx, sy, angle, turret.owner.isPlayer or turret.owner.isFriendly, {
+    -- Use world's spawn_projectile function to avoid circular dependency
+    if world and world.spawn_projectile then
+        world.spawn_projectile(sx, sy, angle, turret.owner.isPlayer or turret.owner.isFriendly, {
             projectile = turret.secondaryProjectile.id or "missile",
             vx = vx,
             vy = vy,

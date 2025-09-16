@@ -106,11 +106,11 @@ end
 
 function RepairSystem.update(dt, player, world)
     -- Get all repairable entities
-    local repairableEntities = world:getEntitiesWithComponents("repairable")
+    local repairable_entities = world:get_entities_with_components("repairable")
 
     -- Debug: print repairable entities found
-    if #repairableEntities > 0 then
-        for _, entity in ipairs(repairableEntities) do
+    if #repairable_entities > 0 then
+        for _, entity in ipairs(repairable_entities) do
             if entity.components.repairable and entity.components.repairable.broken then
                 showRepairRequirements(entity, player)
             end

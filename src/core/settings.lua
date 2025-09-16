@@ -19,6 +19,7 @@ local Settings = {}
 
 local Log = require("src.core.log")
 
+local IconRenderer = require("src.content.icon_renderer")
 local settings = {
   graphics = {
         resolution = {
@@ -97,19 +98,45 @@ function Settings.getAvailableResolutions()
 end
 
 function Settings.applyGraphicsSettings(newSettings)
+    local oldSettings = settings.graphics
     settings.graphics = newSettings
-    love.window.setMode(
-        newSettings.resolution.width,
-        newSettings.resolution.height,
-        {
-            fullscreen = newSettings.fullscreen,
-            fullscreentype = newSettings.fullscreen_type,
-            vsync = newSettings.vsync,
-            resizable = true,
-            minwidth = 1024,
-            minheight = 576,
-        }
-    )
+    
+    -- Only change window mode if resolution or fullscreen settings changed
+    if not oldSettings or 
+       oldSettings.resolution.width ~= newSettings.resolution.width or
+       oldSettings.resolution.height ~= newSettings.resolution.height or
+       (oldSettings.fullscreen ~= newSettings.fullscreen) or
+       (oldSettings.fullscreen_type ~= newSettings.fullscreen_type) or
+       (oldSettings.vsync ~= newSettings.vsync) then
+        
+        love.window.setMode(
+            newSettings.resolution.width,
+            newSettings.resolution.height,
+            {
+                fullscreen = newSettings.fullscreen,
+                fullscreentype = newSettings.fullscreen_type,
+                vsync = newSettings.vsync,
+                resizable = true,
+                minwidth = 1024,
+                minheight = 576
+            }
+        )
+        
+        IconRenderer.clearCache()
+local Content = require("src.content.content")
+Content.rebuildIcons()
+        
+        -- Trigger a resize event to update UI elements
+        local success, err = pcall(function()
+            if love.handlers and love.handlers.resize then
+                love.handlers.resize(newSettings.resolution.width, newSettings.resolution.height)
+            end
+        end)
+        if not success and Log and Log.warn then
+            Log.warn("Failed to trigger resize event: " .. tostring(err))
+        end
+    end
+    
     -- Update FPS limit in main.lua if the function exists
     if _G.updateFPSLimit then
         _G.updateFPSLimit()
@@ -126,6 +153,15 @@ function Settings.applyAudioSettings(newSettings)
     local Sound = require("src.core.sound")
     if Sound and Sound.applySettings then
         Sound.applySettings()
+    end
+end
+
+function Settings.applySettings(graphicsSettings, audioSettings)
+    if graphicsSettings then
+        Settings.applyGraphicsSettings(graphicsSettings)
+    end
+    if audioSettings then
+        Settings.applyAudioSettings(audioSettings)
     end
 end
 

@@ -150,12 +150,6 @@ local function drawEntity(entity, mapX, mapY, mapW, mapH, world, entityType)
       love.graphics.circle("fill", sx, sy, 8)
       Theme.setColor(Theme.colors.success)
       love.graphics.circle("fill", sx, sy, 4)
-    elseif stationId == "processing_station" then
-      -- Processing station: green square with glow
-      Theme.setColor(Theme.withAlpha(Theme.colors.success, 0.4))
-      love.graphics.rectangle("fill", sx - 4, sy - 4, 8, 8)
-      Theme.setColor(Theme.colors.success)
-      love.graphics.rectangle("fill", sx - 2, sy - 2, 4, 4)
     elseif stationId == "beacon_station" then
       -- Beacon station: green diamond with glow
       Theme.setColor(Theme.withAlpha(Theme.colors.success, 0.4))
@@ -279,11 +273,6 @@ local function drawLegendIcon(x, y, iconType)
     love.graphics.circle("fill", x, y, 6)
     Theme.setColor(Theme.colors.success)
     love.graphics.circle("fill", x, y, 3)
-  elseif iconType == "processing_station" then
-    Theme.setColor(Theme.withAlpha(Theme.colors.success, 0.4))
-    love.graphics.rectangle("fill", x - 3, y - 3, 6, 6)
-    Theme.setColor(Theme.colors.success)
-    love.graphics.rectangle("fill", x - 1.5, y - 1.5, 3, 3)
   elseif iconType == "beacon_station" then
     Theme.setColor(Theme.withAlpha(Theme.colors.success, 0.4))
     love.graphics.polygon("fill", x, y - 4, x + 4, y, x, y + 4, x - 4, y)
@@ -352,7 +341,6 @@ local function drawLegend(mapX, mapY, mapW, mapH)
   local items = {
     {icon = "player", label = "You"},
     {icon = "hub_station", label = "Hub Station"},
-    {icon = "processing_station", label = "Processing Station"},
     {icon = "beacon_station", label = "Beacon Station"},
     {icon = "warp_gate", label = "Warp Gate"},
     {icon = "enemy", label = "Enemy"},
@@ -494,8 +482,8 @@ function Map.draw(player, world, enemies, asteroids, wrecks, stations, lootDrops
 
     -- Draw warp gates
     if world then
-      local warpGates = world:getEntitiesWithComponents("warp_gate")
-      for _, warpGate in ipairs(warpGates) do
+      local warp_gates = world:get_entities_with_components("warp_gate")
+      for _, warp_gate in ipairs(warp_gates) do
         if not warpGate.dead then
           drawEntity(warpGate, mapX, mapY, mapW, mapH, world, "warp_gate")
         end

@@ -2,126 +2,14 @@
 local RenderUtils = require("src.systems.render.utils")
 local Config = require("src.content.config")
 local ShieldEffects = require("src.systems.render.shield_effects")
+local Util = require("src.core.util")
+local Log = require("src.core.log")
 
 local PlayerRenderer = {}
 
--- Draw thruster effects based on current thrust state
-local function drawThrusterEffects(entity, size, time)
-    local thrusterState = entity.thrusterState
-    if not thrusterState then return end
-    
-    local S = RenderUtils.createScaler(size)
-    local shipRadius = S(20) -- Base ship radius, scales with size
-    
-    -- Calculate dynamic ship bounds for any ship size
-    local shipBounds = {
-        front = shipRadius * 0.8,   -- Front of ship
-        back = -shipRadius * 0.9,   -- Back of ship  
-        left = -shipRadius * 0.6,   -- Left side
-        right = shipRadius * 0.6    -- Right side
-    }
-    
-    local effectIntensity = 0.7
-    local boostMult = thrusterState.boost > 0 and 1.5 or 1.0
-    
-    -- Forward thrust effect (main engines at back of ship)
-    if thrusterState.forward > 0 then
-        local intensity = thrusterState.forward * effectIntensity * boostMult
-        local flicker = 0.8 + 0.2 * math.sin(time * 20)
-        
-        -- Main engine exhaust
-        RenderUtils.setColor({0.2, 0.6, 1.0, intensity * 0.6 * flicker})
-        love.graphics.circle("fill", shipBounds.back - S(8), 0, S(6))
-        
-        -- Engine glow
-        RenderUtils.setColor({0.4, 0.8, 1.0, intensity * 0.3})
-        love.graphics.circle("fill", shipBounds.back - S(12), 0, S(10))
-        
-        -- Exhaust trail particles
-        for i = 1, 3 do
-            local offset = i * S(6)
-            local alpha = intensity * (0.4 - i * 0.1) * flicker
-            RenderUtils.setColor({0.3, 0.7, 1.0, alpha})
-            love.graphics.circle("fill", shipBounds.back - offset, math.random(-S(2), S(2)), S(3))
-        end
-    end
-    
-    -- Reverse thrust effect (front maneuvering thrusters)
-    if thrusterState.reverse > 0 then
-        local intensity = thrusterState.reverse * effectIntensity * boostMult
-        local flicker = 0.8 + 0.2 * math.sin(time * 18)
-        
-        -- Small forward-facing thrusters
-        RenderUtils.setColor({1.0, 0.6, 0.2, intensity * 0.5 * flicker})
-        love.graphics.circle("fill", shipBounds.front + S(6), S(4), S(3))
-        love.graphics.circle("fill", shipBounds.front + S(6), S(-4), S(3))
-    end
-    
-    -- Left strafe thrust effect (right-side thrusters)
-    if thrusterState.strafeLeft > 0 then
-        local intensity = thrusterState.strafeLeft * effectIntensity * boostMult
-        local flicker = 0.8 + 0.2 * math.sin(time * 16)
-        
-        -- Right-side thrusters firing left
-        RenderUtils.setColor({1.0, 0.8, 0.2, intensity * 0.5 * flicker})
-        love.graphics.circle("fill", S(8), shipBounds.right + S(4), S(3))
-        love.graphics.circle("fill", S(-8), shipBounds.right + S(4), S(3))
-    end
-    
-    -- Right strafe thrust effect (left-side thrusters)
-    if thrusterState.strafeRight > 0 then
-        local intensity = thrusterState.strafeRight * effectIntensity * boostMult
-        local flicker = 0.8 + 0.2 * math.sin(time * 14)
-        
-        -- Left-side thrusters firing right
-        RenderUtils.setColor({1.0, 0.8, 0.2, intensity * 0.5 * flicker})
-        love.graphics.circle("fill", S(8), shipBounds.left - S(4), S(3))
-        love.graphics.circle("fill", S(-8), shipBounds.left - S(4), S(3))
-    end
-    
-    -- Boost effect (enhanced engine glow)
-    if thrusterState.boost > 0 then
-        local intensity = thrusterState.boost * 0.3
-        local pulse = 0.7 + 0.3 * math.sin(time * 8)
-        
-        -- Extra boost glow around main engines
-        RenderUtils.setColor({0.8, 0.9, 1.0, intensity * pulse})
-        love.graphics.circle("fill", shipBounds.back - S(6), 0, S(15))
-        
-        -- Boost particles
-        for i = 1, 2 do
-            local angle = (time * 4 + i * math.pi) % (2 * math.pi)
-            local x = shipBounds.back + math.cos(angle) * S(12)
-            local y = math.sin(angle) * S(8)
-            RenderUtils.setColor({0.6, 0.8, 1.0, intensity * 0.6})
-            love.graphics.circle("fill", x, y, S(2))
-        end
-    end
-    
-    -- Braking RCS thrusters (omnidirectional)
-    if thrusterState.brake > 0 then
-        local intensity = thrusterState.brake * 0.4
-        local flicker = 0.8 + 0.2 * math.sin(time * 25)
-        
-        -- Multiple small RCS thrusters firing in all directions
-        local rcsPositions = {
-            {shipBounds.front * 0.3, S(8)},      -- front-right
-            {shipBounds.front * 0.3, S(-8)},     -- front-left
-            {shipBounds.back * 0.3, S(8)},       -- back-right
-            {shipBounds.back * 0.3, S(-8)},      -- back-left
-            {S(8), shipBounds.right * 0.6},      -- side-right
-            {S(-8), shipBounds.left * 0.6}       -- side-left
-        }
-        
-        RenderUtils.setColor({1.0, 0.4, 0.1, intensity * 0.7 * flicker})
-        for _, pos in ipairs(rcsPositions) do
-            love.graphics.circle("fill", pos[1], pos[2], S(2))
-            -- Small exhaust trails
-            local trailLength = S(4)
-            love.graphics.circle("fill", pos[1] + math.random(-trailLength, trailLength), 
-                               pos[2] + math.random(-trailLength, trailLength), S(1))
-        end
-    end
+-- Empty function since thruster effects are now handled by the engine_trail component
+local function drawThrusterEffects()
+    -- All thruster effects have been moved to the engine_trail component system
 end
 
 -- Draw player ship with turret tracking
@@ -195,21 +83,50 @@ end
 
 -- Main player renderer function
 function PlayerRenderer.render(entity, playerRef)
+    if not entity or not entity.components or not entity.components.renderable then
+        Log.warn("PlayerRenderer: Invalid entity or missing components")
+        return
+    end
+    
+    local pos = entity.components.position
     local props = entity.components.renderable.props or {}
     local v = props.visuals or {}
     local size = v.size or 1.0
+    local S = RenderUtils.createScaler(size)
+    
+    -- Save current graphics state
+    love.graphics.push("all")
+    
+    -- Apply world transformation for player
+    love.graphics.translate(pos.x, pos.y)
+    love.graphics.rotate(pos.angle or 0)
     
     -- Draw main ship
     drawPlayerShip(entity, size)
     
-    -- Draw thruster effects based on movement input (optional)
-    if Config.RENDER and Config.RENDER.SHOW_THRUSTER_EFFECTS then
-        drawThrusterEffects(entity, size, love.timer.getTime())
-    end
+    -- Engine trails are now handled by the engine_trail component in entity_renderers.lua
     
     -- Show full shield bubble when inside station area or when channeling shields
     if entity.weaponsDisabled or entity.shieldChannel then
         ShieldEffects.drawShieldBubble(entity)
+    end
+    
+    -- Restore graphics state
+    love.graphics.pop()
+
+    -- Draw engine trail in world space if present
+    if entity.components and entity.components.engine_trail then
+        entity.components.engine_trail:draw()
+    end
+
+    -- Draw laser beams for player turrets
+    local TurretEffects = require("src.systems.turret.effects")
+    if entity.components and entity.components.equipment and entity.components.equipment.turrets then
+        for _, turretData in ipairs(entity.components.equipment.turrets) do
+            if turretData.turret and (turretData.turret.kind == "laser" or turretData.turret.kind == "mining_laser" or turretData.turret.kind == "salvaging_laser") and turretData.turret.beamActive then
+                TurretEffects.renderBeam(turretData.turret, entity.components.position.x, entity.components.position.y, turretData.turret.beamEndX, turretData.turret.beamEndY, turretData.turret.beamTarget)
+            end
+        end
     end
 end
 

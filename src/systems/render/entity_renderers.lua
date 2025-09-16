@@ -10,7 +10,7 @@ local EntityRenderers = {}
 -- Remote player renderer (uses player renderer with blue tint)
 function EntityRenderers.remote_player(entity, player)
     -- Use the player renderer with remote player modifications
-    PlayerRenderer.render(entity)
+    PlayerRenderer.render(entity, player)
     
     -- Add visual feedback for remote player
     local size = (entity.components.renderable.props and entity.components.renderable.props.visuals and entity.components.renderable.props.visuals.size) or 1.0
@@ -187,22 +187,26 @@ function EntityRenderers.planet(entity, player)
     end
 end
 
--- Item pickup renderer (small stone icon surrogate)
+-- Item pickup renderer (enhanced visibility: larger, brighter rock with glow)
 function EntityRenderers.item_pickup(entity, player)
     local props = entity.components.renderable.props or {}
-    local s = (props.sizeScale or 0.7) * 1.0
+    local s = (props.sizeScale or 0.7) * 1.5  -- Increase size for visibility
     local wob = math.sin(love.timer.getTime() * 6 + (entity.id or 0)) * 1.2
-    local size = 6 * s
-    -- Core rock
-    love.graphics.setColor(0.55, 0.55, 0.55, 0.95)
+    local size = 8 * s  -- Larger base size
+    -- Core rock with brighter silver color
+    love.graphics.setColor(0.7, 0.7, 0.8, 0.95)
     love.graphics.polygon('fill', -size, -size*0.2, -size*0.2, -size*0.8, size, -size*0.2, size*0.6, size*0.8, -size*0.6, size*0.6)
-    -- Outline
-    love.graphics.setColor(0.25, 0.25, 0.25, 0.9)
-    love.graphics.setLineWidth(1)
+    -- Stronger outline
+    love.graphics.setColor(0.4, 0.4, 0.5, 1.0)
+    love.graphics.setLineWidth(2)
     love.graphics.polygon('line', -size, -size*0.2, -size*0.2, -size*0.8, size, -size*0.2, size*0.6, size*0.8, -size*0.6, size*0.6)
-    -- Tiny wobble highlight
-    love.graphics.setColor(0.72, 0.72, 0.72, 0.7)
-    love.graphics.circle('fill', -size*0.2 + wob*0.1, -size*0.4 + wob*0.1, 1.2*s)
+    -- Enhanced wobble highlight with glow
+    love.graphics.setColor(0.9, 0.9, 1.0, 0.8)
+    love.graphics.circle('fill', -size*0.2 + wob*0.1, -size*0.4 + wob*0.1, 2.0*s)
+    -- Subtle outer glow
+    love.graphics.setColor(0.9, 0.9, 1.0, 0.3)
+    love.graphics.circle('fill', -size*0.2 + wob*0.1, -size*0.4 + wob*0.1, 3.0*s)
+    love.graphics.setLineWidth(1)
 end
 
 -- Asteroid renderer
@@ -621,8 +625,8 @@ function EntityRenderers.bullet(entity, player)
         love.graphics.setLineWidth(1)
         if love.graphics.setLineStyle then love.graphics.setLineStyle('rough') end
     else
-        local color = props.color or {1, 1, 1, 1}
-        local radius = props.radius or 2
+        local color = props.color or {0.35, 0.70, 1.00, 1.0}
+        local radius = props.radius or 1
         
         RenderUtils.setColor(color)
         love.graphics.circle("fill", 0, 0, radius)
@@ -733,7 +737,7 @@ function EntityRenderers.lootContainer(entity, player)
     end
 end
 
--- Warp Gate renderer - Unique hexagonal portal design
+-- Warp Gate renderer - Realistic toroidal portal design
 function EntityRenderers.warp_gate(entity, player)
     local warpGate = entity.components.warp_gate
     local visual = warpGate and warpGate:getVisualProperties() or {}
@@ -748,210 +752,211 @@ function EntityRenderers.warp_gate(entity, player)
     local r, g, b, a = love.graphics.getColor()
     local lineWidth = love.graphics.getLineWidth()
 
-    -- Unique hexagonal portal design
-    -- Derive radii from the gate's actual interaction range so visuals match gameplay
-    local baseR = (entity.components and entity.components.warp_gate and entity.components.warp_gate.interactionRange) or 500
-    local outerRadius = baseR
-    local middleRadius = math.max(50, math.floor(baseR * 0.7))
-    local innerRadius = math.max(30, math.floor(baseR * 0.4))
+    -- Realistic warp gate parameters
+    local outerRingRx = 500  -- Toroidal outer ring width
+    local outerRingRy = 120  -- Toroidal outer ring height (flattened)
+    local innerPortalRx = 300
+    local innerPortalRy = 80
+    local coreRadius = 150
+    local supportThickness = 8
+    local emitterSize = 25
 
-    -- Create hexagon vertices
-    local function createHexagon(radius, offsetAngle)
-        local vertices = {}
-        for i = 0, 5 do
-            local angle = (i / 6) * math.pi * 2 + (offsetAngle or 0)
-            table.insert(vertices, math.cos(angle) * radius)
-            table.insert(vertices, math.sin(angle) * radius)
-        end
-        return vertices
-    end
+    -- Central energy vortex parameters
+    local vortexLayers = 5
+    local vortexSpiralArms = 4
 
     love.graphics.push()
-    love.graphics.rotate(rotation * 0.3)
-
-    -- Outer hexagonal frame (structural)
-    local outerHex = createHexagon(outerRadius, 0)
-    if isActive then
-        -- Glowing outer frame
-        RenderUtils.setColor({0.1, 0.5, 1.0, 0.8 + glowIntensity * 0.2})
-        love.graphics.setLineWidth(6)
-        love.graphics.polygon("line", outerHex)
-
-        -- Inner glow effect
-        RenderUtils.setColor({0.3, 0.7, 1.0, 0.4 + glowIntensity * 0.3})
-        love.graphics.setLineWidth(3)
-        love.graphics.polygon("line", outerHex)
-
-        -- Corner nodes/connectors
-        for i = 0, 5 do
-            local angle = (i / 6) * math.pi * 2
-            local x = math.cos(angle) * outerRadius
-            local y = math.sin(angle) * outerRadius
-
-            -- Pulsing corner nodes
-            local nodeAlpha = 0.6 + glowIntensity * 0.4
-            RenderUtils.setColor({0.5, 0.9, 1.0, nodeAlpha})
-            love.graphics.circle("fill", x, y, 4)
-
-            -- Node glow
-            RenderUtils.setColor({0.7, 1.0, 1.0, nodeAlpha * 0.5})
-            love.graphics.circle("fill", x, y, 6)
-        end
-    else
-        -- Inactive outer frame
-        RenderUtils.setColor({0.3, 0.3, 0.3, 0.6})
-        love.graphics.setLineWidth(4)
-        love.graphics.polygon("line", outerHex)
-    end
-
-    love.graphics.pop()
-
-    -- Middle rotating energy ring
-    love.graphics.push()
-    love.graphics.rotate(-rotation * 0.8) -- Faster counter-rotation
-
-    local middleHex = createHexagon(middleRadius, math.pi / 6) -- Offset by 30 degrees
+    love.graphics.translate(0, 0)
+    love.graphics.rotate(rotation * 0.5)  -- Slow overall rotation
 
     if isActive then
-        -- Energy field hexagon
-        RenderUtils.setColor({0.4, 0.8, 1.0, 0.5 + glowIntensity * 0.3})
-        love.graphics.setLineWidth(3)
-        love.graphics.polygon("line", middleHex)
-
-        -- Energy traces between vertices
-        RenderUtils.setColor({0.6, 1.0, 1.0, 0.3 + glowIntensity * 0.4})
-        love.graphics.setLineWidth(1)
-        for i = 0, 5 do
-            local angle1 = (i / 6) * math.pi * 2 + math.pi / 6
-            local angle2 = ((i + 2) / 6) * math.pi * 2 + math.pi / 6 -- Skip one vertex
-            local x1 = math.cos(angle1) * middleRadius
-            local y1 = math.sin(angle1) * middleRadius
-            local x2 = math.cos(angle2) * middleRadius
-            local y2 = math.sin(angle2) * middleRadius
+        -- Outer structural toroidal ring (segmented for realism)
+        local ringSegments = 24
+        love.graphics.setLineWidth(5 * glowIntensity)
+        for i = 0, ringSegments - 1 do
+            local angle1 = (i / ringSegments) * math.pi * 2
+            local angle2 = ((i + 1) / ringSegments) * math.pi * 2
+            local midAngle = (angle1 + angle2) / 2
+            local x1 = math.cos(angle1) * outerRingRx
+            local y1 = math.sin(angle1) * outerRingRy
+            local x2 = math.cos(angle2) * outerRingRx
+            local y2 = math.sin(angle2) * outerRingRy
+            local glow = 0.3 + glowIntensity * 0.7
+            RenderUtils.setColor({0.25, 0.25, 0.35, glow})
             love.graphics.line(x1, y1, x2, y2)
         end
-    end
 
-    love.graphics.pop()
-
-    -- Inner warp core - diamond/star shape
-    love.graphics.push()
-    love.graphics.rotate(rotation * 1.2) -- Fast rotation
-
-    if isActive then
-        -- Core diamond/star
-        local coreColor = {0.7, 0.95, 1.0}
-        local coreAlpha = 0.6 + glowIntensity * 0.4
-
-        -- Create diamond shape
-        local diamond = {
-            0, -innerRadius,
-            innerRadius * 0.7, 0,
-            0, innerRadius,
-            -innerRadius * 0.7, 0
-        }
-
-        -- Filled diamond core
-        RenderUtils.setColor({coreColor[1], coreColor[2], coreColor[3], coreAlpha * 0.4})
-        love.graphics.polygon("fill", diamond)
-
-        -- Diamond outline
-        RenderUtils.setColor({coreColor[1], coreColor[2], coreColor[3], coreAlpha})
-        love.graphics.setLineWidth(2)
-        love.graphics.polygon("line", diamond)
-
-        -- Central star burst
-        RenderUtils.setColor({1.0, 1.0, 1.0, coreAlpha * 0.9})
-        love.graphics.setLineWidth(1)
-        for i = 0, 7 do
-            local angle = (i / 8) * math.pi * 2
-            local x = math.cos(angle) * (innerRadius * 0.4)
-            local y = math.sin(angle) * (innerRadius * 0.4)
-            love.graphics.line(0, 0, x, y)
+        -- Structural arches/supports
+        local archCount = 8
+        for i = 0, archCount - 1 do
+            local angle = (i / archCount) * math.pi * 2
+            local archAngle = angle + math.pi / 2  -- Perpendicular to ring
+            local supportLength = outerRingRx * 0.8
+            local sx1 = math.cos(angle) * outerRingRx * 0.9
+            local sy1 = math.sin(angle) * outerRingRy * 0.9
+            local sx2 = sx1 + math.cos(archAngle) * supportLength
+            local sy2 = sy1 + math.sin(archAngle) * supportLength
+            RenderUtils.setColor({0.4, 0.4, 0.5, 0.8 + glowIntensity * 0.2})
+            love.graphics.setLineWidth(supportThickness)
+            love.graphics.line(sx1, sy1, sx2, sy2)
         end
 
-        -- Central bright core
-        RenderUtils.setColor({1.0, 1.0, 1.0, coreAlpha})
-        love.graphics.circle("fill", 0, 0, 3)
+        -- Inner energy portal ring with distortion
+        love.graphics.setLineWidth(3 * glowIntensity)
+        RenderUtils.setColor({0.2, 0.8, 1.0, 0.6 + glowIntensity * 0.4})
+        love.graphics.ellipse("line", 0, 0, innerPortalRx, innerPortalRy)
+
+        -- Central energy core (glowing sphere)
+        RenderUtils.setColor({0.1, 0.6, 1.0, 0.5 + glowIntensity * 0.5})
+        love.graphics.circle("fill", 0, 0, coreRadius * 0.6)
+        RenderUtils.setColor({0.3, 0.8, 1.0, 0.8 + glowIntensity * 0.2})
+        love.graphics.circle("line", 0, 0, coreRadius * 0.6, coreRadius * 0.6, 32, 0, 0, false)
+
+        -- Energy vortex (spiraling arms)
+        love.graphics.push()
+        love.graphics.rotate(rotation * 2)  -- Faster vortex rotation
+        for arm = 1, vortexSpiralArms do
+            local armOffset = (arm / vortexSpiralArms) * math.pi * 2
+            for layer = 1, vortexLayers do
+                local layerT = layer / vortexLayers
+                local spiralRadius = coreRadius * layerT * 1.5
+                local spiralAngle = armOffset + layerT * math.pi * 4 + rotation * 3  -- Spiral twist
+                local ex = math.cos(spiralAngle) * spiralRadius
+                local ey = math.sin(spiralAngle) * spiralRadius
+                local alpha = (1 - layerT) * (0.4 + glowIntensity * 0.6)
+                RenderUtils.setColor({0.4, 0.9, 1.0, alpha})
+                love.graphics.circle("line", ex, ey, 5 * layerT, 5 * layerT, 8)
+            end
+        end
+        love.graphics.pop()
+
+        -- Rotating emitters on the ring
+        local emitterPositions = {
+            {x = outerRingRx * 0.8, y = 0},
+            {x = -outerRingRx * 0.8, y = 0},
+            {x = 0, y = outerRingRy * 0.8},
+            {x = 0, y = -outerRingRy * 0.8}
+        }
+        for _, pos in ipairs(emitterPositions) do
+            love.graphics.push()
+            love.graphics.translate(pos.x, pos.y)
+            love.graphics.rotate(rotation * 1.5)  -- Emitters rotate independently
+            RenderUtils.setColor({1.0, 1.0, 0.5, 0.9 * glowIntensity})
+            love.graphics.circle("fill", 0, 0, emitterSize)
+            -- Emitter glow
+            RenderUtils.setColor({1.0, 1.0, 0.5, 0.4 * glowIntensity})
+            love.graphics.circle("fill", 0, 0, emitterSize * 1.5)
+            love.graphics.pop()
+        end
+
+        -- Distortion field (subtle grid lines for space warp effect)
+        if glowIntensity > 0.5 then
+            love.graphics.setLineWidth(1)
+            local gridSize = 20
+            for i = -4, 4 do
+                local offset = rotation * 10 + i * math.pi / 2
+                local gx = math.cos(offset) * innerPortalRx * 1.2
+                local gy = math.sin(offset) * innerPortalRy * 1.2
+                RenderUtils.setColor({0.1, 0.4, 0.8, 0.2 * glowIntensity})
+                love.graphics.line(-gx, -gy, gx, gy)
+            end
+        end
+
     else
+        -- Inactive state: faded structural ring
+        love.graphics.setLineWidth(2)
+        RenderUtils.setColor({0.2, 0.2, 0.3, 0.4})
+        love.graphics.ellipse("line", 0, 0, outerRingRx, outerRingRy)
+
         -- Inactive core
-        RenderUtils.setColor({0.2, 0.2, 0.2, 0.6})
-        love.graphics.circle("fill", 0, 0, innerRadius)
-        RenderUtils.setColor({0.1, 0.1, 0.1, 0.8})
-        love.graphics.circle("line", 0, 0, innerRadius)
+        RenderUtils.setColor({0.1, 0.1, 0.2, 0.3})
+        love.graphics.circle("fill", 0, 0, coreRadius * 0.4)
     end
 
     love.graphics.pop()
 
-    -- Unique warp effect particles
+    -- Enhanced particles for energy field
     if isActive and visual.particles then
         for _, particle in ipairs(visual.particles) do
             if particle.alpha > 0 then
-                -- Hexagonal particle shapes instead of circles
-                local size = particle.size
-                local particleHex = createHexagon(size, rotation)
-
-                -- Translate to particle position
-                love.graphics.push()
-                love.graphics.translate(particle.x, particle.y)
-
-                RenderUtils.setColor({0.8, 1.0, 1.0, particle.alpha * 0.6})
-                love.graphics.setLineWidth(1)
-                love.graphics.polygon("line", particleHex)
-
-                love.graphics.pop()
+                -- Particle as small energy sparks
+                local px = particle.x + math.cos(rotation + particle.x) * 10
+                local py = particle.y + math.sin(rotation + particle.y) * 10
+                RenderUtils.setColor({0.8, 1.0, 1.0, particle.alpha * glowIntensity})
+                love.graphics.circle("fill", px, py, particle.size * glowIntensity)
             end
         end
-    end
-
-    -- Iconic warp symbol overlay (when active)
-    if isActive then
-        local symbolAlpha = 0.3 + glowIntensity * 0.3
-        RenderUtils.setColor({0.9, 1.0, 1.0, symbolAlpha})
-        love.graphics.setLineWidth(2)
-
-        -- Draw warp "W" symbol
-        local symbolSize = 8
-        love.graphics.line(-symbolSize, -symbolSize/2, -symbolSize/2, symbolSize/2)
-        love.graphics.line(-symbolSize/2, symbolSize/2, 0, -symbolSize/2)
-        love.graphics.line(0, -symbolSize/2, symbolSize/2, symbolSize/2)
-        love.graphics.line(symbolSize/2, symbolSize/2, symbolSize, -symbolSize/2)
     end
 
     -- Power level indicator (if applicable)
     if entity.components.warp_gate and entity.components.warp_gate.requiresPower then
         local powerPercent = powerLevel / maxPowerLevel
-        local barWidth = 60
-        local barHeight = 4
-        local barY = outerRadius + 15
+        local barWidth = 80
+        local barHeight = 6
+        local barY = outerRingRx + 30
 
         -- Background
-        RenderUtils.setColor({0.2, 0.2, 0.2, 0.8})
-        love.graphics.rectangle("fill", -barWidth/2, barY, barWidth, barHeight)
+        RenderUtils.setColor({0.1, 0.1, 0.1, 0.8})
+        love.graphics.rectangle("fill", -barWidth/2, barY, barWidth, barHeight, 2, 2)
 
-        -- Power bar with hexagonal ends
+        -- Power bar
         local powerColor = powerPercent > 0.3 and {0.2, 1.0, 0.2} or {1.0, 0.2, 0.2}
         RenderUtils.setColor({powerColor[1], powerColor[2], powerColor[3], 0.9})
-        love.graphics.rectangle("fill", -barWidth/2, barY, barWidth * powerPercent, barHeight)
+        love.graphics.rectangle("fill", -barWidth/2, barY, barWidth * powerPercent, barHeight, 2, 2)
 
-        -- Hexagonal power indicators at ends
-        love.graphics.push()
-        love.graphics.translate(-barWidth/2 - 8, barY + barHeight/2)
-        local miniHex = createHexagon(3, 0)
-        love.graphics.polygon("fill", miniHex)
-        love.graphics.pop()
-
-        love.graphics.push()
-        love.graphics.translate(barWidth/2 + 8, barY + barHeight/2)
-        love.graphics.polygon("fill", miniHex)
-        love.graphics.pop()
+        -- Border
+        RenderUtils.setColor({0.5, 0.5, 0.5, 0.6})
+        love.graphics.rectangle("line", -barWidth/2, barY, barWidth, barHeight, 2, 2)
     end
-
-    -- Interaction hint is now handled by the UI system to respect helper settings
 
     -- Restore graphics state
     love.graphics.setColor(r, g, b, a)
     love.graphics.setLineWidth(lineWidth)
+end
+
+function EntityRenderers.draw(world, camera, player)
+    local entities = world:get_entities_with_components("renderable", "position")
+    for _, entity in ipairs(entities) do
+        if entity == player then goto continue end
+        local pos = entity.components.position
+        if not pos then goto continue end
+        love.graphics.push()
+        love.graphics.translate(pos.x, pos.y)
+        love.graphics.rotate(pos.angle or 0)
+        -- Determine renderer based on components
+        if entity.components.ai then
+            EntityRenderers.enemy(entity, player)
+        elseif entity.isRemotePlayer then
+            EntityRenderers.remote_player(entity, player)
+        elseif entity.components.warp_gate then
+            EntityRenderers.warp_gate(entity, player)
+        elseif entity.components.mineable then
+            EntityRenderers.asteroid(entity, player)
+        elseif entity.isItemPickup or entity.components.item_pickup then
+            EntityRenderers.item_pickup(entity, player)
+        elseif entity.components.lootable and entity.isWreckage then
+            EntityRenderers.wreckage(entity, player)
+        elseif entity.components.bullet then
+            EntityRenderers.bullet(entity, player)
+        elseif entity.isStation then
+            EntityRenderers.station(entity, player)
+        elseif entity.type == "world_object" and entity.subtype == "planet_massive" then
+            EntityRenderers.planet(entity, player)
+        elseif entity.components.lootable then
+            EntityRenderers.lootContainer(entity, player)
+        else
+            -- Fallback
+            local props = entity.components.renderable.props or {}
+            local v = props.visuals or {}
+            local size = v.size or 1.0
+            local S = RenderUtils.createScaler(size)
+            love.graphics.setColor(1, 1, 1, 1)
+            love.graphics.circle("fill", 0, 0, S(10))
+        end
+        
+        love.graphics.pop()
+        ::continue::
+    end
 end
 
 return EntityRenderers

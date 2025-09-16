@@ -28,6 +28,16 @@ function Viewport.resize(w, h)
   local sh = math.floor(vh * scale + 0.5)
   ox = math.floor((w - sw) / 2)
   oy = math.floor((h - sh) / 2)
+  
+  -- Reload fonts to ensure they're the right size for the new resolution
+  local success, err = pcall(function()
+    if Theme and Theme.loadFonts then
+      Theme.loadFonts()
+    end
+  end)
+  if not success and Log and Log.warn then
+    Log.warn("Failed to reload fonts on resize: " .. tostring(err))
+  end
 end
 
 function Viewport.begin()

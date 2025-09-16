@@ -11,9 +11,7 @@ return {
         }
     },
 
-    collidable = {
-        radius = 50,  -- Small physical structure
-    },
+    -- No collidable component for stations (no physics collisions)
 
     -- Repair system properties
     repairable = true,
