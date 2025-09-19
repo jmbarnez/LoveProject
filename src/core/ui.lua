@@ -13,12 +13,12 @@ local UI = {}
 
 -- Helper function to check if player has required turret type
 local function hasRequiredTurret(player, requiredType)
-  if not player.components or not player.components.equipment or not player.components.equipment.turrets then
+  if not player.components or not player.components.equipment or not player.components.equipment.grid then
     return false
   end
   
-  for _, turretData in ipairs(player.components.equipment.turrets) do
-    if turretData.turret and turretData.turret.kind == requiredType then
+  for _, gridData in ipairs(player.components.equipment.grid) do
+    if gridData.type == "turret" and gridData.module and gridData.module.kind == requiredType then
       return true
     end
   end
@@ -54,7 +54,7 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
         local screenY = (sy - camY) * camScale + sh * 0.5
 
         -- Only draw if on-screen and close enough
-        if screenX > 0 and screenX < sw and screenY > 0 and screenY < sh and distance < 300 then
+        if screenX > 0 and screenX < sw and screenY > 0 and screenY < sh and distance < 500 then
           local keymap = Settings.getKeymap()
           local text = nil
 
@@ -184,7 +184,7 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
 
         -- Determine interaction range from interactable/component
         local range = (gate.components.interactable and gate.components.interactable.range)
-          or (gate.components.warp_gate and gate.components.warp_gate.interactionRange) or 300
+          or (gate.components.warp_gate and gate.components.warp_gate.interactionRange) or 500
 
         -- Only draw if on-screen and close enough
         if screenX > 0 and screenX < sw and screenY > 0 and screenY < sh and distance <= range then
@@ -290,16 +290,26 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
       if best then
         local bx = best.components.position.x
         local by = best.components.position.y
+
+        -- Calculate distance to player for visibility limit
+        local px, py = player.components.position.x, player.components.position.y
+        local dx = bx - px
+        local dy = by - py
+        local distance = math.sqrt(dx * dx + dy * dy)
+
         local screenX = (bx - camX) * camScale + sw * 0.5
         local screenY = (by - camY) * camScale + sh * 0.5
-        if screenX > 0 and screenX < sw and screenY > 0 and screenY < sh then
+        if screenX > 0 and screenX < sw and screenY > 0 and screenY < sh and distance < 500 then
           local text, canPerformAction
           -- Helper to find the hotbar key for the first turret of a given kind
           local function findKeyForTurretKind(kind)
             if not player or not player.components or not player.components.equipment then return nil end
             local slotNum = nil
-            for _, td in ipairs(player.components.equipment.turrets) do
-              if td and td.turret and td.turret.kind == kind then slotNum = td.slot break end
+            for _, gridData in ipairs(player.components.equipment.grid) do
+              if gridData.type == "turret" and gridData.module and gridData.module.kind == kind then 
+                slotNum = gridData.slot 
+                break 
+              end
             end
             if not slotNum then return nil end
             local HotbarSystem = require("src.systems.hotbar")

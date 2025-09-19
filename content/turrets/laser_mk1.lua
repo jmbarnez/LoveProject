@@ -26,9 +26,9 @@ return {
     hull = { spark = {0.85, 0.95, 1.0, 0.5}, ring = {0.55, 0.75, 1.0, 0.4} },
   },
   -- Superior at long range with excellent precision
-  optimal = 1200, falloff = 600, tracking = 0.85, sigRes = 80,
+  optimal = 1200, falloff = 600,
   damage_range = { min = 1, max = 2 },
-  cycle = 0.5, capCost = 5, turnRate = 3.5,  -- Faster cycle time, lower energy cost
+  cycle = 2.0, capCost = 5,  -- 2 second cycle time
   spread = { minDeg = 0.1, maxDeg = 0.3, decay = 800 }, -- Very precise
   maxRange = 1500, -- Hard cap: full accuracy up to this distance
   -- Overheating parameters (reduced to allow more frequent firing)

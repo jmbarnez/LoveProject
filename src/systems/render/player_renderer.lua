@@ -94,6 +94,11 @@ function PlayerRenderer.render(entity, playerRef)
     local size = v.size or 1.0
     local S = RenderUtils.createScaler(size)
     
+    -- Draw engine trail in world space if present (before ship to render under)
+    if entity.components and entity.components.engine_trail then
+        entity.components.engine_trail:draw()
+    end
+
     -- Save current graphics state
     love.graphics.push("all")
     
@@ -114,17 +119,12 @@ function PlayerRenderer.render(entity, playerRef)
     -- Restore graphics state
     love.graphics.pop()
 
-    -- Draw engine trail in world space if present
-    if entity.components and entity.components.engine_trail then
-        entity.components.engine_trail:draw()
-    end
-
-    -- Draw laser beams for player turrets
+    -- Draw laser beams for player turrets from grid
     local TurretEffects = require("src.systems.turret.effects")
-    if entity.components and entity.components.equipment and entity.components.equipment.turrets then
-        for _, turretData in ipairs(entity.components.equipment.turrets) do
-            if turretData.turret and (turretData.turret.kind == "laser" or turretData.turret.kind == "mining_laser" or turretData.turret.kind == "salvaging_laser") and turretData.turret.beamActive then
-                TurretEffects.renderBeam(turretData.turret, entity.components.position.x, entity.components.position.y, turretData.turret.beamEndX, turretData.turret.beamEndY, turretData.turret.beamTarget)
+    if entity.components and entity.components.equipment and entity.components.equipment.grid then
+        for _, gridData in ipairs(entity.components.equipment.grid) do
+            if gridData.type == "turret" and gridData.module and (gridData.module.kind == "laser" or gridData.module.kind == "mining_laser" or gridData.module.kind == "salvaging_laser") and gridData.module.beamActive then
+                TurretEffects.renderBeam(gridData.module, entity.components.position.x, entity.components.position.y, gridData.module.beamEndX, gridData.module.beamEndY, gridData.module.beamTarget)
             end
         end
     end

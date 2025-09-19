@@ -104,13 +104,7 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         end
     end
 
-    -- Active shield ability: reduce damage by 50% when active
-    local reducedByShield = 0
-    if entity.isPlayer and entity.shieldChannel then
-        local damageReduction = (Config and Config.COMBAT and Config.COMBAT.SHIELD_DAMAGE_REDUCTION) or 0.5
-        reducedByShield = incoming * damageReduction
-        incoming = incoming * (1 - damageReduction)
-    end
+    -- Shield system removed - shields now provided by equipment modules
     local hadShield = (health.shield or 0) > 0
     local shieldBefore = health.shield or 0
     local shieldDamage = math.min(shieldBefore, incoming)

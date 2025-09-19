@@ -11,10 +11,10 @@ function Tooltip.drawShopTooltip(item, x, y)
   local oldFont = love.graphics.getFont()
 
   -- Gather item details
-  local name = item.name or "Unknown Item"
+  local name = item.proceduralName or item.name or "Unknown Item"
 
   -- Tooltip dimensions and layout
-  local maxWidth = 240
+  local maxWidth = 320
   local padding = 8
 
   -- Fonts
@@ -27,7 +27,13 @@ function Tooltip.drawShopTooltip(item, x, y)
 
   -- Try to find the complete item definition from Content
   if item.id then
-    fullItemDef = Content.getItem(item.id) or Content.getTurret(item.id)
+    -- Check if this is a procedural turret (has baseId)
+    if item.baseId then
+      -- This is a procedural turret, use the item data directly
+      fullItemDef = item
+    else
+      fullItemDef = Content.getItem(item.id) or Content.getTurret(item.id)
+    end
   else
     -- Fallback to item.data if it's a nested structure (like from shop items)
     fullItemDef = item.data or item
@@ -43,13 +49,12 @@ function Tooltip.drawShopTooltip(item, x, y)
     if fullItemDef.cycle then stats[#stats + 1] = {name = "Cycle Time", value = fullItemDef.cycle .. "s"} end
     if fullItemDef.projectileSpeed then stats[#stats + 1] = {name = "Projectile Speed", value = fullItemDef.projectileSpeed} end
     if fullItemDef.capCost then stats[#stats + 1] = {name = "Energy Cost", value = fullItemDef.capCost} end
-    if fullItemDef.turnRate then stats[#stats + 1] = {name = "Turn Rate", value = fullItemDef.turnRate} end
-    if fullItemDef.tracking then stats[#stats + 1] = {name = "Tracking", value = fullItemDef.tracking} end
-    if fullItemDef.sigRes then stats[#stats + 1] = {name = "Sig Res", value = fullItemDef.sigRes} end
     if fullItemDef.baseAccuracy then stats[#stats + 1] = {name = "Accuracy", value = math.floor(fullItemDef.baseAccuracy * 100) .. "%"} end
     if fullItemDef.health then stats[#stats + 1] = {name = "Health", value = fullItemDef.health} end
     if fullItemDef.shieldCapacity then stats[#stats + 1] = {name = "Shield", value = fullItemDef.shieldCapacity} end
     if fullItemDef.energyCapacity then stats[#stats + 1] = {name = "Energy", value = fullItemDef.energyCapacity} end
+    if fullItemDef.heatMax then stats[#stats + 1] = {name = "Heat Capacity", value = fullItemDef.heatMax} end
+    if fullItemDef.heatPerShot then stats[#stats + 1] = {name = "Heat per Shot", value = fullItemDef.heatPerShot} end
 
     -- Special handling for turrets
     if fullItemDef.tracer and fullItemDef.tracer.color then
@@ -64,12 +69,18 @@ function Tooltip.drawShopTooltip(item, x, y)
     end
   end
 
+  -- Get modifier information
+  local modifiers = item.modifiers or {}
+
   -- Calculate height based on content
   local nameH = nameFont:getHeight()
   local statH = statFont:getHeight()
   local h = padding * 2 + nameH + 8
   if #stats > 0 then
     h = h + (#stats * (statH + 2)) + 4
+  end
+  if #modifiers > 0 then
+    h = h + (#modifiers * (statH + 2)) + 8  -- Extra space for modifier header
   end
 
   -- Calculate width based on content
@@ -81,6 +92,33 @@ function Tooltip.drawShopTooltip(item, x, y)
     local statText = stat.name .. ": " .. tostring(stat.value)
     local statW = statFont:getWidth(statText)
     w = math.max(w, statW + padding * 2)
+  end
+
+  -- Check modifier widths too
+  for _, mod in ipairs(modifiers) do
+    local changeText = ""
+    if mod.type == "damage" then
+      if mod.mult > 1 then
+        changeText = "+" .. math.floor((mod.mult - 1) * 100) .. "% damage"
+      else
+        changeText = "-" .. math.floor((1 - mod.mult) * 100) .. "% damage"
+      end
+    elseif mod.type == "cooldown" then
+      if mod.mult > 1 then
+        changeText = "-" .. math.floor((mod.mult - 1) * 100) .. "% rate"
+      else
+        changeText = "+" .. math.floor((1 - mod.mult) * 100) .. "% rate"
+      end
+    elseif mod.type == "heat" then
+      if mod.mult > 1 then
+        changeText = "+" .. math.floor((mod.mult - 1) * 100) .. "% heat"
+      else
+        changeText = "-" .. math.floor((1 - mod.mult) * 100) .. "% heat"
+      end
+    end
+    local modText = mod.name .. " (" .. changeText .. ")"
+    local modW = statFont:getWidth(modText)
+    w = math.max(w, modW + padding * 2)
   end
 
   w = math.min(maxWidth, w)
@@ -121,6 +159,43 @@ function Tooltip.drawShopTooltip(item, x, y)
       currentY = currentY + statH + 2
     end
   end
+
+  -- Item modifiers
+  if #modifiers > 0 then
+    currentY = currentY + 4  -- Small gap before modifiers section
+    love.graphics.setFont(statFont)
+    Theme.setColor(Theme.colors.accent)
+    love.graphics.print("Modifiers:", tx + padding, currentY)
+    currentY = currentY + statH + 4
+
+    for _, mod in ipairs(modifiers) do
+      local changeText = ""
+      if mod.type == "damage" then
+        if mod.mult > 1 then
+          changeText = "+" .. math.floor((mod.mult - 1) * 100) .. "% damage"
+        else
+          changeText = "-" .. math.floor((1 - mod.mult) * 100) .. "% damage"
+        end
+      elseif mod.type == "cooldown" then
+        if mod.mult > 1 then
+          changeText = "-" .. math.floor((mod.mult - 1) * 100) .. "% rate"
+        else
+          changeText = "+" .. math.floor((1 - mod.mult) * 100) .. "% rate"
+        end
+      elseif mod.type == "heat" then
+        if mod.mult > 1 then
+          changeText = "+" .. math.floor((mod.mult - 1) * 100) .. "% heat"
+        else
+          changeText = "-" .. math.floor((1 - mod.mult) * 100) .. "% heat"
+        end
+      end
+      local modText = mod.name .. " (" .. changeText .. ")"
+      Theme.setColor(Theme.colors.textSecondary)
+      love.graphics.print(modText, tx + padding, currentY)
+      currentY = currentY + statH + 2
+    end
+  end
+
   -- Restore prior font to avoid leaking font changes to the rest of the UI
   if oldFont then love.graphics.setFont(oldFont) end
 end

@@ -27,14 +27,13 @@ return {
   impact = {
     wreckage = { spark = {0.3, 1.0, 0.3, 0.8}, ring = {0.2, 0.8, 0.2, 0.6} },
   },
-  -- Pulsed salvaging beam, 1 second cycles
-  optimal = 850, falloff = 250, tracking = 1.0, sigRes = 120,
+  -- Pulsed salvaging beam, 3 second cycles
+  optimal = 850, falloff = 250,
   damageMin = 1, damageMax = 2, -- Salvaging damage per pulse
-  cycle = 1.0, -- 1 second cycles for pulsing behavior
+  cycle = 3.0, -- 3 second cycles for pulsing behavior
   capCost = 20, -- Energy cost per pulse
-  turnRate = 2.0, -- Slower tracking, salvaging equipment
   spread = { minDeg = 0.05, maxDeg = 0.1, decay = 1000 }, -- Very precise for salvaging
-  salvagePower = 1.5, -- Salvaging damage per pulse
+  salvagePower = 1, -- Salvaging damage per pulse
   beamDuration = 0.3, -- Visible beam duration per pulse
   -- Heat management for pulsed beam
   maxHeat = 15.0, -- Higher max heat for sustained use

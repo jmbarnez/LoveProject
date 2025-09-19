@@ -17,6 +17,23 @@ end
 
 function PlayerSystem.init(world)
   Events.on(Events.GAME_EVENTS.PLAYER_DAMAGED, onPlayerDamaged)
+  
+  Events.on('player_death', function(event)
+    local player = event.player
+    player.docked = true
+    player.thrusterState = {}
+    player._dashCd = 0
+    player.shield_active = false
+    player.weaponsDisabled = true
+  end)
+  
+  Events.on('player_respawn', function(event)
+    local player = event.player
+    player.docked = false
+    player.weaponsDisabled = false
+    player.iFrames = 0
+    player.canWarp = false
+  end)
 end
 
 function PlayerSystem.update(dt, player, input, world, hub)
@@ -262,6 +279,17 @@ function PlayerSystem.update(dt, player, input, world, hub)
     -- Capacitor regen (use ship-specific regen if provided)
     local regenRate = (player.energyRegen or 10)
     player.components.health.energy = math.min(player.components.health.maxEnergy, player.components.health.energy + regenRate * dt)
+    
+    -- Shield regen from equipped modules
+    local shieldRegenRate = player:getShieldRegen()
+    if shieldRegenRate > 0 and player.components.health then
+        local currentShield = player.components.health.shield or 0
+        local maxShield = player.components.health.maxShield or 0
+        if currentShield < maxShield then
+            player.components.health.shield = math.min(maxShield, currentShield + shieldRegenRate * dt)
+        end
+    end
+    
     -- i-frames decay (kept for compatibility with other effects)
     player.iFrames = math.max(0, (player.iFrames or 0) - dt)
 
@@ -310,99 +338,52 @@ function PlayerSystem.update(dt, player, input, world, hub)
     player.wasInWarpRange = inWarpRange
 
     -- Update turrets - only assigned turrets fire, global selection just locks
-    -- Allow firing inside friendly zone if targeting an enemy (permission override)
+    -- Allow firing inside friendly zone if weapons are enabled
     -- Also allow utility turrets (mining/salvaging) even in safe zones
-    local canFire = (not player.weaponsDisabled) or (player.target and player.targetType == 'enemy')
-    -- Hotbar-driven actions: turret fire and shield channel
+    local canFire = not player.weaponsDisabled
+    -- Hotbar-driven actions: turret fire
     local manualFireAll = false -- legacy 'turret' action removed; use per-slot hotkeys only
-    
-    -- Special handling for missile lock-on firing with left-click
-    local missileLockFire = false
-    if player.lockOnState and player.lockOnState.isLocked and player:hasMissileLauncher() then
-        -- Check if left mouse button is pressed (will be handled by input system)
-        missileLockFire = input and input.leftClick
-    end
 
-    -- Shield active ability: 50% damage reduction with duration/cooldown system
-    do
-        local h = player.components and player.components.health
-        local isPressed = (HotbarSystem and HotbarSystem.isActive and HotbarSystem.isActive('shield')) or false
-        
-        -- Initialize shield state if not present
-        player._shieldState = player._shieldState or {
-            active = false,
-            duration = 0,
-            cooldown = 0
-        }
-        
-        local shieldState = player._shieldState
-        
-        -- Update timers
-        shieldState.duration = math.max(0, shieldState.duration - dt)
-        shieldState.cooldown = math.max(0, shieldState.cooldown - dt)
-        
-        -- Handle activation
-        if isPressed and not shieldState.active and shieldState.cooldown <= 0 then
-            local energyCost = (Config.COMBAT and Config.COMBAT.SHIELD_ENERGY_COST) or 50
-            if h and (h.energy or 0) >= energyCost then
-                -- Activate shield
-                shieldState.active = true
-                shieldState.duration = (Config.COMBAT and Config.COMBAT.SHIELD_DURATION) or 3.0
-                h.energy = math.max(0, (h.energy or 0) - energyCost)
-            end
-        end
-        
-        -- Deactivate when duration expires
-        if shieldState.active and shieldState.duration <= 0 then
-            shieldState.active = false
-            shieldState.cooldown = (Config.COMBAT and Config.COMBAT.SHIELD_COOLDOWN) or 5.0
-        end
-        
-        -- Set the shield channel flag for compatibility with other systems
-        player.shieldChannel = shieldState.active
-    end
+    -- Shield system removed - shields now provided by equipment modules
 
-    -- Process all turrets, but apply different rules for weapons vs utility turrets
-    for _, slot in ipairs(player.components.equipment.turrets) do
-        local t = slot.turret
+    -- Process all turrets from the grid, but apply different rules for weapons vs utility turrets
+    for _, gridData in ipairs(player.components.equipment.grid) do
+        if gridData.type == "turret" and gridData.module then
+            local t = gridData.module
 
-        -- Clean up dead assigned targets
-        if slot.assignedTarget and slot.assignedTarget.dead then
-            slot.assignedTarget = nil
-            slot.assignedType = nil
-            slot.lockProgress = 0
-            slot.lockTime = nil
-        end
-
-        -- Manual fire: ignore targets; fire when aligned with cursor and LMB held
-        if t and t.kind == "mining_laser" and t.miningTarget and t.miningTarget.stopMining then
-            -- Stop any mining beam (no targeting)
-            t.miningTarget:stopMining()
-            t.beamActive = false
-        end
-        if t then
-            -- Manual fire per turret slot if bound, or all via global 'turret'
-            local isMissile = t.kind == 'missile'
-            local isUtility = t.kind == 'mining_laser' or t.kind == 'salvaging_laser'
-            local actionName = 'turret_slot_' .. tostring(slot.slot)
-            local perSlotActive = (HotbarSystem and HotbarSystem.isActive and HotbarSystem.isActive(actionName)) or false
-
-            -- Allow utility turrets even in safe zones, but require canFire for weapons
-            local allow = false
-            if isUtility then
-                allow = (perSlotActive or manualFireAll) and (not isMissile)
-            else
-                allow = canFire and (perSlotActive or manualFireAll) and (not isMissile)
+            -- Clean up dead assigned targets
+            if gridData.assignedTarget and gridData.assignedTarget.dead then
+                gridData.assignedTarget = nil
+                gridData.assignedType = nil
+                gridData.lockProgress = 0
+                gridData.lockTime = nil
             end
 
-            -- Debug: log hotbar/turret gating decisions
-
-            -- Special case: allow missiles to fire when locked onto a target
-            if isMissile and missileLockFire then
-                allow = true
+            -- Manual fire: ignore targets; fire when aligned with cursor and LMB held
+            if t and t.kind == "mining_laser" and t.miningTarget and t.miningTarget.stopMining then
+                -- Stop any mining beam (no targeting)
+                t.miningTarget:stopMining()
+                t.beamActive = false
             end
+            if t then
+                -- Manual fire per turret slot if bound, or all via global 'turret'
+                local isMissile = t.kind == 'missile'
+                local isUtility = t.kind == 'mining_laser' or t.kind == 'salvaging_laser'
+                local actionName = 'turret_slot_' .. tostring(gridData.slot)
+                local perSlotActive = (HotbarSystem and HotbarSystem.isActive and HotbarSystem.isActive(actionName)) or false
 
-            t:update(dt, nil, not allow, world)
+                -- Allow utility turrets even in safe zones, but require canFire for weapons
+                local allow = false
+                if isUtility then
+                    allow = (perSlotActive or manualFireAll) and (not isMissile)
+                else
+                    allow = canFire and (perSlotActive or manualFireAll) and (not isMissile)
+                end
+
+                -- Missiles fire normally with other weapons
+
+                t:update(dt, nil, not allow, world)
+            end
         end
     end
 

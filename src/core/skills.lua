@@ -30,20 +30,6 @@ Skills.definitions = {
             end
         end
     },
-    combat = {
-        id = "combat",
-        name = "Combat",
-        maxLevel = 99,
-        xpPerLevel = function(level)
-            if level <= 15 then return 15 * level
-            elseif level <= 30 then return 150 + 30 * (level - 15)
-            elseif level <= 45 then return 500 + 40 * (level - 30)
-            elseif level <= 60 then return 1100 + 50 * (level - 45)
-            elseif level <= 75 then return 1850 + 60 * (level - 60)
-            else return 2750 + 85 * (level - 75)
-            end
-        end
-    }
 }
 
 -- Player skills data structure
@@ -58,11 +44,6 @@ Skills.playerSkills = {
         xp = 0,
         totalXp = 0
     },
-    combat = {
-        level = 1,
-        xp = 0,
-        totalXp = 0
-    }
 }
 
 -- Calculate XP needed for next level

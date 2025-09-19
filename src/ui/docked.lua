@@ -735,15 +735,39 @@ end
 -- Purchase an item
 function DockedUI.purchaseItem(item, player)
   if not player or not item then return end
-  
+
   if player:getGC() < item.price then return false end
-  
+
   player:spendGC(item.price)
-  
-  -- Route inventory changes through Cargo to centralize notifications
-  local Cargo = require("src.core.cargo")
-  Cargo.add(player, item.id, 1, { notify = false })
-  Notifications.action("Purchased " .. item.name)
+
+  -- Check if this is a turret and apply procedural generation
+  local itemId = item.id
+  local itemName = item.name
+  local ProceduralGen = require("src.core.procedural_gen")
+  local Content = require("src.content.content")
+
+  if Content.getTurret(itemId) then
+    -- This is a turret, generate procedural stats
+    local baseTurret = Content.getTurret(itemId)
+    local proceduralTurret = ProceduralGen.generateTurretStats(baseTurret, 1)
+
+    -- Store the procedural turret in player's inventory with a unique ID
+    local uniqueId = itemId .. "_" .. tostring(love.timer.getTime()) .. "_" .. tostring(math.random(10000))
+    proceduralTurret.id = uniqueId
+    proceduralTurret.baseId = itemId -- Keep track of the base turret type
+
+    -- Add to player's inventory as the full turret data
+    if not player.inventory then player.inventory = {} end
+    player.inventory[uniqueId] = proceduralTurret
+
+    itemName = proceduralTurret.proceduralName or proceduralTurret.name
+  else
+    -- Regular item, add normally
+    local Cargo = require("src.core.cargo")
+    Cargo.add(player, itemId, 1, { notify = false })
+  end
+
+  Notifications.action("Purchased " .. itemName)
   return true
 end
 

@@ -362,7 +362,7 @@ end
 function PhysicsBody:setThruster(thruster, active)
     if self.thrusters[thruster] ~= nil then
         self.thrusters[thruster] = active
-        
+
         -- Map generic thruster names to specific ones used in thrusterState
         local thrusterMap = {
             forward = 'forward',
@@ -372,7 +372,7 @@ function PhysicsBody:setThruster(thruster, active)
             boost = 'boost',
             brake = 'brake'
         }
-        
+
         -- Update the thruster state if this is a known thruster
         local stateKey = thrusterMap[thruster]
         if stateKey then
@@ -386,7 +386,7 @@ function PhysicsBody:setThruster(thruster, active)
                 brake = 0,
                 isThrusting = false
             }
-            
+
             -- Update the specific thruster state
             if active then
                 -- Set default values based on thruster type
@@ -418,8 +418,12 @@ function PhysicsBody:setThruster(thruster, active)
                     self.thrusterState.boost = 0
                 elseif thruster == 'brake' then
                     self.thrusterState.brake = 0
+                elseif thruster == 'boost' then
+                    self.thrusterState.boost = 0
+                elseif thruster == 'brake' then
+                    self.thrusterState.brake = 0
                 end
-                
+
                 -- Check if any thrusters are still active
                 local anyActive = false
                 for k, v in pairs(self.thrusterState) do
@@ -432,6 +436,12 @@ function PhysicsBody:setThruster(thruster, active)
             end
         end
     end
+end
+
+-- Check if the body is destroyed (compatibility with Love2D physics)
+-- Custom physics bodies are never destroyed, so always return false
+function PhysicsBody:isDestroyed()
+    return false
 end
 
 -- Factory function

@@ -4,6 +4,7 @@ local Content = require("src.content.content")
 local Config = require("src.content.config")
 local EntityFactory = require("src.templates.entity_factory")
 local Log = require("src.core.log")
+-- ShieldDurability removed - shields now provided by equipment modules
 
 -- Inherit from the Ship template to get shared functionality like the 'hit' method.
 local Ship = require("src.templates.ship")
@@ -20,6 +21,7 @@ function Player.new(x, y, shipId)
   local self = setmetatable(ship, Player)
   self.ship = shipConfig -- Store the ship's definition data
   self.isPlayer = true -- Ensure this flag is set.
+  -- Shield system removed - shields now provided by equipment modules
     if not self.components.physics then
         self.components.physics = require("src.components.physics").new({
             mass = (shipConfig.engine and shipConfig.engine.mass) or 500,
@@ -33,6 +35,14 @@ function Player.new(x, y, shipId)
     self.components.physics.body.skipThrusterForce = true
   end
 
+  -- Initialize inventory if it doesn't exist
+  if not self.inventory then
+    self.inventory = {}
+  end
+
+  -- Initialize shield HP based on equipped modules
+  self:updateShieldHP()
+
   -- Player-specific defaults
   self.moveTarget = nil
   self.level = 1
@@ -43,16 +53,7 @@ function Player.new(x, y, shipId)
   self.wasInHub = false
   self.canDock = false
 
-  -- Lock-on targeting system
-  self.lockOnState = {
-    target = nil,           -- Currently targeted enemy
-    lockProgress = 0,       -- Lock-on progress (0-1)
-    lockDuration = 2.5,     -- Time needed to acquire lock (seconds)
-    isLocked = false,       -- Whether target is fully locked
-    maxRange = 2500,        -- Maximum lock-on range
-    lockCone = math.rad(15), -- Lock-on cone angle (15 degrees)
-    lastUpdateTime = 0      -- For tracking time
-  }
+  -- Lock-on targeting system removed - combat works differently now
 
   self.active_quests = {}
   self.quest_progress = {}
@@ -66,6 +67,7 @@ function Player.new(x, y, shipId)
 
   -- Default inventory will be initialized by game setup (see Game.load).
 
+  self:resetDurability()
   return self
 end
 
@@ -74,105 +76,15 @@ function Player:update(dt, world, shootCallback)
     -- Call parent Ship update first
     Ship.update(self, dt, self, shootCallback)
     
-    -- Update lock-on targeting
-    self:updateLockOn(dt, world)
+    -- Lock-on targeting removed - combat works differently now
 end
 
 -- Lock-on targeting system update
-function Player:updateLockOn(dt, world)
-  if not world or self.docked then return end
-  
-  local lockState = self.lockOnState
-  local playerPos = self.components.position
-  local playerAngle = playerPos.angle or 0
-  
-  -- Find potential targets in lock-on cone
-  local potentialTarget = nil
-  local bestDistance = math.huge
-  
-  local enemies = world:get_entities_with_components("ai", "position")
-  for _, enemy in ipairs(enemies) do
-    if not enemy.dead and enemy.components.position then
-      local ex, ey = enemy.components.position.x, enemy.components.position.y
-      local dx, dy = ex - playerPos.x, ey - playerPos.y
-      local distance = math.sqrt(dx * dx + dy * dy)
-      
-      -- Check if within range
-      if distance <= lockState.maxRange then
-        -- Check if within lock-on cone
-        local angleToTarget = math.atan2(dy, dx)
-        local angleDiff = math.abs(((angleToTarget - playerAngle + math.pi) % (2 * math.pi)) - math.pi)
-        
-        if angleDiff <= lockState.lockCone then
-          -- Find closest target in cone
-          if distance < bestDistance then
-            bestDistance = distance
-            potentialTarget = enemy
-          end
-        end
-      end
-    end
-  end
-  
-  -- Update lock-on state
-  if potentialTarget and potentialTarget == lockState.target then
-    -- Continue locking onto same target
-    lockState.lockProgress = math.min(1.0, lockState.lockProgress + dt / lockState.lockDuration)
-    if lockState.lockProgress >= 1.0 then
-      lockState.isLocked = true
-    end
-  elseif potentialTarget then
-    -- New target found, start locking
-    lockState.target = potentialTarget
-    lockState.lockProgress = dt / lockState.lockDuration
-    lockState.isLocked = false
-  else
-    -- No target in cone, lose lock
-    lockState.target = nil
-    lockState.lockProgress = 0
-    lockState.isLocked = false
-  end
-  
-  -- Validate locked target still exists and is in range
-  if lockState.target and (lockState.target.dead or not lockState.target.components.position) then
-    lockState.target = nil
-    lockState.lockProgress = 0
-    lockState.isLocked = false
-  elseif lockState.target and lockState.target.components.position then
-    local tx, ty = lockState.target.components.position.x, lockState.target.components.position.y
-    local dx, dy = tx - playerPos.x, ty - playerPos.y
-    local distance = math.sqrt(dx * dx + dy * dy)
-    if distance > lockState.maxRange * 1.2 then -- Allow some margin before losing lock
-      lockState.target = nil
-      lockState.lockProgress = 0
-      lockState.isLocked = false
-    end
-  end
-end
+-- Lock-on targeting system removed - combat works differently now
 
--- Get the currently locked target (if any)
-function Player:getLockedTarget()
-  local lockState = self.lockOnState
-  if lockState.isLocked and lockState.target and not lockState.target.dead then
-    return lockState.target
-  end
-  return nil
-end
+-- Lock-on targeting system removed - combat works differently now
 
--- Check if player has a missile launcher equipped
-function Player:hasMissileLauncher()
-  if not self.components.equipment or not self.components.equipment.turrets then
-    return false
-  end
-  
-  for _, tslot in ipairs(self.components.equipment.turrets) do
-    local turret = tslot and tslot.turret
-    if turret and (turret.kind == "missile" or turret.type == "missile") then
-      return true
-    end
-  end
-  return false
-end
+-- Missile launcher check removed - combat works differently now
 
 function Player:dock(station)
     self.docked = true
@@ -188,6 +100,9 @@ function Player:dock(station)
     -- Show docked UI
     local DockedUI = require("src.ui.docked")
     DockedUI.show(self, station)
+
+    local Hotbar = require("src.systems.hotbar")
+    Hotbar.state.active.turret_slots = {}
 end
 
 function Player:undock()
@@ -195,6 +110,15 @@ function Player:undock()
     -- Hide docked UI
     local DockedUI = require("src.ui.docked")
     DockedUI.hide()
+
+    local Hotbar = require("src.systems.hotbar")
+    Hotbar.state.active.turret_slots = {}
+end
+
+function Player:resetDurability()
+    if self.shield_durability then
+        ShieldDurability.reset(self.shield_durability)
+    end
 end
 
 function Player:setMoveTarget(x, y)
@@ -228,11 +152,9 @@ function Player:setTarget(target, targetType)
       -- Use ship's targeting module lock speed
       local shipTargeting = (self.components and self.components.targeting) or {}
       local baseLockTime = shipTargeting.lockTime or shipTargeting.baseSpeed or 2.0
-      local sigRes = shipTargeting.sigRes or shipTargeting.resolution or 100
-      
-      -- Calculate final lock time based on target signature vs ship's sensor resolution
-      local sigRatio = sigRes / math.max(20, sig)
-      self.lockTime = baseLockTime * (1.0 - (sigRatio - 1.0) * 0.2) -- Better sensors = faster lock
+
+      -- Simplified lock time calculation
+      self.lockTime = baseLockTime
       self.lockTime = math.max(0.5, self.lockTime) -- Minimum 0.5s lock time
     end
     if self.targetType == "enemy" and target.onTargeted then
@@ -251,16 +173,17 @@ function Player:getThrusterState()
 end
 
 function Player:getTurretInSlot(slotNum)
-    if not self.components or not self.components.equipment or not self.components.equipment.turrets then
+    if not self.components or not self.components.equipment or not self.components.equipment.grid then
         return nil
     end
-    for _, turretData in ipairs(self.components.equipment.turrets) do
-        if turretData.slot == slotNum then
-            return turretData.turret
-        end
+    local gridData = self.components.equipment.grid[slotNum]
+    if gridData and gridData.type == "turret" then
+        return gridData.module
     end
     return nil
 end
+
+local Hotbar = require("src.systems.hotbar")
 
 function Player:equipTurret(slotNum, turretId)
     -- Initialize inventory if it doesn't exist
@@ -288,8 +211,16 @@ function Player:equipTurret(slotNum, turretId)
                 end
             end
 
-            -- Equip new turret
-            local turretDef = Content.getTurret(turretId)
+            -- Check if this is a procedural turret (stored in inventory as full turret data)
+            local turretDef
+            if type(self.inventory[turretId]) == "table" and self.inventory[turretId].damage then
+                -- This is a procedural turret with full data
+                turretDef = self.inventory[turretId]
+            else
+                -- This is a regular turret, get definition from content
+                turretDef = Content.getTurret(turretId)
+            end
+
             if turretDef then
                 local newTurret = Turret.new(self, turretDef)
                 newTurret.id = turretId
@@ -300,11 +231,22 @@ function Player:equipTurret(slotNum, turretId)
                     enabled = true,
                     slot = slotNum
                 }
-                -- Remove from inventory
-                self.inventory[turretId] = self.inventory[turretId] - 1
-                if self.inventory[turretId] <= 0 then
-                    self.inventory[turretId] = nil  -- Remove completely when count reaches 0
+                -- Remove from inventory (procedural turrets are stored as objects, regular turrets as counts)
+                if type(self.inventory[turretId]) == "table" then
+                    -- Procedural turret - remove the object
+                    self.inventory[turretId] = nil
+                else
+                    -- Regular turret - decrement count
+                    self.inventory[turretId] = self.inventory[turretId] - 1
+                    if self.inventory[turretId] <= 0 then
+                        self.inventory[turretId] = nil
+                    end
                 end
+
+                Hotbar.populateFromPlayer(self)
+                Hotbar.save()
+                Hotbar.state.active = Hotbar.state.active or {}
+                Hotbar.state.active.turret_slots = {}
                 return true
             end
         end
@@ -328,7 +270,8 @@ function Player:unequipTurret(slotNum)
             -- Return turret to inventory
             local turretId = turretData.id
             if turretId then
-                self.inventory[turretId] = (self.inventory[turretId] or 0) + 1
+                -- Always store the full turret data when unequipping (to preserve any procedural modifiers)
+                self.inventory[turretId] = turretData.turret
             end
 
             -- Remove turret from slot
@@ -338,10 +281,169 @@ function Player:unequipTurret(slotNum)
                 enabled = false,
                 slot = slotNum
             }
+
+            Hotbar.populateFromPlayer(self)
+            Hotbar.save()
+            Hotbar.state.active = Hotbar.state.active or {}
+            Hotbar.state.active.turret_slots = {}
             return true
         end
     end
     return false
+end
+
+-- Unified equipment grid methods
+function Player:equipModule(slotNum, moduleId)
+    if not self.components or not self.components.equipment or not self.components.equipment.grid then
+        return false
+    end
+
+    -- Get the module definition (could be any module type)
+    local moduleDef = Content.getItem(moduleId)
+    local turretDef = Content.getTurret(moduleId)
+    
+    if not moduleDef and not turretDef then
+        return false
+    end
+
+    -- Determine module type
+    local moduleType = nil
+    local actualModule = nil
+    
+    if moduleDef and moduleDef.module then
+        -- It's a module (shield, engine, etc.)
+        moduleType = moduleDef.module.type or "module"
+        actualModule = moduleDef
+    elseif turretDef then
+        -- It's a turret
+        moduleType = "turret"
+        actualModule = Turret.new(self, Util.copy(turretDef))
+        actualModule.id = moduleId
+        actualModule.slot = slotNum
+    else
+        return false
+    end
+
+    -- Find the grid slot
+    for i, gridData in ipairs(self.components.equipment.grid) do
+        if gridData.slot == slotNum then
+            -- Remove existing module if any
+            if gridData.module then
+                self:unequipModule(slotNum)
+            end
+
+            -- Equip the new module
+            self.components.equipment.grid[i] = {
+                id = moduleId,
+                module = actualModule,
+                enabled = true,
+                slot = slotNum,
+                type = moduleType
+            }
+
+            -- Update systems based on module type
+            if moduleType == "shield" then
+                self:updateShieldHP()
+            elseif moduleType == "turret" then
+                self:updateHotbar()
+            end
+            return true
+        end
+    end
+    return false
+end
+
+function Player:unequipModule(slotNum)
+    if not self.components or not self.components.equipment or not self.components.equipment.grid then
+        return false
+    end
+
+    -- Initialize inventory if it doesn't exist
+    if not self.inventory then
+        self.inventory = {}
+    end
+
+    -- Find the grid slot
+    for i, gridData in ipairs(self.components.equipment.grid) do
+        if gridData.slot == slotNum and gridData.module then
+            local moduleId = gridData.id
+            local moduleType = gridData.type
+
+            -- Return module to inventory
+            if moduleId then
+                if moduleType == "shield" or moduleType == "module" then
+                    -- For shield modules and other modules, increment count
+                    self.inventory[moduleId] = (self.inventory[moduleId] or 0) + 1
+                else
+                    -- For turrets, store the full turret data
+                    self.inventory[moduleId] = gridData.module
+                end
+            end
+
+            -- Remove module from slot
+            self.components.equipment.grid[i] = {
+                id = nil,
+                module = nil,
+                enabled = false,
+                slot = slotNum,
+                type = nil
+            }
+
+            -- Update systems based on module type
+            if moduleType == "shield" then
+                self:updateShieldHP()
+            elseif moduleType == "turret" then
+                self:updateHotbar()
+            end
+            return true
+        end
+    end
+    return false
+end
+
+function Player:updateShieldHP()
+    if not self.components or not self.components.equipment or not self.components.equipment.grid then
+        return
+    end
+
+    local totalShieldHP = 0
+    for _, gridData in ipairs(self.components.equipment.grid) do
+        if gridData.type == "shield" and gridData.module and gridData.module.module and gridData.module.module.shield_hp then
+            totalShieldHP = totalShieldHP + gridData.module.module.shield_hp
+        end
+    end
+
+    -- Update the health component
+    if self.components.health then
+        self.components.health.maxShield = totalShieldHP
+        -- Ensure current shield doesn't exceed max
+        if self.components.health.shield > totalShieldHP then
+            self.components.health.shield = totalShieldHP
+        end
+    end
+end
+
+function Player:getShieldRegen()
+    if not self.components or not self.components.equipment or not self.components.equipment.grid then
+        return 0
+    end
+
+    local totalShieldRegen = 0
+    for _, gridData in ipairs(self.components.equipment.grid) do
+        if gridData.type == "shield" and gridData.module and gridData.module.module and gridData.module.module.shield_regen then
+            totalShieldRegen = totalShieldRegen + gridData.module.module.shield_regen
+        end
+    end
+
+    return totalShieldRegen
+end
+
+function Player:updateHotbar()
+    -- Update hotbar with turrets from grid
+    local Hotbar = require("src.systems.hotbar")
+    if Hotbar.populateFromPlayer then
+        Hotbar.populateFromPlayer(self)
+    end
 end
 
 -- The large update function has been moved to PlayerSystem.

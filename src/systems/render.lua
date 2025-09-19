@@ -1,7 +1,7 @@
 -- Refactored rendering system with modular components
 local PlayerRenderer = require("src.systems.render.player_renderer")
 local EntityRenderers = require("src.systems.render.entity_renderers")
-local TargetEffects = require("src.systems.render.target_effects")
+-- TargetEffects removed - targeting system changed
 local ShieldEffects = require("src.systems.render.shield_effects")
 local ShieldImpactEffects = require("src.systems.render.shield_impact_effects")
 
@@ -20,9 +20,7 @@ function RenderSystem.draw(world, camera, player, clickMarkers, hoveredEntity, h
     end
 
     -- Draw special effects
-    if TargetEffects and TargetEffects.draw then
-        TargetEffects.draw(world, camera, player)
-    end
+    -- TargetEffects removed - targeting system changed
     if ShieldEffects and ShieldEffects.draw then
         ShieldEffects.draw(world, camera)
     end

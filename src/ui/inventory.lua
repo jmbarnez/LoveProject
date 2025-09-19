@@ -85,14 +85,19 @@ function Inventory.draw(player)
   local items = {}
   if player and player.inventory then
     for id, qty in pairs(player.inventory) do
-      table.insert(items, { id = id, qty = qty })
+      if type(qty) == "number" then
+        table.insert(items, { id = id, qty = qty })
+      elseif type(qty) == "table" and qty.damage then
+        -- This is a turret object
+        table.insert(items, { id = id, qty = 1, turretData = qty })
+      end
     end
   end
 
   -- Sort by name
   table.sort(items, function(a,b)
-    local an = (Content.getItem(a.id) and Content.getItem(a.id).name) or (Content.getTurret(a.id) and Content.getTurret(a.id).name) or a.id
-    local bn = (Content.getItem(b.id) and Content.getItem(b.id).name) or (Content.getTurret(b.id) and Content.getTurret(b.id).name) or b.id
+    local an = a.turretData and a.turretData.name or (Content.getItem(a.id) and Content.getItem(a.id).name) or (Content.getTurret(a.id) and Content.getTurret(a.id).name) or a.id
+    local bn = b.turretData and b.turretData.name or (Content.getItem(b.id) and Content.getItem(b.id).name) or (Content.getTurret(b.id) and Content.getTurret(b.id).name) or b.id
     return an < bn
   end)
 
@@ -114,7 +119,7 @@ function Inventory.draw(player)
       Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
 
     -- Get item definition
-    local def = Content.getItem(it.id) or Content.getTurret(it.id)
+    local def = it.turretData or Content.getItem(it.id) or Content.getTurret(it.id)
     local name = (def and def.name) or it.id
     local value = (def and def.value) or 0
 
@@ -204,20 +209,8 @@ function Inventory.draw(player)
 end
 
 function Inventory.mousepressed(x, y, button, player)
-  print("Inventory.mousepressed called:", x, y, button, "visible:", Inventory.visible)
   if not Inventory.visible then return false end
 
-  -- Debug slot rectangles
-  print("Inventory: _slotRects exists:", Inventory._slotRects and "yes" or "no")
-  if Inventory._slotRects then
-    print("Inventory: Number of slot rects:", #Inventory._slotRects)
-    for i, slot in ipairs(Inventory._slotRects) do
-      print("  Slot", i, "id:", slot.id, "rect:", slot.x, slot.y, slot.w, slot.h)
-      if x >= slot.x and x <= slot.x + slot.w and y >= slot.y and y <= slot.y + slot.h then
-        print("  --> HIT DETECTED on slot", i, slot.id)
-      end
-    end
-  end
 
   if button == 1 then
     -- Close button
@@ -240,38 +233,22 @@ function Inventory.mousepressed(x, y, button, player)
       return true, false
     end
     -- Check for left-click on consumable items (use instead of drag)
-    print("Inventory: Checking left-click consumables, player exists:", player and "yes" or "no")
     if Inventory._slotRects and player then
-      print("Inventory: Starting slot iteration for left-click")
       for _, slot in ipairs(Inventory._slotRects) do
         if x >= slot.x and x <= slot.x + slot.w and y >= slot.y and y <= slot.y + slot.h then
-          print("Inventory: Left-click hit detected on:", slot.id)
           -- Check if this is a consumable item
           local itemDef = Content.getItem(slot.id)
-          print("Inventory: Item definition:", itemDef and itemDef.id or "nil", "consumable:", itemDef and itemDef.consumable or "nil")
-          if itemDef then
-            print("Inventory: Full item definition:")
-            for k, v in pairs(itemDef) do
-              print("  ", k, "=", v)
-            end
-          end
           if itemDef and (itemDef.consumable or itemDef.type == "consumable") then
             -- Use the item instead of starting drag
-            print("Inventory: Calling useItem for consumable:", slot.id)
             local result = Inventory.useItem(player, slot.id)
-            print("Inventory: useItem returned:", result)
             return true, false
           else
             -- Non-consumable items can be dragged
-            print("Inventory: Starting drag for non-consumable:", slot.id)
             Inventory.drag = { from = 'inventory', id = slot.id }
             return true, false
           end
         end
       end
-      print("Inventory: No slot hits detected for left-click")
-    else
-      print("Inventory: Skipping left-click check - no slotRects or no player")
     end
   elseif button == 2 then  -- Right-click to use item
     if Inventory._slotRects and player then
@@ -349,41 +326,30 @@ end
 
 -- Use/consume an item
 function Inventory.useItem(player, itemId)
-  print("Inventory.useItem called with:", player and "player" or "nil", itemId)
 
   -- If no player provided, try to get current player
   if not player then
     local PlayerRef = require("src.core.player_ref")
     player = PlayerRef.get()
-    print("Inventory.useItem: Got player from PlayerRef:", player and "found" or "nil")
   end
 
   if not player or not player.inventory or not player.inventory[itemId] or player.inventory[itemId] <= 0 then
-    print("Inventory.useItem: Invalid player or no item in inventory")
-    print("  player:", player and "exists" or "nil")
-    print("  inventory:", player and player.inventory and "exists" or "nil")
-    print("  item count:", player and player.inventory and player.inventory[itemId] or "nil")
     return false
   end
 
   local item = Content.getItem(itemId)
-  print("Inventory.useItem: Item definition:", item and item.id or "nil")
   if not item then
-    print("Inventory.useItem: No item definition found")
     return false
   end
 
   -- Check if item is consumable
   if not (item.consumable or item.type == "consumable") then
-    print("Inventory.useItem: Item is not consumable")
     return false
   end
 
-  print("Inventory.useItem: Processing consumable item:", itemId)
 
   -- Handle node wallet consumption
   if itemId == "node_wallet" then
-    print("Inventory.useItem: Using node wallet")
     
     -- Get the portfolio manager
     local PortfolioManager = require("src.managers.portfolio")
@@ -419,7 +385,6 @@ function Inventory.useItem(player, itemId)
       -- Show error notification
       local Notifications = require("src.ui.notifications")
       Notifications.action("⚠️ " .. (message or "FAILED TO PROCESS NODE WALLET"))
-      print("Error processing node wallet:", message)
     end
     
     return true  -- Item was consumed

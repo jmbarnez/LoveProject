@@ -119,7 +119,7 @@ function Ship.new(x, y, angle, friendly, shipConfig)
       velocity = { x = 0, y = 0 },
       health = { maxHP = maxHP, maxShield = maxShield, maxEnergy = maxEnergy, hp = hp, shield = shield, energy = energy },
       equipment = {
-          turrets = {}
+          grid = {}
       },
       renderable = Renderable.new(
           "enemy", -- Use the 'enemy' renderer by default
@@ -161,20 +161,36 @@ function Ship.new(x, y, angle, friendly, shipConfig)
     self.components.player = {}
   end
 
-  -- Turrets setup - now populates the component
+  -- Equipment grid setup - 3x3 grid for all ships
+  local gridSize = 9  -- 3x3 grid
+  for i = 1, gridSize do
+    table.insert(self.components.equipment.grid, { 
+      id = nil, 
+      module = nil, 
+      enabled = false, 
+      slot = i,
+      type = nil  -- Will be set when module is equipped
+    })
+  end
+
+  -- Legacy turret setup for backward compatibility (will be migrated to grid)
   if shipConfig.hardpoints then
     for i, hardpoint in ipairs(shipConfig.hardpoints) do
-      if hardpoint.turret then
+      if hardpoint.turret and i <= gridSize then
         local turretId = hardpoint.turret
         local tDef = Content.getTurret and Content.getTurret(turretId)
         if tDef then
           local turret = Turret.new(self, Util.copy(tDef))
           turret.id = turretId
           turret.slot = i
-          table.insert(self.components.equipment.turrets, { id = turretId, turret = turret, enabled = true, slot = i })
+          self.components.equipment.grid[i] = { 
+            id = turretId, 
+            module = turret, 
+            enabled = true, 
+            slot = i,
+            type = "turret"
+          }
         end
-      else
-        table.insert(self.components.equipment.turrets, { id = nil, turret = nil, enabled = false, slot = i })
       end
     end
   end
@@ -201,9 +217,12 @@ function Ship:update(dt, player, shootCallback)
     self:updateMovement(dt)
   end
 
-  for _, turretData in ipairs(self.components.equipment.turrets) do
-    if turretData.enabled then
-      turretData.turret:update(dt, self.target, true, shootCallback)
+  -- Update turrets from the grid system
+  if self.components.equipment and self.components.equipment.grid then
+    for _, gridData in ipairs(self.components.equipment.grid) do
+      if gridData.type == "turret" and gridData.module and gridData.enabled then
+        gridData.module:update(dt, self.target, true, shootCallback)
+      end
     end
   end
 end

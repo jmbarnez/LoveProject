@@ -6,7 +6,6 @@ local Hotbar = {}
 -- Runtime state for hold/toggle actions
 Hotbar.state = {
     active = {
-        shield = false,
         turret_slots = {},
     }
 }
@@ -69,51 +68,27 @@ function Hotbar.draw()
     -- The drawing logic will be in src/ui/hud/hotbar.lua
 end
 
--- Populate hotbar from player's equipped turrets: slot1=LMB for turret 1, slot2=RMB shield,
--- subsequent keys (Q,E,R,...) map to turret slots 2..N.
+-- Populate hotbar from player's equipped turrets in the grid
 function Hotbar.populateFromPlayer(player)
-    if not player or not player.components or not player.components.equipment or not player.components.equipment.turrets then
+    if not player or not player.components or not player.components.equipment or not player.components.equipment.grid then
         return
     end
 
-    -- Ensure turret_slot_1 and shield are always in the first two slots
-    Hotbar.slots[1].item = "turret_slot_1"
-    Hotbar.slots[2].item = "shield"
-
-    -- Find already assigned turret slots to avoid re-assigning them
-    local assignedTurretSlots = {}
+    -- Clear all hotbar slots first
     for i = 1, #Hotbar.slots do
-        local item = Hotbar.slots[i].item
-        if type(item) == 'string' and item:match('^turret_slot_(%d+)$') then
-            local slotNum = tonumber(item:match('^turret_slot_(%d+)$'))
-            assignedTurretSlots[slotNum] = true
-        end
+        Hotbar.slots[i].item = nil
     end
 
-    -- Find the next available hotbar slot
-    local nextHotbar = 3
-    while Hotbar.slots[nextHotbar] and Hotbar.slots[nextHotbar].item do
-        nextHotbar = nextHotbar + 1
-    end
-
-    -- Iterate through player's turrets and assign unassigned ones to hotbar
-    for _, tslot in ipairs(player.components.equipment.turrets) do
-        if tslot and tslot.slot and tslot.turret and not assignedTurretSlots[tslot.slot] then
-            if nextHotbar <= #Hotbar.slots then
-                Hotbar.slots[nextHotbar].item = "turret_slot_" .. tostring(tslot.slot)
-                assignedTurretSlots[tslot.slot] = true -- Mark as assigned
-                -- Find next available slot for the next turret
-                repeat
-                    nextHotbar = nextHotbar + 1
-                until nextHotbar > #Hotbar.slots or not Hotbar.slots[nextHotbar].item
-            else
-                break -- No more available hotbar slots
-            end
+    -- Find turrets in the grid and assign them to hotbar slots
+    local nextHotbar = 1
+    for _, gridData in ipairs(player.components.equipment.grid) do
+        if gridData.type == "turret" and gridData.module and nextHotbar <= #Hotbar.slots then
+            Hotbar.slots[nextHotbar].item = "turret_slot_" .. tostring(gridData.slot)
+            nextHotbar = nextHotbar + 1
         end
     end
 
     -- Persist the changes
-    -- Normalize first to guarantee uniqueness (no duplicate shield or turret slots)
     Hotbar.normalizeSlots()
     if Hotbar.save then Hotbar.save() end
 end
@@ -143,11 +118,7 @@ function Hotbar.keypressed(key, player)
         if key == bound then
             local item = slot.item
             -- No fallback behavior - only process if there's an item in the slot
-            if item == "shield" then
-                if bound ~= "mouse2" then
-                    Hotbar.state.active.shield = not Hotbar.state.active.shield
-                end
-            elseif type(item) == 'string' and item:match('^turret_slot_%d+$') then
+            if type(item) == 'string' and item:match('^turret_slot_%d+$') then
                 -- Toggle specific turret slot on non-mouse hotkeys
                 if bound ~= "mouse1" and bound ~= "mouse2" then
                     local idx = tonumber(item:match('^turret_slot_(%d+)$'))
@@ -174,10 +145,7 @@ function Hotbar.mousepressed(x, y, button, player)
     for i, slot in ipairs(Hotbar.slots) do
         local bound = Hotbar.getSlotKey(i)
         if bound == btnKey then
-            if slot.item == "shield" then
-                Hotbar.state.active.shield = true
-                return true
-            elseif type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
+            if type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
                 local idx = tonumber(slot.item:match('^turret_slot_(%d+)$'))
                 if idx then
                     Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
@@ -201,10 +169,7 @@ function Hotbar.mousereleased(button, player)
     for i, slot in ipairs(Hotbar.slots) do
         local bound = Hotbar.getSlotKey(i)
         if bound == btnKey then
-            if slot.item == "shield" then
-                Hotbar.state.active.shield = false
-                return true
-            elseif type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
+            if type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
                 local idx = tonumber(slot.item:match('^turret_slot_(%d+)$'))
                 if idx then
                     Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
@@ -228,8 +193,6 @@ function Hotbar.activate(slotIndex, player)
 
     if slot.item == "turret" then
         -- Turret activation is handled by state/hold; nothing on tap
-    elseif slot.item == "shield" then
-        -- Shield is handled via hold/toggle state
     end
 end
 

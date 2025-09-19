@@ -28,7 +28,7 @@ return {
   engine = { accel = 900, maxSpeed = 450, drag = 0.985, mass = 400 },
   sig = 110,
   cargo = { capacity = 120 },
-  targeting = { lockTime = 2.0, sigRes = 100 },
+  targeting = { lockTime = 2.0 },
   description = "A robust starter frigate with a simple square hull design and dual engines.",
 
   visuals = {

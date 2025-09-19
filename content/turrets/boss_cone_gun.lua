@@ -19,10 +19,10 @@ return {
     shield = { spanDeg = 80, color1 = {1.0, 0.6, 0.2, 0.5}, color2 = {1.0, 0.3, 0.1, 0.4} },
     hull = { spark = {1.0, 0.7, 0.2, 0.6}, ring = {1.0, 0.4, 0.1, 0.4} },
   },
-  optimal = 700, falloff = 500, tracking = 0.9, sigRes = 120,
+  optimal = 700, falloff = 500,
   damage_range = { min = 2, max = 3 },
-  cycle = 1.0, capCost = 0, turnRate = 2.2,
-  projectileSpeed = 2400,
+  cycle = 1.0, capCost = 0,
+  projectileSpeed = 800,
   baseAccuracy = 0.9,
   -- Volley settings
   volleyCount = 3,

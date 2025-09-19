@@ -143,8 +143,8 @@ function Wreckage.spawnFromEnemy(originPos, visuals, sizeScale)
     local angularVel = (math.random() - 0.5) * 1  -- Reduced from ±2 to ±0.5 radians/sec
     -- Extend lifetime so wreckage persists for salvaging (10 minutes)
     local lifetime = 600 -- seconds
-    local px = ox + (math.random() - 0.5) * 40
-    local py = oy + (math.random() - 0.5) * 40
+    local px = ox
+    local py = oy
     table.insert(pieces, newPiece(px, py, vx, vy, math.random() * math.pi * 2, angularVel, lifetime, visuals))
     if pieceLoot then
       for _, stack in ipairs(pieceLoot) do

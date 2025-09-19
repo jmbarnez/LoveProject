@@ -7,7 +7,7 @@ local ProjectileWeapons = {}
 
 -- Handle gun turret firing (bullets, shells, etc.)
 function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
-    if locked or not HeatManager.canFire(turret) then
+    if locked or not turret:canFire() then
         return
     end
 
@@ -15,44 +15,69 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
     local angle = turret.owner.components.position.angle or 0
     local projSpeed = turret.projectileSpeed or 2400
 
-    -- Apply spread based on turret accuracy
-    local spreadFactor = turret.spread and turret.spread.minDeg or 0.1
-    local spreadAngle = (math.random() - 0.5) * math.rad(spreadFactor)
-    angle = angle + spreadAngle
+    -- Handle volley firing for turrets that support it
+    local volleyCount = turret.volleyCount or 1
+    local volleySpreadDeg = turret.volleySpreadDeg or 0
 
-    -- Create projectile
-    local projectileId = turret.projectileId or "gun_bullet"
-    local projectileTemplate = Content.getProjectile(projectileId)
+    for i = 1, volleyCount do
+        -- Calculate spread angle for this projectile in the volley
+        local spreadFactor = turret.spread and turret.spread.minDeg or 0.1
+        local volleyAngle = 0
 
-    if projectileTemplate then
-        local sx = turret.owner.components.position.x
-        local sy = turret.owner.components.position.y
-        local vx = math.cos(angle) * projSpeed
-        local vy = math.sin(angle) * projSpeed
-
-        -- Use world's spawn_projectile function to avoid circular dependency
-        if world and world.spawn_projectile then
-            world.spawn_projectile(sx, sy, angle, turret.owner.isPlayer or turret.owner.isFriendly, {
-                projectile = projectileId,
-                vx = vx,
-                vy = vy,
-                source = turret.owner,
-                damage = turret.damage_range and {
-                    min = turret.damage_range.min,
-                    max = turret.damage_range.max
-                } or {min = 1, max = 2}
-            })
+        if volleyCount > 1 then
+            -- Distribute projectiles evenly across the volley spread
+            local spreadPerProjectile = volleySpreadDeg / (volleyCount - 1)
+            volleyAngle = math.rad((i - 1) * spreadPerProjectile - volleySpreadDeg / 2)
         end
 
-        -- Add heat and play effects
-        HeatManager.addHeat(turret, turret.heatPerShot or 10)
-        TurretEffects.playFiringSound(turret)
+        -- Apply additional random spread
+        local randomSpread = (math.random() - 0.5) * math.rad(spreadFactor)
+        local finalAngle = angle + volleyAngle + randomSpread
+
+        -- Create projectile
+        local projectileId = turret.projectileId or "gun_bullet"
+        local projectileTemplate = Content.getProjectile(projectileId)
+
+        if projectileTemplate then
+            local sx = turret.owner.components.position.x
+            local sy = turret.owner.components.position.y
+            local vx = math.cos(finalAngle) * projSpeed
+            local vy = math.sin(finalAngle) * projSpeed
+
+            -- Use world's spawn_projectile function to avoid circular dependency
+            if world and world.spawn_projectile then
+                world.spawn_projectile(sx, sy, finalAngle, turret.owner.isPlayer or turret.owner.isFriendly, {
+                    projectile = projectileId,
+                    vx = vx,
+                    vy = vy,
+                    source = turret.owner,
+                    damage = turret.damage_range and {
+                        min = turret.damage_range.min,
+                        max = turret.damage_range.max
+                    } or {min = 1, max = 2}
+                })
+            end
+        end
     end
+
+    -- Handle secondary projectiles (e.g., missiles alongside main fire)
+    if turret.secondaryProjectile and turret.secondaryFireEvery then
+        -- Check if it's time to fire secondary projectile
+        turret.secondaryFireCounter = (turret.secondaryFireCounter or 0) + 1
+        if turret.secondaryFireCounter >= turret.secondaryFireEvery then
+            turret.secondaryFireCounter = 0
+            ProjectileWeapons.fireSecondaryProjectile(turret, target, angle, world)
+        end
+    end
+
+    -- Add heat and play effects (only once per volley, not per projectile)
+    HeatManager.addHeat(turret, turret.heatPerShot or 10)
+    TurretEffects.playFiringSound(turret)
 end
 
 -- Handle missile turret firing (homing projectiles)
 function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world)
-    if locked or not HeatManager.canFire(turret) then
+    if locked or not turret:canFire() then
         return
     end
 
@@ -94,7 +119,6 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
                     min = turret.damage_range.min,
                     max = turret.damage_range.max
                 } or {min = 2, max = 4},
-                turnRate = turret.missileTurnRate or 0,
                 target = missileTarget,
                 homing = true
             })

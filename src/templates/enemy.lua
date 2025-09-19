@@ -45,8 +45,8 @@ function Enemy.new(x, y, options)
   end
   self.turret = Turret.new(self, tDef or {
     type = "laser",
-    optimal = 380, falloff = 260, tracking = 0.7, sigRes = 100,
-    cycle = 4.5, capCost = 0, turnRate = 3.2
+    optimal = 380, falloff = 260,
+    cycle = 4.5, capCost = 0
   })
   -- Behavior ranges
   local opt = self.turret.optimal or 380

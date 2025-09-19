@@ -29,9 +29,9 @@ return {
     hull = { spark = {1.0, 0.55, 0.15, 0.6}, ring = {1.0, 0.35, 0.05, 0.5} },
   },
   -- Long range with homing, heavy damage but slow
-  optimal = 1500, falloff = 2500, tracking = 0.4, sigRes = 120,
+  optimal = 1500, falloff = 2500,
   damage_range = { min = 3, max = 5 },
-  cycle = 6.0, capCost = 8, turnRate = 1.8,
+  cycle = 6.0, capCost = 8,
   spread = { minDeg = 1.2, maxDeg = 3.5, decay = 300 }, -- Less accurate initially
   -- Homing properties
   homingStrength = 0.8, -- Strong homing capability

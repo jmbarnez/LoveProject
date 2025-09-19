@@ -1,4 +1,6 @@
 local SalvageSystem = {}
+local Skills = require("src.core.skills")
+local Notifications = require("src.ui.notifications")
 
 function SalvageSystem.update(dt, world, player)
   for _, entity in ipairs(world:get_entities_with_components("wreckage", "timed_life")) do
@@ -10,7 +12,17 @@ function SalvageSystem.update(dt, world, player)
                 wreckage.salvageAmount = wreckage.salvageAmount - 1
                 local Cargo = require("src.core.cargo")
                 Cargo.add(player, wreckage.resourceType or "scraps", 1)
-                player:addXP(5) -- Add 5 XP for each salvaged resource
+
+                local xpBase = 10 -- base XP per salvaged resource
+                local salvagingLevel = Skills.getLevel("salvaging")
+                local xpGain = xpBase * (1 + salvagingLevel * 0.06) -- mild scaling per level
+                local leveledUp = Skills.addXp("salvaging", xpGain)
+                player:addXP(xpGain)
+
+                if leveledUp then
+                    Notifications.action("Salvaging level up!")
+                end
+
                 if wreckage.salvageAmount <= 0 then
                     entity.dead = true
                 end

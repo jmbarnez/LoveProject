@@ -204,15 +204,7 @@ function Effects.spawnImpact(kind, cx, cy, r, hx, hy, angle, style, bulletKind, 
           color = {0.45,0.85,1.0,0.85}, size = 1.0 })
       end
     else
-      -- Keep some traditional effects for compatibility and layering when ripple created
-      Effects.add({ type='ring', x=hx, y=hy, r0=8, r1=28, w0=3, w1=1, t=0, life=0.15, color={0.6,0.9,1.0,0.4} })
-      -- Reduced traditional effects to let enhanced animation shine
-      for i=1,4 do
-        local a = angle + (math.random()*2-1) * math.pi*0.6
-        local s = 80 + math.random()*60
-        Effects.add({ type='spark', x=hx, y=hy, vx=math.cos(a)*s, vy=math.sin(a)*s, t=0, life=0.12+math.random()*0.08,
-          color = {0.4,0.85,1.0,0.7}, size = 0.8 })
-      end
+        -- No traditional effects; rely on ripple for subtlety
     end
   end
 end

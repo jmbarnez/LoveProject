@@ -1,5 +1,7 @@
 local Pickups = {}
 local Cargo = require("src.core.cargo")
+local Events = require("src.core.events")
+local Sound = require("src.core.sound")
 
 local ATTRACT_RADIUS = 600
 local CAPTURE_RADIUS = 28
@@ -17,6 +19,7 @@ local function collect(player, pickup)
   local id = pickup.itemId or (pickup.components and pickup.components.renderable and pickup.components.renderable.props and pickup.components.renderable.props.itemId) or "stones"
   local qty = pickup.qty or (pickup.components and pickup.components.renderable and pickup.components.renderable.props and pickup.components.renderable.props.qty) or 1
   Cargo.add(player, id, qty)
+  Sound.triggerEventAt("loot_collected", pickup.components.position.x, pickup.components.position.y)
   pickup.dead = true
   currentTargetId = nil
 end
@@ -24,6 +27,20 @@ end
 function Pickups.update(dt, world, player)
   if not player or not player.components or not player.components.position then return end
   local px, py = player.components.position.x, player.components.position.y
+
+  -- Update all pickups with velocity and drag
+  for _, e in ipairs(world:get_entities_with_components("item_pickup", "position", "velocity")) do
+    if not e.dead then
+      local vel = e.components.velocity
+      local pos = e.components.position
+      -- Apply velocity
+      pos.x = pos.x + vel.vx * dt
+      pos.y = pos.y + vel.vy * dt
+      -- Light drag
+      vel.vx = vel.vx * 0.98
+      vel.vy = vel.vy * 0.98
+    end
+  end
 
   -- Resolve / keep target
   local target
@@ -50,12 +67,24 @@ function Pickups.update(dt, world, player)
     local d, dx, dy = dist(ex, ey, px, py)
     if d <= CAPTURE_RADIUS then
       collect(player, target)
+      player.tractorBeam = nil
     else
       local dirx, diry = dx / math.max(1e-6, d), dy / math.max(1e-6, d)
       local speed = BASE_PULL * (0.3 + 0.7 * (d / ATTRACT_RADIUS))
-      target.components.position.x = ex + dirx * speed * dt
-      target.components.position.y = ey + diry * speed * dt
+      local vel = target.components.velocity
+      vel.vx = vel.vx + dirx * speed * dt
+      vel.vy = vel.vy + diry * speed * dt
+      player.tractorBeam = {targetX = ex, targetY = ey}
     end
+  else
+    player.tractorBeam = nil
+  end
+end
+
+function Pickups.stopTractorBeam(player)
+  currentTargetId = nil
+  if player then
+    player.tractorBeam = nil
   end
 end
 

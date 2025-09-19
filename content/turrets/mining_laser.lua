@@ -30,12 +30,11 @@ return {
       particles = {1.0, 0.8, 0.2, 0.7} -- Bright particles
     },
   },
-  -- Pulsed mining beam, 1 second cycles
-  optimal = 850, falloff = 250, tracking = 1.0, sigRes = 120,
+  -- Pulsed mining beam, 3 second cycles
+  optimal = 850, falloff = 250,
   damageMin = 1, damageMax = 2, -- Mining damage per pulse
-  cycle = 1.0, -- 1 second cycles for pulsing behavior
+  cycle = 3.0, -- 3 second cycles for pulsing behavior
   capCost = 25, -- Energy cost per pulse
-  turnRate = 2.0, -- Slower tracking, mining equipment
   spread = { minDeg = 0.05, maxDeg = 0.1, decay = 1000 }, -- Very precise for mining
   miningPower = 2.5, -- Mining damage per pulse
   beamDuration = 0.2, -- Visible beam duration per pulse

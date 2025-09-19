@@ -8,7 +8,7 @@ local UtilityBeams = {}
 
 -- Handle mining laser operation (pulsed weapon like combat laser)
 function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
-    if locked or not HeatManager.canFire(turret) then
+    if locked or not turret:canFire() then
         return
     end
 
@@ -113,7 +113,7 @@ end
 
 -- Handle salvaging laser operation (pulsed weapon like mining laser)
 function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
-    if locked or not HeatManager.canFire(turret) then
+    if locked or not turret:canFire() then
         return
     end
 
@@ -159,23 +159,8 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     TurretEffects.playFiringSound(turret)
 end
 
--- Complete salvage operation and yield materials
+-- Complete salvage operation (cleanup after all materials yielded)
 function UtilityBeams.completeSalvage(turret, target, world)
-    local salvageAmount = target.components.wreckage and target.components.wreckage.amount or 1
-
-    -- Create scrap pickup
-    local ItemPickup = require("src.entities.item_pickup")
-    local pickup = ItemPickup.new(
-        target.components.position.x,
-        target.components.position.y,
-        "scraps",
-        salvageAmount
-    )
-
-    if pickup and world then
-        world:addEntity(pickup)
-    end
-
     -- Salvage completion effects
     TurretEffects.createSalvageParticles(
         target.components.position.x,
@@ -255,10 +240,25 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
     end
 
     local wreckage = target.components.wreckage
-    wreckage.amount = math.max(0, (wreckage.amount or 1) - damage)
+    local amountThisPulse = math.min(damage, wreckage.salvageAmount or 1)
+    wreckage.salvageAmount = math.max(0, (wreckage.salvageAmount or 1) - damage)
+
+    -- Create scrap pickup for this pulse
+    if amountThisPulse > 0 then
+        local ItemPickup = require("src.entities.item_pickup")
+        local pickup = ItemPickup.new(
+            target.components.position.x,
+            target.components.position.y,
+            "scraps",
+            amountThisPulse
+        )
+        if pickup and world then
+            world:addEntity(pickup)
+        end
+    end
 
     -- Check if wreckage is completely salvaged
-    if wreckage.amount <= 0 then
+    if wreckage.salvageAmount <= 0 then
         UtilityBeams.completeSalvage(nil, target, world)
         target.dead = true
     end

@@ -75,9 +75,9 @@ function TurretEffects.renderBeam(turret, startX, startY, endX, endY, hitTarget)
 
     if not turret.tracer then return end
 
-    local color = turret.tracer.color or {1, 1, 1, 0.8}
-    local width = turret.tracer.width or 2
-    local coreRadius = turret.tracer.coreRadius or 1
+    local color = {0, 0.5, 1, 1}
+    local width = 4
+    local coreRadius = 2
 
     -- Draw beam core
     love.graphics.setColor(color[1], color[2], color[3], color[4])
@@ -86,7 +86,7 @@ function TurretEffects.renderBeam(turret, startX, startY, endX, endY, hitTarget)
 
     -- Draw beam core (brighter center)
     if coreRadius > 0 then
-        love.graphics.setColor(color[1] * 1.2, color[2] * 1.2, color[3] * 1.2, color[4] * 0.8)
+        love.graphics.setColor(0.2, 0.7, 1.2, 0.9)
         love.graphics.setLineWidth(coreRadius)
         love.graphics.line(startX, startY, endX, endY)
     end
@@ -106,5 +106,30 @@ function TurretEffects.handleSpecialEffects(turret, target, hitX, hitY)
 end
 
 
+
+function TurretEffects.createMiningParticles(x, y)
+    for i=1, 6 do
+        local a = math.random() * math.pi * 2
+        local s = 80 + math.random()*60
+        Effects.add({ type='spark', x=x, y=y, vx=math.cos(a)*s, vy=math.sin(a)*s, t=0,
+            life=0.3 + math.random()*0.2, color={0.8,0.6,0.3,0.9}, size=2 })
+    end
+    Effects.add({ type='ring', x=x, y=y, r0=3, r1=20, w0=4, w1=1, t=0, life=0.3, color={0.7,0.5,0.2,0.5} })
+end
+
+function TurretEffects.createSalvageParticles(x, y)
+    for i=1, 8 do
+        local a = math.random() * math.pi * 2
+        local s = 50 + math.random()*100
+        Effects.add({ type='spark', x=x, y=y, vx=math.cos(a)*s, vy=math.sin(a)*s, t=0,
+            life=0.5 + math.random()*0.3, color={0.7,0.7,0.7,0.8}, size=1.5 })
+    end
+    for i=1,3 do
+        local a = math.random()*math.pi*2
+        local rr = 5 + math.random()*10
+        Effects.add({ type='smoke', x=x+math.cos(a)*rr, y=y+math.sin(a)*rr, r0=4, rg=20, t=0, life=0.6+math.random()*0.4,
+            color={0.5,0.5,0.5,0.3} })
+    end
+end
 
 return TurretEffects

@@ -45,11 +45,11 @@ function HotbarSelection.show(slot, x, y, player)
     local items = { "shield" }
 
     -- Add equipped turret slots from player
-    if player and player.components and player.components.equipment and player.components.equipment.turrets then
-        for _, tslot in ipairs(player.components.equipment.turrets) do
-            if tslot and tslot.slot and tslot.turret then
-                table.insert(items, "turret_slot_" .. tostring(tslot.slot))
-            end
+    if player and player.components and player.components.equipment and player.components.equipment.grid then
+        for _, gridData in ipairs(player.components.equipment.grid) do
+          if gridData.type == "turret" and gridData.module then
+            table.insert(items, "turret_slot_" .. tostring(gridData.slot))
+          end
         end
     end
 
@@ -90,11 +90,11 @@ function HotbarSelection.draw()
             local idx = tonumber(item:match('^turret_slot_(%d+)$'))
             if HotbarSelection.player and HotbarSelection.player.components and HotbarSelection.player.components.equipment and idx then
                 local turret = nil
-                for _, ts in ipairs(HotbarSelection.player.components.equipment.turrets) do
-                    if ts.slot == idx then
-                        turret = ts.turret
-                        break
-                    end
+                for _, gridData in ipairs(HotbarSelection.player.components.equipment.grid) do
+                  if gridData.type == "turret" and gridData.module and gridData.slot == idx then
+                    turret = gridData.module
+                    break
+                  end
                 end
                 if turret then
                     local kind = turret.kind or 'gun'
@@ -124,13 +124,30 @@ function HotbarSelection.mousepressed(x, y, button)
         local itemY = panel.y + panel.itemGap + row * (panel.itemSize + panel.itemGap)
 
         if x > itemX and x < itemX + panel.itemSize and y > itemY and y < itemY + panel.itemSize then
+            -- Record old slot index before clearing
+            local oldSlotIndex = nil
             -- Check if the item is already in another slot
-            for i, slot in ipairs(HotbarSystem.slots) do
+            for j, slot in ipairs(HotbarSystem.slots) do
                 if slot.item == item then
+                    oldSlotIndex = j
                     slot.item = nil
                 end
             end
+
             HotbarSystem.slots[HotbarSelection.slot].item = item
+
+            -- If moved to a different hotbar slot with different hotkey, deactivate turret state
+            if oldSlotIndex and oldSlotIndex ~= HotbarSelection.slot and
+               type(item) == 'string' and item:match('^turret_slot_(%d+)$') then
+                local idx = tonumber(item:match('^turret_slot_(%d+)$'))
+                local oldKey = HotbarSystem.getSlotKey(oldSlotIndex)
+                local newKey = HotbarSystem.getSlotKey(HotbarSelection.slot)
+                if oldKey ~= newKey then
+                    HotbarSystem.state.active.turret_slots = HotbarSystem.state.active.turret_slots or {}
+                    HotbarSystem.state.active.turret_slots[idx] = false
+                end
+            end
+
             -- Persist new hotbar layout
             if HotbarSystem.save then HotbarSystem.save() end
             HotbarSelection.hide()

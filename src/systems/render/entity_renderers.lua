@@ -4,6 +4,7 @@ local EnemyStatusBars = require("src.ui.hud.enemy_status_bars")
 local Config = require("src.content.config")
 local PlayerRenderer = require("src.systems.render.player_renderer")
 local Log = require("src.core.log")
+local Content = require("src.content.content")
 
 local EntityRenderers = {}
 
@@ -187,26 +188,60 @@ function EntityRenderers.planet(entity, player)
     end
 end
 
--- Item pickup renderer (enhanced visibility: larger, brighter rock with glow)
+-- Item pickup renderer (simple small icon with name and amount label)
 function EntityRenderers.item_pickup(entity, player)
     local props = entity.components.renderable.props or {}
-    local s = (props.sizeScale or 0.7) * 1.5  -- Increase size for visibility
-    local wob = math.sin(love.timer.getTime() * 6 + (entity.id or 0)) * 1.2
-    local size = 8 * s  -- Larger base size
-    -- Core rock with brighter silver color
-    love.graphics.setColor(0.7, 0.7, 0.8, 0.95)
-    love.graphics.polygon('fill', -size, -size*0.2, -size*0.2, -size*0.8, size, -size*0.2, size*0.6, size*0.8, -size*0.6, size*0.6)
-    -- Stronger outline
-    love.graphics.setColor(0.4, 0.4, 0.5, 1.0)
-    love.graphics.setLineWidth(2)
-    love.graphics.polygon('line', -size, -size*0.2, -size*0.2, -size*0.8, size, -size*0.2, size*0.6, size*0.8, -size*0.6, size*0.6)
-    -- Enhanced wobble highlight with glow
-    love.graphics.setColor(0.9, 0.9, 1.0, 0.8)
-    love.graphics.circle('fill', -size*0.2 + wob*0.1, -size*0.4 + wob*0.1, 2.0*s)
-    -- Subtle outer glow
-    love.graphics.setColor(0.9, 0.9, 1.0, 0.3)
-    love.graphics.circle('fill', -size*0.2 + wob*0.1, -size*0.4 + wob*0.1, 3.0*s)
-    love.graphics.setLineWidth(1)
+    local itemId = props.itemId or "stones"
+    local qty = props.qty or 1
+    local s = (props.sizeScale or 0.7) * 1.5  -- Base size factor
+
+    -- Fetch item or turret definition for correct model
+    local itemDef = Content.getItem(itemId) or Content.getTurret(itemId)
+    local Theme = require("src.core.theme")
+    local oldFont = love.graphics.getFont()
+    if Theme.fonts and Theme.fonts.small then
+        love.graphics.setFont(Theme.fonts.small)
+    end
+
+    -- Ensure consistent white color for no tint during movement
+    love.graphics.setColor(1.0, 1.0, 1.0, 1.0)
+
+    if itemDef and itemDef.icon then
+        -- Render small icon
+        local icon = itemDef.icon
+        local iconW, iconH = icon:getDimensions()
+        local scale = s * 0.15  -- Even smaller icon size
+        local drawW = iconW * scale
+        local drawH = iconH * scale
+        love.graphics.draw(icon, -drawW/2, -drawH/2, 0, scale, scale)
+
+        -- Label below: name and qty
+        local label = (itemDef.name or itemId) .. " x" .. qty
+        local font = love.graphics.getFont()
+        local textW = font:getWidth(label)
+        local textH = font:getHeight()
+        love.graphics.print(label, -textW/2, drawH/2 + 2)
+    else
+        -- Fallback: simple circle with generic label
+        local size = 2 * s
+        love.graphics.setColor(0.7, 0.7, 0.8, 1.0)
+        love.graphics.circle('fill', 0, 0, size)
+        love.graphics.setColor(0.4, 0.4, 0.5, 1.0)
+        love.graphics.setLineWidth(1)
+        love.graphics.circle('line', 0, 0, size)
+
+        -- Generic label
+        local label = "Item x" .. qty
+        local font = love.graphics.getFont()
+        local textW = font:getWidth(label)
+        local textH = font:getHeight()
+        love.graphics.setColor(1.0, 1.0, 1.0, 1.0)
+        love.graphics.print(label, -textW/2, size + 2)
+    end
+
+    if oldFont then
+        love.graphics.setFont(oldFont)
+    end
 end
 
 -- Asteroid renderer
@@ -411,6 +446,34 @@ function EntityRenderers.station(entity, player)
                 love.graphics.setLineWidth(3)
                 love.graphics.circle('line', 0, 0, ringRadius)
                 love.graphics.setLineWidth(1)
+                
+                -- Helper text when inside the radius
+                if distance <= ringRadius then
+                    local Theme = require("src.core.theme")
+                    local oldFont = love.graphics.getFont()
+                    if Theme.fonts and Theme.fonts.small then
+                        love.graphics.setFont(Theme.fonts.small)
+                    end
+                    
+                    local label = "Weapons Disabled"
+                    local font = love.graphics.getFont()
+                    local textW = font:getWidth(label)
+                    local textH = font:getHeight()
+                    local textX = -textW / 2
+                    local textY = -ringRadius - textH - 10
+                    
+                    -- Background
+                    love.graphics.setColor(0, 0, 0, 0.7)
+                    love.graphics.rectangle("fill", textX - 4, textY - 2, textW + 8, textH + 4, 2, 2)
+                    
+                    -- Text
+                    love.graphics.setColor(1.0, 1.0, 1.0, 1.0)
+                    love.graphics.print(label, textX, textY)
+                    
+                    if oldFont then
+                        love.graphics.setFont(oldFont)
+                    end
+                end
             end
         end
     end
@@ -934,6 +997,8 @@ function EntityRenderers.draw(world, camera, player)
             EntityRenderers.asteroid(entity, player)
         elseif entity.isItemPickup or entity.components.item_pickup then
             EntityRenderers.item_pickup(entity, player)
+        elseif entity.components.wreckage then
+            EntityRenderers.wreckage(entity, player)
         elseif entity.components.lootable and entity.isWreckage then
             EntityRenderers.wreckage(entity, player)
         elseif entity.components.bullet then
@@ -953,9 +1018,33 @@ function EntityRenderers.draw(world, camera, player)
             love.graphics.setColor(1, 1, 1, 1)
             love.graphics.circle("fill", 0, 0, S(10))
         end
-        
         love.graphics.pop()
+
+        -- Draw enemy laser beams after pop, in world space
+        if entity.components.ai and entity.components.equipment and entity.components.equipment.grid then
+            for _, gridData in ipairs(entity.components.equipment.grid) do
+                if gridData.type == "turret" and gridData.module and gridData.module.beamActive then
+                    local turret = gridData.module
+                    local TurretEffects = require("src.systems.turret.effects")
+                    TurretEffects.renderBeam(turret, turret.beamStartX, turret.beamStartY, turret.beamEndX, turret.beamEndY, turret.beamTarget)
+                    turret.beamActive = false
+                end
+            end
+        end
         ::continue::
+    end
+
+    -- Draw player tractor beam for item pickups
+    if player and player.tractorBeam then
+        local RenderUtils = require("src.systems.render.utils")
+        local sx, sy = player.components.position.x, player.components.position.y
+        local ex, ey = player.tractorBeam.targetX, player.tractorBeam.targetY
+        local time = love.timer.getTime()
+        local pulse = 0.7 + 0.3 * math.sin(time * 4)  -- Subtle pulse between 0.4 and 1.0 alpha base
+        RenderUtils.setColor({0.2, 0.6, 1.0, 0.4 * pulse})
+        love.graphics.setLineWidth(1.5)
+        love.graphics.line(sx, sy, ex, ey)
+        love.graphics.setLineWidth(1)
     end
 end
 

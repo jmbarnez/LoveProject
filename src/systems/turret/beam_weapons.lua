@@ -7,7 +7,7 @@ local BeamWeapons = {}
 
 -- Handle laser turret firing (hitscan beam weapons)
 function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
-    if locked or not HeatManager.canFire(turret) then
+    if locked or not turret:canFire() then
         return
     end
 

@@ -1,6 +1,7 @@
 local Effects = require("src.systems.effects")
 local Wreckage = require("src.entities.wreckage")
 local ItemPickup = require("src.entities.item_pickup")
+local Pickups = require("src.systems.pickups")
 local Events = require("src.core.events")
 local Content = require("src.content.content")
 local ProceduralGen = require("src.core.procedural_gen")
@@ -143,13 +144,13 @@ function DestructionSystem.update(world, gameState)
               -- Create item pickups for each item
               for _, item in ipairs(items) do
                 if item.id and item.qty and item.qty > 0 then
-                  -- Add some random offset to spread out the items
+                  -- Spawn at center with outward velocity for explosion spread
                   local angle = math.random() * math.pi * 2
-                  local dist = math.random(10, 30) * sizeScale
-                  local px = x + math.cos(angle) * dist
-                  local py = y + math.sin(angle) * dist
+                  local speed = (50 + math.random() * 50) * sizeScale  -- Lower speed than wreckage, not too far
+                  local vx = math.cos(angle) * speed
+                  local vy = math.sin(angle) * speed
                   
-                  local pickup = ItemPickup.new(px, py, item.id, item.qty)
+                  local pickup = ItemPickup.new(x, y, item.id, item.qty, nil, vx, vy)
                   world:addEntity(pickup)
                 end
               end
@@ -190,11 +191,15 @@ function DestructionSystem.update(world, gameState)
             e.dead = false -- Reset death flag to prevent getting stuck
             goto skip_entity
           end
+
+          if e.isPlayer then
+            Events.emit('player_death', {player = e})
+          end
           
           -- Player death: respawn at the station
           -- dropPlayerLoot(world, e, x, y)
           -- e.inventory = {}
-
+ 
           -- Find station and respawn near it
           local hub = findHubStation(world)
           local spawn_margin = 48
@@ -210,13 +215,46 @@ function DestructionSystem.update(world, gameState)
           e.dead = false -- No longer dead
           e.components.position.x = px
           e.components.position.y = py
-          if e.components.physics and e.components.physics.body and e.components.physics.body:isDestroyed() == false then
-            e.components.physics.body:setLinearVelocity(0, 0)
-            e.components.physics.body:setAngularVelocity(0)
+          e.components.position.angle = 0 -- Reset angle
+          
+          local phys = e.components.physics
+          local needsNewBody = not phys or not phys.body
+          if phys and phys.body then
+            local success, isDestroyed = pcall(function() return phys.body:isDestroyed() end)
+            if success and isDestroyed then
+              needsNewBody = true
+              phys.body = nil
+            end
           end
+          
+          if needsNewBody then
+            -- Recreate physics body
+            local Physics = require("src.components.physics")
+            local mass = (e.ship and e.ship.engine and e.ship.engine.mass) or 500
+            phys = Physics.new({
+              mass = mass,
+              x = px,
+              y = py
+            })
+            e.components.physics = phys
+            if phys.body then
+              phys.body.skipThrusterForce = true
+            end
+          end
+          
+          -- Reset velocities
+          if phys and phys.body and not phys.body:isDestroyed() then
+            phys.body:setLinearVelocity(0, 0)
+            phys.body:setAngularVelocity(0)
+          end
+          
           if e.components.health then
             e.components.health.hp = e.components.health.maxHP
             e.components.health.shield = e.components.health.maxShield
+          end
+
+          if e.isPlayer then
+            Events.emit('player_respawn', {player = e})
           end
           e._destructionProcessed = true
         end

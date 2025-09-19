@@ -26,9 +26,9 @@ return {
     hull = { spark = {1.0, 0.6, 0.1, 0.6}, ring = {1.0, 0.3, 0.0, 0.4} },
   },
   -- Balanced medium range with moderate damage falloff
-  optimal = 800, falloff = 600, tracking = 1.2, sigRes = 150,
+  optimal = 800, falloff = 600,
   damage_range = { min = 1, max = 2 },
-  cycle = 0.6, capCost = 2, turnRate = 3.2,
+  cycle = 0.6, capCost = 2,
   projectileSpeed = 4800, -- Even faster projectiles (4x original baseline)
   maxRange = 2000, -- Bullets disappear after traveling 2000 units
   -- Overheating parameters

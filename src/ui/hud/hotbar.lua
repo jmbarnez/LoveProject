@@ -126,11 +126,11 @@ function Hotbar.draw(player)
     local drewIcon = false
     if slot.item == "turret" then
       local primaryKind, primaryColor = 'gun', Theme.colors.accent
-      if player and player.components and player.components.equipment and player.components.equipment.turrets then
-        for _, turretSlot in ipairs(player.components.equipment.turrets) do
-          if turretSlot and turretSlot.turret then
-            primaryKind = turretSlot.turret.kind or turretSlot.turret.type or 'gun'
-            primaryColor = (turretSlot.turret.tracer and turretSlot.turret.tracer.color) or Theme.colors.accent
+      if player and player.components and player.components.equipment and player.components.equipment.grid then
+        for _, gridData in ipairs(player.components.equipment.grid) do
+          if gridData.type == "turret" and gridData.module then
+            primaryKind = gridData.module.kind or gridData.module.type or 'gun'
+            primaryColor = (gridData.module.tracer and gridData.module.tracer.color) or Theme.colors.accent
             break
           end
         end
@@ -142,12 +142,10 @@ function Hotbar.draw(player)
       drewIcon = true
     elseif type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
       local idx = tonumber(slot.item:match('^turret_slot_(%d+)$'))
-      if player and player.components and player.components.equipment and idx then
-        local t
-        for _, ts in ipairs(player.components.equipment.turrets) do
-          if ts.slot == idx then t = ts.turret break end
-        end
-        if t then
+      if player and player.components and player.components.equipment and player.components.equipment.grid and idx then
+        local gridData = player.components.equipment.grid[idx]
+        if gridData and gridData.type == "turret" and gridData.module then
+          local t = gridData.module
           local kind = t.kind or 'gun'
           local col = (t.tracer and t.tracer.color) or Theme.colors.accent
           drawTurretIcon(kind, col, rx + 4, ry + 4, size - 8)
@@ -160,11 +158,11 @@ function Hotbar.draw(player)
                     local barY = ry - 8
                     local barWidth = size
                     local barHeight = 3
-                    
+
                     -- Heat bar background
                     love.graphics.setColor(0.2, 0.2, 0.2, 0.8)
                     love.graphics.rectangle('fill', rx, barY, barWidth, barHeight)
-                    
+
                     -- Heat bar fill
                     local heatColor = {
                         1.0 - heatFactor * 0.3, -- Red increases with heat
@@ -174,18 +172,43 @@ function Hotbar.draw(player)
                     }
                     love.graphics.setColor(heatColor)
                     love.graphics.rectangle('fill', rx, barY, barWidth * heatFactor, barHeight)
-                    
+
                     -- Overheat warning
                     if t.isOverheated then
                         local pulse = (math.sin(love.timer.getTime() * 8) + 1) / 2
                         love.graphics.setColor(1, 0.1, 0.1, 0.6 + pulse * 0.4)
                         love.graphics.rectangle('fill', rx, barY, barWidth, barHeight)
                     end
-                    
+
                     -- Heat bar border
                     love.graphics.setColor(0.4, 0.4, 0.4, 1)
                     love.graphics.setLineWidth(1)
                     love.graphics.rectangle('line', rx, barY, barWidth, barHeight)
+                end
+            end
+
+            -- Draw cooldown bar for this turret
+            if t and t.cooldown and t.cooldown > 0 and t.cycle and t.cycle > 0 then
+                local cooldownPct = math.max(0, math.min(1, t.cooldown / t.cycle))
+                if cooldownPct > 0 then
+                    local barHeight = math.floor(size * cooldownPct)
+                    -- Use blue for cooldown bar
+                    love.graphics.setColor(0.2, 0.6, 1.0, 0.7)
+                    love.graphics.rectangle('fill', rx, ry + size - barHeight, size, barHeight)
+                    love.graphics.setColor(0.4, 0.8, 1.0, 0.9)
+                    love.graphics.setLineWidth(1)
+                    love.graphics.rectangle('line', rx, ry + size - barHeight, size, barHeight)
+
+                    -- Numeric cooldown
+                    local text = string.format("%.1f", t.cooldown)
+                    local fOld = love.graphics.getFont()
+                    if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
+                    local fw = love.graphics.getFont():getWidth(text)
+                    love.graphics.setColor(0, 0, 0, 0.7)
+                    love.graphics.print(text, rx + size - fw - 5 + 1, ry + 5 + 1)
+                    Theme.setColor(Theme.colors.text)
+                    love.graphics.print(text, rx + size - fw - 5, ry + 5)
+                    if fOld then love.graphics.setFont(fOld) end
                 end
             end
         end
@@ -229,23 +252,23 @@ function Hotbar.draw(player)
         -- Aggregate primary turret cooldown (max ratio across installed turrets)
         local best = 0
         local bestTime = 0
-        if player.components and player.components.equipment and player.components.equipment.turrets then
-          for _, tslot in ipairs(player.components.equipment.turrets) do
-            local t = tslot and tslot.turret
-            if t and (t.cooldown or 0) > 0 and (t.cycle or 0) > 0 then
-              local pct = math.max(0, math.min(1, (t.cooldown or 0) / (t.cycle or 1)))
-              if pct > best then best = pct end
-              if (t.cooldown or 0) > bestTime then bestTime = (t.cooldown or 0) end
+        if player.components and player.components.equipment and player.components.equipment.grid then
+          for _, gridData in ipairs(player.components.equipment.grid) do
+            if gridData.type == "turret" and gridData.module then
+              local t = gridData.module
+              if t and (t.cooldown or 0) > 0 and (t.cycle or 0) > 0 then
+                local pct = math.max(0, math.min(1, (t.cooldown or 0) / (t.cycle or 1)))
+                if pct > best then best = pct end
+                if (t.cooldown or 0) > bestTime then bestTime = (t.cooldown or 0) end
             end
           end
         end
         if best > 0 then
           local barHeight = math.floor(size * best)
-          -- Use turret accent color if available from first turret
-          local col = Theme.colors.accent
-          love.graphics.setColor(col[1], col[2], col[3], 0.5)
+          -- Use blue for turret cooldown bar
+          love.graphics.setColor(0.2, 0.6, 1.0, 0.7)
           love.graphics.rectangle('fill', rx, ry + size - barHeight, size, barHeight)
-          love.graphics.setColor(col[1], col[2], col[3], 0.85)
+          love.graphics.setColor(0.4, 0.8, 1.0, 0.9)
           love.graphics.setLineWidth(1)
           love.graphics.rectangle('line', rx, ry + size - barHeight, size, barHeight)
 
@@ -306,6 +329,8 @@ function Hotbar.mousepressed(player, mx, my, button)
   end
 
   return false
+end
+
 end
 
 Hotbar.drawTurretIcon = drawTurretIcon

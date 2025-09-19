@@ -129,298 +129,178 @@ function Ship:draw(player, x, y, w, h)
 
   cy = cy + statsHeight + 20
 
-  -- Weapon Hardpoints Section
-  local hardpoints = (player.ship and player.ship.hardpoints) or {}
-  local numSlots = #hardpoints
+  -- Equipment Grid Section (3x3)
+  local gridSlots = (player.components and player.components.equipment and player.components.equipment.grid) or {}
   local docked = player.docked
   local mx, my = Viewport.getMousePosition()
-  local time = love.timer.getTime()
   
-  -- Calculate layout for turret slots
-  local slotSize = 72
-  local slotSpacing = 16
-  local totalSlotsWidth = numSlots * slotSize + (numSlots - 1) * slotSpacing
-  local fittingHeight = 160
+  -- Grid layout
+  local gridSize = 3  -- 3x3 grid
+  local slotSize = 80
+  local slotSpacing = 12
+  local totalGridWidth = gridSize * slotSize + (gridSize - 1) * slotSpacing
+  local gridHeight = 280  -- Space for 3 rows + header
   
-  -- Weapon fitting area background
-  Theme.drawGradientGlowRect(cx, cy, w - 32, fittingHeight, 6,
+  -- Grid background
+  Theme.drawGradientGlowRect(cx, cy, w - 32, gridHeight, 6,
     Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
   
   -- Header
   Theme.setColor(Theme.colors.textHighlight)
   love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
-  love.graphics.print("Weapon Hardpoints (" .. numSlots .. ")", cx + 8, cy + 8)
+  love.graphics.print("Equipment Grid (3x3)", cx + 8, cy + 8)
+  
   
   if not docked then
     Theme.setColor(Theme.colors.warning)
     love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-    love.graphics.print("⚠ Dock at a station to modify your ship's fitting", cx + 8, cy + 28)
+    love.graphics.print("⚠ Dock at a station to modify your ship's equipment", cx + 8, cy + 28)
   else
     Theme.setColor(Theme.colors.success) 
     love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-    love.graphics.print("✓ Drag weapons from your inventory to equip them", cx + 8, cy + 28)
+    love.graphics.print("✓ Drag modules from your inventory to equip them", cx + 8, cy + 28)
   end
 
-  -- Draw turret slots in a cleaner layout
-  local startX = cx + (w - 32 - totalSlotsWidth) / 2
-  local slotY = cy + 50
+  -- Draw 3x3 grid
+  local gridStartX = cx + (w - 32 - totalGridWidth) / 2
+  local gridStartY = cy + 50
   
-  self.slotRects = {}
-  for slotNum = 1, numSlots do
-    local slotX = startX + (slotNum - 1) * (slotSize + slotSpacing)
-    local t = player:getTurretInSlot(slotNum)
-    local isHovered = mx >= slotX and mx <= slotX + slotSize and my >= slotY and my <= slotY + slotSize
-    
-    -- Slot background with better visual states
-    local bgColor, borderColor
-    if not docked then
-      bgColor, borderColor = Theme.colors.bg0, Theme.colors.danger
-    elseif isHovered then
-      bgColor, borderColor = Theme.colors.bg3, Theme.colors.accent
-    elseif t then
-      bgColor, borderColor = Theme.colors.bg2, Theme.colors.success  
-    else
-      bgColor, borderColor = Theme.colors.bg1, Theme.colors.border
-    end
-    
-    Theme.drawGradientGlowRect(slotX, slotY, slotSize, slotSize, 8,
-      bgColor, Theme.colors.bg0, borderColor, Theme.effects.glowWeak)
-
-    -- Slot content
-    if t then
-      -- Equipped turret
-      UI.drawTurretIcon(t.kind, t.tracer and t.tracer.color, slotX + 8, slotY + 8, slotSize - 16)
+  for row = 0, 2 do
+    for col = 0, 2 do
+      local slotIndex = row * 3 + col + 1
+      local slotX = gridStartX + col * (slotSize + slotSpacing)
+      local slotY = gridStartY + row * (slotSize + slotSpacing)
       
-      -- Turret name below icon
-      Theme.setColor(Theme.colors.text)
-      love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-      love.graphics.printf(t.name or "Turret", slotX, slotY + slotSize + 4, slotSize, "center")
-    else
-      -- Empty slot
-      local emptyAlpha = 0.3 + 0.1 * math.sin(time * 2)
-      Theme.setColor(Theme.withAlpha(Theme.colors.textSecondary, emptyAlpha))
+      -- Find module data for this slot
+      local moduleData = gridSlots[slotIndex]
+      local module = moduleData and moduleData.module
+      local id = moduleData and moduleData.id
+      local moduleType = moduleData and moduleData.type
       
-      -- Plus icon for empty slots
-      local centerX, centerY = slotX + slotSize/2, slotY + slotSize/2
-      local iconSize = 16
-      love.graphics.setLineWidth(3)
-      love.graphics.line(centerX - iconSize/2, centerY, centerX + iconSize/2, centerY)
-      love.graphics.line(centerX, centerY - iconSize/2, centerX, centerY + iconSize/2)
-      love.graphics.setLineWidth(1)
+      -- Get module definition
+      local def = nil
+      if id then
+        if moduleType == "shield" or moduleType == "module" then
+          def = Content.getItem(id)
+        elseif moduleType == "turret" then
+          def = Content.getTurret(id)
+        end
+      end
       
-      Theme.setColor(Theme.colors.textDisabled)
-      love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-      love.graphics.printf("Empty", slotX, slotY + slotSize + 4, slotSize, "center")
-    end
-    
-    -- Slot number badge
-    Theme.setColor(Theme.colors.bg3)
-    love.graphics.circle("fill", slotX + 12, slotY + 12, 8)
-    Theme.setColor(Theme.colors.text)
-    love.graphics.printf(slotNum, slotX + 4, slotY + 6, 16, "center")
-
-    -- Hotkey hint badge for where this turret will map on the hotbar
-    local Settings = require("src.core.settings")
-    local HotbarSystem = require("src.systems.hotbar")
-    local keymap = Settings.getKeymap()
-    local hotkeyText = nil
-    if slotNum == 1 then
-      hotkeyText = keyLabel(keymap.hotbar_1)
-    else
-      -- Find which hotbar slot is assigned to this turret slot via HotbarSystem.slots
-      if HotbarSystem and HotbarSystem.slots then
-        for hIndex, hSlot in ipairs(HotbarSystem.slots) do
-          if type(hSlot.item) == 'string' and hSlot.item == ('turret_slot_' .. tostring(slotNum)) then
-            local key = keymap['hotbar_' .. tostring(hIndex)]
-            hotkeyText = keyLabel(key)
-            break
+      -- Draw slot background
+      Theme.setColor(Theme.colors.bg2)
+      love.graphics.rectangle('fill', slotX, slotY, slotSize, slotSize)
+      
+      -- Draw module if equipped
+      if module and def then
+        -- Draw module icon
+        if def.icon then
+          Theme.setColor({1,1,1,0.9})
+          love.graphics.draw(def.icon, slotX + 4, slotY + 4, 0, (slotSize - 8) / 128, (slotSize - 8) / 128)
+        end
+        
+        -- Draw module info
+        local name = def.name or id or "Module"
+        Theme.setColor(Theme.colors.textHighlight)
+        love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+        local textWidth = love.graphics.getFont():getWidth(name)
+        love.graphics.print(name, slotX + (slotSize - textWidth) / 2, slotY + slotSize - 20)
+        
+        -- Draw module type indicator
+        Theme.setColor(Theme.colors.textSecondary)
+        love.graphics.setFont(Theme.fonts and Theme.fonts.tiny or love.graphics.getFont())
+        local typeText = moduleType == "shield" and "Shield" or (moduleType == "turret" and "Weapon" or (moduleType == "module" and "Module" or "Module"))
+        local typeWidth = love.graphics.getFont():getWidth(typeText)
+        love.graphics.print(typeText, slotX + (slotSize - typeWidth) / 2, slotY + slotSize - 8)
+        
+        -- Draw shield HP for shield modules
+        if moduleType == "shield" and def.module and def.module.shield_hp then
+          Theme.setColor(Theme.colors.textHighlight)
+          love.graphics.print(tostring(def.module.shield_hp), slotX + 4, slotY + 4)
+          
+          -- Draw shield regen if available
+          if def.module.shield_regen then
+            Theme.setColor(Theme.colors.success)
+            love.graphics.setFont(Theme.fonts and Theme.fonts.tiny or love.graphics.getFont())
+            love.graphics.print("+" .. tostring(def.module.shield_regen) .. "/s", slotX + 4, slotY + 16)
           end
         end
+      else
+        -- Draw empty slot indicator
+        Theme.setColor(Theme.colors.textDisabled)
+        love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+        love.graphics.printf("Empty", slotX + 2, slotY + slotSize/2 - 8, slotSize - 4, "center")
       end
-    end
-    if hotkeyText then
-      local badgeW, badgeH = 30, 16
-      local bx = slotX + slotSize - badgeW - 6
-      local by = slotY + 6
-      Theme.drawGradientGlowRect(bx, by, badgeW, badgeH, 4, Theme.colors.bg3, Theme.colors.bg2, Theme.colors.border, Theme.effects.glowWeak * 0.2)
-      Theme.setColor(Theme.colors.textHighlight)
-      love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-      love.graphics.printf(hotkeyText, bx, by + 2, badgeW, 'center')
-    end
-
-    -- Lock overlay for undocked
-    if not docked then
-      Theme.setColor(Theme.withAlpha(Theme.colors.danger, 0.7))
-      love.graphics.rectangle('fill', slotX, slotY, slotSize, slotSize, 8, 8)
       
-      -- Lock icon
-      Theme.setColor(Theme.colors.text)
-      local lockX, lockY = slotX + slotSize - 20, slotY + 8
-      love.graphics.circle('line', lockX + 8, lockY + 6, 6)
-      love.graphics.rectangle('fill', lockX + 5, lockY + 8, 6, 6)
-    end
+      -- Store slot rect for interaction
+      if not self.gridSlotRects then self.gridSlotRects = {} end
+      self.gridSlotRects[slotIndex] = { x = slotX, y = slotY, w = slotSize, h = slotSize }
 
-    -- Record slot rect for interactions
-    self.slotRects[slotNum] = { x = slotX, y = slotY, w = slotSize, h = slotSize }
-
-    -- Highlight compatibility when dragging an item/module
-    do
-      local drag = Ship.drag or (InventoryUI and InventoryUI.drag)
-      if drag and drag.id then
-        local def = Content.getTurret(drag.id)
-        local compatible = def ~= nil
-        local sameSlot = (drag.from == 'slot' and drag.slot == slotNum)
-        local col
-        if not docked then
-          -- Show muted highlight to indicate docking required
-          col = Theme.colors.textSecondary
-        elseif compatible and not sameSlot then
-          col = Theme.colors.success
-        else
-          col = Theme.colors.danger
+      -- Highlight compatibility when dragging an item/module
+      do
+        local drag = Ship.drag or (InventoryUI and InventoryUI.drag)
+        if drag and drag.id then
+          local itemDef = Content.getItem(drag.id)
+          local turretDef = Content.getTurret(drag.id)
+          -- Any item with a module property or any turret is compatible
+          local compatible = (itemDef and itemDef.module) or turretDef ~= nil
+          local sameSlot = (drag.from == 'grid_slot' and drag.slot == slotIndex)
+          
+          local col
+          if not docked then
+            -- Show muted highlight to indicate docking required
+            col = Theme.colors.textSecondary
+          elseif compatible and not sameSlot then
+            col = Theme.colors.success
+          else
+            col = Theme.colors.danger
+          end
+          -- Draw subtle overlay + border glow
+          Theme.setColor(Theme.withAlpha(col, 0.18))
+          love.graphics.rectangle('fill', slotX, slotY, slotSize, slotSize)
+          Theme.setColor(Theme.withAlpha(col, 0.35))
+          love.graphics.rectangle('line', slotX, slotY, slotSize, slotSize)
         end
-        -- Draw subtle overlay + border glow
-        Theme.setColor(Theme.withAlpha(col, 0.18))
-        love.graphics.rectangle('fill', slotX, slotY, slotSize, slotSize)
-        Theme.setColor(Theme.withAlpha(col, 0.35))
-        love.graphics.rectangle('line', slotX, slotY, slotSize, slotSize)
       end
-    end
 
-    -- No weapons-disabled lock here: equipment changes are only locked when not docked
-
-    -- Cooldown bar (simple and sleek)
-    if t and t.cooldown and t.cooldown > 0 and t.cycle and t.cycle > 0 then
-      local cooldownProgress = math.max(0, math.min(1, t.cooldown / t.cycle))
-      local barHeight = math.floor(slotSize * cooldownProgress)
-
-      -- Cooldown overlay (semi-transparent)
-      love.graphics.setColor(0.2, 0.4, 0.8, 0.6)
-      love.graphics.rectangle("fill", slotX, slotY + slotSize - barHeight, slotSize, barHeight)
-
-      -- Cooldown border
-      love.graphics.setColor(0.4, 0.6, 1.0, 0.8)
-      love.graphics.setLineWidth(1)
-      love.graphics.rectangle("line", slotX, slotY + slotSize - barHeight, slotSize, barHeight)
-    end
-
-    -- Draw the border
-    Theme.drawEVEBorder(slotX, slotY, slotSize, slotSize, 8, Theme.colors.border, 6)
-
-    -- Tooltip
-    if pointInRect(mx, my, {x = slotX, y = slotY, w = slotSize, h = slotSize}) then
-      local tooltip
-      if not docked then
-        tooltip = "Must be at the station to modify."
-      end
-      if tooltip and tooltip ~= "" then
-        local tw = 10 + love.graphics.getFont():getWidth(tooltip)
-        local th = 28
-        love.graphics.setColor(0, 0, 0, 0.7)
-        love.graphics.rectangle("fill", mx + 12, my, tw, th)
-        love.graphics.setColor(1, 1, 1, 0.9)
-        love.graphics.print(tooltip, mx + 18, my + 6)
-      end
+      -- Draw the border
+      Theme.drawEVEBorder(slotX, slotY, slotSize, slotSize, 8, Theme.colors.border, 6)
     end
   end
 
-  -- Update layout for remaining content
-  cy = cy + fittingHeight + 20
-
-  -- Equipped Modules Details Section
-  local modulesHeight = 140
-  Theme.drawGradientGlowRect(cx, cy, w - 32, modulesHeight, 6,
-    Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
-    
-  Theme.setColor(Theme.colors.textHighlight)
-  love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
-  love.graphics.print("Installed Modules", cx + 8, cy + 8)
-  
-  love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-  
-  -- Show equipped modules or "no modules" message
-  local equippedCount = 0
-  for i = 1, numSlots do
-    local tdata
-    for _, td in ipairs((player.components and player.components.equipment and player.components.equipment.turrets) or {}) do 
-      if td.slot == i then 
-        tdata = td 
-        break 
-      end 
-    end
-    if tdata and tdata.turret then
-      equippedCount = equippedCount + 1
-    end
-  end
-  
-  if equippedCount == 0 then
-    Theme.setColor(Theme.colors.textDisabled)
-    love.graphics.printf("No weapons installed", cx + 8, cy + 50, w - 48, "center")
-    love.graphics.printf("Drag weapons from your inventory to equip them", cx + 8, cy + 70, w - 48, "center")
-  else
-    local listY = cy + 28
-    for i = 1, numSlots do
-      local tdata
-      for _, td in ipairs((player.components and player.components.equipment and player.components.equipment.turrets) or {}) do 
-        if td.slot == i then 
-          tdata = td 
-          break 
-        end 
-      end
-      local t = tdata and tdata.turret
-      
-      if t then
-        local id = tdata and tdata.id
-        local def = id and Content.getTurret(id)
-        local name = (def and def.name) or id or t.kind or ("Weapon " .. i)
-        
-        -- Module name
-        Theme.setColor(Theme.colors.textHighlight)
-        love.graphics.print(string.format("[%d] %s", i, name), cx + 12, listY)
-        
-        -- Module stats in compact format
-        Theme.setColor(Theme.colors.textSecondary)
-        local dmg = (t.damageMin or 0)
-        if t.damageMax and t.damageMax ~= t.damageMin then 
-          dmg = string.format("%d-%d", t.damageMin, t.damageMax) 
-        end
-        
-        local statsText = string.format("DMG: %s  |  CYCLE: %.2fs  |  RANGE: %s",
-          tostring(dmg), t.cycle or 0, tostring(t.optimal or "-"))
-        love.graphics.print(statsText, cx + 24, listY + 14)
-        
-        listY = listY + 32
-        if listY > cy + modulesHeight - 20 then break end -- Don't overflow
-      end
-    end
-  end
-
-  -- Draw dragged turret icon following cursor (slot or inventory source)
+  -- Draw dragged item icon following cursor
   if Ship.drag or (InventoryUI and InventoryUI.drag) then
     local mx, my = Viewport.getMousePosition()
     local drag = Ship.drag or InventoryUI.drag
     local id = drag and drag.id
     local tdef = id and Content.getTurret(id)
+    local idef = id and Content.getItem(id)
+    
     if tdef then
       local drawSize = slotSize
       local dx = mx - drawSize / 2
       local dy = my - drawSize / 2
       Theme.setColor({1,1,1,0.9})
       UI.drawTurretIcon(tdef.type or tdef.kind or "gun", (tdef.tracer and tdef.tracer.color), dx + 4, dy + 4, drawSize - 8)
+    elseif idef and idef.icon then
+      local drawSize = 60
+      local dx = mx - drawSize / 2
+      local dy = my - drawSize / 2
+      Theme.setColor({1,1,1,0.9})
+      love.graphics.draw(idef.icon, dx + 4, dy + 4, 0, (drawSize - 8) / 128, (drawSize - 8) / 128)
     end
   end
 end
 
 function Ship:mousepressed(player, x, y, button)
-  -- Drag start: from slot
+  -- Drag start: from grid slot
   if button == 1 then
-    -- Check slots first
-    for i, r in ipairs(self.slotRects) do
+    -- Check grid slots
+    for i, r in ipairs(self.gridSlotRects or {}) do
       if r and pointInRect(x, y, r) then
-        local tdata
-        for _, td in ipairs((player.components and player.components.equipment and player.components.equipment.turrets) or {}) do if td.slot == i then tdata = td break end end
-        if tdata and tdata.turret and tdata.id and player and player.docked then
-          Ship.drag = { from = 'slot', slot = i, id = tdata.id }
+        local moduleData = (player.components and player.components.equipment and player.components.equipment.grid and player.components.equipment.grid[i]) or {}
+        if moduleData.module and moduleData.id and player and player.docked then
+          Ship.drag = { from = 'grid_slot', slot = i, id = moduleData.id }
           return true, false
         end
       end
@@ -437,22 +317,23 @@ function Ship:mousereleased(player, x, y, button)
       local drag = Ship.drag or InventoryUI.drag
       Ship.drag = nil
       if InventoryUI and InventoryUI.drag then InventoryUI.drag = nil end
-      -- Dropped on a slot?
-      for i, r in ipairs(self.slotRects or {}) do
+      
+      -- Dropped on a grid slot?
+      for i, r in ipairs(self.gridSlotRects or {}) do
         if r and pointInRect(x, y, r) then
           if drag.from == 'inventory' or (drag.from == nil and drag.id) then
             -- Only allow fitting while docked
             if player and player.docked then
-              player:equipTurret(i, drag.id)
+              player:equipModule(i, drag.id)
             end
             return true, false
-          elseif drag.from == 'slot' then
+          elseif drag.from == 'grid_slot' then
             if i ~= drag.slot then
               -- Move slot -> slot via inventory (unequip then equip)
               if player and player.docked then
-                local ok = player:unequipTurret(drag.slot)
+                local ok = player:unequipModule(drag.slot)
                 if ok then
-                  player:equipTurret(i, drag.id)
+                  player:equipModule(i, drag.id)
                 end
               end
               return true, false
@@ -460,17 +341,19 @@ function Ship:mousereleased(player, x, y, button)
           end
         end
       end
+      
       -- Dropped back to inventory tray (or anywhere else): if from slot, unequip
-      if drag.from == 'slot' then
-        player:unequipTurret(drag.slot)
+      if drag.from == 'grid_slot' then
+        player:unequipModule(drag.slot)
         return true, false
       end
     end
   elseif button == 2 then -- Right-click to unequip (only when docked)
-    for i, r in ipairs(self.slotRects or {}) do
+    -- Check grid slots
+    for i, r in ipairs(self.gridSlotRects or {}) do
       if r and pointInRect(x, y, r) then
         if player and player.docked then
-          player:unequipTurret(i)
+          player:unequipModule(i)
         end
         return true, false
       end

@@ -149,10 +149,7 @@ end
 
 -- Calculate slippage percentage for a given amount
 local function calculateSlippage(amount, node)
-    local depth = (node.liquidity and node.liquidity.orderBookDepth) or 1
-    local slipFactor = (node.liquidity and node.liquidity.slippageFactor) or 1.0
-    local slippage = math.min(0.10, (amount / depth) * slipFactor) * 100  -- Cap at 10%
-    return slippage
+  return 0.5  -- Fixed small slippage
 end
 -- #endregion
 
@@ -209,61 +206,26 @@ local function drawHeader(self, node, stats, x, y, w, h)
 
     -- Market data points
     local dataPoints = {
-        {"24h Chg", string.format("%+.2f%%", stats.changePct), stats.changePct >= 0 and Theme.colors.positive or Theme.colors.negative},
-        {"Market Cap", formatMarketCap(node.marketCap)},
-        {"Liquidity", formatMarketCap(node.liquidity and node.liquidity.orderBookDepth or 0)},
-        {"24h Vol", formatMarketCap(node.liquidity and node.liquidity.volume24h or 0)},
-        {"Supply", string.format("%.0fM", (node.supply or 0) / 1e6)}
+      {"Price", formatPrice(stats.price), Theme.colors.textHighlight},
     }
-    -- Draw data points in two rows to save horizontal space
+    -- Draw data points
     love.graphics.setFont(Theme.fonts.small)
     local dataX = x + 140
     local rowSpacing = 14
     local colSpacing = 116
     
     -- First row (top)
-    for i = 1, 3 do
-        if dataPoints[i] then
-            Theme.setColor(Theme.colors.textSecondary)
-            love.graphics.print(dataPoints[i][1], dataX, y + 2)
-            Theme.setColor(dataPoints[i][3] or Theme.colors.text)
-            love.graphics.print(dataPoints[i][2], dataX, y + 14)
-        end
-        dataX = dataX + colSpacing
-    end
-    
-    -- Second row (bottom) - shifted down for clearer separation
-    dataX = x + 140
-    for i = 4, 5 do
-        if dataPoints[i] then
-            Theme.setColor(Theme.colors.textSecondary)
-            love.graphics.print(dataPoints[i][1], dataX, y + 28)
-            Theme.setColor(dataPoints[i][3] or Theme.colors.text)
-            love.graphics.print(dataPoints[i][2], dataX, y + 40)
-        end
-        dataX = dataX + colSpacing
+    for i = 1, #dataPoints do
+      if dataPoints[i] then
+        Theme.setColor(Theme.colors.textSecondary)
+        love.graphics.print(dataPoints[i][1], dataX, y + 2)
+        Theme.setColor(dataPoints[i][3] or Theme.colors.text)
+        love.graphics.print(dataPoints[i][2], dataX, y + 14)
+      end
+      dataX = dataX + colSpacing
     end
 
-    -- Volatility regime badge (Calm / Normal / High)
-    local vol = (stats.sigma or 0) * (stats.volMultiplier or 1)
-    local regimeLabel = "Normal"
-    local regimeColor = Theme.colors.warning or Theme.colors.accent
-    if vol < 0.01 then
-        regimeLabel = "Calm"
-        regimeColor = Theme.colors.success
-    elseif vol >= 0.03 then
-        regimeLabel = "High Vol"
-        regimeColor = Theme.colors.danger
-    end
-    local badgeText = regimeLabel
-    love.graphics.setFont(Theme.fonts.small)
-    local btW = love.graphics.getFont():getWidth(badgeText) + 10
-    local badgeW, badgeH = btW, 16
-    local badgeX, badgeY = x + w - badgeW - 8, y + 2
-    Theme.setColor(regimeColor)
-    love.graphics.rectangle("fill", badgeX, badgeY, badgeW, badgeH, 6, 6)
-    Theme.setColor(Theme.colors.bg0 or {0,0,0,1})
-    love.graphics.printf(badgeText, badgeX, badgeY + 2, badgeW, "center")
+    -- Remove volatility regime badge
 
     -- Buy/Sell pressure bar (left=Sell red, right=Buy green) - move to right side
     local pressure = (node.liquidity and node.liquidity.buyPressure) or 0.5
@@ -288,29 +250,20 @@ end
 
 -- Draw a compact global stats strip showing total market cap and 24h volume
 local function drawGlobalStrip(self, x, y, w, h)
-    local gs = NodeMarket.getGlobalStats()
-    if not gs then return end
+  local gs = NodeMarket.getGlobalStats()
+  if not gs then return end
 
-    -- Background
-    Theme.drawGradientGlowRect(x, y, w, h, 3, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+  -- Background
+  Theme.drawGradientGlowRect(x, y, w, h, 3, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
 
-    love.graphics.setFont(Theme.fonts.small)
-    Theme.setColor(Theme.colors.textSecondary)
+  love.graphics.setFont(Theme.fonts.small)
+  Theme.setColor(Theme.colors.textSecondary)
 
-    local capStr = string.format("Global Cap: %s", formatMarketCap(gs.totalMarketCap or 0))
-    local volStr = string.format("Global 24h Vol: %s", formatMarketCap(gs.totalVolume24h or 0))
-    local nodesStr = string.format("Assets: %d", gs.nodeCount or 0)
+  local nodesStr = string.format("Assets: %d", gs.nodeCount or 0)
 
-    local pad = 8
-    love.graphics.print(capStr, x + pad, y + 4)
-
-    local volW = love.graphics.getFont():getWidth(volStr)
-    local nodesW = love.graphics.getFont():getWidth(nodesStr)
-    -- Right-align vol and nodes
-    love.graphics.print(volStr, x + w - pad - volW, y + 4)
-
-    Theme.setColor(Theme.colors.text)
-    love.graphics.print(nodesStr, x + (w - nodesW) / 2, y + 4)
+  local nodesW = love.graphics.getFont():getWidth(nodesStr)
+  Theme.setColor(Theme.colors.text)
+  love.graphics.print(nodesStr, x + (w - nodesW) / 2, y + 4)
 end
 
 
@@ -324,39 +277,54 @@ local function drawBottomPanel(self, player, x, y, w, h)
     for _ in pairs(holdings) do
         holdingCount = holdingCount + 1
     end
-    local tabs = { "Portfolio (" .. holdingCount .. ")", "Transactions", "Activity", "Resources" }  -- Updated tab names
+    local tabs = { "Portfolio (" .. holdingCount .. ")", "Transactions" }
     self._bottomTabs = {}
     local tabX = x + 8  -- Reduced margin
     for _, tabName in ipairs(tabs) do
-        local id = string.lower(string.match(tabName, "%a+"))
-        local selected = self.activeBottomTab == id
-        local textW = Theme.fonts.small:getWidth(tabName)  -- Use small font for tabs
-        Theme.setColor(selected and Theme.colors.textHighlight or Theme.colors.textSecondary)
-        love.graphics.setFont(Theme.fonts.small)  -- Reduced font size
-        love.graphics.print(tabName, tabX, y + 6)  -- Reduced spacing
-        if selected then love.graphics.rectangle("fill", tabX, y + 22, textW, 2) end  -- Adjusted underline position
-        table.insert(self._bottomTabs, { x = tabX, y = y + 6, w = textW, h = 20, id = id })  -- Reduced height
-        tabX = tabX + textW + 15  -- Reduced spacing between tabs
+      local id = string.lower(string.match(tabName, "%a+"))
+      local selected = self.activeBottomTab == id
+      local textW = Theme.fonts.small:getWidth(tabName)  -- Use small font for tabs
+      Theme.setColor(selected and Theme.colors.textHighlight or Theme.colors.textSecondary)
+      love.graphics.setFont(Theme.fonts.small)  -- Reduced font size
+      love.graphics.print(tabName, tabX, y + 6)  -- Reduced spacing
+      if selected then love.graphics.rectangle("fill", tabX, y + 22, textW, 2) end  -- Adjusted underline position
+      table.insert(self._bottomTabs, { x = tabX, y = y + 6, w = textW, h = 20, id = id })  -- Reduced height
+      tabX = tabX + textW + 15  -- Reduced spacing between tabs
     end
 
     -- Content - more compact
     if self.activeBottomTab == "portfolio" then
-        local funds = PortfolioManager.getAvailableFunds()
-        local holdings = PortfolioManager.getAllHoldings()
-        love.graphics.setFont(Theme.fonts.small)
-        Theme.setColor(Theme.colors.text)
-        love.graphics.print("Resources: " .. formatPrice(funds) .. " GC", x + 12, y + 40)
-
-        local yPos = y + 60
-        for symbol, holding in pairs(holdings) do
-            if holding.quantity > 0.0001 then
-                local nodeForStats = NodeMarket.getNodeBySymbol(symbol)
-                local stats = nodeForStats and NodeMarket.getStats(nodeForStats)
-                local value = stats and (stats.price * holding.quantity) or 0
-                love.graphics.print(string.format("%s: %.4f (%s GC)", symbol, holding.quantity, formatPrice(value)), x + 12, yPos)
-                yPos = yPos + 18
-            end
+      local funds = PortfolioManager.getAvailableFunds()
+      local holdings = PortfolioManager.getAllHoldings()
+      love.graphics.setFont(Theme.fonts.small)
+      Theme.setColor(Theme.colors.text)
+      love.graphics.print("Resources: " .. formatPrice(funds) .. " GC", x + 12, y + 40)
+  
+      local yPos = y + 60
+      for symbol, holding in pairs(holdings) do
+        if holding.quantity > 0.0001 then
+          local nodeForStats = NodeMarket.getNodeBySymbol(symbol)
+          local stats = nodeForStats and NodeMarket.getStats(nodeForStats)
+          if stats and stats.price then
+            local currentValue = stats.price * holding.quantity
+            local changePct = holding.avgPrice > 0 and ((stats.price - holding.avgPrice) / holding.avgPrice) * 100 or 0
+            local changeColor = changePct >= 0 and Theme.colors.positive or Theme.colors.negative
+            
+            -- Draw symbol and quantity
+            Theme.setColor(Theme.colors.text)
+            love.graphics.print(string.format("%s: %.4f", symbol, holding.quantity), x + 12, yPos)
+            
+            -- Draw current value with color based on change
+            Theme.setColor(changeColor)
+            love.graphics.print(string.format("Value: %s GC", formatPrice(currentValue)), x + 120, yPos)
+            
+            -- Draw change with color
+            love.graphics.print(string.format("(%+.2f%%)", changePct), x + 220, yPos)
+            
+            yPos = yPos + 22  -- Increased spacing to prevent overlap
+          end
         end
+      end
     elseif self.activeBottomTab == "transactions" then
         local node = NodeMarket.getNodeBySymbol(self.selectedSymbol)
         local transactions = node and NodeMarket.getNodeTransactions(self.selectedSymbol) or {}
@@ -421,19 +389,6 @@ local function drawBottomPanel(self, player, x, y, w, h)
             Theme.setColor(Theme.colors.textSecondary)
             love.graphics.printf("No transactions for " .. (self.selectedSymbol or "this token") .. " yet.", x, y + 80, w, "center")
         end
-    elseif self.activeBottomTab == "resources" then
-        local funds = PortfolioManager.getAvailableFunds()
-        love.graphics.setFont(Theme.fonts.small)
-        Theme.setColor(Theme.colors.text)
-        love.graphics.print("Available Funds: " .. formatPrice(funds) .. " GC", x + 12, y + 40)
-
-        -- Could add more resource information here
-        Theme.setColor(Theme.colors.textSecondary)
-        love.graphics.print("Total Portfolio Value: Calculating...", x + 12, y + 60)
-    else
-        love.graphics.setFont(Theme.fonts.small)
-        Theme.setColor(Theme.colors.textSecondary)
-        love.graphics.printf("Not implemented yet.", x, y + 40, w, "center")
     end
 end
 
@@ -486,17 +441,7 @@ local function drawBuyInterface(self, player, node, stats, x, y, w, h)
         self.buyInputActive and Theme.colors.accent or Theme.colors.border,
         Theme.effects.glowWeak)
         
-    -- Show slippage if amount is entered (convert token amount to GC value)
-    if self._buyAmount and #self._buyAmount > 0 then
-        local amount = tonumber(self._buyAmount) or 0
-        if amount > 0 then
-            local gcValue = amount * stats.price
-            local slippage = calculateSlippage(gcValue, node)
-            local slippageText = string.format("Slippage: %.2f%%", slippage)
-            Theme.setColor(Theme.colors.textSecondary)
-            love.graphics.print(slippageText, inputX, inputY + inputH + 4)
-        end
-    end
+    -- Remove slippage display
 
     -- Input text with smaller font
     Theme.setColor(Theme.colors.text)
@@ -568,102 +513,94 @@ local function drawBuyInterface(self, player, node, stats, x, y, w, h)
 end
 
 local function drawSellInterface(self, player, node, stats, x, y, w, h)
-    love.graphics.setFont(Theme.fonts.small)
-    local font = love.graphics.getFont()
-    local lineHeight = font:getHeight() + 4
-    yPos = yPos + lineHeight + 8
+  love.graphics.setFont(Theme.fonts.small)
+  local font = love.graphics.getFont()
+  local lineHeight = font:getHeight() + 4
+  local yPos = y + 8
 
-    -- Amount input
-    Theme.setColor(Theme.colors.textSecondary)
-    love.graphics.print("Amount:", x, yPos)
-    yPos = yPos + lineHeight
+  -- Amount input
+  Theme.setColor(Theme.colors.textSecondary)
+  love.graphics.print("Amount:", x, yPos)
+  yPos = yPos + lineHeight
 
-    local inputW = w - 8
-    local inputH = 26
-    local inputX = x
-    local inputY = yPos
+  local inputW = w - 8
+  local inputH = 26
+  local inputX = x
+  local inputY = yPos
 
-    -- Input field background
-    Theme.drawGradientGlowRect(inputX, inputY, inputW, inputH, 3,
-        self.sellInputActive and Theme.colors.bg0 or Theme.colors.bg1,
-        Theme.colors.bg0,
-        self.sellInputActive and Theme.colors.accent or Theme.colors.border,
-        Theme.effects.glowWeak)
+  -- Input field background
+  Theme.drawGradientGlowRect(inputX, inputY, inputW, inputH, 3,
+    self.sellInputActive and Theme.colors.bg0 or Theme.colors.bg1,
+    Theme.colors.bg0,
+    self.sellInputActive and Theme.colors.accent or Theme.colors.border,
+    Theme.effects.glowWeak)
 
-    -- Input text
+  -- Input text
+  Theme.setColor(Theme.colors.text)
+  local displayText = self.sellAmount == "" and "0.0000" or self.sellAmount
+  love.graphics.print(displayText, inputX + 4, inputY + 4)
+
+  -- Blinking cursor when active
+  if self.sellInputActive and math.floor(love.timer.getTime() * 2) % 2 == 0 then
+    local textWidth = font:getWidth(displayText)
+    love.graphics.rectangle("fill", inputX + 4 + textWidth + 2, inputY + 2, 1, inputH - 4)
+  end
+
+  self._sellAmountInput = { x = inputX, y = inputY, w = inputW, h = inputH }
+  yPos = yPos + inputH + 8
+  
+  -- Remove slippage display
+
+  -- Revenue calculation
+  local amount = tonumber(self.sellAmount) or 0
+  local totalRevenue = amount * stats.price
+  Theme.setColor(Theme.colors.textSecondary)
+  love.graphics.print("Total Revenue:", x, yPos)
+  Theme.setColor(Theme.colors.text)
+  love.graphics.print(formatPrice(totalRevenue) .. " GC", x + 85, yPos)
+  yPos = yPos + lineHeight + 8
+
+  -- Quick amount buttons
+  local buttonW = (w - 16) / 3
+  local buttonH = 22
+  local holdings = PortfolioManager.getAllHoldings()
+  local holding = holdings[node.symbol] or { quantity = 0 }
+  local quickAmounts = {
+    { label = "25%", value = math.floor(holding.quantity * 0.25 * 10000) / 10000 },
+    { label = "50%", value = math.floor(holding.quantity * 0.50 * 10000) / 10000 },
+    { label = "ALL", value = holding.quantity }
+  }
+
+  self._quickSellButtons = {}
+  for i, qa in ipairs(quickAmounts) do
+    local btnX = x + (i - 1) * (buttonW + 4)
+    local btnY = yPos
+
+    Theme.drawGradientGlowRect(btnX, btnY, buttonW, buttonH, 3,
+      Theme.colors.bg3, Theme.colors.bg2, Theme.colors.border, Theme.effects.glowWeak)
     Theme.setColor(Theme.colors.text)
-    local displayText = self.sellAmount == "" and "0.0000" or self.sellAmount
-    love.graphics.print(displayText, inputX + 4, inputY + 4)
+    love.graphics.printf(qa.label, btnX, btnY + 4, buttonW, "center")
 
-    -- Blinking cursor when active
-    if self.sellInputActive and math.floor(love.timer.getTime() * 2) % 2 == 0 then
-        local textWidth = font:getWidth(displayText)
-        love.graphics.rectangle("fill", inputX + 4 + textWidth + 2, inputY + 2, 1, inputH - 4)
-    end
+    table.insert(self._quickSellButtons, { x = btnX, y = btnY, w = buttonW, h = buttonH, value = qa.value })
+  end
+  yPos = yPos + buttonH + 8
 
-    self._sellAmountInput = { x = inputX, y = inputY, w = inputW, h = inputH }
-    yPos = yPos + inputH + 8
-    
-    -- Show slippage if amount is entered
-    if self.sellAmount and #self.sellAmount > 0 then
-        local amount = tonumber(self.sellAmount) or 0
-        if amount > 0 then
-            local slippage = calculateSlippage(amount * stats.price, node)  -- Convert to GC value
-            local slippageText = string.format("Slippage: %.2f%%", slippage)
-            Theme.setColor(Theme.colors.textSecondary)
-            love.graphics.print(slippageText, x, yPos)
-            yPos = yPos + lineHeight + 4
-        end
-    end
+  -- Execute sell button
+  local executeW = w - 8
+  local executeH = 32
+  local executeX = x
+  local executeY = yPos
 
-    -- Revenue calculation
-    local amount = tonumber(self.sellAmount) or 0
-    local totalRevenue = amount * stats.price
-    Theme.setColor(Theme.colors.textSecondary)
-    love.graphics.print("Total Revenue:", x, yPos)
-    Theme.setColor(Theme.colors.text)
-    love.graphics.print(formatPrice(totalRevenue) .. " GC", x + 85, yPos)
-    yPos = yPos + lineHeight + 8
+  local canSell = amount > 0 and amount <= holding.quantity
+  local buttonColor = canSell and Theme.colors.danger or Theme.colors.bg2
 
-    -- Quick amount buttons
-    local buttonW = (w - 16) / 3
-    local buttonH = 22
-    local quickAmounts = {
-        { label = "25%", value = math.floor(holding.quantity * 0.25 * 10000) / 10000 },
-        { label = "50%", value = math.floor(holding.quantity * 0.50 * 10000) / 10000 },
-        { label = "ALL", value = holding.quantity }
-    }
+  Theme.drawGradientGlowRect(executeX, executeY, executeW, executeH, 4,
+    buttonColor, Theme.colors.bg1, canSell and Theme.colors.danger or Theme.colors.border, Theme.effects.glowWeak)
+  Theme.setColor(canSell and Theme.colors.textHighlight or Theme.colors.textDisabled)
+  love.graphics.setFont(Theme.fonts.small)
+  love.graphics.printf("SELL " .. node.symbol, executeX, executeY + 8, executeW, "center")
 
-    self._quickSellButtons = {}
-    for i, qa in ipairs(quickAmounts) do
-        local btnX = x + (i - 1) * (buttonW + 4)
-        local btnY = yPos
-
-        Theme.drawGradientGlowRect(btnX, btnY, buttonW, buttonH, 3,
-            Theme.colors.bg3, Theme.colors.bg2, Theme.colors.border, Theme.effects.glowWeak)
-        Theme.setColor(Theme.colors.text)
-        love.graphics.printf(qa.label, btnX, btnY + 4, buttonW, "center")
-
-        table.insert(self._quickSellButtons, { x = btnX, y = btnY, w = buttonW, h = buttonH, value = qa.value })
-    end
-    yPos = yPos + buttonH + 8
-
-    -- Execute sell button
-    local executeW = w - 8
-    local executeH = 32
-    local executeX = x
-    local executeY = yPos
-
-    local canSell = amount > 0 and amount <= holding.quantity
-    local buttonColor = canSell and Theme.colors.danger or Theme.colors.bg2
-
-    Theme.drawGradientGlowRect(executeX, executeY, executeW, executeH, 4,
-        buttonColor, Theme.colors.bg1, canSell and Theme.colors.danger or Theme.colors.border, Theme.effects.glowWeak)
-    Theme.setColor(canSell and Theme.colors.textHighlight or Theme.colors.textDisabled)
-    love.graphics.setFont(Theme.fonts.small)
-    love.graphics.printf("SELL " .. node.symbol, executeX, executeY + 8, executeW, "center")
-
-    self._executeSellButton = { x = executeX, y = executeY, w = executeW, h = executeH, enabled = canSell }
+  self._executeSellButton = { x = executeX, y = executeY, w = executeW, h = executeH, enabled = canSell }
 end
 
 local function drawTradingInterface(self, player, node, stats, x, y, w, h)

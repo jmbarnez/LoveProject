@@ -22,6 +22,7 @@ function Item.new(props)
   self.flavor = props.flavor
   self.icon = props.icon
   self.use = props.use
+  self.module = props.module -- Module properties for equipment
   -- Keep original for future needs
   self.def = props
   return self

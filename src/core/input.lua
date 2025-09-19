@@ -148,8 +148,8 @@ function Input.keypressed(key)
         if gameState.player and gameState.world then
             local RepairSystem = require("src.systems.repair_system")
             local all_stations = gameState.world:get_entities_with_components("repairable")
-
-            for _, station in ipairs(allStations) do
+            
+            for _, station in ipairs(all_stations) do
                 if station.components.repairable and station.components.repairable.broken then
                     local dx = station.components.position.x - gameState.player.components.position.x
                     local dy = station.components.position.y - gameState.player.components.position.y

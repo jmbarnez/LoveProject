@@ -46,7 +46,7 @@ local function handleHuntingState(entity, dt, world, spawnProjectile)
     local dist = Util.distance(ex, ey, px, py)
 
     -- Predictive Targeting
-    local optimalRange = 380  -- Default optimal range
+    local optimalRange = 250  -- Optimal range for turret accuracy (200-300)
     local projectileSpeed = 1000  -- Default projectile speed
     
     -- Try to get turret data if available
@@ -150,13 +150,14 @@ local function handleHuntingState(entity, dt, world, spawnProjectile)
             -- Calculate max range for this turret
             local turret = turretData.turret
             local maxRange = (turret.optimal or 0) + (turret.falloff or 0)
-            local angleToTarget = Util.angleTo(entity.components.position.x, entity.components.position.y, 
+            local angleToTarget = Util.angleTo(entity.components.position.x, entity.components.position.y,
                                             target.components.position.x, target.components.position.y)
             local currentAngle = entity.components.position.angle or 0
             local angleDiff = math.abs((angleToTarget - currentAngle + math.pi) % (2 * math.pi) - math.pi)
-            
-            -- Simple firing check - only check range and angle
-            local shouldFire = dist <= maxRange and angleDiff < math.pi/4
+             
+            -- Firing check: range and facing within tolerance
+            local facingTolerance = math.rad(5)
+            local shouldFire = dist <= maxRange and angleDiff < facingTolerance
             
             -- Debug logging
             if true then  -- Always show debug info for now
@@ -166,7 +167,7 @@ local function handleHuntingState(entity, dt, world, spawnProjectile)
                 
                 print(string.format("AI Debug: range=%.1f/%.1f, angle=%.2f/%.2f, energy=%.1f/%.1f (cost=%.1f)",
                     dist, maxRange,
-                    math.deg(angleDiff), math.deg(math.pi/4),
+                    math.deg(angleDiff), math.deg(facingTolerance),
                     currentEnergy, maxEnergy, energyCost
                 ))
                 if shouldFire then
@@ -175,21 +176,22 @@ local function handleHuntingState(entity, dt, world, spawnProjectile)
             end
             
             -- Create a shooting callback
+            local isEnemy = entity.components and entity.components.ai ~= nil
             local function shootCallback(x, y, angle, friendly, kind, damage, dist2, style, target, weaponDef)
-                if not spawnProjectile then 
+                if not spawnProjectile then
                     print("ERROR: No spawnProjectile function!")
-                    return 
+                    return
                 end
                 
-                -- Deduct fixed energy cost if entity has energy
+                -- Deduct fixed energy cost if entity has energy (skip for enemies)
                 local energyCost = turret.capCost or 10
                 local hadEnergy = entity.components.health and entity.components.health.energy or 0
                 
-                if entity.components.health then
+                if entity.components.health and not isEnemy then
                     entity.components.health.energy = math.max(0, entity.components.health.energy - energyCost)
                 end
                 
-                print(string.format("FIRING: energy %.1f -> %.1f (cost: %.1f)", 
+                print(string.format("FIRING: energy %.1f -> %.1f (cost: %.1f)",
                     hadEnergy, entity.components.health and entity.components.health.energy or 0, energyCost))
                 
                 spawnProjectile(x, y, angle, false, kind, damage, dist2, style, target, weaponDef)
@@ -210,26 +212,6 @@ local function handleHuntingState(entity, dt, world, spawnProjectile)
     end
 end
 
-local function handleEvadingState(entity, dt)
-    local ai = entity.components.ai
-    ai.evadeTimer = (ai.evadeTimer or 0) - dt
-    
-    if not ai.evadeDir then
-        local randomAngle = math.random() * math.pi * 2
-        ai.evadeDir = {x = math.cos(randomAngle), y = math.sin(randomAngle)}
-    end
-    
-    local speed = 300 -- Evasive speed
-    local moveVx = ai.evadeDir.x * speed
-    local moveVy = ai.evadeDir.y * speed
-    
-    local body = entity.components.physics and entity.components.physics.body
-    if body then
-        body.vx, body.vy = moveVx, moveVy
-    else
-        entity.components.velocity.x, entity.components.velocity.y = moveVx, moveVy
-    end
-end
 
 local function handleRetreatingState(entity, dt)
     local ai = entity.components.ai
@@ -295,17 +277,8 @@ local function updateState(entity, dt)
         return
     end
 
-    ai.evadeTimer = (ai.evadeTimer or 0) - dt
-    if ai.state == "hunting" and ai.evadeTimer <= 0 and math.random() < 0.2 then
-        ai.state = "evading"
-        ai.evadeTimer = 1 + math.random() * 1.5 -- Evade for a short duration
-        ai.evadeDir = nil -- Reset evade direction
-        return
-    end
-    
-    if ai.state == "evading" and ai.evadeTimer <= 0 then
-        ai.state = "hunting"
-        return
+    if ai.state == "hunting" then
+        -- No evasion; constant hunting
     end
 
     local maxWeaponRange = 0
@@ -347,7 +320,7 @@ function AISystem.update(dt, world, spawnProjectile)
         end
 
         -- Core logic updates
-        if not ai.target or ai.target.isDestroyed then
+        if not ai.target or ai.target.dead then
             ai.target = findTarget(entity, world)
         end
         updateState(entity, dt)
@@ -357,8 +330,6 @@ function AISystem.update(dt, world, spawnProjectile)
             handleIdleState(entity, dt)
         elseif ai.state == "hunting" then
             handleHuntingState(entity, dt, world, spawnProjectile)
-        elseif ai.state == "evading" then
-            handleEvadingState(entity, dt)
         elseif ai.state == "retreating" then
             handleRetreatingState(entity, dt)
         end

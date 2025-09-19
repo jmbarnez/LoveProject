@@ -49,15 +49,16 @@ end
 
 -- Draw per-turret assigned target brackets with synced colors
 function TargetEffects.drawTurretTargets(player)
-    if not player.components or not player.components.equipment or not player.components.equipment.turrets then
+    if not player.components or not player.components.equipment or not player.components.equipment.grid then
         return
     end
-    
-    for i = 1, #player.components.equipment.turrets do
-        local slot = player.components.equipment.turrets[i]
-        local assn = slot and slot.assignedTarget
-        
-        if assn and not assn.dead and assn.components and assn.components.position then
+
+    for i = 1, #player.components.equipment.grid do
+        local gridData = player.components.equipment.grid[i]
+        if gridData.type == "turret" and gridData.module then
+          local assn = gridData.assignedTarget
+          
+          if assn and not assn.dead and assn.components and assn.components.position then
             local rr = (assn.components.collidable and assn.components.collidable.radius) or 20
             rr = rr + 10
             local x = assn.components.position.x
@@ -103,11 +104,12 @@ end
 -- Draw player turret mining beams
 function TargetEffects.drawTurretBeams(player, entities)
     -- Draw player turret beams
-    if player and player.components and player.components.equipment and player.components.equipment.turrets then
-        for i = 1, #player.components.equipment.turrets do
-            local entry = player.components.equipment.turrets[i]
-            local turret = entry and entry.turret
-            if entry and entry.enabled and turret then
+    if player and player.components and player.components.equipment and player.components.equipment.grid then
+        for i = 1, #player.components.equipment.grid do
+            local gridData = player.components.equipment.grid[i]
+            if gridData.type == "turret" and gridData.module then
+              local turret = gridData.module
+              if gridData.enabled and turret then
                 -- Draw mining/salvaging beams
                 if turret.drawMiningBeam and turret.beamActive then
                     turret:drawMiningBeam()

@@ -66,7 +66,6 @@ local function spawn_projectile(x, y, angle, friendly, opts)
         -- Movement/Guidance overrides
         speed_override = opts.speedOverride or opts.projectileSpeed,
         homing_strength = opts.homingStrength,
-        turn_rate = opts.turnRate,
         target = opts.target or opts.guaranteedTarget,
         guaranteed_hit = opts.guaranteedHit,
         guaranteed_target = opts.guaranteedTarget,
@@ -175,8 +174,8 @@ function Game.load()
   -- Spawn the player
   local spawn_margin = assert(Config.SPAWN and Config.SPAWN.HUB_BUFFER, "Config.SPAWN.HUB_BUFFER is required")
   local angle = math.random() * math.pi * 2
-  -- Spawn relative to the hub weapons-disable ring, not the collider shield
-  local spawn_dist = (hub and (hub.radius or 1200) or 1200) - spawn_margin
+  -- Spawn within the hub weapons-disable zone
+  local spawn_dist = (hub and (hub.shieldRadius or 600) or 600) - spawn_margin
   local px = (hub and hub.components and hub.components.position and hub.components.position.x or 500) + math.cos(angle) * spawn_dist
   local py = (hub and hub.components and hub.components.position and hub.components.position.y or 500) + math.sin(angle) * spawn_dist
   -- Start player with basic combat drone
@@ -199,6 +198,12 @@ function Game.load()
   world:setQuadtree(collisionSystem.quadtree)
   -- Initialize player with clean inventory and starting credits
   player:setGC(10000)
+  
+  -- Give player some basic shield modules to test the system
+  if not player.inventory then
+    player.inventory = {}
+  end
+  player.inventory["shield_module_basic"] = 2  -- Give 2 basic shield modules
 
   Input.init({
     camera = camera,

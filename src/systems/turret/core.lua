@@ -7,6 +7,7 @@ local BeamWeapons = require("src.systems.turret.beam_weapons")
 local UtilityBeams = require("src.systems.turret.utility_beams")
 local TurretEffects = require("src.systems.turret.effects")
 
+local Events = require("src.core.events")
 local Turret = {}
 Turret.__index = Turret
 
@@ -20,13 +21,10 @@ function Turret.new(owner, params)
     self.damage_range = params.damage_range or {min = 1, max = 2}
     self.cycle = params.cycle or 1.0
     self.capCost = params.capCost or 5
-    self.turnRate = params.turnRate or 2.0
 
     -- Targeting parameters
     self.optimal = params.optimal or 800
     self.falloff = params.falloff or 400
-    self.tracking = params.tracking or 1.0
-    self.sigRes = params.sigRes or 100
 
     -- Firing facing tolerance: enemies must face target within this angle to fire
     -- (radians). Players/friendly turrets are not restricted by this.
@@ -56,6 +54,12 @@ function Turret.new(owner, params)
 
     -- Secondary projectile support
     self.secondaryProjectile = params.secondaryProjectile
+    self.secondaryProjectileSpeed = params.secondaryProjectileSpeed or 600
+    self.secondaryFireEvery = params.secondaryFireEvery or 1
+
+    -- Volley firing support
+    self.volleyCount = params.volleyCount or 1
+    self.volleySpreadDeg = params.volleySpreadDeg or 0
 
     -- Initialize heat management
     HeatManager.initializeHeat(self, params)
@@ -117,7 +121,8 @@ function Turret:update(dt, target, locked, world)
             local diff = desired - current
             -- Normalize to [-pi,pi]
             local nd = math.atan2(math.sin(diff), math.cos(diff))
-            if math.abs(nd) > (self.fireFacingTolerance or 0) then
+            local tolerance = self.fireFacingTolerance or math.pi/2
+            if math.abs(nd) > tolerance then
                 -- Not facing yet; skip firing this update
                 self.firing = false
                 return
@@ -184,7 +189,6 @@ end
 
 function Turret:drawLaserBeam()
     if self.beamActive and self.beamStartX and self.beamStartY and self.beamEndX and self.beamEndY then
-        TurretEffects.renderBeam(self, self.beamStartX, self.beamStartY, self.beamEndX, self.beamEndY, self.beamTarget)
         -- Clear beam data after rendering
         self.beamActive = false
     end
@@ -194,19 +198,45 @@ function Turret:updateSalvagingLaser(dt, target, locked, world)
     return UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
 end
 
+-- Check if turret can fire (cooldown and heat)
+function Turret:canFire()
+    return self.cooldown <= 0 and HeatManager.canFire(self)
+end
+
 -- Static function to get turret by slot (legacy compatibility)
 function Turret.getTurretBySlot(player, slot)
-    if not player or not player.components or not player.components.equipment or not player.components.equipment.turrets then
+    if not player or not player.components or not player.components.equipment or not player.components.equipment.grid then
         return nil
     end
 
-    for _, turretData in ipairs(player.components.equipment.turrets) do
-        if turretData and turretData.slot == slot then
-            return turretData.turret
-        end
+    local gridData = player.components.equipment.grid[slot]
+    if gridData and gridData.type == "turret" then
+        return gridData.module
     end
 
     return nil
 end
+
+Events.on('player_death', function(event) 
+  local player = event.player
+  if player.components.equipment and player.components.equipment.grid then 
+    for _, gridData in ipairs(player.components.equipment.grid) do
+      if gridData.type == "turret" and gridData.module then
+        gridData.module.locked = true
+        gridData.module.cooldown = 0
+      end
+    end
+  end
+end)
+Events.on('player_respawn', function(event) 
+  local player = event.player
+  if player.components.equipment and player.components.equipment.grid then 
+    for _, gridData in ipairs(player.components.equipment.grid) do
+      if gridData.type == "turret" and gridData.module then
+        gridData.module.locked = false
+      end
+    end
+  end
+end)
 
 return Turret

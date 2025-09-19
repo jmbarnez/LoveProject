@@ -10,8 +10,8 @@ function EngineTrail.new(config)
     
     -- Component properties
     self.colors = {
-        color1 = config.color1 or {0.0, 1.0, 1.0, 1.0},      -- Primary cyan
-        color2 = config.color2 or {0.2, 0.8, 1.0, 0.5}       -- Secondary cyan  
+        color1 = config.color1 or {0.2, 0.8, 1.0, 1.0},      -- Primary cyan
+        color2 = config.color2 or {0.2, 0.8, 1.0, 0.5}       -- Secondary cyan
     }
     self.size = config.size or 1.0
     self.offset = config.offset or 15  -- Distance behind ship to emit particles
@@ -104,12 +104,24 @@ function EngineTrail:updatePosition(x, y, angle)
 end
 
 function EngineTrail:update(dt)
+    -- Force fixed cyan colors every frame to prevent external overrides
+    local c1 = self.colors.color1
+    local r, g, b = c1[1], c1[2], c1[3]
+    self.particleSystem:setColors(
+        r, g, b, 0.9,
+        r, g, b, 0.6,
+        r, g, b, 0.3,
+        r, g, b, 0.0
+    )
     self.particleSystem:update(dt)
 end
 
 function EngineTrail:draw()
     -- Apply additive blending for glow effect
     love.graphics.setBlendMode("add", "premultiplied")
+    
+    -- Reset color to white to prevent tinting from prior setColor calls (e.g., heat bars)
+    love.graphics.setColor(1, 1, 1, 1)
     
     -- Draw particle system in world space
     love.graphics.draw(self.particleSystem)
