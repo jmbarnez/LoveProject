@@ -9,6 +9,7 @@ local Ship = require("src.ui.ship")
 local Quests = require("src.ui.quests")
 local Nodes = require("src.ui.nodes")
 local IconSystem = require("src.core.icon_system")
+local Window = require("src.ui.common.window")
 
 local DockedUI = {}
 
@@ -43,7 +44,7 @@ function DockedUI.init()
         y = 0,
         width = sw,
         height = sh,
-        closable = false,
+        closable = true,
         draggable = false,
         resizable = false,
         drawContent = DockedUI.drawContent

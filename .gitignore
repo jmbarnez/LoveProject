@@ -1,1 +1,23 @@
 .aider*
+
+# Build scripts and batch files
+build_love.bat
+*.bat
+
+# Built packages and executables
+Novus.love
+*.love
+love.exe
+lovec.exe
+*.dll
+*.ico
+game.ico
+
+# LÖVE framework dependencies (keep source code, ignore binaries)
+love.dll
+lua51.dll
+mpg123.dll
+msvcp120.dll
+msvcr120.dll
+OpenAL32.dll
+SDL2.dll
