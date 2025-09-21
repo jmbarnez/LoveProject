@@ -7,6 +7,7 @@ local Tooltip = require("src.ui.tooltip")
 local IconSystem = require("src.core.icon_system")
 local AuroraTitle = require("src.shaders.aurora_title")
 local PlayerRef = require("src.core.player_ref")
+local Window = require("src.ui.common.window")
 
 local Inventory = {}
 
@@ -22,11 +23,6 @@ end
 
 -- Core inventory state
 Inventory.visible = false
-Inventory.windowX = nil
-Inventory.windowY = nil
-Inventory.windowW = 420
-Inventory.windowH = 320
-Inventory._closeButton = nil
 Inventory.hoveredItem = nil
 Inventory.hoverTimer = 0
 Inventory.scroll = 0
@@ -47,22 +43,24 @@ Inventory.sortOrder = "asc" -- "asc" or "desc"
 Inventory._searchInputActive = false
 Inventory._scrollDragging = false
 Inventory._scrollDragOffset = 0
-Inventory._windowDragging = false
-Inventory._dragOffsetX = 0
-Inventory._dragOffsetY = 0
 
 function Inventory.init()
-  local sw, sh = Viewport.getDimensions()
-  Inventory.windowW = Input.getInventoryW and Input.getInventoryW() or 420
-  Inventory.windowH = Input.getInventoryH and Input.getInventoryH() or 320
-  Inventory.windowX = Input.getInventoryX and Input.getInventoryX() or math.floor((sw - Inventory.windowW) * 0.5)
-  Inventory.windowY = Input.getInventoryY and Input.getInventoryY() or math.floor((sh - Inventory.windowH) * 0.5)
-  if Input.setInventoryPos then Input.setInventoryPos(Inventory.windowX, Inventory.windowY) end
-  if Input.setInventorySize then Input.setInventorySize(Inventory.windowW, Inventory.windowH) end
+    Inventory.window = Window.new({
+        title = "Inventory",
+        width = 420,
+        height = 320,
+        minWidth = 300,
+        minHeight = 200,
+        drawContent = Inventory.drawContent,
+        onClose = function()
+            Inventory.visible = false
+        end
+    })
 end
 
 function Inventory.getRect()
-  return { x = Inventory.windowX, y = Inventory.windowY, w = Inventory.windowW, h = Inventory.windowH }
+    if not Inventory.window then return nil end
+    return { x = Inventory.window.x, y = Inventory.window.y, w = Inventory.window.width, h = Inventory.window.height }
 end
 
 -- Helper functions
@@ -320,343 +318,194 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
   end
 end
 
-function Inventory.draw(player)
-  if not Inventory.visible then return end
-  if not player then player = getCurrentPlayer() end
-  if not player then return end
+function Inventory.draw()
+    if not Inventory.visible then return end
+    if not Inventory.window then Inventory.init() end
+    Inventory.window.visible = Inventory.visible
+    Inventory.window:draw()
+end
 
-  local x, y, w, h = Inventory.windowX, Inventory.windowY, Inventory.windowW, Inventory.windowH
-  local mx, my = Viewport.getMousePosition()
+function Inventory.drawContent(window, x, y, w, h)
+    local player = getCurrentPlayer()
+    if not player then return end
 
-  -- Draw window
-  Theme.drawGradientGlowRect(x, y, w, h, 8, Theme.colors.bg1, Theme.colors.bg0, Theme.colors.accent, Theme.effects.glowWeak)
-  Theme.drawEVEBorder(x, y, w, h, 8, Theme.colors.border, 6)
+    local mx, my = Viewport.getMousePosition()
 
-  -- Enhanced title bar with search and sort
-  local titleH = 32
-  Theme.drawGradientGlowRect(x, y, w, titleH, 8, Theme.colors.bg3, Theme.colors.bg2, Theme.colors.accent, Theme.effects.glowWeak)
+    -- Get items with sorting and filtering
+    local items = getPlayerItems(player)
+    items = filterItems(items, Inventory.searchText)
+    sortItems(items, Inventory.sortBy, Inventory.sortOrder)
 
-  -- Title removed - now just shows search and sort controls
+    local iconSize = 64
+    local padding = 8
+    local contentY = y
+    local contentH = h - 24
 
-  -- Search bar
-  local searchBarW = 200
-  local searchBarH = 20
-  local searchBarX = x + w - searchBarW - 120
-  local searchBarY = y + 6
-  local searchRect = drawSearchBar(searchBarX, searchBarY, searchBarW, searchBarH, Inventory.searchText, Inventory._searchInputActive)
+    local iconsPerRow = math.floor((w - padding) / (iconSize + padding))
+    if iconsPerRow < 1 then iconsPerRow = 1 end
 
-  -- Sort button
-  local sortButtonW = 80
-  local sortButtonH = 20
-  local sortButtonX = searchBarX - sortButtonW - 8
-  local sortButtonY = y + 6
-  local sortRect = drawSortButton(sortButtonX, sortButtonY, sortButtonW, sortButtonH, Inventory.sortBy, Inventory.sortOrder)
+    local totalRows = math.ceil(#items / iconsPerRow)
+    local totalContentHeight = totalRows * (iconSize + padding) + padding
+    Inventory._scrollMax = math.max(0, totalContentHeight - contentH)
+    if Inventory.scroll > Inventory._scrollMax then Inventory.scroll = Inventory._scrollMax end
 
-  -- Close button
-  local closeSize = 20
-  local closeX = x + w - 22
-  local closeY = y + 6
-  Inventory._closeButton = { x = closeX, y = closeY, w = closeSize, h = closeSize }
-  local closeHover = mx >= closeX and mx <= closeX + closeSize and my >= closeY and my <= closeY + closeSize
-  Theme.drawCloseButton(Inventory._closeButton, closeHover)
+    -- Draw items with enhanced hover states
+    love.graphics.push()
+    love.graphics.setScissor(x, contentY, w, contentH)
+    Inventory._slotRects = {}
 
-  -- Get items with sorting and filtering
-  local items = getPlayerItems(player)
-  items = filterItems(items, Inventory.searchText)
-  sortItems(items, Inventory.sortBy, Inventory.sortOrder)
+    for i, item in ipairs(items) do
+        local row = math.floor((i - 1) / iconsPerRow)
+        local col = (i - 1) % iconsPerRow
+        local itemX = x + col * (iconSize + padding) + padding
+        local itemY = contentY + row * (iconSize + padding) + padding - Inventory.scroll
 
-  local iconSize = 64
-  local padding = 8
-  local contentY = y + titleH
-  local contentH = h - titleH - 24
+        if itemY + iconSize > contentY and itemY < contentY + contentH then
+            local isHovered = mx >= itemX and mx <= itemX + iconSize and my >= itemY and my <= itemY + iconSize
+            local isSelected = false -- Could add selection logic later
 
-  local iconsPerRow = math.floor((w - padding) / (iconSize + padding))
-  if iconsPerRow < 1 then iconsPerRow = 1 end
+            drawEnhancedItemSlot(item, itemX, itemY, iconSize, isHovered, isSelected)
 
-  local totalRows = math.ceil(#items / iconsPerRow)
-  local totalContentHeight = totalRows * (iconSize + padding) + padding
-  Inventory._scrollMax = math.max(0, totalContentHeight - contentH)
-  if Inventory.scroll > Inventory._scrollMax then Inventory.scroll = Inventory._scrollMax end
+            table.insert(Inventory._slotRects, { x = itemX, y = itemY, w = iconSize, h = iconSize, item = item, index = i })
 
-  -- Draw items with enhanced hover states
-  love.graphics.push()
-  love.graphics.setScissor(x, contentY, w, contentH)
-  Inventory._slotRects = {}
+            if isHovered then
+                if not Inventory.hoveredItem or Inventory.hoveredItem.id ~= item.id then
+                    Inventory.hoveredItem = item
+                    Inventory.hoverTimer = 0
+                else
+                    Inventory.hoverTimer = Inventory.hoverTimer + love.timer.getDelta()
+                end
+            end
+        end
+    end
 
-  for i, item in ipairs(items) do
-    local row = math.floor((i - 1) / iconsPerRow)
-    local col = (i - 1) % iconsPerRow
-    local itemX = x + col * (iconSize + padding) + padding
-    local itemY = contentY + row * (iconSize + padding) + padding - Inventory.scroll
+    -- Advanced scrollbar
+    if Inventory._scrollMax > 0 then
+        local scrollbarWidth = 12
+        local scrollbarX = x + w - scrollbarWidth - 2
+        local scrollbarY = contentY
+        local scrollbarHeight = contentH
 
-    if itemY + iconSize > contentY and itemY < contentY + contentH then
-      local isHovered = mx >= itemX and mx <= itemX + iconSize and my >= itemY and my <= itemY + iconSize
-      local isSelected = false -- Could add selection logic later
+        local scrollbarHover = mx >= scrollbarX and mx <= scrollbarX + scrollbarWidth and my >= scrollbarY and my <= scrollbarY + scrollbarHeight
+        local thumbRect = drawAdvancedScrollbar(x, contentY, w, contentH, Inventory.scroll, Inventory._scrollMax, scrollbarHover)
 
-      drawEnhancedItemSlot(item, itemX, itemY, iconSize, isHovered, isSelected)
+        -- Handle scrollbar dragging
+        if Inventory._scrollDragging and thumbRect then
+            Inventory._scrollThumbRect = thumbRect
+        end
+    end
 
-      table.insert(Inventory._slotRects, { x = itemX, y = itemY, w = iconSize, h = iconSize, item = item, index = i })
+    love.graphics.setScissor()
+    love.graphics.pop()
 
-      if isHovered then
-        if not Inventory.hoveredItem or Inventory.hoveredItem.id ~= item.id then
-          Inventory.hoveredItem = item
-          Inventory.hoverTimer = 0
+    -- Enhanced info bar
+    local infoBarY = y + h - 18
+    Theme.drawGradientGlowRect(x, infoBarY, w, 18, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+
+    local itemCount = #items
+    local totalSlots = 24
+    local credits = player.getGC and player:getGC() or 0
+
+    local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
+    love.graphics.setFont(font)
+    Theme.setColor(Theme.colors.textSecondary)
+    love.graphics.print("Items: " .. itemCount .. "/" .. totalSlots, x + 8, infoBarY + 3)
+
+    local creditText = Util.formatNumber(credits) .. " GC"
+    local creditWidth = font:getWidth(creditText)
+    Theme.setColor(Theme.colors.accentGold)
+    love.graphics.print(creditText, x + w - creditWidth - 8, infoBarY + 3)
+
+    -- Draw tooltip
+    if Inventory.hoveredItem and Inventory.hoverTimer > 0.1 and not Inventory.contextMenu.visible then
+        local def = Inventory.hoveredItem.turretData or Content.getItem(Inventory.hoveredItem.id) or Content.getTurret(Inventory.hoveredItem.id)
+        if def then
+            Tooltip.drawItemTooltip(def, mx, my)
+        end
+    end
+
+    -- Draw context menu
+    if Inventory.contextMenu.visible then
+        Inventory.drawContextMenu()
+    end
+end
+
+function Inventory.mousepressed(x, y, button)
+    if not Inventory.visible then return false end
+    if not Inventory.window then Inventory.init() end
+
+    if Inventory.window:mousepressed(x, y, button) then
+        return true
+    end
+
+    local player = getCurrentPlayer()
+    if not player then return false end
+
+    local mx, my = Viewport.getMousePosition()
+
+    -- Context menu clicks
+    if button == 1 and Inventory.contextMenu.visible then
+        local menu = Inventory.contextMenu
+        local w = 180
+        local optionH = 24
+        local h = 8 + (#menu.options * optionH) + 8
+
+        for i, option in ipairs(menu.options) do
+            local optY = menu.y + 8 + (i-1) * optionH
+            if mx >= menu.x and mx <= menu.x + w and my >= optY and my <= optY + optionH then
+                Inventory.handleContextMenuClick(option)
+                return true
+            end
+        end
+        Inventory.contextMenu.visible = false
+        return true
+    end
+
+    -- Item interactions
+    if button == 1 then
+        local item, index = getItemAtPosition(x, y, Inventory._slotRects)
+        if item then
+            local def = Content.getItem(item.id) or Content.getTurret(item.id)
+            if def and (def.consumable or def.type == "consumable") then
+                Inventory.useItem(player, item.id)
+                return true
+            end
+        end
+    elseif button == 2 then
+        local item, index = getItemAtPosition(x, y, Inventory._slotRects)
+        if item then
+            createContextMenu(item, x, y)
+            return true
         else
-          Inventory.hoverTimer = Inventory.hoverTimer + love.timer.getDelta()
+            Inventory.contextMenu.visible = false
         end
-      end
     end
-  end
 
-  -- Advanced scrollbar
-  if Inventory._scrollMax > 0 then
-    local scrollbarWidth = 12
-    local scrollbarX = x + w - scrollbarWidth - 2
-    local scrollbarY = contentY
-    local scrollbarHeight = contentH
-
-    local scrollbarHover = mx >= scrollbarX and mx <= scrollbarX + scrollbarWidth and my >= scrollbarY and my <= scrollbarY + scrollbarHeight
-    local thumbRect = drawAdvancedScrollbar(x, contentY, w, contentH, Inventory.scroll, Inventory._scrollMax, scrollbarHover)
-
-    -- Handle scrollbar dragging
-    if Inventory._scrollDragging and thumbRect then
-      Inventory._scrollThumbRect = thumbRect
-    end
-  end
-
-  love.graphics.setScissor()
-  love.graphics.pop()
-
-  -- Enhanced info bar
-  local infoBarY = y + h - 18
-  Theme.drawGradientGlowRect(x, infoBarY, w, 18, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
-
-  local itemCount = #items
-  local totalSlots = 24
-  local credits = player.getGC and player:getGC() or 0
-
-  local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
-  love.graphics.setFont(font)
-  Theme.setColor(Theme.colors.textSecondary)
-  love.graphics.print("Items: " .. itemCount .. "/" .. totalSlots, x + 8, infoBarY + 3)
-
-  local creditText = Util.formatNumber(credits) .. " GC"
-  local creditWidth = font:getWidth(creditText)
-  Theme.setColor(Theme.colors.accentGold)
-  love.graphics.print(creditText, x + w - creditWidth - 8, infoBarY + 3)
-
-  -- Draw tooltip
-  if Inventory.hoveredItem and Inventory.hoverTimer > 0.1 and not Inventory.contextMenu.visible then
-    local def = Inventory.hoveredItem.turretData or Content.getItem(Inventory.hoveredItem.id) or Content.getTurret(Inventory.hoveredItem.id)
-    if def then
-      Tooltip.drawItemTooltip(def, mx, my)
-    end
-  end
-
-  -- Draw context menu
-  if Inventory.contextMenu.visible then
-    Inventory.drawContextMenu()
-  end
+    return false
 end
 
-function Inventory.mousepressed(x, y, button, player)
-  if not Inventory.visible then return false end
-  if not player then player = getCurrentPlayer() end
-  if not player then return false end
-
-  local mx, my = Viewport.getMousePosition()
-
-  -- Close button
-  if button == 1 and Inventory._closeButton then
-    local closeX, closeY, closeSize = Inventory._closeButton.x, Inventory._closeButton.y, Inventory._closeButton.w
-    if x >= closeX and x <= closeX + closeSize and y >= closeY and y <= closeY + closeSize then
-      Inventory.visible = false
-      Inventory.contextMenu.visible = false
-      Inventory.hoveredItem = nil
-      Inventory.hoverTimer = 0
-      return true
-    end
-  end
-
-  -- Title bar dragging (click anywhere in title bar except controls)
-  if button == 1 then
-    local titleBarY = Inventory.windowY + 6
-    local titleBarH = 20
-
-    -- Check if click is in title bar area (but not on controls)
-    local inTitleBar = y >= titleBarY and y <= titleBarY + titleBarH
-
-    -- Check if click is NOT on any controls
-    local onSearchBar = x >= Inventory.windowX + Inventory.windowW - 200 - 120 and
-                        x <= Inventory.windowX + Inventory.windowW - 200 - 120 + 200 and
-                        y >= titleBarY and y <= titleBarY + titleBarH
-
-    local onSortButton = x >= Inventory.windowX + Inventory.windowW - 200 - 120 - 80 - 8 and
-                         x <= Inventory.windowX + Inventory.windowW - 200 - 120 - 80 - 8 + 80 and
-                         y >= titleBarY and y <= titleBarY + titleBarH
-
-    local onCloseButton = x >= Inventory.windowX + Inventory.windowW - 22 and
-                          x <= Inventory.windowX + Inventory.windowW - 22 + 20 and
-                          y >= titleBarY and y <= titleBarY + titleBarH
-
-    if inTitleBar and not onSearchBar and not onSortButton and not onCloseButton then
-      -- Start dragging the window
-      Inventory._windowDragging = true
-      Inventory._dragOffsetX = x - Inventory.windowX
-      Inventory._dragOffsetY = y - Inventory.windowY
-      return true
-    end
-  end
-
-  -- Search bar interaction
-  if button == 1 then
-    local searchBarX = Inventory.windowX + Inventory.windowW - 200 - 120
-    local searchBarY = Inventory.windowY + 6
-    local searchBarW = 200
-    local searchBarH = 20
-
-    if x >= searchBarX and x <= searchBarX + searchBarW and y >= searchBarY and y <= searchBarY + searchBarH then
-      Inventory._searchInputActive = true
-      return true
-    else
-      Inventory._searchInputActive = false
-    end
-  end
-
-  -- Sort button interaction
-  if button == 1 then
-    local sortButtonX = Inventory.windowX + Inventory.windowW - 200 - 120 - 80 - 8
-    local sortButtonY = Inventory.windowY + 6
-    local sortButtonW = 80
-    local sortButtonH = 20
-
-    if x >= sortButtonX and x <= sortButtonX + sortButtonW and y >= sortButtonY and y <= sortButtonY + sortButtonH then
-      -- Cycle through sort options
-      local sortOptions = {"name", "type", "rarity", "value", "quantity"}
-      local currentIndex = 1
-      for i, option in ipairs(sortOptions) do
-        if option == Inventory.sortBy then
-          currentIndex = i
-          break
-        end
-      end
-
-      currentIndex = currentIndex + 1
-      if currentIndex > #sortOptions then currentIndex = 1 end
-
-      Inventory.sortBy = sortOptions[currentIndex]
-      Inventory.sortOrder = "asc" -- Reset to ascending when changing sort type
-      return true
-    end
-  end
-
-  -- Context menu clicks
-  if button == 1 and Inventory.contextMenu.visible then
-    local menu = Inventory.contextMenu
-    local w = 180
-    local optionH = 24
-    local h = 8 + (#menu.options * optionH) + 8
-
-    for i, option in ipairs(menu.options) do
-      local optY = menu.y + 8 + (i-1) * optionH
-      if mx >= menu.x and mx <= menu.x + w and my >= optY and my <= optY + optionH then
-        Inventory.handleContextMenuClick(option)
-        return true
-      end
-    end
-    Inventory.contextMenu.visible = false
-    return true
-  end
-
-  -- Item interactions
-  if button == 1 then
-    local item, index = getItemAtPosition(x, y, Inventory._slotRects)
-    if item then
-      local def = Content.getItem(item.id) or Content.getTurret(item.id)
-      if def and (def.consumable or def.type == "consumable") then
-        Inventory.useItem(player, item.id)
-        return true
-      end
-    end
-  elseif button == 2 then
-    local item, index = getItemAtPosition(x, y, Inventory._slotRects)
-    if item then
-      createContextMenu(item, x, y)
-      return true
-    else
-      Inventory.contextMenu.visible = false
-    end
-  end
-
-  return false
-end
-
-function Inventory.mousereleased(x, y, button, player)
-  if not Inventory.visible then return false end
-  if Inventory._scrollDragging and button == 1 then
-    Inventory._scrollDragging = false
-    return true
-  end
-  if Inventory._windowDragging and button == 1 then
-    Inventory._windowDragging = false
-    return true
-  end
-  return false
+function Inventory.mousereleased(x, y, button)
+    if not Inventory.visible then return false end
+    if not Inventory.window then return false end
+    return Inventory.window:mousereleased(x, y, button)
 end
 
 function Inventory.mousemoved(x, y, dx, dy)
-  if not Inventory.visible then return false end
-
-  -- Handle window dragging
-  if Inventory._windowDragging then
-    local sw, sh = Viewport.getDimensions()
-
-    -- Calculate new position
-    local newX = x - Inventory._dragOffsetX
-    local newY = y - Inventory._dragOffsetY
-
-    -- Keep window on screen
-    newX = math.max(0, math.min(newX, sw - Inventory.windowW))
-    newY = math.max(0, math.min(newY, sh - Inventory.windowH))
-
-    -- Update window position
-    Inventory.windowX = newX
-    Inventory.windowY = newY
-
-    -- Update input system if available
-    if Input.setInventoryPos then
-      Input.setInventoryPos(newX, newY)
-    end
-
-    return true
-  end
-
-  -- Handle scrollbar dragging
-  if Inventory._scrollDragging then
-    local contentH = Inventory.windowH - 24
-    local scrollbarHeight = contentH
-    local scrollbarX = Inventory.windowX + Inventory.windowW - 12 - 2
-    local scrollbarY = Inventory.windowY + 24
-    local thumbHeight = math.max(20, scrollbarHeight * (contentH / (contentH + Inventory._scrollMax)))
-    local maxThumbY = scrollbarY + scrollbarHeight - thumbHeight
-    local newThumbY = math.max(scrollbarY, math.min(maxThumbY, y - Inventory._scrollDragOffset))
-    local maxThumbY = scrollbarHeight - thumbHeight
-    Inventory.scroll = (newThumbY - scrollbarY) / maxThumbY * Inventory._scrollMax
-    Inventory.scroll = math.max(0, math.min(Inventory.scroll, Inventory._scrollMax))
-    if Inventory.scroll ~= Inventory.scroll then Inventory.scroll = 0 end
-    return true
-  end
-
-  return false
+    if not Inventory.visible then return false end
+    if not Inventory.window then return false end
+    return Inventory.window:mousemoved(x, y, dx, dy)
 end
 
-function Inventory.wheelmoved(x, y, wheel)
-  if not Inventory.visible then return false end
-  local scrollSpeed = 40
-  Inventory.scroll = Inventory.scroll - wheel * scrollSpeed
-  Inventory.scroll = math.max(0, math.min(Inventory.scroll, math.max(0, Inventory._scrollMax)))
-  if Inventory.scroll ~= Inventory.scroll then Inventory.scroll = 0 end
-  return true
+function Inventory.wheelmoved(x, y, dx, dy)
+    if not Inventory.visible then return false end
+    if not Inventory.window then return false end
+    if not Inventory.window:containsPoint(x, y) then return false end
+
+    local scrollSpeed = 40
+    Inventory.scroll = Inventory.scroll - dy * scrollSpeed
+    Inventory.scroll = math.max(0, math.min(Inventory.scroll, math.max(0, Inventory._scrollMax)))
+    if Inventory.scroll ~= Inventory.scroll then Inventory.scroll = 0 end
+    return true
 end
 
 function Inventory.update(dt)

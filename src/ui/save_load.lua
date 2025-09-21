@@ -1,16 +1,23 @@
 local Theme = require("src.core.theme")
 local StateManager = require("src.managers.state_manager")
+local Window = require("src.ui.common.window")
 
 local SaveLoad = {}
 
 function SaveLoad:new()
-  local o = {}
-  setmetatable(o, self)
-  self.__index = self
-  o.selectedSlot = nil
-  o.newSaveName = ""
-  o.showNewSave = false
-  return o
+    local o = {}
+    setmetatable(o, self)
+    self.__index = self
+    o.selectedSlot = nil
+    o.newSaveName = ""
+    o.showNewSave = false
+    o.window = Window.new({
+        title = "Save & Load Game",
+        width = 400,
+        height = 500,
+        drawContent = function(window, x, y, w, h) o:draw(player, x, y, w, h) end
+    })
+    return o
 end
 
 function SaveLoad:draw(player, x, y, w, h)

@@ -263,12 +263,12 @@ function Input.love_mousepressed(x, y, button)
       return
     end
   else
-    local vx, vy = Viewport.toVirtual(x, y)
     if SettingsPanel.visible then
-        if SettingsPanel.mousepressed(vx, vy, button) then
+        if SettingsPanel.mousepressed(x, y, button) then
             return
         end
     end
+    local vx, vy = Viewport.toVirtual(x, y)
     if mainState.UIManager and mainState.UIManager.mousepressed(vx, vy, button) then
       return
     end
@@ -281,6 +281,11 @@ function Input.love_mousereleased(x, y, button)
     local vx, vy = Viewport.toVirtual(x, y)
     mainState.startScreen:mousereleased(vx, vy, button)
   elseif mainState.screen == "game" then
+    if SettingsPanel.visible then
+        if SettingsPanel.mousereleased(x, y, button) then
+            return
+        end
+    end
     local vx, vy = Viewport.toVirtual(x, y)
     if mainState.UIManager then
       mainState.UIManager.mousereleased(vx, vy, button)
@@ -295,13 +300,13 @@ function Input.love_mousemoved(x, y, dx, dy, istouch)
     local s = Viewport.getScale()
     mainState.startScreen:mousemoved(vx, vy, dx / s, dy / s, istouch)
   elseif mainState.screen == "game" then
-    local vx, vy = Viewport.toVirtual(x, y)
-    local s = Viewport.getScale()
     if SettingsPanel.visible then
-        if SettingsPanel.mousemoved(vx, vy, dx, dy) then
+        if SettingsPanel.mousemoved(x, y, dx, dy) then
             return
         end
     end
+    local vx, vy = Viewport.toVirtual(x, y)
+    local s = Viewport.getScale()
     if mainState.UIManager and mainState.UIManager.mousemoved(vx, vy, dx / s, dy / s, istouch) then
       return
     end
@@ -312,10 +317,12 @@ end
 function Input.love_wheelmoved(dx, dy)
   if mainState.screen == "game" then
     if SettingsPanel.visible then
-        SettingsPanel.wheelmoved(dx, dy)
-    else
-        Input.wheelmoved(dx, dy)
+        local x, y = love.mouse.getPosition()
+        if SettingsPanel.wheelmoved(x, y, dx, dy) then
+            return
+        end
     end
+    Input.wheelmoved(dx, dy)
   end
 end
 
@@ -485,14 +492,9 @@ function Input.wheelmoved(dx, dy)
     -- Handle mouse wheel events for the game
     if not gameState or not gameState.camera then return false end
     
-    -- Forward to settings panel if visible
-    if SettingsPanel and SettingsPanel.visible and SettingsPanel.wheelmoved and SettingsPanel.wheelmoved(dx, dy) then 
-        return true 
-    end
-    
     -- Forward to map if it handles wheel events
-    if Map and Map.wheelmoved and Map.wheelmoved(dx, dy, gameState and gameState.world) then 
-        return true 
+    if Map and Map.wheelmoved and Map.wheelmoved(dx, dy, gameState and gameState.world) then
+        return true
     end
     
     local DockedUI = require("src.ui.docked")

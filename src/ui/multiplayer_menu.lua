@@ -6,6 +6,7 @@
 local Viewport = require("src.core.viewport")
 local Theme = require("src.core.theme")
 local Multiplayer = require("src.core.multiplayer")
+local Window = require("src.ui.common.window")
 
 local MultiplayerMenu = {}
 MultiplayerMenu.__index = MultiplayerMenu
@@ -26,6 +27,17 @@ function MultiplayerMenu.new()
     
     -- ENet networking is now always available
     self.status = "ENet networking ready"
+    
+    local w, h = Viewport.getDimensions()
+    local panelW, panelH = 400, 300
+    self.window = Window.new({
+        title = "MULTIPLAYER",
+        width = panelW,
+        height = panelH,
+        x = (w - panelW) / 2,
+        y = (h - panelH) / 2,
+        drawContent = function(window, x, y, w, h) self:drawContent(x, y, w, h) end
+    })
     
     return self
 end
@@ -64,30 +76,14 @@ end
 
 function MultiplayerMenu:draw()
     if not self.visible then return end
-    
-    local w, h = Viewport.getDimensions()
-    local scale = math.min(w / 1920, h / 1080)
-    
-    -- Background overlay
-    Theme.setColor({0, 0, 0, 0.8})
-    love.graphics.rectangle('fill', 0, 0, w, h)
-    
-    -- Main panel
-    local panelW, panelH = 400 * scale, 300 * scale
-    local panelX = (w - panelW) / 2
-    local panelY = (h - panelH) / 2
-    
-    Theme.setColor(Theme.colors.bg2)
-    love.graphics.rectangle('fill', panelX, panelY, panelW, panelH, 10)
-    Theme.setColor(Theme.colors.border)
-    love.graphics.rectangle('line', panelX, panelY, panelW, panelH, 10)
-    
-    -- Title
-    Theme.setColor(Theme.colors.text)
-    love.graphics.printf("MULTIPLAYER", panelX, panelY + 20 * scale, panelW, 'center')
-    
-    local yOffset = panelY + 60 * scale
-    
+    self.window.visible = self.visible
+    self.window:draw()
+end
+
+function MultiplayerMenu:drawContent(panelX, panelY, panelW, panelH)
+    local yOffset = panelY + 20
+    local scale = 1.0
+
     if self.mode == "menu" then
         self:drawMainMenu(panelX, yOffset, panelW, scale)
     elseif self.mode == "host" then
@@ -95,13 +91,13 @@ function MultiplayerMenu:draw()
     elseif self.mode == "join" then
         self:drawJoinMenu(panelX, yOffset, panelW, scale)
     end
-    
+
     -- Status text
     if self.status ~= "" then
         Theme.setColor(Theme.colors.accent)
         love.graphics.printf(self.status, panelX, panelY + panelH - 60 * scale, panelW, 'center')
     end
-    
+
     -- Start Game button (show when connected)
     if Multiplayer.isConnected() then
         local startGameBtn = {
@@ -425,7 +421,8 @@ end
 
 function MultiplayerMenu:mousepressed(x, y, button)
     if not self.visible or button ~= 1 then return false end
-    
+    if self.window:mousepressed(x, y, button) then return true end
+
     -- Check button clicks
     for name, btn in pairs(self.buttons) do
         if x >= btn.x and x <= btn.x + btn.w and y >= btn.y and y <= btn.y + btn.h then

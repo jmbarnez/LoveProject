@@ -228,6 +228,9 @@ function SettingsPanel.init()
     print("  borderless: " .. tostring(currentGraphicsSettings.borderless))
     print("  selectedFullscreenTypeIndex: " .. selectedFullscreenTypeIndex)
     print("  Available resolutions count: " .. (#resolutions or 0))
+
+    -- Apply the current accent theme
+    applyAccentTheme(currentGraphicsSettings.accent_theme or "Cyan/Lavender")
 end
 
 function SettingsPanel.update(dt)
@@ -649,100 +652,44 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         return true
     end
 
-    -- Convert coordinates to window-relative coordinates
-    local windowX, windowY = SettingsPanel.window.x, SettingsPanel.window.y
-    local x, y = raw_x - windowX, raw_y - windowY
+    -- Use raw screen coordinates for all checks
+    local x, y = raw_x, raw_y
 
-    -- Calculate content height first
-    SettingsPanel.calculateContentHeight()
-
-    -- Use virtual coordinates. origY is for unscrolled elements.
-    local origY = y
-
-    local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
-
-    -- Check if we're in fullscreen mode
-    local windowMode = love.window.getMode()
-    local isFullscreen = false
-    if type(windowMode) == "table" and windowMode.fullscreen then
-        isFullscreen = true
-    elseif type(windowMode) == "boolean" then
-        isFullscreen = windowMode
-    elseif type(windowMode) == "number" then
-        -- Handle case where getMode returns a number (some LÖVE versions)
-        isFullscreen = (windowMode == 1)
-    end
-
-    -- Responsive panel sizing based on screen resolution and window mode
-    local panelWidth, panelHeight
-    if isFullscreen then
-        -- In fullscreen mode, use more generous sizing for better usability
-        if sw <= 800 or sh <= 600 then
-            -- For small fullscreen (800x600 or smaller), use 90% to leave some margin
-            panelWidth = math.floor(sw * 0.9)
-            panelHeight = math.floor(sh * 0.9)
-        elseif sw <= 1024 or sh <= 768 then
-            -- For medium fullscreen, use 85%
-            panelWidth = math.floor(sw * 0.85)
-            panelHeight = math.floor(sh * 0.85)
-        else
-            -- For large fullscreen, use 80%
-            panelWidth = math.floor(sw * 0.8)
-            panelHeight = math.floor(sh * 0.8)
-        end
-    else
-        -- In windowed mode, use the previous responsive logic
-        if sw <= 800 or sh <= 600 then
-            -- For small windows (800x600 or smaller), use more conservative sizing
-            panelWidth = math.floor(sw * 0.95)  -- Use 95% of width
-            panelHeight = math.floor(sh * 0.95) -- Use 95% of height
-        elseif sw <= 1024 or sh <= 768 then
-            -- For medium windows (1024x768 or smaller), use 90% sizing
-            panelWidth = math.floor(sw * 0.9)
-            panelHeight = math.floor(sh * 0.9)
-        else
-            -- For larger windows, use 80% sizing
-            panelWidth = math.floor(sw * 0.8)
-            panelHeight = math.floor(sh * 0.8)
-        end
-    end
-
-    -- Ensure minimum panel size (larger minimum for fullscreen)
-    if isFullscreen then
-        panelWidth = math.max(panelWidth, 700)
-        panelHeight = math.max(panelHeight, 500)
-    else
-        panelWidth = math.max(panelWidth, 600)
-        panelHeight = math.max(panelHeight, 400)
-    end
-
-    -- Ensure panel doesn't exceed screen bounds
-    panelWidth = math.min(panelWidth, sw - 20)
-    panelHeight = math.min(panelHeight, sh - 20)
-
-    local panelX = math.floor((sw - panelWidth) / 2)
-    local panelY = math.floor((sh - panelHeight) / 2)
-    local w, h = panelWidth, panelHeight
-    local innerTop = panelY + 40
-    local innerH = h - 80
-    local valueX = panelX + 150
+    -- Get geometry from the window object
+    local win = SettingsPanel.window
+    local panelX, panelY, w, h = win.x, win.y, win.width, win.height
+    local content = win:getContentBounds()
+    local contentX, contentY, contentW, contentH = content.x, content.y, content.w, content.h
+    local innerTop = contentY
+    local innerH = contentH - 60
+    local valueX = contentX + 150
     local dropdownW = 150
     local itemHeight = 40
 
     -- Check if click is outside the panel
     local isInsidePanel = x >= panelX and x <= panelX + w and y >= panelY and y <= panelY + h
-    
+    if not isInsidePanel then
+        -- Close dropdowns if clicking outside
+        if vsyncDropdownOpen or fpsLimitDropdownOpen or accentThemeDropdownOpen then
+            vsyncDropdownOpen = false
+            fpsLimitDropdownOpen = false
+            accentThemeDropdownOpen = false
+            return true -- Consume click
+        end
+        return false
+    end
+
     -- Calculate button positions for dropdown alignment (same as in draw function)
-    local vsyncButtonY = panelY + 60
+    local yOffsetUnscrolled = panelY + 60
+    local vsyncButtonY = yOffsetUnscrolled
     local fpsButtonY = vsyncButtonY + itemHeight
     local accentButtonY = fpsButtonY + itemHeight * 2  -- Skip UI scale and font scale sliders
 
-    -- Check for clicks on open dropdowns first (using new positioning logic)
-    -- Check VSync dropdown
+    -- Check for clicks on open dropdowns first
     if vsyncDropdownOpen then
-        local dropdownY = vsyncButtonY + 24 + 5  -- Button height + 5px offset
+        local dropdownY = vsyncButtonY + 24 + 5
         for i, vsyncType in ipairs(vsyncTypes) do
-            if x >= valueX and x <= valueX + dropdownW and origY >= dropdownY + 5 + (i - 1) * 20 and origY <= dropdownY + 5 + (i - 1) * 20 + 20 then
+            if x >= valueX and x <= valueX + dropdownW and y >= dropdownY + 5 + (i - 1) * 20 and y <= dropdownY + 5 + (i - 1) * 20 + 20 then
                 currentGraphicsSettings.vsync = (i == 2)
                 vsyncDropdownOpen = false
                 return true
@@ -752,11 +699,10 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         return true
     end
 
-    -- Check FPS Limit dropdown
     if fpsLimitDropdownOpen then
-        local dropdownY = fpsButtonY + 24 + 5  -- Button height + 5px offset
+        local dropdownY = fpsButtonY + 24 + 5
         for i, fpsType in ipairs(fpsLimitTypes) do
-            if x >= valueX and x <= valueX + dropdownW and origY >= dropdownY + 5 + (i - 1) * 20 and origY <= dropdownY + 5 + (i - 1) * 20 + 20 then
+            if x >= valueX and x <= valueX + dropdownW and y >= dropdownY + 5 + (i - 1) * 20 and y <= dropdownY + 5 + (i - 1) * 20 + 20 then
                 currentGraphicsSettings.max_fps = (fpsType == "Unlimited") and 0 or tonumber(fpsType)
                 fpsLimitDropdownOpen = false
                 return true
@@ -766,15 +712,13 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         return true
     end
 
-    -- Check Accent Theme dropdown
     if accentThemeDropdownOpen then
-        local dropdownY = accentButtonY + 24 + 5  -- Button height + 5px offset
+        local dropdownY = accentButtonY + 24 + 5
         local accentThemes = {"Cyan/Lavender", "Blue/Purple", "Green/Emerald", "Red/Orange", "Monochrome"}
         for i, theme in ipairs(accentThemes) do
-            if x >= valueX and x <= valueX + dropdownW and origY >= dropdownY + 5 + (i - 1) * 20 and origY <= dropdownY + 5 + (i - 1) * 20 + 20 then
+            if x >= valueX and x <= valueX + dropdownW and y >= dropdownY + 5 + (i - 1) * 20 and y <= dropdownY + 5 + (i - 1) * 20 + 20 then
                 currentGraphicsSettings.accent_theme = theme
                 accentThemeDropdownOpen = false
-                -- Apply theme immediately for preview
                 applyAccentTheme(theme)
                 return true
             end
@@ -783,138 +727,126 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         return true
     end
     
-    -- If we're not in the panel, don't process further
-    if not isInsidePanel then
-        return false
-    end
-
-    -- Handle close button (unscrolled)
-    if SettingsPanel._closeButton then
-        local btn = SettingsPanel._closeButton
-        local closeButton = {_rect = {x = btn.x, y = btn.y, w = btn.w, h = btn.h}}
-        if Theme.handleButtonClick(closeButton, x, origY, function()
-            SettingsPanel.visible = false
-        end) then
-            return true
-        end
-    end
-
-    -- Handle apply button (no exit button)
+    -- Handle apply button
     local buttonW, buttonH = 100, 30
     local applyButtonX = panelX + (w / 2) - buttonW / 2
     local buttonAreaY = panelY + h - 60
-    -- Always position button area at bottom of panel
     local buttonY = buttonAreaY + 15
-    local applyButton = {_rect = {x = applyButtonX, y = buttonY, w = buttonW, h = buttonH}}
-    if Theme.handleButtonClick(applyButton, x, origY, function()
-        -- The UI modifies currentGraphicsSettings and currentAudioSettings directly.
-        -- We create copies to pass to applySettings, ensuring all current UI changes are included
-        -- and preserving settings not exposed in the UI (like resolution).
+    if x >= applyButtonX and x <= applyButtonX + buttonW and y >= buttonY and y <= buttonY + buttonH then
         local newGraphicsSettings = {}
         for k, v in pairs(currentGraphicsSettings) do newGraphicsSettings[k] = v end
-
         local newAudioSettings = {}
         for k, v in pairs(currentAudioSettings) do newAudioSettings[k] = v end
-
         Settings.applySettings(newGraphicsSettings, newAudioSettings)
         Settings.save()
         Notifications.add("Settings applied successfully!", "success")
-    end) then
         return true
     end
 
-    -- Handle dropdowns/popups (unscrolled)
-    if SettingsPanel._reticleDone and x >= SettingsPanel._reticleDone._rect.x and x <= SettingsPanel._reticleDone._rect.x + SettingsPanel._reticleDone._rect.w and
-       origY >= SettingsPanel._reticleDone._rect.y and origY <= SettingsPanel._reticleDone._rect.y + SettingsPanel._reticleDone._rect.h then
-        reticleGalleryOpen = false
-        return true
-    end
-    if SettingsPanel._reticlePopup and x >= SettingsPanel._reticlePopup.x and origY >= SettingsPanel._reticlePopup.y then
-        local col = math.floor((x - SettingsPanel._reticlePopup.x) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
-        local row = math.floor((origY - SettingsPanel._reticlePopup.y) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
-        local index = row * SettingsPanel._reticlePopup.cols + col + 1
-        if index >= 1 and index <= 50 then
-            currentGraphicsSettings.reticle_style = index
+    -- Handle reticle gallery pop-up interactions
+    if reticleGalleryOpen then
+        if SettingsPanel._reticleDone and x >= SettingsPanel._reticleDone._rect.x and x <= SettingsPanel._reticleDone._rect.x + SettingsPanel._reticleDone._rect.w and
+           y >= SettingsPanel._reticleDone._rect.y and y <= SettingsPanel._reticleDone._rect.y + SettingsPanel._reticleDone._rect.h then
+            reticleGalleryOpen = false
             return true
         end
-    end
-    if SettingsPanel._colorSliders then
-        for _, slider in ipairs(SettingsPanel._colorSliders) do
-            if x >= slider.x and x <= slider.x + slider.w and origY >= slider.y - 10 and origY <= slider.y + slider.h + 10 then
-                draggingSlider = 'reticle_color_' .. slider.key
-                scrollDragOffset = origY - slider.y
-                return true
+        if SettingsPanel._reticlePopup and x >= SettingsPanel._reticlePopup.x and y >= SettingsPanel._reticlePopup.y then
+            local col = math.floor((x - SettingsPanel._reticlePopup.x) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
+            local row = math.floor((y - SettingsPanel._reticlePopup.y) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
+            if col >= 0 and col < SettingsPanel._reticlePopup.cols and row >= 0 and row < SettingsPanel._reticlePopup.rows then
+                local index = row * SettingsPanel._reticlePopup.cols + col + 1
+                if index >= 1 and index <= 50 then
+                    currentGraphicsSettings.reticle_style = index
+                    return true
+                end
             end
+        end
+        if SettingsPanel._colorSliders then
+            for _, slider in ipairs(SettingsPanel._colorSliders) do
+                if x >= slider.x and x <= slider.x + slider.w and y >= slider.y - 10 and y <= slider.y + slider.h + 10 then
+                    draggingSlider = 'reticle_color_' .. slider.key
+                    return true
+                end
+            end
+        end
+        -- If in reticle popup, consume the click so it doesn't affect underlying UI
+        local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
+        local gw, gh = 560, 420
+        local gx, gy = (sw - gw) / 2, (sh - gh) / 2
+        if x >= gx and x <= gx + gw and y >= gy and y <= gy + gh then
+            return true
         end
     end
 
     -- Handle scrollbar clicking and dragging
-    if SettingsPanel._scrollbarTrack and SettingsPanel._scrollbarThumb then
-        local tr = SettingsPanel._scrollbarTrack
-        local th = SettingsPanel._scrollbarThumb
-        if x >= tr.x and x <= tr.x + tr.w and y >= tr.y and y <= tr.y + tr.h then
-            if x >= th.x and x <= th.x + th.w and y >= th.y and y <= th.y + th.h then
-                -- Clicked on thumb - start dragging
+    if contentHeight > innerH then
+        local scrollbarX = panelX + w - 12
+        local scrollbarY = innerTop
+        local scrollbarH = innerH
+        local thumbH = math.max(20, scrollbarH * (innerH / contentHeight))
+        local trackRange = scrollbarH - thumbH
+        local thumbY = scrollbarY + (trackRange > 0 and (trackRange * (scrollY / (contentHeight - innerH))) or 0)
+
+        if x >= scrollbarX and x <= scrollbarX + 8 then
+            if y >= thumbY and y <= thumbY + thumbH then
                 draggingSlider = "scrollbar"
-                scrollDragOffset = y - th.y
+                scrollDragOffset = y - thumbY
                 return true
-            else
-                -- Clicked on track - jump to position
-                local clickY = y - tr.y
-                local trackRange = tr.h - th.h
+            elseif y >= scrollbarY and y <= scrollbarY + scrollbarH then
+                local clickY = y - scrollbarY
                 local frac = trackRange > 0 and (clickY / trackRange) or 0
-                -- Calculate max scroll using the same logic as drawing
-                SettingsPanel.calculateContentHeight()
-                local maxScroll = math.max(0, (contentHeight or 0) - innerH)
+                local maxScroll = math.max(0, contentHeight - innerH)
                 scrollY = math.max(0, math.min(maxScroll, frac * maxScroll))
                 return true
             end
         end
     end
 
-    -- Now handle main content (scrolled): convert screen coords to content coords
-    local contentY = y - innerTop + scrollY
+    -- Now handle main content (scrolled): check if click is in content area
+    if x < contentX or x > contentX + contentW or y < contentY or y > contentY + contentH - 60 then
+        return false -- Not in the scrollable content area
+    end
 
-    local valueX = panelX + 150
-    local dropdownW = 150
-    local itemHeight = 40
+    local scrolledY = y - contentY + scrollY
     local sectionSpacing = 60
 
-    -- yOffset is now relative to the top of the content pane (innerTop)
-    local yOffset = 20 -- start of content
+    -- yOffset is now relative to the top of the content pane
+    local yOffset = 60 -- start of content
     yOffset = yOffset + 30 -- "Graphics Settings" label
 
     -- VSync dropdown
-    if x >= valueX and x <= valueX + dropdownW and contentY >= yOffset - 2 and contentY <= yOffset + 22 then
-        if not vsyncDropdownOpen then vsyncDropdownOpen = true; fpsLimitDropdownOpen = false; accentThemeDropdownOpen = false else vsyncDropdownOpen = false end
+    if scrolledY >= yOffset - 2 and scrolledY <= yOffset + 22 and x >= valueX and x <= valueX + dropdownW then
+        vsyncDropdownOpen = not vsyncDropdownOpen
+        fpsLimitDropdownOpen, accentThemeDropdownOpen = false, false
         return true
     end
     yOffset = yOffset + itemHeight
 
     -- Max FPS dropdown
-    if x >= valueX and x <= valueX + dropdownW and contentY >= yOffset - 2 and contentY <= yOffset + 22 then
-        if not fpsLimitDropdownOpen then fpsLimitDropdownOpen = true; vsyncDropdownOpen = false; accentThemeDropdownOpen = false else fpsLimitDropdownOpen = false end
+    if scrolledY >= yOffset - 2 and scrolledY <= yOffset + 22 and x >= valueX and x <= valueX + dropdownW then
+        fpsLimitDropdownOpen = not fpsLimitDropdownOpen
+        vsyncDropdownOpen, accentThemeDropdownOpen = false, false
         return true
     end
     yOffset = yOffset + itemHeight
 
-
     -- Reticle button
-    if x >= valueX and x <= valueX + 140 and contentY >= yOffset - 4 and contentY <= yOffset + 22 then
+    if scrolledY >= yOffset - 4 and scrolledY <= yOffset + 22 and x >= valueX and x <= valueX + 140 then
         reticleGalleryOpen = true
         return true
     end
     yOffset = yOffset + itemHeight
 
     -- Accent Color Theme dropdown
-    if x >= valueX and x <= valueX + dropdownW and contentY >= yOffset - 2 and contentY <= yOffset + 22 then
-        if not accentThemeDropdownOpen then accentThemeDropdownOpen = true; vsyncDropdownOpen = false; fpsLimitDropdownOpen = false else accentThemeDropdownOpen = false end
+    if scrolledY >= yOffset - 2 and scrolledY <= yOffset + 22 and x >= valueX and x <= valueX + dropdownW then
+        accentThemeDropdownOpen = not accentThemeDropdownOpen
+        vsyncDropdownOpen, fpsLimitDropdownOpen = false, false
         return true
     end
     yOffset = yOffset + itemHeight
 
     -- Helpers toggle
-    if x >= valueX and x <= valueX + 70 and contentY >= yOffset - 2 and contentY <= yOffset + 22 then
+    if scrolledY >= yOffset - 2 and scrolledY <= yOffset + 22 and x >= valueX and x <= valueX + 70 then
         currentGraphicsSettings.helpers_enabled = not currentGraphicsSettings.helpers_enabled
         return true
     end
@@ -924,19 +856,19 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     yOffset = yOffset + 30 -- "Audio Settings" label
 
     -- Master Volume
-    if x >= valueX and x <= valueX + 200 and contentY >= yOffset - 5 and contentY <= yOffset + 5 then
+    if scrolledY >= yOffset - 5 and scrolledY <= yOffset + 5 and x >= valueX and x <= valueX + 200 then
         draggingSlider = "master_volume"
         return true
     end
     yOffset = yOffset + itemHeight
     -- SFX Volume
-    if x >= valueX and x <= valueX + 200 and contentY >= yOffset - 5 and contentY <= yOffset + 5 then
+    if scrolledY >= yOffset - 5 and scrolledY <= yOffset + 5 and x >= valueX and x <= valueX + 200 then
         draggingSlider = "sfx_volume"
         return true
     end
     yOffset = yOffset + itemHeight
     -- Music Volume
-    if x >= valueX and x <= valueX + 200 and contentY >= yOffset - 5 and contentY <= yOffset + 5 then
+    if scrolledY >= yOffset - 5 and scrolledY <= yOffset + 5 and x >= valueX and x <= valueX + 200 then
         draggingSlider = "music_volume"
         return true
     end
@@ -946,21 +878,16 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     yOffset = yOffset + 30 -- "Controls" label
     yOffset = yOffset + 30 -- "Keybindings" label
 
-    -- Keybindings
     local keybindOrder = { "toggle_inventory", "toggle_bounty", "toggle_skills", "toggle_map", "dock", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5" }
     for _, action in ipairs(keybindOrder) do
-        if x >= panelX + 200 and x <= panelX + 300 and contentY >= yOffset - 2 and contentY <= yOffset + 22 then
+        if scrolledY >= yOffset - 2 and scrolledY <= yOffset + 22 and x >= contentX + 200 and x <= contentX + 300 then
             bindingAction = action
             return true
         end
         yOffset = yOffset + 30
     end
 
-    if x > panelX and x < panelX + w and y > panelY and y < panelY + h then
-        return true
-    end
-
-    return false
+    return true -- Consume click inside panel
 end
 
 function SettingsPanel.mousereleased(x, y, button)
@@ -977,247 +904,125 @@ end
 function SettingsPanel.wheelmoved(x, y, dx, dy)
     if not SettingsPanel.window.visible then return false end
 
-    -- Convert coordinates to window-relative coordinates
-    local windowX, windowY = SettingsPanel.window.x, SettingsPanel.window.y
-    local vx, vy = x - windowX, y - windowY
+    local win = SettingsPanel.window
+    if not win:containsPoint(x, y) then return false end
 
-    local panelWidth, panelHeight = SettingsPanel.window.width, SettingsPanel.window.height
-    local panelX, panelY = 0, 0
-    local innerH = panelHeight - SettingsPanel.window.titleBarHeight
+    local content = win:getContentBounds()
+    local innerH = content.h - 60 -- Consistent with drawContent
 
-    if vx >= panelX and vx <= panelX + panelWidth and vy >= panelY and vy <= panelY + panelHeight then
-        SettingsPanel.calculateContentHeight()
-        local maxScroll = math.max(0, contentHeight - innerH)
-        if maxScroll > 0 then
-            scrollY = scrollY - dy * 30
-            scrollY = math.max(0, math.min(scrollY, maxScroll))
-            return true
-        end
+    SettingsPanel.calculateContentHeight()
+    local maxScroll = math.max(0, contentHeight - innerH)
+
+    if maxScroll > 0 then
+        scrollY = scrollY - dy * 30
+        scrollY = math.max(0, math.min(scrollY, maxScroll))
+        return true
     end
-    
+
     return false
 end
 
 function SettingsPanel.mousemoved(raw_x, raw_y, dx, dy)
     if not SettingsPanel.window.visible then return false end
 
+    -- Handle window dragging first
     if SettingsPanel.window:mousemoved(raw_x, raw_y, dx, dy) then
         return true
     end
 
-    -- Convert coordinates to window-relative coordinates
-    local windowX, windowY = SettingsPanel.window.x, SettingsPanel.window.y
-    local x, y = raw_x - windowX, raw_y - windowY
-
-    -- Use actual screen coordinates (no conversion needed)
-    local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
-
-    -- Check if we're in fullscreen mode
-    local windowMode = love.window.getMode()
-    local isFullscreen = false
-    if type(windowMode) == "table" and windowMode.fullscreen then
-        isFullscreen = true
-    elseif type(windowMode) == "boolean" then
-        isFullscreen = windowMode
-    elseif type(windowMode) == "number" then
-        -- Handle case where getMode returns a number (some LÖVE versions)
-        isFullscreen = (windowMode == 1)
-    end
-
-    -- Responsive panel sizing based on screen resolution and window mode
-    local panelWidth, panelHeight
-    if isFullscreen then
-        -- In fullscreen mode, use more generous sizing for better usability
-        if sw <= 800 or sh <= 600 then
-            -- For small fullscreen (800x600 or smaller), use 90% to leave some margin
-            panelWidth = math.floor(sw * 0.9)
-            panelHeight = math.floor(sh * 0.9)
-        elseif sw <= 1024 or sh <= 768 then
-            -- For medium fullscreen, use 85%
-            panelWidth = math.floor(sw * 0.85)
-            panelHeight = math.floor(sh * 0.85)
-        else
-            -- For large fullscreen, use 80%
-            panelWidth = math.floor(sw * 0.8)
-            panelHeight = math.floor(sh * 0.8)
-        end
-    else
-        -- In windowed mode, use the previous responsive logic
-        if sw <= 800 or sh <= 600 then
-            -- For small windows (800x600 or smaller), use more conservative sizing
-            panelWidth = math.floor(sw * 0.95)  -- Use 95% of width
-            panelHeight = math.floor(sh * 0.95) -- Use 95% of height
-        elseif sw <= 1024 or sh <= 768 then
-            -- For medium windows (1024x768 or smaller), use 90% sizing
-            panelWidth = math.floor(sw * 0.9)
-            panelHeight = math.floor(sh * 0.9)
-        else
-            -- For larger windows, use 80% sizing
-            panelWidth = math.floor(sw * 0.8)
-            panelHeight = math.floor(sh * 0.8)
-        end
-    end
-
-    -- Ensure minimum panel size (larger minimum for fullscreen)
-    if isFullscreen then
-        panelWidth = math.max(panelWidth, 700)
-        panelHeight = math.max(panelHeight, 500)
-    else
-        panelWidth = math.max(panelWidth, 600)
-        panelHeight = math.max(panelHeight, 400)
-    end
-
-    -- Ensure panel doesn't exceed screen bounds
-    panelWidth = math.min(panelWidth, sw - 20)
-    panelHeight = math.min(panelHeight, sh - 20)
-
-    local panelX = math.floor((sw - panelWidth) / 2)
-    local panelY = math.floor((sh - panelHeight) / 2)
-    local w, h = panelWidth, panelHeight
-    local valueX = panelX + 150
-    local dropdownW = 150
+    local x, y = raw_x, raw_y
+    local win = SettingsPanel.window
+    local panelX, panelY, w, h = win.x, win.y, win.width, win.height
+    local content = win:getContentBounds()
+    local contentX, contentY, contentW, contentH = content.x, content.y, content.w, content.h
+    local innerH = contentH - 60
+    local valueX = contentX + 150
     local itemHeight = 40
 
-    -- Adjust y for scroll position
-    local adjustedY = y + scrollY
+    -- Reset hover states
+    for k in pairs(hoveredDropdownOption) do hoveredDropdownOption[k] = nil end
+    for k in pairs(hoveredSlider) do hoveredSlider[k] = false end
 
-    -- Check if mouse is over the settings panel
     local isInsidePanel = x >= panelX and x <= panelX + w and y >= panelY and y <= panelY + h
 
-    -- Reset all hover states
-    for k in pairs(hoveredDropdownOption) do
-        hoveredDropdownOption[k] = nil
-    end
-
-    -- Reset slider hover states
-    for k in pairs(hoveredSlider) do
-        hoveredSlider[k] = false
-    end
-
-    -- Check dropdown hovers if mouse is inside panel
     if isInsidePanel then
-        local dropdownYOffset = panelY + 60 - scrollY
-
-
-
-        -- Check VSync dropdown
+        -- Check dropdown hovers
+        local yOffsetUnscrolled = panelY + 60
+        local vsyncButtonY = yOffsetUnscrolled
+        local fpsButtonY = vsyncButtonY + itemHeight
+        local accentButtonY = fpsButtonY + itemHeight * 2
+        
         if vsyncDropdownOpen then
-            local dropdownY = dropdownYOffset + 2*itemHeight + 25
-            for i, vsyncType in ipairs(vsyncTypes) do
-                local optionY = dropdownY + 5 + (i - 1) * 20
-                if x >= valueX and x <= valueX + dropdownW and adjustedY >= optionY and adjustedY <= optionY + 20 then
-                    hoveredDropdownOption.vsync = i
-                    break
+            local dropdownY = vsyncButtonY + 24 + 5
+            for i in ipairs(vsyncTypes) do
+                if x >= valueX and x <= valueX + contentW and y >= dropdownY + 5 + (i - 1) * 20 and y <= dropdownY + 5 + i * 20 then
+                    hoveredDropdownOption.vsync = i; break
                 end
             end
         end
-
-        -- Check FPS Limit dropdown
         if fpsLimitDropdownOpen then
-            local dropdownY = dropdownYOffset + 3*itemHeight + 25
-            for i, fpsType in ipairs(fpsLimitTypes) do
-                local optionY = dropdownY + 5 + (i - 1) * 20
-                if x >= valueX and x <= valueX + dropdownW and adjustedY >= optionY and adjustedY <= optionY + 20 then
-                    hoveredDropdownOption.fpsLimit = i
-                    break
+            local dropdownY = fpsButtonY + 24 + 5
+            for i in ipairs(fpsLimitTypes) do
+                if x >= valueX and x <= valueX + contentW and y >= dropdownY + 5 + (i - 1) * 20 and y <= dropdownY + 5 + i * 20 then
+                    hoveredDropdownOption.fpsLimit = i; break
                 end
             end
         end
-
-        -- Check Accent Theme dropdown
         if accentThemeDropdownOpen then
-            local dropdownY = dropdownYOffset + 4*itemHeight + 25
+            local dropdownY = accentButtonY + 24 + 5
             local accentThemes = {"Cyan/Lavender", "Blue/Purple", "Green/Emerald", "Red/Orange", "Monochrome"}
-            for i, theme in ipairs(accentThemes) do
-                local optionY = dropdownY + 5 + (i - 1) * 20
-                if x >= valueX and x <= valueX + dropdownW and adjustedY >= optionY and adjustedY <= optionY + 20 then
-                    hoveredDropdownOption.accentTheme = i
-                    break
+            for i in ipairs(accentThemes) do
+                if x >= valueX and x <= valueX + contentW and y >= dropdownY + 5 + (i - 1) * 20 and y <= dropdownY + 5 + i * 20 then
+                    hoveredDropdownOption.accentTheme = i; break
                 end
+            end
+        end
+
+        -- Check slider hovers (scrolled content)
+        if x >= contentX and x <= contentX + contentW and y >= contentY and y <= contentY + innerH then
+            local scrolledY = y - contentY + scrollY
+            local yOffset = 60 + 30
+            yOffset = yOffset + itemHeight * 4 + 60 -- Graphics section
+            yOffset = yOffset + 30 -- Audio label
+
+            if scrolledY >= yOffset - 5 and scrolledY <= yOffset + 5 and x >= valueX and x <= valueX + 200 then
+                hoveredSlider.master_volume = true
+            end
+            yOffset = yOffset + itemHeight
+            if scrolledY >= yOffset - 5 and scrolledY <= yOffset + 5 and x >= valueX and x <= valueX + 200 then
+                hoveredSlider.sfx_volume = true
+            end
+            yOffset = yOffset + itemHeight
+            if scrolledY >= yOffset - 5 and scrolledY <= yOffset + 5 and x >= valueX and x <= valueX + 200 then
+                hoveredSlider.music_volume = true
             end
         end
     end
 
-    -- Check slider hovers if mouse is inside panel
-    if isInsidePanel then
-        local yOffset = panelY + 60
-
-        -- UI Scale slider hover
-        local uiSliderY = yOffset + itemHeight * 2 - 5
-        if x >= valueX and x <= valueX + 200 and adjustedY >= uiSliderY and adjustedY <= uiSliderY + 10 then
-            hoveredSlider.ui_scale = true
-        end
-
-        -- Font Scale slider hover
-        local fontSliderY = yOffset + itemHeight * 3 - 5
-        if x >= valueX and x <= valueX + 200 and adjustedY >= fontSliderY and adjustedY <= fontSliderY + 10 then
-            hoveredSlider.font_scale = true
-        end
-
-        -- Audio sliders hover (after "Audio" label)
-        local audioStartY = yOffset + itemHeight * 7 + 30  -- After all graphics settings + "Audio" label + 30px spacing
-
-        -- Master Volume slider hover
-        local masterSliderY = audioStartY + 30 - 5
-        if x >= valueX and x <= valueX + 200 and adjustedY >= masterSliderY and adjustedY <= masterSliderY + 10 then
-            hoveredSlider.master_volume = true
-        end
-
-        -- SFX Volume slider hover
-        local sfxSliderY = masterSliderY + itemHeight - 5
-        if x >= valueX and x <= valueX + 200 and adjustedY >= sfxSliderY and adjustedY <= sfxSliderY + 10 then
-            hoveredSlider.sfx_volume = true
-        end
-
-        -- Music Volume slider hover
-        local musicSliderY = sfxSliderY + itemHeight - 5
-        if x >= valueX and x <= valueX + 200 and adjustedY >= musicSliderY and adjustedY <= musicSliderY + 10 then
-            hoveredSlider.music_volume = true
-        end
-    end
-
-    -- Only process slider dragging if we have an active drag
     if not draggingSlider then return false end
 
-    -- Confine mouse to panel bounds while dragging sliders
-    if x < panelX then x = panelX end
-    if x > panelX + w then x = panelX + w end
-
+    -- Handle slider dragging
     if draggingSlider == "scrollbar" then
-        -- Drag scrollbar thumb
-        if SettingsPanel._scrollbarTrack and SettingsPanel._scrollbarThumb then
-            local tr = SettingsPanel._scrollbarTrack
-            local th = SettingsPanel._scrollbarThumb
-            local trackRange = tr.h - th.h
-            local newThumbY = math.max(tr.y, math.min(tr.y + trackRange, (y - scrollDragOffset)))
-            local rel = newThumbY - tr.y
-            local frac = trackRange > 0 and (rel / trackRange) or 0
-            -- Calculate max scroll using the same logic as drawing
-            SettingsPanel.calculateContentHeight()
-            local maxScroll = math.max(0, (contentHeight or 0) - innerH)
-            scrollY = math.max(0, math.min(maxScroll, frac * maxScroll))
-        end
-    elseif draggingSlider == "master_volume" then
-        local sliderW = 200  -- Define slider width for master volume
-        local pct = (x - valueX) / sliderW
-        currentAudioSettings.master_volume = math.max(0, math.min(1, pct))
-    elseif draggingSlider == "sfx_volume" then
-        local sliderW = 200  -- Define slider width for SFX volume
-        local pct = (x - valueX) / sliderW
-        currentAudioSettings.sfx_volume = math.max(0, math.min(1, pct))
-    elseif draggingSlider == "music_volume" then
-        local sliderW = 200  -- Define slider width for music volume
-        local pct = (x - valueX) / sliderW
-        currentAudioSettings.music_volume = math.max(0, math.min(1, pct))
-    elseif draggingSlider == "reticle_color_r" or draggingSlider == "reticle_color_g" or draggingSlider == "reticle_color_b" then
-        if SettingsPanel._colorSliders then
-            local r, g, b, a = 1,1,1,1
-            if currentGraphicsSettings.reticle_color_rgb and type(currentGraphicsSettings.reticle_color_rgb) == 'table' then
-                r = currentGraphicsSettings.reticle_color_rgb[1] or 1
-                g = currentGraphicsSettings.reticle_color_rgb[2] or 1
-                b = currentGraphicsSettings.reticle_color_rgb[3] or 1
-                a = currentGraphicsSettings.reticle_color_rgb[4] or 1
+        if contentHeight > innerH then
+            local scrollbarY = content.y -- Use content bounds
+            local scrollbarH = innerH
+            local thumbH = math.max(20, scrollbarH * (innerH / contentHeight))
+            local trackRange = scrollbarH - thumbH
+
+            if trackRange > 0 then
+                local newThumbY = y - scrollDragOffset
+                local frac = (newThumbY - scrollbarY) / trackRange
+                local maxScroll = math.max(0, contentHeight - innerH)
+                scrollY = math.max(0, math.min(maxScroll, frac * maxScroll))
             end
+        end
+    elseif draggingSlider == "master_volume" or draggingSlider == "sfx_volume" or draggingSlider == "music_volume" then
+        local sliderW = 200
+        local pct = (x - valueX) / sliderW
+        currentAudioSettings[draggingSlider] = math.max(0, math.min(1, pct))
+    elseif draggingSlider:find("reticle_color_") then
+        if SettingsPanel._colorSliders then
+            local r, g, b, a = unpack(currentGraphicsSettings.reticle_color_rgb or {1,1,1,1})
             for _, s in ipairs(SettingsPanel._colorSliders) do
                 if draggingSlider == ('reticle_color_' .. s.key) then
                     local pct = math.max(0, math.min(1, (x - s.x) / s.w))
@@ -1229,30 +1034,9 @@ function SettingsPanel.mousemoved(raw_x, raw_y, dx, dy)
             currentGraphicsSettings.reticle_color_rgb = { r, g, b, a }
         end
         return true
-    elseif draggingSlider and draggingSlider:find("reticle_color_") then
-        -- Handle color slider dragging
-        local colorPart = draggingSlider:sub(#"reticle_color_" .. 1)
-        local value = (x - SettingsPanel._colorSliders[1].x) / 200  -- 200 is the width of the slider
-        value = math.max(0, math.min(1, value))
-        
-        if not currentGraphicsSettings.reticle_color_rgb then
-            currentGraphicsSettings.reticle_color_rgb = {1, 1, 1, 1}
-        end
-        
-        if colorPart == "r" then
-            currentGraphicsSettings.reticle_color_rgb[1] = value
-        elseif colorPart == "g" then
-            currentGraphicsSettings.reticle_color_rgb[2] = value
-        elseif colorPart == "b" then
-            currentGraphicsSettings.reticle_color_rgb[3] = value
-        elseif colorPart == "a" then
-            currentGraphicsSettings.reticle_color_rgb[4] = value
-        end
-        
-        return true
     end
     
-    return false
+    return true
 end
 
 function SettingsPanel.keypressed(key)

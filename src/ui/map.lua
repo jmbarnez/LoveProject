@@ -1,6 +1,7 @@
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local Util = require("src.core.util")
+local Window = require("src.ui.common.window")
 
 local Map = {
   visible = false,
@@ -446,192 +447,202 @@ function Map.update(dt, player)
   end
 end
 
+function Map.init()
+    local sw, sh = Viewport.getDimensions()
+    local margin = 40
+    Map.window = Window.new({
+        title = "SECTOR MAP",
+        x = margin,
+        y = margin,
+        width = sw - 2 * margin,
+        height = sh - 2 * margin,
+        minWidth = 400,
+        minHeight = 300,
+        drawContent = Map.drawContent,
+        onClose = function()
+            Map.visible = false
+        end
+    })
+end
+
 function Map.draw(player, world, enemies, asteroids, wrecks, stations, lootDrops, remotePlayers)
-  if not Map.visible then return end
+    if not Map.visible then return end
+    if not Map.window then Map.init() end
+    Map.window.visible = Map.visible
+    Map.window:draw()
+end
 
-  local mapX, mapY, mapW, mapH = getMapBounds()
+function Map.drawContent(window, mapX, mapY, mapW, mapH)
+    local player = player
+    local world = world
+    local enemies = enemies
+    local asteroids = asteroids
+    local wrecks = wrecks
+    local stations = stations
+    local lootDrops = lootDrops
+    local remotePlayers = remotePlayers
 
-  -- Draw main map background
-  Theme.drawGradientGlowRect(mapX, mapY, mapW, mapH, 0,
-    Theme.withAlpha(Theme.colors.bg0, 0.95), Theme.withAlpha(Theme.colors.bg1, 0.95),
-    Theme.colors.border, Theme.effects.glowMedium)
+    -- Draw grid
+    drawGrid(mapX, mapY, mapW, mapH, world)
 
-  -- Draw map border
-  Theme.setColor(Theme.colors.accent)
-  love.graphics.setLineWidth(2)
-  love.graphics.rectangle("line", mapX, mapY, mapW, mapH)
+    -- Draw world boundaries
+    drawWorldBounds(mapX, mapY, mapW, mapH, world)
 
-  -- Set scissor for map content
-  love.graphics.setScissor(mapX, mapY, mapW, mapH)
+    -- Draw player trail
+    drawPlayerTrail(mapX, mapY, mapW, mapH, world)
 
-  -- Draw grid
-  drawGrid(mapX, mapY, mapW, mapH, world)
-
-  -- Draw world boundaries
-  drawWorldBounds(mapX, mapY, mapW, mapH, world)
-
-  -- Draw player trail
-  drawPlayerTrail(mapX, mapY, mapW, mapH, world)
-
-  -- Draw entities
-  if Map.showEntities then
-    -- Draw stations first (bottom layer)
-    if Map.filterStations and stations then
-      for _, station in ipairs(stations) do
-        if not station.dead then
-          drawEntity(station, mapX, mapY, mapW, mapH, world, "station")
+    -- Draw entities
+    if Map.showEntities then
+        -- Draw stations first (bottom layer)
+        if Map.filterStations and stations then
+            for _, station in ipairs(stations) do
+                if not station.dead then
+                    drawEntity(station, mapX, mapY, mapW, mapH, world, "station")
+                end
+            end
         end
-      end
-    end
 
-    -- Draw warp gates
-    if world then
-      local warp_gates = world:get_entities_with_components("warp_gate")
-      for _, warp_gate in ipairs(warp_gates) do
-        if not warpGate.dead then
-          drawEntity(warpGate, mapX, mapY, mapW, mapH, world, "warp_gate")
+        -- Draw warp gates
+        if world then
+            local warp_gates = world:get_entities_with_components("warp_gate")
+            for _, warp_gate in ipairs(warp_gates) do
+                if not warp_gate.dead then
+                    drawEntity(warp_gate, mapX, mapY, mapW, mapH, world, "warp_gate")
+                end
+            end
         end
-      end
-    end
 
-    -- Draw asteroids
-    if Map.filterAsteroids and asteroids then
-      for _, asteroid in ipairs(asteroids) do
-        if not asteroid.dead then
-          drawEntity(asteroid, mapX, mapY, mapW, mapH, world, "asteroid")
+        -- Draw asteroids
+        if Map.filterAsteroids and asteroids then
+            for _, asteroid in ipairs(asteroids) do
+                if not asteroid.dead then
+                    drawEntity(asteroid, mapX, mapY, mapW, mapH, world, "asteroid")
+                end
+            end
         end
-      end
-    end
 
-    -- Draw loot drops
-    if lootDrops then
-      for _, drop in ipairs(lootDrops) do
-        -- Create a pseudo-entity for loot drops
-        local lootEntity = {
-          components = {
-            position = { x = drop.x, y = drop.y }
-          }
-        }
-        drawEntity(lootEntity, mapX, mapY, mapW, mapH, world, "loot")
-      end
-    end
-
-    -- Draw wrecks
-    if Map.filterWrecks and wrecks then
-      for _, wreck in ipairs(wrecks) do
-        if not wreck.dead then
-          drawEntity(wreck, mapX, mapY, mapW, mapH, world, "wreck")
+        -- Draw loot drops
+        if lootDrops then
+            for _, drop in ipairs(lootDrops) do
+                local lootEntity = { components = { position = { x = drop.x, y = drop.y } } }
+                drawEntity(lootEntity, mapX, mapY, mapW, mapH, world, "loot")
+            end
         end
-      end
-    end
 
-    -- Draw enemies
-    if Map.filterEnemies and enemies then
-      for _, enemy in ipairs(enemies) do
-        if not enemy.dead then
-          drawEntity(enemy, mapX, mapY, mapW, mapH, world, "enemy")
+        -- Draw wrecks
+        if Map.filterWrecks and wrecks then
+            for _, wreck in ipairs(wrecks) do
+                if not wreck.dead then
+                    drawEntity(wreck, mapX, mapY, mapW, mapH, world, "wreck")
+                end
+            end
         end
-      end
-    end
 
-    -- Draw remote players
-    if remotePlayers then
-      for _, remotePlayer in pairs(remotePlayers) do
-        if remotePlayer.components and remotePlayer.components.position then
-          drawEntity(remotePlayer, mapX, mapY, mapW, mapH, world, "remote_player")
+        -- Draw enemies
+        if Map.filterEnemies and enemies then
+            for _, enemy in ipairs(enemies) do
+                if not enemy.dead then
+                    drawEntity(enemy, mapX, mapY, mapW, mapH, world, "enemy")
+                end
+            end
         end
-      end
+
+        -- Draw remote players
+        if remotePlayers then
+            for _, remotePlayer in pairs(remotePlayers) do
+                if remotePlayer.components and remotePlayer.components.position then
+                    drawEntity(remotePlayer, mapX, mapY, mapW, mapH, world, "remote_player")
+                end
+            end
+        end
+
+        -- Draw player last (top layer)
+        if player then
+            drawEntity(player, mapX, mapY, mapW, mapH, world, "player")
+        end
     end
 
-    -- Draw player last (top layer)
-    if player then
-      drawEntity(player, mapX, mapY, mapW, mapH, world, "player")
-    end
-  end
-
-  -- Clear scissor
-  love.graphics.setScissor()
-
-  -- Draw controls and legend
-  drawControls(mapX, mapY, mapW, mapH)
-  drawLegend(mapX, mapY, mapW, mapH)
-
-  -- Draw title
-  love.graphics.setFont(Theme.fonts.medium)
-  Theme.setColor(Theme.colors.text)
-  local title = "SECTOR MAP"
-  local titleW = Theme.fonts.medium:getWidth(title)
-  love.graphics.print(title, mapX + (mapW - titleW) / 2, mapY - 25)
+    -- Draw controls and legend
+    drawControls(mapX, mapY, mapW, mapH)
+    drawLegend(mapX, mapY, mapW, mapH)
 end
 
 function Map.mousepressed(x, y, button)
-  if not Map.visible then return false, false end
-  
-  local mapX, mapY, mapW, mapH = getMapBounds()
-  
-  if pointIn(x, y, {x = mapX, y = mapY, w = mapW, h = mapH}) then
-    if button == 1 then
-      Map.dragging = true
-      Map.dragStartX = x
-      Map.dragStartY = y
+    if not Map.visible then return false, false end
+    if not Map.window then return false, false end
+
+    if Map.window:mousepressed(x, y, button) then
+        return true, false
     end
-    return true, false
-  end
-  
-  -- Check if clicked outside map (close)
-  if button == 1 then
-    return false, true -- Don't consume, but request close
-  end
-  
-  return false, false
+
+    if pointIn(x, y, {x = Map.window.x, y = Map.window.y, w = Map.window.width, h = Map.window.height}) then
+        if button == 1 then
+            Map.dragging = true
+            Map.dragStartX = x
+            Map.dragStartY = y
+        end
+        return true, false
+    end
+
+    return false, false
 end
 
 function Map.mousereleased(x, y, button)
-  if not Map.visible then return false, false end
-  
-  if button == 1 then
-    Map.dragging = false
-  end
-  
-  return Map.visible, false
+    if not Map.visible then return false, false end
+    if not Map.window then return false, false end
+
+    if Map.window:mousereleased(x, y, button) then
+        return true, false
+    end
+
+    if button == 1 then
+        Map.dragging = false
+    end
+
+    return Map.visible, false
 end
 
 function Map.mousemoved(x, y, dx, dy, world)
-  if not Map.visible then return false end
+    if not Map.visible then return false end
+    if not Map.window then return false end
 
-  if Map.dragging and world then
-    local mapX, mapY, mapW, mapH = getMapBounds()
+    if Map.window:mousemoved(x, y, dx, dy) then
+        return true
+    end
 
-    -- Calculate new drag offsets
-    local newDragOffsetX = Map.dragOffsetX + dx
-    local newDragOffsetY = Map.dragOffsetY + dy
+    if Map.dragging and world then
+        local mapX, mapY, mapW, mapH = Map.window.x, Map.window.y, Map.window.width, Map.window.height
 
-    -- Calculate world bounds in screen coordinates
-    local scaledW = mapW * Map.scale
-    local scaledH = mapH * Map.scale
-    local centerOffsetX = Map.centerX * scaledW
-    local centerOffsetY = Map.centerY * scaledH
+        -- Calculate new drag offsets
+        local newDragOffsetX = Map.dragOffsetX + dx
+        local newDragOffsetY = Map.dragOffsetY + dy
 
-    -- World bounds corners in screen space (without drag offset)
-    local worldLeft = mapX + (mapW - scaledW) / 2 + centerOffsetX
-    local worldTop = mapY + (mapH - scaledH) / 2 + centerOffsetY
-    local worldRight = worldLeft + scaledW
-    local worldBottom = worldTop + scaledH
+        -- Calculate world bounds in screen coordinates
+        local scaledW = mapW * Map.scale
+        local scaledH = mapH * Map.scale
+        local centerOffsetX = Map.centerX * scaledW
+        local centerOffsetY = Map.centerY * scaledH
 
-    -- Constrain drag to keep world bounds within map area
-    local minDragX = mapX - worldRight
-    local maxDragX = mapX + mapW - worldLeft
-    local minDragY = mapY - worldBottom
-    local maxDragY = mapY + mapH - worldTop
+        -- World bounds corners in screen space (without drag offset)
+        local worldLeft = mapX + (mapW - scaledW) / 2 + centerOffsetX
+        local worldTop = mapY + (mapH - scaledH) / 2 + centerOffsetY
+        local worldRight = worldLeft + scaledW
+        local worldBottom = worldTop + scaledH
 
-    -- Apply constraints
-    Map.dragOffsetX = math.max(minDragX, math.min(maxDragX, newDragOffsetX))
-    Map.dragOffsetY = math.max(minDragY, math.min(maxDragY, newDragOffsetY))
+        -- Constrain drag to keep world bounds within map area
+        local minDragX = mapX - worldRight
+        local maxDragX = mapX + mapW - worldLeft
+        local minDragY = mapY - worldBottom
+        local maxDragY = mapY + mapH - worldTop
 
-    return true
-  end
+        -- Apply constraints
+        Map.dragOffsetX = math.max(minDragX, math.min(maxDragX, newDragOffsetX))
+        Map.dragOffsetY = math.max(minDragY, math.min(maxDragY, newDragOffsetY))
 
-  return false
+        return true
+    end
+
+    return false
 end
 
 function Map.wheelmoved(dx, dy, world)

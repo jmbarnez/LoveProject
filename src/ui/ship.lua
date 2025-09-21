@@ -1,11 +1,6 @@
-local Ship = {
-  x = nil,
-  y = nil,
-  dragging = false,
-  dragDX = 0,
-  dragDY = 0,
-  closeDown = false,
-}
+local Window = require("src.ui.common.window")
+
+local Ship = {}
 
 -- Helper function to check if point is inside rectangle
 local function pointInRect(px, py, rect)
@@ -37,11 +32,17 @@ local IconSystem = require("src.core.icon_system")
 local Tooltip = require("src.ui.tooltip")
 
 function Ship:new()
-  local o = {}
-  setmetatable(o, self)
-  self.__index = self
-  o.slotRects = {}
-  return o
+    local o = {}
+    setmetatable(o, self)
+    self.__index = self
+    o.slotRects = {}
+    o.window = Window.new({
+        title = "Ship Fitting",
+        width = 600,
+        height = 400,
+        drawContent = function(window, x, y, w, h) o:draw(player, x, y, w, h) end
+    })
+    return o
 end
 
 local popup = {

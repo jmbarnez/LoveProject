@@ -264,9 +264,15 @@ function Window:mousepressed(x, y, button)
       return true
     end
     
-    -- Check if click is within window bounds
-    if self:containsPoint(x, y) then
-      return true -- Consume the click even if not handled specifically
+    -- Check if click is within window bounds, but not in the title bar
+    if self:containsPoint(x, y) and not self:pointInTitleBar(x, y) then
+      -- Don't consume the click, let the content handle it
+      return false
+    end
+    
+    -- Consume clicks on the title bar or outside the window if it's modal
+    if self:pointInTitleBar(x, y) or (self.modal and not self:containsPoint(x, y)) then
+      return true
     end
   end
   

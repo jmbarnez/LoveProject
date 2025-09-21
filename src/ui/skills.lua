@@ -1,12 +1,5 @@
 local SkillsPanel = {
-    x = nil,
-    y = nil,
-    dragging = false,
-    dragDX = 0,
-    dragDY = 0,
-    closeDown = false,
     visible = false,
-    -- Aurora shader for title effect (initialized on first use)
     auroraShader = nil
 }
 
@@ -14,6 +7,7 @@ local Skills = require("src.core.skills")
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local AuroraTitle = require("src.shaders.aurora_title")
+local Window = require("src.ui.common.window")
 
 local function pointInRect(px, py, r)
     -- Handle nil values gracefully
@@ -73,70 +67,30 @@ local function drawSkillBar(x, y, w, h, progress, skillName, level, xp, xpToNext
     love.graphics.print(percentText, x + w - percentW - 8, y + 4)
 end
 
+function SkillsPanel.init()
+    SkillsPanel.window = Window.new({
+        title = "Skills",
+        width = 300,
+        height = 250,
+        minWidth = 250,
+        minHeight = 200,
+        drawContent = SkillsPanel.drawContent,
+        onClose = function()
+            SkillsPanel.visible = false
+        end
+    })
+end
+
 function SkillsPanel.draw()
     if not SkillsPanel.visible then return end
+    if not SkillsPanel.window then SkillsPanel.init() end
+    SkillsPanel.window.visible = SkillsPanel.visible
+    SkillsPanel.window:draw()
+end
 
-    local sw, sh = Viewport.getDimensions()
-    local w, h = 300, 250
-    local defaultX = math.floor((sw - w) * 0.5)
-    local defaultY = 120
-    local x = SkillsPanel.x or defaultX
-    local y = SkillsPanel.y or defaultY
-
-    -- Enhanced panel background
-    Theme.drawGradientGlowRect(x, y, w, h, 8,
-        Theme.colors.bg1, Theme.colors.bg0,
-        Theme.colors.accent, Theme.effects.glowWeak)
-    Theme.drawEVEBorder(x, y, w, h, 8, Theme.colors.border, 6)
-
-    -- Enhanced title bar with effects
-    local titleH = 32
-    Theme.drawGradientGlowRect(x, y, w, titleH, 8,
-        Theme.colors.bg3, Theme.colors.bg2,
-        Theme.colors.accent, Theme.effects.glowWeak * 1.2)
-    
-    -- Animated accent line
-    local time = love.timer.getTime()
-    local pulseAlpha = 0.4 + 0.2 * math.sin(time * 2)
-    Theme.setColor(Theme.withAlpha(Theme.colors.accent, pulseAlpha))
-    love.graphics.rectangle("fill", x, y + titleH - 2, w, 2)
-    
-    -- Aurora title effect with smaller font
-    love.graphics.setFont(Theme.fonts.small)
-    local font = love.graphics.getFont()
-    local textWidth = font:getWidth("Skills")
-
-    -- Initialize aurora shader if needed
-    if not SkillsPanel.auroraShader then
-      SkillsPanel.auroraShader = AuroraTitle.new()
-    end
-
-    if SkillsPanel.auroraShader then
-      SkillsPanel.auroraShader:send("time", love.timer.getTime())
-      love.graphics.setShader(SkillsPanel.auroraShader)
-      Theme.setColor(1, 1, 1, 1)
-      love.graphics.print("Skills", x + 12, y + 8)
-      love.graphics.setShader()
-    else
-      -- Fallback to static aurora-like color
-      Theme.setColor({0.4, 0.8, 1.0, 1.0})  -- Cyan aurora color
-      love.graphics.print("Skills", x + 12, y + 8)
-    end
-
-    love.graphics.setFont(Theme.fonts.normal)
-
-    -- Close button
-    local closeRect = { x = x + w - 26, y = y + 2, w = 24, h = 24 }
-    local mx, my = Viewport.getMousePosition()
-    local closeHover = mx >= closeRect.x and mx <= closeRect.x + closeRect.w and my >= closeRect.y and my <= closeRect.y + closeRect.h
-    Theme.drawCloseButton(closeRect, closeHover)
-    SkillsPanel.closeRect = closeRect
-
-    -- Title bar rect for dragging
-    SkillsPanel.titleRect = { x = x, y = y, w = w, h = 32 }
-
+function SkillsPanel.drawContent(window, x, y, w, h)
     -- Content area
-    local cx, cy = x + 16, y + 48
+    local cx, cy = x + 16, y + 16
     local skills = Skills.getAllSkills()
 
     -- Draw each skill
@@ -164,57 +118,20 @@ end
 
 function SkillsPanel.mousepressed(x, y, button)
     if not SkillsPanel.visible then return false end
-
-    -- Handle close button
-    if SkillsPanel.closeRect and pointInRect(x, y, SkillsPanel.closeRect) then
-        SkillsPanel.closeDown = true
-        return true, false
-    end
-
-    -- Handle dragging on title bar
-    if SkillsPanel.titleRect and pointInRect(x, y, SkillsPanel.titleRect) then
-        SkillsPanel.dragging = true
-        -- Use current panel position (or default) to calculate drag offset
-        local sw, sh = Viewport.getDimensions()
-        local w, h = 600, 400
-        local defaultX = math.floor((sw - w) * 0.5)
-        local defaultY = 120
-        local curX = SkillsPanel.x or defaultX
-        local curY = SkillsPanel.y or defaultY
-        SkillsPanel.dragDX = curX - x
-        SkillsPanel.dragDY = curY - y
-        return true, false
-    end
-
-    return false
+    if not SkillsPanel.window then return false end
+    return SkillsPanel.window:mousepressed(x, y, button)
 end
 
 function SkillsPanel.mousereleased(x, y, button)
-    local consumed, shouldClose = false, false
-    if button == 1 then
-        if SkillsPanel.dragging then
-            SkillsPanel.dragging = false
-            consumed = true
-        end
-        if SkillsPanel.closeDown then
-            if SkillsPanel.closeRect and pointInRect(x, y, SkillsPanel.closeRect) then
-                shouldClose = true
-                SkillsPanel.visible = false
-            end
-            SkillsPanel.closeDown = false
-            consumed = true
-        end
-    end
-    return consumed, shouldClose
+    if not SkillsPanel.visible then return false end
+    if not SkillsPanel.window then return false end
+    return SkillsPanel.window:mousereleased(x, y, button)
 end
 
 function SkillsPanel.mousemoved(x, y, dx, dy)
-    if SkillsPanel.dragging then
-        SkillsPanel.x = x + (SkillsPanel.dragDX or 0)
-        SkillsPanel.y = y + (SkillsPanel.dragDY or 0)
-        return true
-    end
-    return false
+    if not SkillsPanel.visible then return false end
+    if not SkillsPanel.window then return false end
+    return SkillsPanel.window:mousemoved(x, y, dx, dy)
 end
 
 function SkillsPanel.toggle()

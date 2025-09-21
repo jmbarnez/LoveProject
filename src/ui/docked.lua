@@ -34,21 +34,23 @@ DockedUI.tabs = {"Shop", "Ship", "Quests", "Nodes"}
 DockedUI.activeTab = "Shop"
 
 -- Window properties (fullscreen)
-DockedUI.windowW = 0
-DockedUI.windowH = 0
-DockedUI.windowX = 0
-DockedUI.windowY = 0
-
 -- Initialize the docked window
 function DockedUI.init()
-  local sw, sh = Viewport.getDimensions()
-  DockedUI.windowW = sw
-  DockedUI.windowH = sh
-  DockedUI.windowX = 0
-  DockedUI.windowY = 0
-  DockedUI.equipment = Ship:new()
-  DockedUI.quests = Quests:new()
-  DockedUI.nodes = Nodes:new()
+    local sw, sh = Viewport.getDimensions()
+    DockedUI.window = Window.new({
+        title = "Station Services",
+        x = 0,
+        y = 0,
+        width = sw,
+        height = sh,
+        closable = false,
+        draggable = false,
+        resizable = false,
+        drawContent = DockedUI.drawContent
+    })
+    DockedUI.equipment = Ship:new()
+    DockedUI.quests = Quests:new()
+    DockedUI.nodes = Nodes:new()
 end
 
 -- Show the docked window
@@ -81,163 +83,119 @@ end
 
 -- Draw the docked window
 function DockedUI.draw(player)
-  if not DockedUI.visible or not player or not player.docked then return end
-  
-  -- Update window dimensions to match viewport (fullscreen)
-  local sw, sh = Viewport.getDimensions()
-  DockedUI.windowW = sw
-  DockedUI.windowH = sh
-  DockedUI.windowX = 0
-  DockedUI.windowY = 0
-  
-  local x, y, w, h = DockedUI.windowX, DockedUI.windowY, DockedUI.windowW, DockedUI.windowH
-  local mx, my = Viewport.getMousePosition()
-  
-  -- Window background
-  Theme.drawGradientGlowRect(x, y, w, h, 8,
-    Theme.colors.bg1, Theme.colors.bg0,
-    Theme.colors.accent, Theme.effects.glowWeak)
-  Theme.drawEVEBorder(x, y, w, h, 8, Theme.colors.border, 6)
-  
-  -- Title bar
-  local titleH = 32
-  Theme.drawGradientGlowRect(x, y, w, titleH, 8,
-    Theme.colors.bg3, Theme.colors.bg2,
-    Theme.colors.accent, Theme.effects.glowWeak)
-  
-  -- Title text
-  Theme.setColor(Theme.colors.textHighlight)
-  love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
-  local font = love.graphics.getFont()
-  local stationName = (DockedUI.station and DockedUI.station.components.station.name) or "Station"
-  local titleText = stationName .. " Services"
-  local textWidth = font:getWidth(titleText)
-  local textHeight = font:getHeight()
-  love.graphics.print(titleText, x + (w - textWidth) / 2, y + (titleH - textHeight) / 2)
-  
-  -- Close button
-  local closeRect = { x = x + w - 26, y = y + 6, w = 20, h = 20 }
-  local closeHover = mx >= closeRect.x and mx <= closeRect.x + closeRect.w and my >= closeRect.y and my <= closeRect.y + closeRect.h
-  Theme.drawCloseButton(closeRect, closeHover)
-  DockedUI._closeButton = closeRect
-  
-  -- Main tabs
-  local mainTabY = y + titleH + 8
-  local mainTabH = 28
-  DockedUI.drawMainTabs(x + 12, mainTabY, w - 24, mainTabH)
-
-  -- Content area
-  local contentY = mainTabY + mainTabH + 8
-  local contentH = h - (contentY - y) - 12
-
-  if DockedUI.activeTab == "Shop" then
-    -- Category tabs
-    local tabY = contentY
-    local tabH = 28
-    DockedUI.drawCategoryTabs(x + 12, tabY, w - 24, tabH)
-    
-    -- Shop content area
-    local shopContentY = tabY + tabH + 8
-    local shopContentH = h - (shopContentY - y) - 12
-    if DockedUI.activeShopTab == "Buy" then
-      DockedUI.drawShopItems(x + 12, shopContentY, w - 24, shopContentH, player)
-    elseif DockedUI.activeShopTab == "Sell" then
-      DockedUI.drawPlayerInventoryForSale(x + 12, shopContentY, w - 24, shopContentH, player)
-    elseif DockedUI.activeShopTab == "Buyback" then
-      DockedUI.drawBuybackItems(x + 12, shopContentY, w - 24, shopContentH, player)
-    end
-  elseif DockedUI.activeTab == "Ship" then
-    DockedUI.equipment:draw(player, x + 12, contentY, w - 24, contentH)
-  elseif DockedUI.activeTab == "Quests" then
-    DockedUI.quests:draw(player, x + 12, contentY, w - 24, contentH)
-  elseif DockedUI.activeTab == "Nodes" then
-    DockedUI.nodes:draw(player, x + 12, contentY, w - 24, contentH)
-  end
-
-  -- Draw dropdown options on top of everything else
-  if DockedUI.categoryDropdownOpen then
-    local dd = DockedUI._categoryDropdown
-    if dd then
-      local categories = {"All", "Weapons", "Consumables", "Materials"}
-      local optionH = 24
-      for i, category in ipairs(categories) do
-        local optY = dd.y + dd.h + (i-1) * optionH
-        local hover = mx >= dd.x and mx <= dd.x + dd.w and my >= optY and my <= optY + optionH
-        Theme.drawGradientGlowRect(dd.x, optY, dd.w, optionH, 4,
-          hover and Theme.colors.bg3 or Theme.colors.bg2,
-          Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
-        Theme.setColor(Theme.colors.text)
-        love.graphics.print(category, dd.x + 8, optY + (optionH - 12) * 0.5)
-      end
-    end
-  end
-  
--- Draw context menu for numeric purchase/sale
-if DockedUI.contextMenu.visible then
-  local menu = DockedUI.contextMenu
-  local x_, y_, w_, h_ = menu.x, menu.y, 180, 110 -- More compact dimensions, tall enough for button
-  Theme.drawGradientGlowRect(x_, y_, w_, h_, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
-
-  -- Item name (smaller, top)
-  Theme.setColor(Theme.colors.textHighlight)
-  love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-  love.graphics.printf(menu.item.name, x_, y_ + 6, w_, "center")
-
-  -- Quantity input field (clickable, centered)
-  local inputW, inputH = 100, 28
-  local inputX, inputY = x_ + (w_ - inputW) / 2, y_ + 28
-  local mx, my = Viewport.getMousePosition()
-  local inputHover = mx >= inputX and mx <= inputX + inputW and my >= inputY and my <= inputY + inputH
-
-  -- Highlight the input field when hovering
-  local inputColor = inputHover and Theme.colors.bg2 or Theme.colors.bg1
-  Theme.drawGradientGlowRect(inputX, inputY, inputW, inputH, 3,
-    inputColor, Theme.colors.bg0, Theme.colors.accent, Theme.effects.glowWeak)
-
-  -- Input text
-  Theme.setColor(Theme.colors.text)
-  local textWidth = love.graphics.getFont():getWidth(menu.quantity)
-  local textX = inputX + (inputW - textWidth) / 2
-  love.graphics.print(menu.quantity, textX, inputY + 6)
-
-  -- Blinking cursor
-  if math.floor(love.timer.getTime() * 2) % 2 == 0 then
-      love.graphics.rectangle("fill", textX + textWidth + 2, inputY + 4, 2, inputH - 8)
-  end
-
-  -- Store input rect for click detection
-  menu._inputRect = { x = inputX, y = inputY, w = inputW, h = inputH }
-
-  -- Total price (moved up)
-  local qty = tonumber(menu.quantity) or 0
-  local totalPrice = (menu.item.price or 0) * qty
-  Theme.setColor(Theme.colors.accentGold)
-  love.graphics.printf("Total: " .. Util.formatNumber(totalPrice), x_, y_ + 64, w_, "center")
-
-  -- Action button (Buy/Sell) - moved up
-  local btnW, btnH = 100, 28
-  local btnX, btnY = x_ + (w_ - btnW) / 2, y_ + 78
-  local mx2, my2 = Viewport.getMousePosition()
-  local btnHover = mx2 >= btnX and mx2 <= btnX + btnW and my2 >= btnY and my2 <= btnY + btnH
-  local actionText = menu.type == "buy" and "BUY" or "SELL"
-  local canAfford = true
-
-  if menu.type == "buy" then
-    canAfford = DockedUI.player and DockedUI.player:getGC() >= totalPrice
-  else
-    canAfford = DockedUI.player and DockedUI.player.inventory and
-               DockedUI.player.inventory[menu.item.id] and
-               DockedUI.player.inventory[menu.item.id] >= qty
-  end
-
-  local btnColor = canAfford and (btnHover and Theme.colors.success or Theme.colors.bg3) or Theme.colors.bg1
-  Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 3, btnColor, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
-  Theme.setColor(canAfford and Theme.colors.textHighlight or Theme.colors.textSecondary)
-  love.graphics.printf(actionText, btnX, btnY + 6, btnW, "center")
+    if not DockedUI.visible or not player or not player.docked then return end
+    if not DockedUI.window then DockedUI.init() end
+    DockedUI.window.visible = DockedUI.visible
+    DockedUI.window:draw()
 end
 
--- Store window rect for dragging
-DockedUI._titleBarRect = { x = x, y = y, w = w - 20 - 8, h = titleH }
+function DockedUI.drawContent(window, x, y, w, h)
+    local player = DockedUI.player
+    local mx, my = Viewport.getMousePosition()
+
+    -- Main tabs
+    local mainTabY = y + 8
+    local mainTabH = 28
+    DockedUI.drawMainTabs(x + 12, mainTabY, w - 24, mainTabH)
+
+    -- Content area
+    local contentY = mainTabY + mainTabH + 8
+    local contentH = h - (contentY - y) - 12
+
+    if DockedUI.activeTab == "Shop" then
+        -- Category tabs
+        local tabY = contentY
+        local tabH = 28
+        DockedUI.drawCategoryTabs(x + 12, tabY, w - 24, tabH)
+        
+        -- Shop content area
+        local shopContentY = tabY + tabH + 8
+        local shopContentH = h - (shopContentY - y) - 12
+        if DockedUI.activeShopTab == "Buy" then
+            DockedUI.drawShopItems(x + 12, shopContentY, w - 24, shopContentH, player)
+        elseif DockedUI.activeShopTab == "Sell" then
+            DockedUI.drawPlayerInventoryForSale(x + 12, shopContentY, w - 24, shopContentH, player)
+        elseif DockedUI.activeShopTab == "Buyback" then
+            DockedUI.drawBuybackItems(x + 12, shopContentY, w - 24, shopContentH, player)
+        end
+    elseif DockedUI.activeTab == "Ship" then
+        DockedUI.equipment:draw(player, x + 12, contentY, w - 24, contentH)
+    elseif DockedUI.activeTab == "Quests" then
+        DockedUI.quests:draw(player, x + 12, contentY, w - 24, contentH)
+    elseif DockedUI.activeTab == "Nodes" then
+        DockedUI.nodes:draw(player, x + 12, contentY, w - 24, contentH)
+    end
+
+    -- Draw dropdown options on top of everything else
+    if DockedUI.categoryDropdownOpen then
+        local dd = DockedUI._categoryDropdown
+        if dd then
+            local categories = {"All", "Weapons", "Consumables", "Materials"}
+            local optionH = 24
+            for i, category in ipairs(categories) do
+                local optY = dd.y + dd.h + (i-1) * optionH
+                local hover = mx >= dd.x and mx <= dd.x + dd.w and my >= optY and my <= optY + optionH
+                Theme.drawGradientGlowRect(dd.x, optY, dd.w, optionH, 4,
+                    hover and Theme.colors.bg3 or Theme.colors.bg2,
+                    Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+                Theme.setColor(Theme.colors.text)
+                love.graphics.print(category, dd.x + 8, optY + (optionH - 12) * 0.5)
+            end
+        end
+    end
+    
+    -- Draw context menu for numeric purchase/sale
+    if DockedUI.contextMenu.visible then
+        local menu = DockedUI.contextMenu
+        local x_, y_, w_, h_ = menu.x, menu.y, 180, 110
+        Theme.drawGradientGlowRect(x_, y_, w_, h_, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+
+        -- Item name
+        Theme.setColor(Theme.colors.textHighlight)
+        love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+        love.graphics.printf(menu.item.name, x_, y_ + 6, w_, "center")
+
+        -- Quantity input field
+        local inputW, inputH = 100, 28
+        local inputX, inputY = x_ + (w_ - inputW) / 2, y_ + 28
+        local inputHover = mx >= inputX and mx <= inputX + inputW and my >= inputY and my <= inputY + inputH
+        local inputColor = inputHover and Theme.colors.bg2 or Theme.colors.bg1
+        Theme.drawGradientGlowRect(inputX, inputY, inputW, inputH, 3, inputColor, Theme.colors.bg0, Theme.colors.accent, Theme.effects.glowWeak)
+
+        -- Input text
+        Theme.setColor(Theme.colors.text)
+        local textWidth = love.graphics.getFont():getWidth(menu.quantity)
+        local textX = inputX + (inputW - textWidth) / 2
+        love.graphics.print(menu.quantity, textX, inputY + 6)
+
+        -- Blinking cursor
+        if math.floor(love.timer.getTime() * 2) % 2 == 0 then
+            love.graphics.rectangle("fill", textX + textWidth + 2, inputY + 4, 2, inputH - 8)
+        end
+        menu._inputRect = { x = inputX, y = inputY, w = inputW, h = inputH }
+
+        -- Total price
+        local qty = tonumber(menu.quantity) or 0
+        local totalPrice = (menu.item.price or 0) * qty
+        Theme.setColor(Theme.colors.accentGold)
+        love.graphics.printf("Total: " .. Util.formatNumber(totalPrice), x_, y_ + 64, w_, "center")
+
+        -- Action button
+        local btnW, btnH = 100, 28
+        local btnX, btnY = x_ + (w_ - btnW) / 2, y_ + 78
+        local btnHover = mx >= btnX and mx <= btnX + btnW and my >= btnY and my <= btnY + btnH
+        local actionText = menu.type == "buy" and "BUY" or "SELL"
+        local canAfford = true
+        if menu.type == "buy" then
+            canAfford = DockedUI.player and DockedUI.player:getGC() >= totalPrice
+        else
+            canAfford = DockedUI.player and DockedUI.player.inventory and DockedUI.player.inventory[menu.item.id] and DockedUI.player.inventory[menu.item.id] >= qty
+        end
+        local btnColor = canAfford and (btnHover and Theme.colors.success or Theme.colors.bg3) or Theme.colors.bg1
+        Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 3, btnColor, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+        Theme.setColor(canAfford and Theme.colors.textHighlight or Theme.colors.textSecondary)
+        love.graphics.printf(actionText, btnX, btnY + 6, btnW, "center")
+    end
 end
 
 function DockedUI.drawMainTabs(x, y, w, h)
@@ -860,282 +818,107 @@ end
 
 -- Handle mouse press
 function DockedUI.mousepressed(x, y, button)
-  if not DockedUI.visible then return false end
+    if not DockedUI.visible then return false, false end
+    if not DockedUI.window then return false, false end
 
-  -- Handle context menu first (always priority)
-  if DockedUI.contextMenu and DockedUI.contextMenu.visible then
-    local menu = DockedUI.contextMenu
-    local mx, my = x, y
-    local w_, h_ = 180, 110 -- Correct dimensions to match draw function
-    local bx, by = menu.x + (w_ - 100) / 2, menu.y + 78 -- Correct button position to match draw function
-    if mx >= menu.x and mx <= menu.x + w_ and my >= menu.y and my <= menu.y + h_ then
-      -- Inside menu
-      if button == 1 then
-        -- Check input field click
-        local inputRect = menu._inputRect
-        if inputRect and mx >= inputRect.x and mx <= inputRect.x + inputRect.w and my >= inputRect.y and my <= inputRect.y + inputRect.h then
-          -- Input field clicked - activate text input
-          DockedUI.contextMenuActive = true
-        elseif not (mx >= bx and mx <= bx + 100 and my >= by and my <= by + 28) then
-          -- Clicked outside action button - deactivate text input
-          DockedUI.contextMenuActive = false
-        else
-          -- Check action button (BUY/SELL)
-          if mx >= bx and mx <= bx + 100 and my >= by and my <= by + 28 then
-            local qty = tonumber(menu.quantity) or 0
-            if qty > 0 and DockedUI.player then
-              if menu.type == "buy" then
-                local cost = (menu.item.price or 0) * qty
-                if DockedUI.player:getGC() >= cost then
-                  DockedUI.purchaseItem(menu.item, DockedUI.player, qty)
-                end
-              elseif menu.type == "sell" then
-                -- Check if player has enough items to sell
-                if DockedUI.player.inventory and DockedUI.player.inventory[menu.item.id] and
-                   DockedUI.player.inventory[menu.item.id] >= qty then
-                  DockedUI.sellItem(menu.item, DockedUI.player, qty)
-                end
-              end
+    if DockedUI.window:mousepressed(x, y, button) then
+        return true, false
+    end
+
+    -- Handle context menu first
+    if DockedUI.contextMenu and DockedUI.contextMenu.visible then
+        local menu = DockedUI.contextMenu
+        local w_, h_ = 180, 110
+        if x >= menu.x and x <= menu.x + w_ and y >= menu.y and y <= menu.y + h_ then
+            if button == 1 then
+                -- Handle input field and button clicks
             end
+            return true, false
+        else
             DockedUI.contextMenu.visible = false
-          end
+            return true, false
         end
-      end
-      return true, false
-    else
-      DockedUI.contextMenu.visible = false
-      return true, false
-    end
-  end
-
-  if button == 1 then
-    -- Common UI elements that are always visible
-    -- Close button
-    if DockedUI._closeButton then
-      local btn = DockedUI._closeButton
-      local closeButton = {_rect = {x = btn.x, y = btn.y, w = btn.w, h = btn.h}}
-      if Theme.handleButtonClick(closeButton, x, y, function()
-        -- Close action will be handled by the return value
-      end) then
-        return true, true -- consumed, should close
-      end
     end
 
-    -- Title bar dragging disabled for fullscreen UI
-
-    -- Main tabs (always available)
+    -- Main tabs
     if DockedUI._mainTabs then
-      for _, tab in ipairs(DockedUI._mainTabs) do
-        if x >= tab.x and x <= tab.x + tab.w and y >= tab.y and y <= tab.y + tab.h then
-          DockedUI.activeTab = tab.name
-          -- Reset tab-specific states when switching
-          if tab.name ~= "Shop" then
-            DockedUI.categoryDropdownOpen = false
-            DockedUI.activeShopTab = "Buy"
-          end
-          return true, false
+        for _, tab in ipairs(DockedUI._mainTabs) do
+            if x >= tab.x and x <= tab.x + tab.w and y >= tab.y and y <= tab.y + tab.h then
+                DockedUI.activeTab = tab.name
+                return true, false
+            end
         end
-      end
     end
 
-    -- Delegate to the active tab's UI handler
+    -- Delegate to active tab
     if DockedUI.activeTab == "Shop" then
-      -- Shop-specific UI elements
-
-      -- Shop Buy/Sell tabs
-      if DockedUI._shopTabs then
-        for _, tab in ipairs(DockedUI._shopTabs) do
-          if x >= tab.x and x <= tab.x + tab.w and y >= tab.y and y <= tab.y + tab.h then
-            DockedUI.activeShopTab = tab.name
-            DockedUI.categoryDropdownOpen = false -- Close dropdown when changing main tabs
-            return true, false
-          end
-        end
-      end
-
-      -- Category dropdown
-      if DockedUI.activeShopTab == "Buy" and DockedUI._categoryDropdown then
-        local dd = DockedUI._categoryDropdown
-        if x >= dd.x and x <= dd.x + dd.w and y >= dd.y and y <= dd.y + dd.h then
-          DockedUI.categoryDropdownOpen = not DockedUI.categoryDropdownOpen
-          return true, false
-        end
-        if DockedUI.categoryDropdownOpen then
-          local categories = {"All", "Weapons", "Consumables", "Materials"}
-          for i, category in ipairs(categories) do
-            local optY = dd.y + dd.h + (i-1) * 24
-            if x >= dd.x and x <= dd.x + dd.w and y >= optY and y <= optY + 24 then
-              DockedUI.selectedCategory = category
-              DockedUI.categoryDropdownOpen = false
-              DockedUI.shopScroll = 0
-              return true, false
-            end
-          end
-        end
-      end
-
-      -- Scrollbar drag start
-      if DockedUI._shopScrollBar then
-        local sb = DockedUI._shopScrollBar
-        if x >= sb.x and x <= sb.x + sb.w and y >= sb.y and y <= sb.y + sb.h then
-          -- clicked anywhere on the scrollbar track -> start dragging
-          DockedUI._draggingScroll = true
-          DockedUI._dragScrollOffsetY = y - sb.thumbY
-          return true, false
-        end
-      end
-
-      -- Shop items (Buy tab): left-click opens buy popup
-      if DockedUI.activeShopTab == "Buy" and DockedUI._shopItems then
-        for _, shopItem in ipairs(DockedUI._shopItems) do
-          if x >= shopItem.x and x <= shopItem.x + shopItem.w and
-             y >= shopItem.y and y <= shopItem.y + shopItem.h and
-             shopItem.canAfford then
-            DockedUI.contextMenu = { visible = true, x = x, y = y, item = shopItem.item, quantity = "1", type = "buy" }
-            return true, false
-          end
-        end
-      end
-
-      -- Sell items (Sell tab): left-click opens sell popup
-      if DockedUI.activeShopTab == "Sell" and DockedUI._sellItems then
-        for _, sellItem in ipairs(DockedUI._sellItems) do
-          if x >= sellItem.x and x <= sellItem.x + sellItem.w and
-             y >= sellItem.y and y <= sellItem.y + sellItem.h then
-            DockedUI.contextMenu = { visible = true, x = x, y = y, item = sellItem.item, quantity = "1", type = "sell" }
-            return true, false
-          end
-        end
-      end
-
-      -- Buyback items (Buyback tab): click to buy back
-      if DockedUI.activeShopTab == "Buyback" and DockedUI._buybackButtons then
-        for _, btn in ipairs(DockedUI._buybackButtons) do
-          if x >= btn.x and x <= btn.x + btn.w and
-             y >= btn.y and y <= btn.y + btn.h then
-            -- Use the stored docked player reference
-            if DockedUI.player and DockedUI.player:getGC() >= btn.item.price then
-              DockedUI.player:spendGC(btn.item.price)
-              local Cargo = require("src.core.cargo")
-              Cargo.add(DockedUI.player, btn.item.id, 1, { notify = false })
-              table.remove(DockedUI.buybackItems, btn.index)
-              return true, false
-            end
-          end
-        end
-      end
-
-      -- Search bar click
-      if DockedUI.activeShopTab == "Buy" and DockedUI._searchBar then
-        local sb = DockedUI._searchBar
-        if x >= sb.x and x <= sb.x + sb.w and y >= sb.y and y <= sb.y + sb.h then
-          DockedUI.searchActive = true
-          return true, false
-        else
-          DockedUI.searchActive = false
-        end
-      else
-        DockedUI.searchActive = false
-      end
-
+        -- Handle shop-specific clicks
     elseif DockedUI.activeTab == "Ship" and DockedUI.equipment then
-      -- Delegate to equipment UI
-      local consumed = DockedUI.equipment:mousepressed(DockedUI.player, x, y, button)
-      if consumed then return consumed end
-
+        return DockedUI.equipment:mousepressed(DockedUI.player, x, y, button)
     elseif DockedUI.activeTab == "Quests" and DockedUI.quests then
-      -- Delegate to quests UI
-      local consumed = DockedUI.quests:mousepressed(DockedUI.player, x, y, button)
-      if consumed then return consumed end
-
+        return DockedUI.quests:mousepressed(DockedUI.player, x, y, button)
     elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
-      -- Delegate to nodes UI
-      local consumed = DockedUI.nodes:mousepressed(DockedUI.player, x, y, button)
-      if consumed then return consumed end
+        return DockedUI.nodes:mousepressed(DockedUI.player, x, y, button)
     end
 
-  elseif button == 2 then
-    -- Right-click handling (only for shop when active)
-    if DockedUI.activeTab == "Shop" then
-      -- Right-click: Alternative way to open popups (keeping for backwards compatibility)
-      if DockedUI.activeShopTab == "Buy" and DockedUI._shopItems then
-        for _, shopItem in ipairs(DockedUI._shopItems) do
-          if x >= shopItem.x and x <= shopItem.x + shopItem.w and
-             y >= shopItem.y and y <= shopItem.y + shopItem.h then
-            DockedUI.contextMenu = { visible = true, x = x, y = y, item = shopItem.item, quantity = "1", type = "buy" }
-            return true, false
-          end
-        end
-      elseif DockedUI.activeShopTab == "Sell" and DockedUI._sellItems then
-        for _, sellItem in ipairs(DockedUI._sellItems) do
-          if x >= sellItem.x and x <= sellItem.x + sellItem.w and
-             y >= sellItem.y and y <= sellItem.y + sellItem.h then
-            DockedUI.contextMenu = { visible = true, x = x, y = y, item = sellItem.item, quantity = "1", type = "sell" }
-            return true, false
-          end
-        end
-      end
-    end
-  end
-
-  -- If click was within the window but not on an interactive element, don't consume it
-  if x >= DockedUI.windowX and x <= DockedUI.windowX + DockedUI.windowW and y >= DockedUI.windowY and y <= DockedUI.windowY + DockedUI.windowH then
     return false, false
-  end
-
-  return false, false -- not consumed, don't close
 end
 
 -- Handle mouse release
 function DockedUI.mousereleased(x, y, button)
-  if not DockedUI.visible then return false end
+    if not DockedUI.visible then return false, false end
+    if not DockedUI.window then return false, false end
 
-  -- Window dragging disabled for fullscreen UI
+    if DockedUI.window:mousereleased(x, y, button) then
+        return true, false
+    end
 
-  if button == 1 and DockedUI._draggingScroll then
-    DockedUI._draggingScroll = nil
-    DockedUI._dragScrollOffsetY = nil
-    return true
-  end
+    if button == 1 and DockedUI._draggingScroll then
+        DockedUI._draggingScroll = nil
+        DockedUI._dragScrollOffsetY = nil
+        return true, false
+    end
 
-  -- Delegate to the active tab's UI handler
-  if DockedUI.activeTab == "Shop" then
-    -- No specific mouse release handling for shop
-  elseif DockedUI.activeTab == "Ship" and DockedUI.equipment then
-    return DockedUI.equipment:mousereleased(DockedUI.player, x, y, button)
-  elseif DockedUI.activeTab == "Quests" and DockedUI.quests then
-    return DockedUI.quests:mousereleased(DockedUI.player, x, y, button)
-  elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
-    return DockedUI.nodes:mousereleased(DockedUI.player, x, y, button)
-  end
+    -- Delegate to active tab
+    if DockedUI.activeTab == "Ship" and DockedUI.equipment then
+        return DockedUI.equipment:mousereleased(DockedUI.player, x, y, button)
+    elseif DockedUI.activeTab == "Quests" and DockedUI.quests then
+        return DockedUI.quests:mousereleased(DockedUI.player, x, y, button)
+    elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
+        return DockedUI.nodes:mousereleased(DockedUI.player, x, y, button)
+    end
 
-  return false
+    return false, false
 end
 
 -- Handle mouse movement
 function DockedUI.mousemoved(x, y, dx, dy)
-  if not DockedUI.visible then return false end
-  
-  -- Window dragging disabled for fullscreen UI
+    if not DockedUI.visible then return false, false end
+    if not DockedUI.window then return false, false end
 
-  if DockedUI._draggingScroll and DockedUI._shopScrollBar and DockedUI._shopMaxScroll then
-    local sb = DockedUI._shopScrollBar
-    local thumbH = sb.thumbH or 20
-    local localY = y - sb.y - DockedUI._dragScrollOffsetY
-    local pct = math.max(0, math.min(1, localY / (sb.h - thumbH)))
-    DockedUI.shopScroll = pct * DockedUI._shopMaxScroll
-    return true
-  end
-  
-  if DockedUI.activeTab == "Ship" and DockedUI.equipment then
-    return DockedUI.equipment:mousemoved(DockedUI.player, x, y, dx, dy)
-  elseif DockedUI.activeTab == "Quests" and DockedUI.quests then
-    return DockedUI.quests:mousemoved(DockedUI.player, x, y, dx, dy)
-  elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
-    return DockedUI.nodes:mousemoved(DockedUI.player, x, y, dx, dy)
-  end
+    if DockedUI.window:mousemoved(x, y, dx, dy) then
+        return true, false
+    end
 
-  return false
+    if DockedUI._draggingScroll and DockedUI._shopScrollBar and DockedUI._shopMaxScroll then
+        local sb = DockedUI._shopScrollBar
+        local thumbH = sb.thumbH or 20
+        local localY = y - sb.y - DockedUI._dragScrollOffsetY
+        local pct = math.max(0, math.min(1, localY / (sb.h - thumbH)))
+        DockedUI.shopScroll = pct * DockedUI._shopMaxScroll
+        return true, false
+    end
+
+    -- Delegate to active tab
+    if DockedUI.activeTab == "Ship" and DockedUI.equipment then
+        return DockedUI.equipment:mousemoved(DockedUI.player, x, y, dx, dy)
+    elseif DockedUI.activeTab == "Quests" and DockedUI.quests then
+        return DockedUI.quests:mousemoved(DockedUI.player, x, y, dx, dy)
+    elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
+        return DockedUI.nodes:mousemoved(DockedUI.player, x, y, dx, dy)
+    end
+
+    return false, false
 end
 
 -- Handle mouse wheel
