@@ -119,16 +119,50 @@ function Hotbar.keypressed(key, player)
             local item = slot.item
             -- No fallback behavior - only process if there's an item in the slot
             if type(item) == 'string' and item:match('^turret_slot_%d+$') then
-                -- Toggle specific turret slot on non-mouse hotkeys
-                if bound ~= "mouse1" and bound ~= "mouse2" then
-                    local idx = tonumber(item:match('^turret_slot_(%d+)$'))
-                    if idx then
-                        Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
-                        Hotbar.state.active.turret_slots[idx] = not Hotbar.state.active.turret_slots[idx]
+                -- Handle turret firing based on fireMode
+                local idx = tonumber(item:match('^turret_slot_(%d+)$'))
+                if idx then
+                    -- Get the turret to check its fireMode
+                    local Turret = require("src.systems.turret.core")
+                    local turret = Turret.getTurretBySlot(player, idx)
+                    if turret then
+                        if turret.fireMode == "automatic" then
+                            -- For automatic mode: toggle the autoFire state
+                            Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
+                            Hotbar.state.active.turret_slots[idx] = not not Hotbar.state.active.turret_slots[idx]
+                        else
+                            -- For manual mode: set firing to true (will be cleared on key release)
+                            Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
+                            Hotbar.state.active.turret_slots[idx] = true
+                        end
                     end
                 end
             else
                 Hotbar.activate(i, player)
+            end
+            return
+        end
+    end
+end
+
+-- Handle keyboard releases for manual mode turrets
+function Hotbar.keyreleased(key, player)
+    for i, slot in ipairs(Hotbar.slots) do
+        local bound = Hotbar.getSlotKey(i)
+        if key == bound then
+            local item = slot.item
+            if type(item) == 'string' and item:match('^turret_slot_%d+$') then
+                local idx = tonumber(item:match('^turret_slot_(%d+)$'))
+                if idx then
+                    -- Get the turret to check its fireMode
+                    local Turret = require("src.systems.turret.core")
+                    local turret = Turret.getTurretBySlot(player, idx)
+                    if turret and turret.fireMode == "manual" then
+                        -- For manual mode: clear the firing state on key release
+                        Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
+                        Hotbar.state.active.turret_slots[idx] = false
+                    end
+                end
             end
             return
         end
@@ -148,8 +182,20 @@ function Hotbar.mousepressed(x, y, button, player)
             if type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
                 local idx = tonumber(slot.item:match('^turret_slot_(%d+)$'))
                 if idx then
-                    Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
-                    Hotbar.state.active.turret_slots[idx] = true
+                    -- Get the turret to check its fireMode
+                    local Turret = require("src.systems.turret.core")
+                    local turret = Turret.getTurretBySlot(player, idx)
+                    if turret then
+                        if turret.fireMode == "automatic" then
+                            -- For automatic mode: toggle the autoFire state
+                            Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
+                            Hotbar.state.active.turret_slots[idx] = not not Hotbar.state.active.turret_slots[idx]
+                        else
+                            -- For manual mode: set firing to true (will be cleared on mouse release)
+                            Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
+                            Hotbar.state.active.turret_slots[idx] = true
+                        end
+                    end
                     return true
                 end
             else
@@ -172,8 +218,14 @@ function Hotbar.mousereleased(button, player)
             if type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
                 local idx = tonumber(slot.item:match('^turret_slot_(%d+)$'))
                 if idx then
-                    Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
-                    Hotbar.state.active.turret_slots[idx] = false
+                    -- Get the turret to check its fireMode
+                    local Turret = require("src.systems.turret.core")
+                    local turret = Turret.getTurretBySlot(player, idx)
+                    if turret and turret.fireMode == "manual" then
+                        -- For manual mode: clear the firing state on mouse release
+                        Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
+                        Hotbar.state.active.turret_slots[idx] = false
+                    end
                     return true
                 end
             else

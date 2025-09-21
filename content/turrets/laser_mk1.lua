@@ -37,5 +37,8 @@ return {
   cooldownRate = 30, -- Faster heat dissipation
   overheatDuration = 2.0, -- Shorter disable time
   heatCycleMult = 0.8, -- Less slowdown when hot
-  heatEnergyMult = 1.2 -- Reduced energy cost increase when hot
+  heatEnergyMult = 1.2, -- Reduced energy cost increase when hot
+
+  -- Firing mode: "manual" or "automatic"
+  fireMode = "automatic" -- Lasers are good for sustained fire
 }

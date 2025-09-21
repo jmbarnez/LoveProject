@@ -1,5 +1,6 @@
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
+local AuroraTitle = require("src.shaders.aurora_title")
 
 local Bounty = {
   dragging = false,
@@ -11,6 +12,8 @@ local Bounty = {
   visible = false,
   scrollY = 0,
   contentHeight = 0,
+  -- Aurora shader for title effect (initialized on first use)
+  auroraShader = nil,
 }
 
 local function panel(x, y, w, h, title)
@@ -26,19 +29,38 @@ local function panel(x, y, w, h, title)
     Theme.colors.bg3, Theme.colors.bg2,
     Theme.colors.accent, Theme.effects.glowWeak * 1.2)
   
-  -- Enhanced title text with subtle shadow
-  love.graphics.setFont(Theme.fonts.medium)
-  Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.6))
+  -- Aurora title effect with smaller font
+  love.graphics.setFont(Theme.fonts.small)
   local font = love.graphics.getFont()
   local textWidth = font:getWidth(title or "Bounty")
   local textHeight = font:getHeight()
-  love.graphics.print(title or "Bounty", x + (w - textWidth) / 2 + 1, y + (titleH - textHeight) / 2 + 1) -- Shadow
-  Theme.setColor(Theme.colors.textHighlight)
-  love.graphics.print(title or "Bounty", x + (w - textWidth) / 2, y + (titleH - textHeight) / 2)
+  local titleY = y + (titleH - textHeight) / 2
+
+  -- Initialize aurora shader if needed
+  if not Bounty.auroraShader then
+    Bounty.auroraShader = AuroraTitle.new()
+  end
+
+  if Bounty.auroraShader then
+    Bounty.auroraShader:send("time", love.timer.getTime())
+    love.graphics.setShader(Bounty.auroraShader)
+    Theme.setColor(1, 1, 1, 1)
+    love.graphics.print(title or "Bounty", x + (w - textWidth) / 2, titleY)
+    love.graphics.setShader()
+  else
+    -- Fallback to static aurora-like color
+    Theme.setColor({0.4, 0.8, 1.0, 1.0})  -- Cyan aurora color
+    love.graphics.print(title or "Bounty", x + (w - textWidth) / 2, titleY)
+  end
+
   love.graphics.setFont(Theme.fonts.normal)
 end
 
 local function pointInRect(px, py, x, y, w, h)
+  -- Handle nil values gracefully
+  if px == nil or py == nil or x == nil or y == nil or w == nil or h == nil then
+    return false
+  end
   return px >= x and py >= y and px <= x + w and py <= y + h
 end
 
@@ -96,8 +118,9 @@ local function drawClaimButton(docked)
     -- Use Theme functions for consistent button styling
     local buttonBg = hover and Theme.colors.primary or Theme.colors.bg2
     local buttonBorder = Theme.colors.border
-    
-    Theme.drawGradientGlowRect(rect.x, rect.y, rect.w, rect.h, 4, buttonBg, Theme.colors.bg1, Theme.colors.primary, Theme.effects.glowWeak * 0.1)
+
+    -- Use very subtle glow for mostly transparent buttons
+    Theme.drawGradientGlowRect(rect.x, rect.y, rect.w, rect.h, 4, buttonBg, Theme.colors.bg1, Theme.colors.primary, Theme.effects.glowWeak * 0.05)
     Theme.drawEVEBorder(rect.x, rect.y, rect.w, rect.h, 4, buttonBorder, 6)
     
     Theme.setColor(Theme.colors.text)

@@ -1,5 +1,84 @@
 local util = {}
 
+-- Cache for expensive mathematical calculations
+local trigCache = {}
+local cacheCounter = 0
+
+-- Cached trigonometric functions to avoid repeated calculations
+function util.cachedSin(angle)
+    if not angle then return 0 end
+    local key = "sin_" .. tostring(angle)
+    if not trigCache[key] then
+        trigCache[key] = math.sin(angle)
+
+        -- Periodic cleanup to prevent memory leaks
+        cacheCounter = cacheCounter + 1
+        if cacheCounter > 10000 then
+            cacheCounter = 0
+            local newCache = {}
+            local count = 0
+            for k, v in pairs(trigCache) do
+                if count < 5000 then
+                    newCache[k] = v
+                    count = count + 1
+                end
+            end
+            trigCache = newCache
+        end
+    end
+    return trigCache[key]
+end
+
+function util.cachedCos(angle)
+    if not angle then return 1 end
+    local key = "cos_" .. tostring(angle)
+    if not trigCache[key] then
+        trigCache[key] = math.cos(angle)
+        cacheCounter = cacheCounter + 1
+        if cacheCounter > 10000 then
+            cacheCounter = 0
+            local newCache = {}
+            local count = 0
+            for k, v in pairs(trigCache) do
+                if count < 5000 then
+                    newCache[k] = v
+                    count = count + 1
+                end
+            end
+            trigCache = newCache
+        end
+    end
+    return trigCache[key]
+end
+
+function util.cachedSqrt(value)
+    if not value or value < 0 then return 0 end
+    local key = "sqrt_" .. tostring(value)
+    if not trigCache[key] then
+        trigCache[key] = math.sqrt(value)
+        cacheCounter = cacheCounter + 1
+        if cacheCounter > 10000 then
+            cacheCounter = 0
+            local newCache = {}
+            local count = 0
+            for k, v in pairs(trigCache) do
+                if count < 5000 then
+                    newCache[k] = v
+                    count = count + 1
+                end
+            end
+            trigCache = newCache
+        end
+    end
+    return trigCache[key]
+end
+
+-- Clear caches when needed (e.g., on resolution change)
+function util.clearCaches()
+    trigCache = {}
+    cacheCounter = 0
+end
+
 function util.clamp(x, a, b)
   if x < a then return a end
   if x > b then return b end
@@ -139,6 +218,11 @@ function util.wrapText(text, maxWidth, font)
 end
 
 function util.formatNumber(num)
+  -- Ensure we have a number to work with
+  if type(num) ~= "number" then
+    return tostring(num or 0)
+  end
+  
   if num >= 1000000 then
     return string.format("%.1fM", num / 1000000)
   elseif num >= 1000 then

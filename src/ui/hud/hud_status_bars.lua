@@ -1,6 +1,7 @@
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local Util = require("src.core.util")
+local UIUtils = require("src.ui.common.utils")
 
 -- Liquid-Filled Spiral Energy Display
 local function drawLiquidSpiralEnergy(x, y, size, energyPct, time)
@@ -200,10 +201,10 @@ function StatusBar:draw(x, y, w, h)
     if self.label ~= "XP" then
         local text = string.format("%d/%d", math.floor(self.targetValue), self.maxValue)
         local font = love.graphics.getFont()
-        local textWidth = font:getWidth(text)
-        local textX = x + (w - textWidth) / 2
-        local textY = y + (h - font:getHeight()) / 2
-        Theme.setColor(Theme.colors.text)
+        local metrics = UIUtils.getCachedTextMetrics(text, font)
+        local textX = x + (w - metrics.width) / 2
+        local textY = y + (h - metrics.height) / 2
+        Theme.setColor(Theme.colors.textStatus)
         love.graphics.print(text, textX, textY)
     end
     if oldFont then love.graphics.setFont(oldFont) end
@@ -285,20 +286,22 @@ function HUDStatusBars.draw(player)
     -- Player speed display underneath energy spiral
     if player and player.components and player.components.physics and player.components.physics.body then
         local body = player.components.physics.body
+
+        -- Calculate speed in real-time for immediate feedback
         local speed = math.sqrt(body.vx * body.vx + body.vy * body.vy)
         local speedText = string.format("Speed: %.1f", speed)
-        
+
         local oldFont = love.graphics.getFont()
         if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
-        
+
         local font = love.graphics.getFont()
-        local textW = font:getWidth(speedText)
-        local speedX = (sw - textW) * 0.5 -- Center horizontally
+        local metrics = UIUtils.getCachedTextMetrics(speedText, font)
+        local speedX = (sw - metrics.width) * 0.5 -- Center horizontally
         local speedY = energyY + energySize + gap -- Below energy spiral
-        
+
         Theme.setColor(Theme.colors.text)
         love.graphics.print(speedText, speedX, speedY)
-        
+
         if oldFont then love.graphics.setFont(oldFont) end
     end
 

@@ -36,5 +36,8 @@ return {
   cooldownRate = 20,
   overheatDuration = 3.0,
   heatCycleMult = 0.8,
-  heatEnergyMult = 1.5
+  heatEnergyMult = 1.5,
+
+  -- Firing mode: "manual" or "automatic"
+  fireMode = "manual"
 }

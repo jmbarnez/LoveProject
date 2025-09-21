@@ -56,6 +56,15 @@ function Sound.applySettings()
     Sound.setMusicVolume(musicVolume)
 end
 
+-- Helper to compute stereo pan (-1..1) from world X relative to listener
+local function computePan(x)
+    if not x or not listenerX then return 0 end
+    local dx = x - listenerX
+    -- Soft pan curve, clamp to [-1, 1]
+    local pan = math.max(-1, math.min(1, dx / 800))
+    return pan
+end
+
 -- Configuration
 local soundPaths = {
     sfx = "content/sounds/sfx/",
@@ -101,7 +110,11 @@ function Sound.loadSFX(name, path)
     -- Try procedural generation as fallback
     local proceduralSound = nil
     if name == "laser_fire" then
-        proceduralSound = SoundGenerator.getCachedSound("laser", 0.3, 800)
+        proceduralSound = SoundGenerator.getCachedSound("laser", 0.3, 800) -- Combat laser: medium duration, high pitch
+    elseif name == "mining_laser" then
+        proceduralSound = SoundGenerator.getCachedSound("mining_laser", 0.5, 400) -- Mining laser: longer duration, lower pitch, industrial sound
+    elseif name == "salvaging_laser" then
+        proceduralSound = SoundGenerator.getCachedSound("salvaging_laser", 0.4, 600) -- Salvaging laser: medium duration, medium pitch, smooth sound
     elseif name == "shield_hit" then
         proceduralSound = SoundGenerator.getCachedSound("shield_hit", 0.15)
     elseif name == "hull_hit" then
@@ -167,7 +180,21 @@ function Sound.playSFXAt(name, x, y, volume, pitch, path)
     local base = volume or 1.0
     local vol = attenuateVolume(base, x, y)
     if vol <= 0 then return false end
-    return Sound.playSFX(name, vol, pitch, path)
+    local sound = sfx[name] or Sound.loadSFX(name, path)
+    if not sound then return false end
+    local instance = sound:clone()
+    instance:setVolume(vol * sfxVolume * masterVolume)
+    if pitch then instance:setPitch(pitch) end
+    -- Panning based on X position
+    local pan = computePan(x)
+    if instance.setPosition then
+        -- If using 3D sources in future
+        instance:setPosition(pan, 0, 0)
+    elseif instance.setStereoPan then
+        instance:setStereoPan(pan)
+    end
+    love.audio.play(instance)
+    return true
 end
 
 -- Play music

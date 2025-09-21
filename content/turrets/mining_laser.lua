@@ -43,4 +43,7 @@ return {
   heatPerShot = 5.0, -- Heat per pulse
   cooldownRate = 10.0, -- Fast cooling between pulses
   overheatDuration = 2.0, -- Quick recovery from overheat
+
+  -- Firing mode: "manual" or "automatic"
+  fireMode = "manual" -- Mining lasers should be manually controlled
 }

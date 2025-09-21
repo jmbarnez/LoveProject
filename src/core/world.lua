@@ -157,10 +157,23 @@ function World.new(width, height)
   local scale = (sw * sh) / (1920 * 1080)
   self.starLayers[1].stars = genScreenStars(sw, sh, math.floor(120 * math.max(1, scale)))
   self.starLayers[2].stars = genScreenStars(sw, sh, math.floor(80  * math.max(1, scale)))
+
+  -- Cache for star rendering batches
+  self.starBatches = {}
+  self.lastScreenSize = {w = sw, h = sh}
+
+  -- Update frequency control for background elements
+  self.backgroundUpdateCounter = 0
   return self
 end
 function World:setQuadtree(quadtree)
     self.quadtree = quadtree
+end
+
+function World:shouldUpdateBackground(frequency)
+    frequency = frequency or 5 -- Update every 5 frames by default
+    self.backgroundUpdateCounter = (self.backgroundUpdateCounter + 1) % frequency
+    return self.backgroundUpdateCounter == 0
 end
 
 function World:getEntitiesInRect(bounds)
@@ -295,29 +308,44 @@ function World:contains(x, y, r)
 end
 
 function World:drawBackground(camera)
-  love.graphics.clear(8/255, 10/255, 18/255)
+  -- Draw in screen space regardless of camera
+  love.graphics.push('all')
+  love.graphics.origin()
+  love.graphics.clear(2/255, 3/255, 6/255)
   local w, h = Viewport.getDimensions()
-  -- Rebuild nebula canvas on resolution change
+
+  -- Cache nebula canvas - only rebuild on actual resolution change
   if (not self.nebulaCanvas) or self.nebulaW ~= w or self.nebulaH ~= h then
     self.nebulaW, self.nebulaH = w, h
     self.nebulaCanvas = World.buildNebulaCanvas(w, h, 12345)
   end
   if self.nebulaCanvas then
-    love.graphics.setColor(1,1,1,1)
+    love.graphics.setColor(1,1,1,0.9)
     love.graphics.draw(self.nebulaCanvas, 0, 0)
   end
   -- Regenerate static sky on resolution change
   if self.skyW ~= w or self.skyH ~= h or (#self.skyStars == 0) then
     self.skyW, self.skyH = w, h
     local scale = (w * h) / (1920 * 1080)
-    -- Density tuned for 1080p base
-    self.skyStars = genSkyStars(w, h, math.floor(300 * math.max(1, scale)))
+    -- Density tuned for 1080p base (increased for visibility)
+    self.skyStars = genSkyStars(w, h, math.floor(480 * math.max(1, scale)))
   end
   -- Draw static sky (no parallax) with slow twinkle
+  -- Only update twinkling every few frames for better performance
   local t = (love.timer and love.timer.getTime and love.timer.getTime()) or 0
+  local shouldUpdateTwinkle = self:shouldUpdateBackground(3) -- Update twinkling every 3 frames
+
   for i = 1, #self.skyStars do
     local s = self.skyStars[i]
-    local alpha = s.a + 0.05 * math.sin(t * s.tw + s.ph)
+    local alpha
+    if shouldUpdateTwinkle then
+      -- Calculate new alpha and cache it
+      alpha = s.a + 0.05 * math.sin(t * s.tw + s.ph)
+      s._cachedAlpha = alpha -- Cache for next frames
+    else
+      -- Use cached alpha
+      alpha = s._cachedAlpha or s.a
+    end
     love.graphics.setColor(1, 1, 1, math.max(0, alpha))
     local sx = math.floor(s.x) + 0.5
     local sy = math.floor(s.y) + 0.5
@@ -327,31 +355,66 @@ function World:drawBackground(camera)
   if self.starW ~= w or self.starH ~= h then
     self.starW, self.starH = w, h
     local scale = (w * h) / (1920 * 1080)
-    self.starLayers[1].stars = genScreenStars(w, h, math.floor(120 * math.max(1, scale)))
-    self.starLayers[2].stars = genScreenStars(w, h, math.floor(80  * math.max(1, scale)))
+    self.starLayers[1].stars = genScreenStars(w, h, math.floor(160 * math.max(1, scale)))
+    self.starLayers[2].stars = genScreenStars(w, h, math.floor(120 * math.max(1, scale)))
   end
   -- Parallax stars: move slightly with camera and wrap on screen bounds
+  -- Use batched rendering for better performance
   for li = 1, #self.starLayers do
     local layer = self.starLayers[li]
     local p = layer.p or 0.02
     local ox = (-camera.x * p) % w
     local oy = (-camera.y * p) % h
-    local alpha = math.min(0.28, 0.10 + 1.6 * p)
+    local alpha = math.min(0.35, 0.12 + 1.8 * p)
     love.graphics.setColor(1,1,1, alpha)
-    for i = 1, #layer.stars do
-      local s = layer.stars[i]
-      local sx = s.x + ox
-      local sy = s.y + oy
-      if sx >= w then sx = sx - w end
-      if sy >= h then sy = sy - h end
-      if sx < 0 then sx = sx + w end
-      if sy < 0 then sy = sy + w end
-      local sxs = math.floor(sx) + 0.5
-      local sys = math.floor(sy) + 0.5
-      love.graphics.circle('fill', sxs, sys, s.s)
+
+    -- Batch star rendering for better performance
+    local batch = self.starBatches[li]
+    if not batch or self.lastScreenSize.w ~= w or self.lastScreenSize.h ~= h then
+      -- Create new sprite batch for this layer
+      if love.graphics.newSpriteBatch then
+        -- Use a simple 1x1 white pixel image for stars
+        local starImage = love.graphics.newImage(love.image.newImageData(1, 1))
+        batch = love.graphics.newSpriteBatch(starImage, #layer.stars)
+        self.starBatches[li] = batch
+      end
+      self.lastScreenSize = {w = w, h = h}
+    end
+
+    if batch then
+      -- Clear and repopulate batch
+      batch:clear()
+      for i = 1, #layer.stars do
+        local s = layer.stars[i]
+        local sx = s.x + ox
+        local sy = s.y + oy
+        if sx >= w then sx = sx - w end
+        if sy >= h then sy = sy - h end
+        if sx < 0 then sx = sx + w end
+        if sy < 0 then sy = sy + h end
+        local sxs = math.floor(sx) + 0.5
+        local sys = math.floor(sy) + 0.5
+        batch:add(sxs, sys, 0, s.s * 2, s.s * 2) -- Scale the 1x1 pixel to star size
+      end
+      love.graphics.draw(batch)
+    else
+      -- Fallback to individual draw calls if sprite batches not available
+      for i = 1, #layer.stars do
+        local s = layer.stars[i]
+        local sx = s.x + ox
+        local sy = s.y + oy
+        if sx >= w then sx = sx - w end
+        if sy >= h then sy = sy - h end
+        if sx < 0 then sx = sx + w end
+        if sy < 0 then sy = sy + h end
+        local sxs = math.floor(sx) + 0.5
+        local sys = math.floor(sy) + 0.5
+        love.graphics.circle('fill', sxs, sys, s.s)
+      end
     end
   end
   -- Planets removed - clean space background only
+  love.graphics.pop()
 end
 
 function World:drawBounds()

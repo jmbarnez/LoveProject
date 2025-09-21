@@ -35,25 +35,34 @@ local panel = {
 }
 
 function HotbarSelection.show(slot, x, y, player)
-    HotbarSelection.visible = true
-    HotbarSelection.slot = slot
-    HotbarSelection.player = player
-    panel.x = x - panel.w / 2
-    panel.y = y - panel.h - 20
+    -- Build dynamic list of available items (only active modules)
+    local items = {}
 
-    -- Build dynamic list of available items
-    local items = { "shield" }
-
-    -- Add equipped turret slots from player
+    -- Add equipped active modules from player (turrets and other activatable modules)
     if player and player.components and player.components.equipment and player.components.equipment.grid then
         for _, gridData in ipairs(player.components.equipment.grid) do
+          -- Only include active modules that can be activated/used
           if gridData.type == "turret" and gridData.module then
             table.insert(items, "turret_slot_" .. tostring(gridData.slot))
           end
+          -- Add other active module types here if they exist
+          -- For example: if gridData.type == "weapon" and gridData.module then
+          --   table.insert(items, "weapon_slot_" .. tostring(gridData.slot))
+          -- end
         end
     end
 
-    HotbarSelection.items = items
+    -- Only show the panel if there are active modules available
+    if #items > 0 then
+        HotbarSelection.visible = true
+        HotbarSelection.slot = slot
+        HotbarSelection.player = player
+        panel.x = x - panel.w / 2
+        panel.y = y - panel.h - 20
+        HotbarSelection.items = items
+    else
+        HotbarSelection.hide()
+    end
 end
 
 function HotbarSelection.hide()
@@ -63,7 +72,7 @@ end
 function HotbarSelection.draw()
     if not HotbarSelection.visible then return end
 
-    Theme.drawGradientGlowRect(panel.x, panel.y, panel.w, panel.h, 4, Theme.colors.bg1, Theme.colors.bg2, Theme.colors.primary, Theme.effects.glowWeak * 0.3)
+    Theme.drawGradientGlowRect(panel.x, panel.y, panel.w, panel.h, 4, Theme.colors.bg1, Theme.colors.bg2, Theme.colors.primary, Theme.effects.glowWeak * 0.1)
     Theme.drawEVEBorder(panel.x, panel.y, panel.w, panel.h, 4, Theme.colors.border, 2)
 
     for i, item in ipairs(HotbarSelection.items) do
@@ -80,8 +89,6 @@ function HotbarSelection.draw()
         if item == "turret" then
             local Hotbar = require("src.ui.hud.hotbar")
             Hotbar.drawTurretIcon("gun", Theme.colors.accent, itemX + 4, itemY + 4, panel.itemSize - 8)
-        elseif item == "shield" then
-            drawShieldIcon(itemX + 4, itemY + 4, panel.itemSize - 8, true)
         elseif item == "boost" then
             local Hotbar = require("src.ui.hud.hotbar")
             Hotbar.drawBoostIcon(itemX + 4, itemY + 4, panel.itemSize - 8, true)

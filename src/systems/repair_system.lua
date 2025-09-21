@@ -7,7 +7,8 @@ local function hasRepairMaterials(player, repairCost)
     end
 
     for _, requirement in ipairs(repairCost) do
-        local playerAmount = player.inventory[requirement.item] or 0
+        local inventoryValue = player.inventory[requirement.item] or 0
+        local playerAmount = (type(inventoryValue) == "number") and inventoryValue or 0
         if playerAmount < requirement.amount then
             return false
         end
@@ -21,7 +22,8 @@ local function getPlayerItemCount(player, itemId)
     if not player.inventory then
         return 0
     end
-    return player.inventory[itemId] or 0
+    local inventoryValue = player.inventory[itemId] or 0
+    return (type(inventoryValue) == "number") and inventoryValue or 0
 end
 
 -- Consume repair materials from player inventory
@@ -37,7 +39,14 @@ local function consumeRepairMaterials(player, repairCost)
 
     -- Consume the materials
     for _, requirement in ipairs(repairCost) do
-        player.inventory[requirement.item] = player.inventory[requirement.item] - requirement.amount
+        local inventoryValue = player.inventory[requirement.item] or 0
+        local currentAmount = (type(inventoryValue) == "number") and inventoryValue or 0
+        local newAmount = currentAmount - requirement.amount
+        if newAmount <= 0 then
+            player.inventory[requirement.item] = nil
+        else
+            player.inventory[requirement.item] = newAmount
+        end
     end
 
     return true

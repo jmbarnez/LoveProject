@@ -47,5 +47,8 @@ return {
       { id = "ore_tritanium", min = 3, max = 6, chance = 0.9 },
       { id = "basic_gun", chance = 0.6 },
     }
-  }
+  },
+
+  -- Mark as enemy for red engine trails
+  isEnemy = true
 }

@@ -280,13 +280,20 @@ function PlayerSystem.update(dt, player, input, world, hub)
     local regenRate = (player.energyRegen or 10)
     player.components.health.energy = math.min(player.components.health.maxEnergy, player.components.health.energy + regenRate * dt)
     
-    -- Shield regen from equipped modules
+    -- Shield regen from equipped modules (with non-linear slowdown)
     local shieldRegenRate = player:getShieldRegen()
     if shieldRegenRate > 0 and player.components.health then
         local currentShield = player.components.health.shield or 0
         local maxShield = player.components.health.maxShield or 0
         if currentShield < maxShield then
-            player.components.health.shield = math.min(maxShield, currentShield + shieldRegenRate * dt)
+            -- Calculate non-linear regeneration rate
+            -- Rate decreases exponentially as shields get closer to full
+            local shieldPercent = currentShield / maxShield
+            local regenMultiplier = math.pow(1 - shieldPercent, 2)  -- Quadratic slowdown
+
+            -- Apply regeneration with multiplier
+            local actualRegen = shieldRegenRate * regenMultiplier * dt
+            player.components.health.shield = math.min(maxShield, currentShield + actualRegen)
         end
     end
     
@@ -366,7 +373,7 @@ function PlayerSystem.update(dt, player, input, world, hub)
                 t.beamActive = false
             end
             if t then
-                -- Manual fire per turret slot if bound, or all via global 'turret'
+                -- Handle turret firing based on fireMode
                 local isMissile = t.kind == 'missile'
                 local isUtility = t.kind == 'mining_laser' or t.kind == 'salvaging_laser'
                 local actionName = 'turret_slot_' .. tostring(gridData.slot)
@@ -380,8 +387,27 @@ function PlayerSystem.update(dt, player, input, world, hub)
                     allow = canFire and (perSlotActive or manualFireAll) and (not isMissile)
                 end
 
-                -- Missiles fire normally with other weapons
+                -- Handle firing mode logic
+                local firing = false
+                local autoFire = false
 
+                if t.fireMode == "automatic" then
+                    -- For automatic mode: use toggle state
+                    autoFire = allow
+                    firing = autoFire
+                else
+                    -- For manual mode: only fire when button is actively held
+                    firing = allow
+                    autoFire = false
+                end
+
+                -- Update turret with firing state
+                if t.fireMode == "automatic" then
+                    t.autoFire = autoFire
+                end
+
+                -- Call update with firing state (for manual mode)
+                t.firing = firing
                 t:update(dt, nil, not allow, world)
             end
         end

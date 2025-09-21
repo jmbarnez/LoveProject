@@ -5,14 +5,21 @@ local SkillsPanel = {
     dragDX = 0,
     dragDY = 0,
     closeDown = false,
-    visible = false
+    visible = false,
+    -- Aurora shader for title effect (initialized on first use)
+    auroraShader = nil
 }
 
 local Skills = require("src.core.skills")
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
+local AuroraTitle = require("src.shaders.aurora_title")
 
 local function pointInRect(px, py, r)
+    -- Handle nil values gracefully
+    if px == nil or py == nil or r == nil or r.x == nil or r.y == nil or r.w == nil or r.h == nil then
+        return false
+    end
     return px >= r.x and py >= r.y and px <= r.x + r.w and py <= r.y + r.h
 end
 
@@ -94,11 +101,29 @@ function SkillsPanel.draw()
     Theme.setColor(Theme.withAlpha(Theme.colors.accent, pulseAlpha))
     love.graphics.rectangle("fill", x, y + titleH - 2, w, 2)
     
-    -- Enhanced title text with subtle shadow
-    Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.6))
-    love.graphics.print("Skills", x + 13, y + 9) -- Shadow
-    Theme.setColor(Theme.colors.textHighlight)
-    love.graphics.print("Skills", x + 12, y + 8)
+    -- Aurora title effect with smaller font
+    love.graphics.setFont(Theme.fonts.small)
+    local font = love.graphics.getFont()
+    local textWidth = font:getWidth("Skills")
+
+    -- Initialize aurora shader if needed
+    if not SkillsPanel.auroraShader then
+      SkillsPanel.auroraShader = AuroraTitle.new()
+    end
+
+    if SkillsPanel.auroraShader then
+      SkillsPanel.auroraShader:send("time", love.timer.getTime())
+      love.graphics.setShader(SkillsPanel.auroraShader)
+      Theme.setColor(1, 1, 1, 1)
+      love.graphics.print("Skills", x + 12, y + 8)
+      love.graphics.setShader()
+    else
+      -- Fallback to static aurora-like color
+      Theme.setColor({0.4, 0.8, 1.0, 1.0})  -- Cyan aurora color
+      love.graphics.print("Skills", x + 12, y + 8)
+    end
+
+    love.graphics.setFont(Theme.fonts.normal)
 
     -- Close button
     local closeRect = { x = x + w - 26, y = y + 2, w = 24, h = 24 }

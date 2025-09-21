@@ -207,6 +207,73 @@ local function applyGameState(state, player, world)
   return true
 end
 
+-- Create game objects from save state
+local function createGameFromSave(state)
+  if not state then
+    Log.error("No state provided for game creation")
+    return false
+  end
+
+  -- Create player from save data
+  local playerData = state.player
+  if not playerData then
+    Log.error("No player data in save file")
+    return false
+  end
+
+  -- Create basic player entity
+  local EntityFactory = require("src.templates.entity_factory")
+  local player = EntityFactory.createPlayer(playerData.shipId or "starter_frigate_basic", 0, 0)
+  if not player then
+    Log.error("Failed to create player entity")
+    return false
+  end
+  player.level = playerData.level or 1
+  player.xp = playerData.xp or 0
+  player.gc = playerData.gc or 0
+  player.inventory = playerData.inventory or {}
+  player.active_quests = playerData.active_quests or {}
+  player.quest_progress = playerData.quest_progress or {}
+  player.quest_start_times = playerData.quest_start_times or {}
+  player.docked = playerData.docked or false
+
+  -- Set position
+  if playerData.position then
+    player.components.position.x = playerData.position.x
+    player.components.position.y = playerData.position.y
+    player.components.position.angle = playerData.position.angle or 0
+  end
+
+  -- Set health
+  if playerData.health then
+    if player.components.health then
+      player.components.health.hp = playerData.health.hp
+      player.components.health.maxHP = playerData.health.maxHp
+      player.components.health.shield = playerData.health.shield
+      player.components.health.maxShield = playerData.health.maxShield
+    end
+  end
+
+  -- Create world
+  local World = require("src.core.world")
+  local worldData = state.world or {}
+  local world = World.new(worldData.width or 15000, worldData.height or 15000)
+
+  -- Initialize StateManager with the created player and world
+  StateManager.init(player, world)
+
+  -- Apply remaining state data
+  local success = applyGameState(state, player, world)
+
+  if success then
+    Log.info("Game created from save data successfully")
+    return true
+  else
+    Log.error("Failed to create game from save data")
+    return false
+  end
+end
+
 -- Save game to slot
 function StateManager.saveGame(slotName, description)
   if not saveEnabled then
@@ -258,36 +325,42 @@ function StateManager.saveGame(slotName, description)
 end
 
 -- Load game from slot
-function StateManager.loadGame(slotName)
+function StateManager.loadGame(slotName, createNewGame)
   slotName = slotName or "quicksave"
-  
+
   local filename = SAVE_DIRECTORY .. slotName .. ".json"
-  
+
   -- Check if save file exists
   if not love.filesystem.getInfo(filename) then
     Log.warn("Save file not found:", filename)
     return false
   end
-  
+
   -- Read save file
   local saveData, error = love.filesystem.read(filename)
   if not saveData then
     Log.error("Failed to read save file:", error)
     return false
   end
-  
+
   -- Parse JSON
   local json = require("src.libs.json")
   local success, state = pcall(json.decode, saveData)
-  
+
   if not success then
     Log.error("Failed to parse save file:", state)
     return false
   end
-  
-  -- Apply state to current game
-  local loaded = applyGameState(state, currentPlayer, currentWorld)
-  
+
+  -- If no current player/world exists, we need to create them from save data
+  local loaded
+  if not currentPlayer or not currentWorld or createNewGame then
+    loaded = createGameFromSave(state)
+  else
+    -- Apply state to current game
+    loaded = applyGameState(state, currentPlayer, currentWorld)
+  end
+
   if loaded then
     Log.info("Game loaded from slot:", slotName)
     return true

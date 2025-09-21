@@ -1,5 +1,6 @@
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
+local AuroraTitle = require("src.shaders.aurora_title")
 
 local Updates = {
   visible = false,
@@ -9,6 +10,8 @@ local Updates = {
   x = nil,
   y = nil,
   closeDown = false,
+  -- Aurora shader for title effect (initialized on first use)
+  auroraShader = nil,
 }
 
 local updateHistory = {
@@ -26,6 +29,10 @@ local updateHistory = {
 }
 
 local function pointInRect(px, py, rx, ry, rw, rh)
+  -- Handle nil values gracefully
+  if px == nil or py == nil or rx == nil or ry == nil or rw == nil or rh == nil then
+    return false
+  end
   return px >= rx and py >= ry and px <= rx + rw and py <= ry + rh
 end
 
@@ -33,9 +40,30 @@ local function panel(x, y, w, h, title)
   -- Hard corners for dark classic Windows style
   Theme.drawGradientGlowRect(x, y, w, h, 8, Theme.explorer.contentBg, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak * 0.18)
   Theme.drawEVEBorder(x, y, w, h, 8, Theme.colors.border, 8)
-  Theme.drawVerticalGradient(x, y, w, 28, Theme.components.window.titleBg, Theme.components.window.titleBg, 8)
-  Theme.setColor(Theme.colors.text)
-  love.graphics.print(title or "Update History", x + 10, y + 6)
+  -- Aurora title effect
+  love.graphics.setFont(Theme.fonts.small)
+  local font = love.graphics.getFont()
+  local titleText = title or "Update History"
+  local textWidth = font:getWidth(titleText)
+
+  -- Initialize aurora shader if needed
+  if not Updates.auroraShader then
+    Updates.auroraShader = AuroraTitle.new()
+  end
+
+  if Updates.auroraShader then
+    Updates.auroraShader:send("time", love.timer.getTime())
+    love.graphics.setShader(Updates.auroraShader)
+    Theme.setColor(1, 1, 1, 1)
+    love.graphics.print(titleText, x + 10, y + 6)
+    love.graphics.setShader()
+  else
+    -- Fallback to static aurora-like color
+    Theme.setColor({0.4, 0.8, 1.0, 1.0})  -- Cyan aurora color
+    love.graphics.print(titleText, x + 10, y + 6)
+  end
+
+  love.graphics.setFont(Theme.fonts.normal)
 end
 
 -- drawCloseButton is provided by theme

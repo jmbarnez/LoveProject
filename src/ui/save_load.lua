@@ -168,13 +168,13 @@ function SaveLoad:draw(player, x, y, w, h)
   end
 end
 
-function SaveLoad:mousepressed(player, x, y, button)
+function SaveLoad:mousepressed(player, x, y, button, w, h)
   if button ~= 1 then return false end
-  
+
   local font = love.graphics.getFont()
   local lineHeight = font:getHeight() + 4
   local checkY = y + lineHeight * 6.5 -- Approximate position after header
-  
+
   -- Check new save button
   if x >= 10 and x <= 90 and y >= checkY and y <= checkY + lineHeight * 1.5 then
     -- Create new save with current timestamp as name
@@ -182,34 +182,34 @@ function SaveLoad:mousepressed(player, x, y, button)
     StateManager.saveGame(saveName, "Manual save - " .. os.date("%Y-%m-%d %H:%M:%S"))
     return true
   end
-  
+
   -- Check save slots for load/delete buttons
   local slots = StateManager.getSaveSlots()
   local currentY = checkY + lineHeight * 4 -- Approximate start of save list
-  
+
   for i, slot in ipairs(slots) do
     if slot.name ~= "autosave" then
       local slotH = lineHeight * 2.5
       local slotY = currentY
-      
-      -- Load button area
-      local loadButtonX = x + 400 -- Approximate button position
+
+      -- Load button area (positioned relative to the window)
+      local loadButtonX = x + w - 100
       if x >= loadButtonX and x <= loadButtonX + 60 and y >= slotY + 4 and y <= slotY + lineHeight * 1.2 + 4 then
         StateManager.loadGame(slot.name)
         return true
       end
-      
-      -- Delete button area
-      local deleteButtonX = loadButtonX - 70
+
+      -- Delete button area (positioned relative to the window)
+      local deleteButtonX = x + w - 170
       if x >= deleteButtonX and x <= deleteButtonX + 60 and y >= slotY + 4 and y <= slotY + lineHeight * 1.2 + 4 then
         StateManager.deleteSave(slot.name)
         return true
       end
-      
+
       currentY = currentY + slotH + 4
     end
   end
-  
+
   return false
 end
 

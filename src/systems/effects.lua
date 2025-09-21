@@ -72,34 +72,23 @@ function Effects.spawnSonicBoom(x, y, opts)
     local w1 = 1
     Effects.add({ type='ring', x=x, y=y, r0=r0, r1=r1, w0=w0, w1=w1, t=0, life=life + (i-1)*0.12, color=baseColor })
   end
-  -- Outward sparks
-  local n = math.max(12, math.floor(24 * sizeScale))
-  for i=1,n do
-    local a = (i/n) * math.pi * 2 + math.random() * 0.1
-    local s = (140 + math.random()*120) * sizeScale
-    Effects.add({ type='spark', x=x, y=y, vx=math.cos(a)*s, vy=math.sin(a)*s, t=0, life=0.45+math.random()*0.25,
-      color={1.0,0.8,0.3,0.95}, size=2 })
-  end
-  -- Smoke swell
-  for i=1,5 do
-    local a = math.random()*math.pi*2
-    local rr = 10 + math.random()*30
-    Effects.add({ type='smoke', x=x+math.cos(a)*rr, y=y+math.sin(a)*rr, r0=8, rg=90+math.random()*50, t=0, life=0.9+math.random()*0.5,
-      color={0.28,0.30,0.34,0.35} })
-  end
+  -- Simple smoke swell
+  local smokeLife = life * 1.5
+  local smokeSize = rStart * 1.5
+  Effects.add({ type='smoke', x=x, y=y, vx=0, vy=0, t=0, life=smokeLife, color={0.4,0.3,0.2,0.7}, size=smokeSize })
 end
 
 -- Compatibility wrapper: createExplosion expected by some callers
--- Routes to our current sonic-boom style explosion with reasonable defaults.
+-- Routes to our current sonic-boom style explosion with enhanced defaults for ship destruction.
 function Effects.createExplosion(x, y, power, spawnDebris)
   local sizeScale = math.max(0.6, math.min(2.5, (power or 1) / 10))
   Effects.spawnSonicBoom(x, y, {
-    rings = 2,
+    rings = 1,  -- Simple single ring
     sizeScale = sizeScale,
-    rStart = 10 * sizeScale,
-    rStep = 50 * sizeScale,
-    rSpan = 100 * sizeScale,
-    life = 0.6 + 0.1 * sizeScale,
+    rStart = 10 * sizeScale,  -- Standard start size
+    rSpan = 80 * sizeScale,   -- Standard ring width
+    life = 0.8 + 0.1 * sizeScale,  -- Standard lifetime
+    color = {1.0, 0.6, 0.2, 0.7},  -- Orange/red for ship destruction
   })
 end
 

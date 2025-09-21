@@ -201,21 +201,29 @@ function Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePl
   -- Real-world time display underneath minimap
   local timeY = y + h + math.floor(8 * s) -- 8 pixels below minimap
   local currentTime = os.date("%H:%M:%S") -- 24-hour format
-  local font = love.graphics.getFont()
+
+  -- Use smaller font for time
+  local oldFont = love.graphics.getFont()
+  local font = Theme.fonts and Theme.fonts.xsmall or oldFont
+  love.graphics.setFont(font)
+
   local timeText = currentTime
   local textWidth = font:getWidth(timeText)
   local textHeight = font:getHeight()
-  
+
   -- Center the time text under the minimap
   local timeX = x + (w - textWidth) / 2
-  
+
   -- Semi-transparent background for better readability
   Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.7))
   love.graphics.rectangle("fill", timeX - 4, timeY - 2, textWidth + 8, textHeight + 4, 4)
-  
+
   -- Draw the time text
   Theme.setColor(Theme.colors.textSecondary)
   love.graphics.print(timeText, timeX, timeY)
+
+  -- Restore original font
+  if oldFont then love.graphics.setFont(oldFont) end
 end
 
 return Minimap

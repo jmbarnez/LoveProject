@@ -36,7 +36,7 @@ UIManager.state = {
   inventory = { open = false, zIndex = 10 },
   bounty = { open = false, zIndex = 15 },
   docked = { open = false, zIndex = 30 },
-  escape = { open = false, zIndex = 100 }, -- Escape menu should be on top
+  escape = { open = false, zIndex = 100, showingSaveSlots = false }, -- Escape menu should be on top
   skills = { open = false, zIndex = 35 },
   map = { open = false, zIndex = 90 }, -- Map should be high priority but below escape
   warp = { open = false, zIndex = 95 }, -- Warp should be high priority but below escape
@@ -94,6 +94,8 @@ function UIManager.update(dt, player)
   UIManager.modalActive = UIManager.state.escape.open or UIManager.state.map.open or UIManager.state.warp.open or SettingsPanel.visible
   if SettingsPanel.visible then
     UIManager.modalComponent = "settings"
+  elseif UIManager.state.escape.open and UIManager.state.escape.showingSaveSlots then
+    UIManager.modalComponent = "escape_save_slots"
   elseif UIManager.state.escape.open then
     UIManager.modalComponent = "escape"
   elseif UIManager.state.map.open then
@@ -121,6 +123,10 @@ function UIManager.isMouseOverUI()
 
   -- If any full-screen/modal UI is open, consider cursor over UI
   if UIManager.state.escape.open or UIManager.state.map.open or UIManager.state.warp.open or UIManager.state.docked.open then
+    return true
+  end
+  -- Also consider save slots as modal UI
+  if UIManager.state.escape.open and UIManager.state.escape.showingSaveSlots then
     return true
   end
   if UIManager.state.bounty.open or UIManager.state.skills.open then
@@ -232,16 +238,7 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
     end
   end
 
-  -- Draw tooltips only for the active component
-  if topComponent then
-    -- Import tooltip module if needed
-    local Tooltip = require("src.ui.tooltip")
-
-    if topComponent == "inventory" and Inventory.hoveredItem and Inventory.hoverTimer > 0.5 then
-      local mx, my = love.mouse.getPosition()
-      Tooltip.drawShopTooltip(Inventory.hoveredItem.def, mx, my)
-    end
-  end
+  -- Note: Tooltip drawing is now handled by individual UI components
 
   Notifications.draw()
 
@@ -252,6 +249,12 @@ end
 -- Draw modal overlay to dim background
 function UIManager.drawOverlay()
     if UIManager.modalActive or SettingsPanel.visible then
+        local sw, sh = Viewport.getDimensions()
+        Theme.setColor(Theme.colors.overlay)
+        love.graphics.rectangle("fill", 0, 0, sw, sh)
+    end
+    -- Also draw overlay for save slots
+    if UIManager.state.escape.open and UIManager.state.escape.showingSaveSlots then
         local sw, sh = Viewport.getDimensions()
         Theme.setColor(Theme.colors.overlay)
         love.graphics.rectangle("fill", 0, 0, sw, sh)
@@ -288,6 +291,8 @@ function UIManager.open(component)
       DockedUI.visible = true
     elseif component == "escape" then
       EscapeMenu.show()
+      -- Reset save slots state when opening escape menu
+      UIManager.state.escape.showingSaveSlots = false
     elseif component == "skills" then
       SkillsPanel.visible = true
     elseif component == "map" then
@@ -320,6 +325,10 @@ function UIManager.close(component)
       if DockedUI.hide then DockedUI.hide() end
     elseif component == "escape" then
       EscapeMenu.hide()
+      -- Also reset save slots state when closing escape menu
+      if UIManager.state.escape.showingSaveSlots then
+        UIManager.state.escape.showingSaveSlots = false
+      end
     elseif component == "skills" then
       SkillsPanel.visible = false
     elseif component == "map" then
@@ -362,21 +371,63 @@ end
 
 -- Handle mouse input for UI components
 function UIManager.mousepressed(x, y, button)
-  -- Process in reverse layer order (top to bottom)
-  local sortedLayers = {}
+  -- Build list of open components with z-index for proper top-first routing
+  local openLayers = {}
   for _, component in ipairs(UIManager.layerOrder) do
     if UIManager.state[component].open then
-      table.insert(sortedLayers, component)
+      table.insert(openLayers, { name = component, z = UIManager.state[component].zIndex })
     end
   end
-  
-  -- Reverse to process from top layer down
-  for i = #sortedLayers, 1, -1 do
-    local component = sortedLayers[i]
+
+  -- Sort by z-index descending (topmost first)
+  table.sort(openLayers, function(a, b) return (a.z or 0) > (b.z or 0) end)
+
+  -- Helper to get a component rect for hit-testing
+  local function getComponentRect(name)
+    if name == "inventory" and Inventory.getRect then
+      return Inventory.getRect()
+    elseif name == "docked" then
+      -- Fullscreen docked UI
+      local Viewport = require("src.core.viewport")
+      local sw, sh = Viewport.getDimensions()
+      return { x = 0, y = 0, w = sw, h = sh }
+    end
+    return nil
+  end
+
+  -- Click-to-front behavior (Windows-like):
+  -- If clicking inside the inventory window, always bring it to front even if a fullscreen docked UI exists.
+  local invRect = getComponentRect("inventory")
+  local raised = false
+  if invRect and x >= invRect.x and x <= invRect.x + invRect.w and y >= invRect.y and y <= invRect.y + invRect.h then
+    UIManager.topZ = UIManager.topZ + 1
+    UIManager.state["inventory"].zIndex = UIManager.topZ
+    raised = true
+  end
+  if not raised then
+    -- Otherwise, raise the topmost component under the cursor
+    for _, layer in ipairs(openLayers) do
+      local r = getComponentRect(layer.name)
+      if r and x >= r.x and x <= r.x + r.w and y >= r.y and y <= r.y + r.h then
+        UIManager.topZ = UIManager.topZ + 1
+        UIManager.state[layer.name].zIndex = UIManager.topZ
+        break
+      end
+    end
+  end
+
+  -- Re-sort after raising
+  for _, layer in ipairs(openLayers) do
+    layer.z = UIManager.state[layer.name].zIndex
+  end
+  table.sort(openLayers, function(a, b) return (a.z or 0) > (b.z or 0) end)
+
+  -- Route input to components from top to bottom
+  for _, layer in ipairs(openLayers) do
+    local component = layer.name
     local handled = false
     local shouldClose = false
-    
-    -- Route to appropriate component
+
     if component == "inventory" and Inventory.mousepressed then
       handled, shouldClose = Inventory.mousepressed(x, y, button, UIManager._player)
       if shouldClose then
@@ -390,13 +441,18 @@ function UIManager.mousepressed(x, y, button)
     elseif component == "docked" and DockedUI.mousepressed then
       handled, shouldClose = DockedUI.mousepressed(x, y, button)
       if shouldClose then
-        -- Trigger undocking via player
         local player = DockedUI.player
         if player and player.undock then
           player:undock()
         end
       end
     elseif component == "escape" and EscapeMenu.mousepressed then
+      handled, shouldClose = EscapeMenu.mousepressed(x, y, button)
+      if shouldClose then
+        UIManager.close("escape")
+      end
+    elseif component == "escape_save_slots" and EscapeMenu.mousepressed then
+      -- Handle save slots input through escape menu
       handled, shouldClose = EscapeMenu.mousepressed(x, y, button)
       if shouldClose then
         UIManager.close("escape")
@@ -411,13 +467,12 @@ function UIManager.mousepressed(x, y, button)
     elseif component == "warp" and warpInstance.mousepressed then
       handled = warpInstance:mousepressed(x, y, button)
     end
-    
-    -- If handled, stop processing
+
     if handled then
       return true
     end
   end
-  
+
   return false
 end
 
@@ -431,12 +486,15 @@ function UIManager.mousereleased(x, y, button)
   for _, component in ipairs(UIManager.layerOrder) do
     if UIManager.state[component].open then
       if component == "inventory" and Inventory.mousereleased then
-        Inventory.mousereleased(x, y, button)
+        Inventory.mousereleased(x, y, button, UIManager._player)
       elseif component == "bounty" and Bounty.mousereleased then
         Bounty.mousereleased(x, y, button)
       elseif component == "docked" and DockedUI.mousereleased then
         DockedUI.mousereleased(x, y, button)
       elseif component == "escape" and EscapeMenu.mousereleased then
+        EscapeMenu.mousereleased(x, y, button)
+      elseif component == "escape_save_slots" and EscapeMenu.mousereleased then
+        -- Handle save slots mouse release through escape menu
         EscapeMenu.mousereleased(x, y, button)
       elseif component == "skills" and SkillsPanel.mousereleased then
         SkillsPanel.mousereleased(x, y, button)
@@ -458,6 +516,9 @@ function UIManager.mousemoved(x, y, dx, dy)
         if DockedUI.mousemoved(x, y, dx, dy) then return true end
       elseif component == "warp" and warpInstance.mousemoved then
         if warpInstance:mousemoved(x, y, dx, dy) then return true end
+      elseif component == "escape_save_slots" then
+        -- Save slots UI doesn't need mouse move handling, but we need to consume the event
+        return true
       end
     end
   end
@@ -470,6 +531,10 @@ function UIManager.wheelmoved(x, y)
   end
   if Bounty.visible and Bounty.wheelmoved then
     if Bounty.wheelmoved(x, y) then return true end
+  end
+  -- Save slots UI doesn't need wheel handling, but we need to consume the event if it's active
+  if UIManager.state.escape.open and UIManager.state.escape.showingSaveSlots then
+    return true
   end
   return false
 end
@@ -537,6 +602,9 @@ function UIManager.keypressed(key, scancode, isrepeat)
         handled = warpInstance:keypressed(key, scancode, isrepeat)
       elseif component == "escape" and EscapeMenu.keypressed then
         handled = EscapeMenu.keypressed(key, scancode, isrepeat)
+      elseif component == "escape_save_slots" and EscapeMenu.keypressed then
+        -- Handle save slots keyboard input through escape menu
+        handled = EscapeMenu.keypressed(key, scancode, isrepeat)
       end
       
       if handled then
@@ -558,9 +626,45 @@ function UIManager.textinput(text)
         if DockedUI.textinput(text) then return true end
       elseif component == "escape" and EscapeMenu.textinput then
         if EscapeMenu.textinput(text) then return true end
+      elseif component == "escape_save_slots" and EscapeMenu.textinput then
+        -- Handle save slots text input through escape menu
+        if EscapeMenu.textinput(text) then return true end
       end
     end
   end
+  return false
+end
+
+-- Handle keyboard release for UI components
+function UIManager.keyreleased(key, scancode)
+  -- Route to active components
+  for _, component in ipairs(UIManager.layerOrder) do
+    if UIManager.state[component].open then
+      local handled = false
+
+      if component == "inventory" and Inventory.keyreleased then
+        handled = Inventory.keyreleased(key, scancode)
+      elseif component == "bounty" and Bounty.keyreleased then
+        handled = Bounty.keyreleased(key, scancode)
+      elseif component == "docked" and DockedUI.keyreleased then
+        handled = DockedUI.keyreleased(key, scancode)
+      elseif component == "map" and Map.keyreleased then
+        handled = Map.keyreleased(key, scancode)
+      elseif component == "warp" and warpInstance.keyreleased then
+        handled = warpInstance:keyreleased(key, scancode)
+      elseif component == "escape" and EscapeMenu.keyreleased then
+        handled = EscapeMenu.keyreleased(key, scancode)
+      elseif component == "escape_save_slots" and EscapeMenu.keyreleased then
+        -- Handle save slots key release through escape menu
+        handled = EscapeMenu.keyreleased(key, scancode)
+      end
+
+      if handled then
+        return true
+      end
+    end
+  end
+
   return false
 end
 

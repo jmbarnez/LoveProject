@@ -116,6 +116,15 @@ local function spawnEnemy(player, hub, world)
   if enemyShip then
       world:addEntity(enemyShip)
       logEnemyComponents(enemyShip) -- Log enemy components
+      
+      -- Debug: Check if AI component was created
+      if enemyShip.components and enemyShip.components.ai then
+          print(string.format("Enemy spawned with AI: range=%.1f, state=%s", 
+              enemyShip.components.ai.range or 0, 
+              enemyShip.components.ai.state or "nil"))
+      else
+          print("ERROR: Enemy spawned without AI component!")
+      end
   end
 end
 

@@ -28,6 +28,10 @@ local Map = {
 }
 
 local function pointIn(px, py, r)
+  -- Handle nil values gracefully
+  if px == nil or py == nil or r == nil or r.x == nil or r.y == nil or r.w == nil or r.h == nil then
+    return false
+  end
   return px >= r.x and py >= r.y and px <= r.x + r.w and py <= r.y + r.h
 end
 

@@ -7,6 +7,8 @@ local Renderable = require("src.components.renderable")
 local Collidable = require("src.components.collidable")
 local Health = require("src.components.health")
 local AI = require("src.components.ai")
+local EngineTrail = require("src.components.engine_trail")
+local PhysicsComponent = require("src.components.physics")
 
 local Enemy = {}
 Enemy.__index = Enemy
@@ -42,11 +44,13 @@ function Enemy.new(x, y, options)
     tDef = Util.copy(tDef)
     tDef.capCost = 0 -- Drones don't use energy
     tDef.cycle = 3.0 -- Slower firing rate for enemies
+    tDef.fireMode = "automatic" -- Enemy turrets should fire automatically
   end
   self.turret = Turret.new(self, tDef or {
     type = "laser",
     optimal = 380, falloff = 260,
-    cycle = 4.5, capCost = 0
+    cycle = 4.5, capCost = 0,
+    fireMode = "automatic"  -- Enemy turrets should fire automatically
   })
   -- Behavior ranges
   local opt = self.turret.optimal or 380
@@ -83,12 +87,20 @@ function Enemy.new(x, y, options)
     health     = Health.new({ hp = 5, maxHP = 5, shield = 3, maxShield = 3 }),
     physics    = physics,
     renderable = Renderable.new("enemy", { visuals = self.visuals }),
-    ai         = AI.new({ 
+    ai         = AI.new({
       intelligenceLevel = intelligenceLevel,
       aggressiveType = aggressiveType,
-      range = self.aggroRange or 600 
+      range = self.aggroRange or 600,
+      spawnPos = {x = x, y = y},  -- Set spawn position for patrolling
+      patrolCenter = {x = x, y = y}  -- Patrol around spawn location
     }),
     equipment  = { turrets = {} },
+    engine_trail = EngineTrail.new({
+        size = 0.8,
+        offset = 12,
+        color1 = {1.0, 0.2, 0.1, 1.0},  -- Red primary
+        color2 = {1.0, 0.2, 0.1, 0.5}   -- Red secondary
+    }),  -- Red thrusters for AI
   }
 
   -- Provide turret via components.equipment for consistency when inspected by systems

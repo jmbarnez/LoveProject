@@ -70,6 +70,10 @@ function Turret.new(owner, params)
     self.firing = false
     self.cooldown = 0 -- Time remaining until next shot
 
+    -- Firing mode: manual (hold to fire) or automatic (toggle to fire)
+    self.fireMode = params.fireMode or "manual"
+    self.autoFire = false -- For automatic mode, tracks toggle state
+
     -- Set default tracer colors if not specified
     if (self.kind == 'gun' or self.kind == 'projectile' or not self.kind) and not self.tracer.color then
         self.tracer.color = {0.35, 0.70, 1.00, 1.0}
@@ -121,7 +125,8 @@ function Turret:update(dt, target, locked, world)
             local diff = desired - current
             -- Normalize to [-pi,pi]
             local nd = math.atan2(math.sin(diff), math.cos(diff))
-            local tolerance = self.fireFacingTolerance or math.pi/2
+            -- More forgiving facing tolerance for enemy ships to allow firing while orbiting
+            local tolerance = self.fireFacingTolerance or (self.owner.isPlayer and math.pi/6 or math.pi/3)  -- 60 degrees for enemies, 30 for players
             if math.abs(nd) > tolerance then
                 -- Not facing yet; skip firing this update
                 self.firing = false
@@ -130,23 +135,25 @@ function Turret:update(dt, target, locked, world)
         end
     end
 
-    self.firing = true
+    -- For manual mode, only fire if we're actively firing (button held)
+    -- For automatic mode, fire if autoFire is enabled and cooldown allows
+    if self.fireMode == "manual" or (self.fireMode == "automatic" and self.autoFire) then
+        -- Route to appropriate weapon handler
+        if self.kind == "gun" or self.kind == "projectile" or not self.kind then
+            ProjectileWeapons.updateGunTurret(self, dt, target, locked, world)
+        elseif self.kind == "missile" then
+            ProjectileWeapons.updateMissileTurret(self, dt, target, locked, world)
+        elseif self.kind == "laser" then
+            BeamWeapons.updateLaserTurret(self, dt, target, locked, world)
+        elseif self.kind == "mining_laser" then
+            UtilityBeams.updateMiningLaser(self, dt, target, locked, world)
+        elseif self.kind == "salvaging_laser" then
+            UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
+        end
 
-    -- Route to appropriate weapon handler
-    if self.kind == "gun" or self.kind == "projectile" or not self.kind then
-        ProjectileWeapons.updateGunTurret(self, dt, target, locked, world)
-    elseif self.kind == "missile" then
-        ProjectileWeapons.updateMissileTurret(self, dt, target, locked, world)
-    elseif self.kind == "laser" then
-        BeamWeapons.updateLaserTurret(self, dt, target, locked, world)
-    elseif self.kind == "mining_laser" then
-        UtilityBeams.updateMiningLaser(self, dt, target, locked, world)
-    elseif self.kind == "salvaging_laser" then
-        UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
+        -- Set cooldown for next shot
+        self.cooldown = effectiveCycle
     end
-
-    -- Set cooldown for next shot
-    self.cooldown = effectiveCycle
 
     -- Update last fire time (legacy compatibility)
     self.lastFireTime = love.timer and love.timer.getTime() or 0

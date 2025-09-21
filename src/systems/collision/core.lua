@@ -5,6 +5,56 @@ local ProjectileCollision = require("src.systems.collision.projectile_collision"
 
 local CollisionSystem = {}
 
+-- Cache for expensive radius calculations
+local radiusCache = {}
+local visualRadiusCache = {}
+local cacheCounter = 0
+
+-- Cached radius calculation to avoid expensive recalculations
+local function getCachedEffectiveRadius(entity)
+    local cacheKey = entity.id .. "_" .. (entity._radiusCacheVersion or 0)
+
+    -- Check if we have a cached value
+    if radiusCache[cacheKey] then
+        return radiusCache[cacheKey]
+    end
+
+    -- Calculate and cache the radius
+    local radius = Radius.calculateEffectiveRadius(entity)
+    radiusCache[cacheKey] = radius
+
+    -- Periodic cleanup to prevent memory leaks
+    cacheCounter = cacheCounter + 1
+    if cacheCounter > 1000 then
+        cacheCounter = 0
+        -- Clear old entries
+        local newCache = {}
+        local count = 0
+        for k, v in pairs(radiusCache) do
+            if count < 500 then
+                newCache[k] = v
+                count = count + 1
+            end
+        end
+        radiusCache = newCache
+    end
+
+    return radius
+end
+
+-- Cached visual radius calculation
+local function getCachedVisualRadius(entity)
+    local cacheKey = entity.id .. "_visual_" .. (entity._visualRadiusCacheVersion or 0)
+
+    if visualRadiusCache[cacheKey] then
+        return visualRadiusCache[cacheKey]
+    end
+
+    local radius = Radius.computeVisualRadius(entity)
+    visualRadiusCache[cacheKey] = radius
+    return radius
+end
+
 function CollisionSystem:new(worldBounds)
     local self = setmetatable({}, {__index = self})
     self.quadtree = Quadtree.new(worldBounds, 4)
@@ -16,8 +66,8 @@ function CollisionSystem:update(world, dt)
 
     -- Insert all collidable entities into the quadtree
     for _, e in pairs(world:get_entities_with_components("collidable", "position")) do
-        -- Use effective radius (accounts for active shields) for broad-phase
-        local r = Radius.calculateEffectiveRadius(e)
+        -- Use cached effective radius (accounts for active shields) for broad-phase
+        local r = getCachedEffectiveRadius(e)
         self.quadtree:insert({
             x = e.components.position.x - r,
             y = e.components.position.y - r,
@@ -29,12 +79,11 @@ function CollisionSystem:update(world, dt)
 
     -- Insert renderable-only entities (e.g., stations, planets, warp gates) for rendering culling
     -- These have no physics collisions but need broad-phase for visibility
-    local Radius = require("src.systems.collision.radius")
     for _, e in pairs(world:get_entities_with_components("renderable", "position")) do
         if not e.components.collidable then  -- Only if no collidable component
-            local visualR = Radius.computeVisualRadius(e)
+            local visualR = getCachedVisualRadius(e)
             if visualR > 0 then
-                local r = visualR  -- Use visual radius directly
+                local r = visualR  -- Use cached visual radius directly
                 self.quadtree:insert({
                     x = e.components.position.x - r,
                     y = e.components.position.y - r,

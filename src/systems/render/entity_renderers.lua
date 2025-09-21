@@ -5,8 +5,62 @@ local Config = require("src.content.config")
 local PlayerRenderer = require("src.systems.render.player_renderer")
 local Log = require("src.core.log")
 local Content = require("src.content.content")
+local DebugPanel = require("src.ui.debug_panel")
+local Viewport = require("src.core.viewport")
 
 local EntityRenderers = {}
+
+-- Cached renderer functions for better performance
+local cachedRenderers = {}
+local rendererCounter = 0
+
+-- Spatial culling disabled - entities only disappear when completely off-screen
+-- This ensures that even when zoomed out all the way, important entities like stations remain visible
+
+-- Cache entity renderer type to avoid repeated component checks
+local function getEntityRendererType(entity)
+    -- Use a simple counter-based caching system
+    if not entity._rendererType then
+        if entity.components.ai then
+            entity._rendererType = 'enemy'
+        elseif entity.isRemotePlayer then
+            entity._rendererType = 'remote_player'
+        elseif entity.components.warp_gate then
+            entity._rendererType = 'warp_gate'
+        elseif entity.components.mineable then
+            entity._rendererType = 'asteroid'
+        elseif entity.isItemPickup or entity.components.item_pickup then
+            entity._rendererType = 'item_pickup'
+        elseif entity.components.wreckage then
+            entity._rendererType = 'wreckage'
+        elseif entity.components.lootable and entity.isWreckage then
+            entity._rendererType = 'wreckage'
+        elseif entity.components.bullet then
+            entity._rendererType = 'bullet'
+        elseif entity.isStation then
+            entity._rendererType = 'station'
+        elseif entity.type == "world_object" and entity.subtype == "planet_massive" then
+            entity._rendererType = 'planet'
+        elseif entity.components.lootable then
+            entity._rendererType = 'lootContainer'
+        else
+            entity._rendererType = 'fallback'
+        end
+
+        -- Reset cache periodically to handle dynamic entity changes
+        rendererCounter = rendererCounter + 1
+        if rendererCounter > 10000 then
+            rendererCounter = 0
+            -- Clear all cached types to refresh
+            for _, e in pairs(entity) do
+                if type(e) == 'table' and e._rendererType then
+                    e._rendererType = nil
+                end
+            end
+        end
+    end
+    return entity._rendererType
+end
 
 -- Remote player renderer (uses player renderer with blue tint)
 function EntityRenderers.remote_player(entity, player)
@@ -94,6 +148,47 @@ function EntityRenderers.enemy(entity, player)
 
     -- Mini shield and health bars (screen-aligned) above enemy
     EnemyStatusBars.drawMiniBars(entity)
+
+    -- Draw detection cone for AI enemies (only in debug, always forward in local +X)
+    if entity.components.ai and entity.components.ai.state ~= "dead" and DebugPanel.isVisible() then
+        local ai = entity.components.ai
+        local detectionRange = ai.intelligence.detectionRange
+
+        -- Cone settings
+        local coneAngle = math.pi / 3  -- 60 degrees total (30 degrees each side)
+        local halfConeAngle = coneAngle / 2
+        local coneLength = detectionRange * 0.8  -- 80% of detection range
+
+        -- Local-space cone points (ship is already rotated by pos.angle outside)
+        local startX, startY = 0, 0
+        local tipX, tipY = coneLength, 0
+        local leftX = math.cos(-halfConeAngle) * coneLength
+        local leftY = math.sin(-halfConeAngle) * coneLength
+        local rightX = math.cos(halfConeAngle) * coneLength
+        local rightY = math.sin(halfConeAngle) * coneLength
+
+        if ai.state == "hunting" then
+            RenderUtils.setColor({1.0, 0.8, 0.0, 0.12})
+            love.graphics.setLineWidth(1)
+            love.graphics.line(startX, startY, leftX, leftY)
+            love.graphics.line(startX, startY, rightX, rightY)
+            love.graphics.line(leftX, leftY, tipX, tipY)
+            love.graphics.line(rightX, rightY, tipX, tipY)
+            RenderUtils.setColor({1.0, 0.8, 0.0, 0.05})
+            love.graphics.polygon("fill", startX, startY, leftX, leftY, tipX, tipY, rightX, rightY)
+            love.graphics.setLineWidth(1)
+            RenderUtils.setColor({1.0, 0.8, 0.0, 0.20})
+            love.graphics.circle("line", tipX, tipY, 3)
+        else
+            RenderUtils.setColor({1.0, 0.8, 0.0, 0.06})
+            love.graphics.setLineWidth(1)
+            love.graphics.line(startX, startY, leftX, leftY)
+            love.graphics.line(startX, startY, rightX, rightY)
+            love.graphics.line(leftX, leftY, tipX, tipY)
+            love.graphics.line(rightX, rightY, tipX, tipY)
+            love.graphics.setLineWidth(1)
+        end
+    end
 end
 
 -- Massive planet renderer (decorative background body)
@@ -983,41 +1078,59 @@ function EntityRenderers.draw(world, camera, player)
         if entity == player then goto continue end
         local pos = entity.components.position
         if not pos then goto continue end
+
+        -- Spatial culling: disabled to ensure entities only disappear when completely off-screen
+        -- Even when zoomed out all the way, entities should remain visible if they're on screen
+        -- Removed culling to prevent important entities like stations from disappearing unexpectedly
         love.graphics.push()
         love.graphics.translate(pos.x, pos.y)
         love.graphics.rotate(pos.angle or 0)
-        -- Determine renderer based on components
-        if entity.components.ai then
-            EntityRenderers.enemy(entity, player)
-        elseif entity.isRemotePlayer then
-            EntityRenderers.remote_player(entity, player)
-        elseif entity.components.warp_gate then
-            EntityRenderers.warp_gate(entity, player)
-        elseif entity.components.mineable then
-            EntityRenderers.asteroid(entity, player)
-        elseif entity.isItemPickup or entity.components.item_pickup then
-            EntityRenderers.item_pickup(entity, player)
-        elseif entity.components.wreckage then
-            EntityRenderers.wreckage(entity, player)
-        elseif entity.components.lootable and entity.isWreckage then
-            EntityRenderers.wreckage(entity, player)
-        elseif entity.components.bullet then
-            EntityRenderers.bullet(entity, player)
-        elseif entity.isStation then
-            EntityRenderers.station(entity, player)
-        elseif entity.type == "world_object" and entity.subtype == "planet_massive" then
-            EntityRenderers.planet(entity, player)
-        elseif entity.components.lootable then
-            EntityRenderers.lootContainer(entity, player)
+
+        -- Use cached renderer type for better performance
+        local rendererType = getEntityRendererType(entity)
+        local renderer = cachedRenderers[rendererType]
+
+        if renderer then
+            renderer(entity, player)
         else
-            -- Fallback
-            local props = entity.components.renderable.props or {}
-            local v = props.visuals or {}
-            local size = v.size or 1.0
-            local S = RenderUtils.createScaler(size)
-            love.graphics.setColor(1, 1, 1, 1)
-            love.graphics.circle("fill", 0, 0, S(10))
+            -- Create renderer function once and cache it
+            if rendererType == 'enemy' then
+                renderer = EntityRenderers.enemy
+            elseif rendererType == 'remote_player' then
+                renderer = EntityRenderers.remote_player
+            elseif rendererType == 'warp_gate' then
+                renderer = EntityRenderers.warp_gate
+            elseif rendererType == 'asteroid' then
+                renderer = EntityRenderers.asteroid
+            elseif rendererType == 'item_pickup' then
+                renderer = EntityRenderers.item_pickup
+            elseif rendererType == 'wreckage' then
+                renderer = EntityRenderers.wreckage
+            elseif rendererType == 'bullet' then
+                renderer = EntityRenderers.bullet
+            elseif rendererType == 'station' then
+                renderer = EntityRenderers.station
+            elseif rendererType == 'planet' then
+                renderer = EntityRenderers.planet
+            elseif rendererType == 'lootContainer' then
+                renderer = EntityRenderers.lootContainer
+            else
+                renderer = function(e, p) -- Fallback renderer
+                    local props = e.components.renderable.props or {}
+                    local v = props.visuals or {}
+                    local size = v.size or 1.0
+                    local S = RenderUtils.createScaler(size)
+                    love.graphics.setColor(1, 1, 1, 1)
+                    love.graphics.circle("fill", 0, 0, S(10))
+                end
+            end
+
+            -- Cache the renderer function
+            cachedRenderers[rendererType] = renderer
+            -- Call the renderer
+            renderer(entity, player)
         end
+
         love.graphics.pop()
 
         -- Draw enemy laser beams after pop, in world space

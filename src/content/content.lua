@@ -74,8 +74,11 @@ function Content.load()
     table.insert(Content.turrets, def)
     if def and def.id then
       Content.byId.turret[def.id] = def
+      Log.info("Loaded turret: " .. def.id .. " (" .. (def.name or "unnamed") .. ")")
     end
   end
+  
+  Log.info("Total turrets loaded: " .. #Content.turrets)
 
   -- Generate icons for turrets
   for _, turret in ipairs(Content.turrets) do

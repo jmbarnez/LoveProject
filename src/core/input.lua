@@ -52,12 +52,23 @@ local function handleInput()
     end
 
     local mx, my = Viewport.getMousePosition()
+
+    -- Handle case where mouse position might be invalid
+    if mx == nil or my == nil or mx ~= mx or my ~= my then -- Check for NaN
+        return { aimx = 0, aimy = 0, leftClick = mouseState.leftButtonDown }
+    end
+
     local wx, wy = gameState.camera:screenToWorld(mx, my)
-    
+
+    -- Handle case where world coordinates might be invalid
+    if wx == nil or wy == nil or wx ~= wx or wy ~= wy then -- Check for NaN
+        return { aimx = 0, aimy = 0, leftClick = mouseState.leftButtonDown }
+    end
+
     local leftClick = mouseState.leftButtonDown
-    
-    return { 
-        aimx = wx, 
+
+    return {
+        aimx = wx,
         aimy = wy,
         leftClick = leftClick
     }
@@ -204,7 +215,7 @@ function Input.love_keypressed(key)
       Notifications.add(success and "Quick load completed" or "Quick load failed", success and "info" or "error")
       return
     end
-    
+
     if key == "tab" then
       mainState.UIManager.toggle("inventory")
       return
@@ -216,28 +227,38 @@ function Input.love_keypressed(key)
   end
 end
 
+function Input.love_keyreleased(key)
+  if mainState.screen == "start" then
+    if mainState.startScreen and mainState.startScreen.keyreleased and mainState.startScreen:keyreleased(key) then
+      return
+    end
+  elseif mainState.screen == "game" then
+    if mainState.UIManager and mainState.UIManager.keyreleased and mainState.UIManager.keyreleased(key) then
+      return
+    end
+    -- Forward to hotbar system for manual mode turrets
+    local Hotbar = require("src.systems.hotbar")
+    Hotbar.keyreleased(key, gameState.player)
+  end
+end
+
 function Input.love_mousepressed(x, y, button)
   local Game = require("src.game")
   if mainState.screen == "start" then
     local vx, vy = Viewport.toVirtual(x, y)
     local start = mainState.startScreen:mousepressed(vx, vy, button)
     if start == true then
-      Game.load()
+      Game.load(false) -- Start new game
       love.mouse.setVisible(false)
       mainState.UIManager = require("src.core.ui_manager")
       mainState.setScreen("game")
       return
     elseif start == "loadGame" then
       local selectedSlot = mainState.startScreen.loadSlotsUI and mainState.startScreen.loadSlotsUI.selectedSlot
-      Game.load()
+      -- Load game from save (Game.load will handle save loading)
+      Game.load(true, selectedSlot)
       mainState.UIManager = require("src.core.ui_manager")
       love.mouse.setVisible(false)
-      if selectedSlot then
-        local StateManager = require("src.managers.state_manager")
-        local slotName = "slot" .. selectedSlot
-        local success = StateManager.loadGame(slotName)
-        Notifications.add(success and ("Game loaded from Slot " .. selectedSlot) or "Failed to load game", success and "info" or "error")
-      end
       mainState.setScreen("game")
       return
     end
@@ -358,12 +379,6 @@ function Input.mousepressed(x, y, button)
         if consumed then return end
     end
 
-    if mainState.UIManager.isOpen("inventory") then
-        local Inventory = getInventoryModule()
-        local consumed, shouldClose = Inventory.mousepressed(x, y, button)
-        if shouldClose then mainState.UIManager.close("inventory") end
-        if consumed then return end
-    end
     if require("src.ui.hud.hotbar").mousepressed(gameState.player, x, y, button) then return end
 
     require("src.systems.hotbar").mousepressed(x, y, button, gameState.player)
@@ -415,12 +430,6 @@ function Input.mousereleased(x, y, button)
         if consumed then return end
     end
 
-    if mainState.UIManager.isOpen("inventory") then
-        local Inventory = getInventoryModule()
-        local consumed, shouldClose = Inventory.mousereleased(x, y, button, gameState.player)
-        if shouldClose then mainState.UIManager.close("inventory") end
-        if consumed then return end
-    end
 end
 
 function Input.mousemoved(x, y, dx, dy, istouch)

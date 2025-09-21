@@ -19,16 +19,41 @@ function Viewport.init(virtualW, virtualH)
 end
 
 function Viewport.resize(w, h)
+  -- Handle invalid dimensions gracefully
+  if not w or not h or w <= 0 or h <= 0 then
+    if Log and Log.warn then
+      Log.warn("Invalid viewport dimensions: " .. tostring(w) .. "x" .. tostring(h))
+    end
+    return
+  end
+
   winW, winH = w, h
+
+  -- Ensure virtual dimensions are valid
+  if not vw or not vh or vw <= 0 or vh <= 0 then
+    vw, vh = 1920, 1080 -- Reset to defaults if corrupted
+  end
+
   -- Calculate viewport scale without UI scale affecting it
   local sx = w / vw
   local sy = h / vh
   scale = math.min(sx, sy)
+
+  -- Ensure scale is valid
+  if scale <= 0 or scale == math.huge then
+    scale = 1
+  end
+
   local sw = math.floor(vw * scale + 0.5)
   local sh = math.floor(vh * scale + 0.5)
   ox = math.floor((w - sw) / 2)
   oy = math.floor((h - sh) / 2)
-  
+
+  -- Ensure offsets are valid
+  if ox ~= ox or oy ~= oy then -- Check for NaN
+    ox, oy = 0, 0
+  end
+
   -- Reload fonts to ensure they're the right size for the new resolution
   local success, err = pcall(function()
     if Theme and Theme.loadFonts then
@@ -57,28 +82,70 @@ function Viewport.finish()
 end
 
 function Viewport.toVirtual(x, y)
-  return (x - ox) / scale, (y - oy) / scale
+  -- Ensure we have valid numbers before doing arithmetic
+  if x == nil or y == nil then
+    return 0, 0
+  end
+
+  -- Use default values if variables are nil (defensive programming)
+  local currentScale = scale or 1
+  local currentOx = ox or 0
+  local currentOy = oy or 0
+
+  -- Ensure scale is not zero to avoid division by zero
+  if currentScale == 0 then
+    return 0, 0
+  end
+
+  return (x - currentOx) / currentScale, (y - currentOy) / currentScale
 end
 
 function Viewport.toScreen(x, y)
-  return x * scale + ox, y * scale + oy
+  -- Use default values if variables are nil (defensive programming)
+  local currentScale = scale or 1
+  local currentOx = ox or 0
+  local currentOy = oy or 0
+
+  return x * currentScale + currentOx, y * currentScale + currentOy
 end
 
 function Viewport.getMousePosition()
   local mx, my = love.mouse.getPosition()
+  -- Handle case where mouse position might be nil
+  if mx == nil or my == nil then
+    return 0, 0
+  end
+
+  -- Ensure Viewport is properly initialized before converting coordinates
+  -- Use default values if variables are nil (defensive programming)
+  local currentScale = scale or 1
+  local currentOx = ox or 0
+  local currentOy = oy or 0
+
+  if currentScale == 0 then
+    return 0, 0
+  end
+
   return Viewport.toVirtual(mx, my)
 end
 
 function Viewport.getScale()
-  return scale
+  -- Use default value if scale is nil (defensive programming)
+  return scale or 1
 end
 
 function Viewport.getOffset()
-  return ox, oy
+  -- Use default values if variables are nil (defensive programming)
+  local currentOx = ox or 0
+  local currentOy = oy or 0
+  return currentOx, currentOy
 end
 
 function Viewport.getDimensions()
-  return vw, vh
+  -- Use default values if variables are nil (defensive programming)
+  local currentVw = vw or 1920
+  local currentVh = vh or 1080
+  return currentVw, currentVh
 end
 
 function Viewport.getUIScale()

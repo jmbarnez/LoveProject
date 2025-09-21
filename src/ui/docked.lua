@@ -8,6 +8,7 @@ local Notifications = require("src.ui.notifications")
 local Ship = require("src.ui.ship")
 local Quests = require("src.ui.quests")
 local Nodes = require("src.ui.nodes")
+local IconSystem = require("src.core.icon_system")
 
 local DockedUI = {}
 
@@ -24,6 +25,7 @@ DockedUI.hoveredItem = nil
 DockedUI.hoverTimer = 0
 DockedUI.drag = nil
 DockedUI.contextMenu = { visible = false, x = 0, y = 0, item = nil, quantity = "1", type = "buy" }
+DockedUI.contextMenuActive = false -- For text input focus
 DockedUI.categoryDropdownOpen = false
 DockedUI._bountyRef = nil
 
@@ -173,19 +175,26 @@ function DockedUI.draw(player)
 -- Draw context menu for numeric purchase/sale
 if DockedUI.contextMenu.visible then
   local menu = DockedUI.contextMenu
-  local x_, y_, w_, h_ = menu.x, menu.y, 200, 160
-  Theme.drawGradientGlowRect(x_, y_, w_, h_, 6, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+  local x_, y_, w_, h_ = menu.x, menu.y, 180, 110 -- More compact dimensions, tall enough for button
+  Theme.drawGradientGlowRect(x_, y_, w_, h_, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
 
-  -- Item name
+  -- Item name (smaller, top)
   Theme.setColor(Theme.colors.textHighlight)
-  love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
-  love.graphics.printf(menu.item.name, x_, y_ + 8, w_, "center")
+  love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+  love.graphics.printf(menu.item.name, x_, y_ + 6, w_, "center")
 
-  -- Quantity input field
+  -- Quantity input field (clickable, centered)
   local inputW, inputH = 100, 28
-  local inputX, inputY = x_ + (w_ - inputW) / 2, y_ + 36
+  local inputX, inputY = x_ + (w_ - inputW) / 2, y_ + 28
+  local mx, my = Viewport.getMousePosition()
+  local inputHover = mx >= inputX and mx <= inputX + inputW and my >= inputY and my <= inputY + inputH
+
+  -- Highlight the input field when hovering
+  local inputColor = inputHover and Theme.colors.bg2 or Theme.colors.bg1
   Theme.drawGradientGlowRect(inputX, inputY, inputW, inputH, 3,
-    Theme.colors.bg0, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak)
+    inputColor, Theme.colors.bg0, Theme.colors.accent, Theme.effects.glowWeak)
+
+  -- Input text
   Theme.setColor(Theme.colors.text)
   local textWidth = love.graphics.getFont():getWidth(menu.quantity)
   local textX = inputX + (inputW - textWidth) / 2
@@ -196,26 +205,18 @@ if DockedUI.contextMenu.visible then
       love.graphics.rectangle("fill", textX + textWidth + 2, inputY + 4, 2, inputH - 8)
   end
 
-  -- +/- buttons
-  local btnSize = 28
-  Theme.drawGradientGlowRect(inputX - btnSize - 4, inputY, btnSize, btnSize, 3, Theme.colors.bg3, Theme.colors.bg2, Theme.colors.border, Theme.effects.glowWeak)
-  love.graphics.printf("-", inputX - btnSize - 4, inputY + 6, btnSize, "center")
-  Theme.drawGradientGlowRect(inputX + inputW + 4, inputY, btnSize, btnSize, 3, Theme.colors.bg3, Theme.colors.bg2, Theme.colors.border, Theme.effects.glowWeak)
-  love.graphics.printf("+", inputX + inputW + 4, inputY + 6, btnSize, "center")
+  -- Store input rect for click detection
+  menu._inputRect = { x = inputX, y = inputY, w = inputW, h = inputH }
 
-  -- Total price
+  -- Total price (moved up)
   local qty = tonumber(menu.quantity) or 0
   local totalPrice = (menu.item.price or 0) * qty
-  Theme.setColor(Theme.colors.text)
-  love.graphics.printf("Total: " .. Util.formatNumber(totalPrice), x_, y_ + 72, w_, "center")
+  Theme.setColor(Theme.colors.accentGold)
+  love.graphics.printf("Total: " .. Util.formatNumber(totalPrice), x_, y_ + 64, w_, "center")
 
-  -- Player balance
-  Theme.setColor(Theme.colors.textDisabled)
-  love.graphics.printf("Balance: " .. Util.formatNumber(player:getGC()), x_, y_ + 90, w_, "center")
-
-  -- Action button (Buy/Sell)
-  local btnW, btnH = 120, 32
-  local btnX, btnY = x_ + (w_ - btnW) / 2, y_ + 116
+  -- Action button (Buy/Sell) - moved up
+  local btnW, btnH = 100, 28
+  local btnX, btnY = x_ + (w_ - btnW) / 2, y_ + 78
   local mx2, my2 = Viewport.getMousePosition()
   local btnHover = mx2 >= btnX and mx2 <= btnX + btnW and my2 >= btnY and my2 <= btnY + btnH
   local actionText = menu.type == "buy" and "BUY" or "SELL"
@@ -230,9 +231,9 @@ if DockedUI.contextMenu.visible then
   end
 
   local btnColor = canAfford and (btnHover and Theme.colors.success or Theme.colors.bg3) or Theme.colors.bg1
-  Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 4, btnColor, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+  Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 3, btnColor, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
   Theme.setColor(canAfford and Theme.colors.textHighlight or Theme.colors.textSecondary)
-  love.graphics.printf(actionText, btnX, btnY + 8, btnW, "center")
+  love.graphics.printf(actionText, btnX, btnY + 6, btnW, "center")
 end
 
 -- Store window rect for dragging
@@ -414,12 +415,19 @@ function DockedUI.drawBuybackItems(x, y, w, h, player)
   love.graphics.setScissor()
   love.graphics.pop()
 
+  -- Draw tooltips for buyback items
   if currentHoveredItem then
     if DockedUI.hoveredItem and DockedUI.hoveredItem.item.id == currentHoveredItem.item.id then
       DockedUI.hoverTimer = DockedUI.hoverTimer + love.timer.getDelta()
     else
       DockedUI.hoveredItem = currentHoveredItem
       DockedUI.hoverTimer = 0
+    end
+
+    -- Show tooltip after 0.5 seconds of hovering
+    if DockedUI.hoverTimer > 0.5 then
+      local mx, my = Viewport.getMousePosition()
+      Tooltip.drawItemTooltip(currentHoveredItem.item, mx, my)
     end
   else
     if not DockedUI.hoveredItem or (DockedUI.hoveredItem and not DockedUI.hoveredItem.x) then
@@ -439,9 +447,11 @@ function DockedUI.drawPlayerInventoryForSale(x, y, w, h, player)
   for id, qty in pairs(player.inventory) do
     local def = Content.getItem(id) or Content.getTurret(id)
     if def and not def.unsellable then
+      -- Handle both numeric quantities and turret objects
+      local itemQty = (type(qty) == "number") and qty or 1
       table.insert(items, {
         id = id,
-        qty = qty,
+        qty = itemQty,
         def = def,
         name = def.name or id,
         price = math.floor((def.price or 0) * 0.5) -- Sell for 50% of base price
@@ -451,9 +461,9 @@ function DockedUI.drawPlayerInventoryForSale(x, y, w, h, player)
 
   table.sort(items, function(a, b) return a.name < b.name end)
 
-  -- Grid layout
-  local slotSize = 88
-  local padding = 8
+  -- Grid layout - more compact slots
+  local slotSize = 64
+  local padding = 6
   local cols = math.floor(w / (slotSize + padding))
   if cols < 1 then cols = 1 end
   local startX = x + (w - cols * (slotSize + padding) + padding) / 2
@@ -492,14 +502,14 @@ function DockedUI.drawPlayerInventoryForSale(x, y, w, h, player)
         local scale = math.min((slotSize - 8) / icon:getWidth(), (slotSize - 8) / icon:getHeight())
         love.graphics.draw(icon, dx + 4, dy + 4, 0, scale, scale)
       else
-        Theme.setColor(Theme.colors.text)
-        love.graphics.printf(item.name, dx + 4, dy + slotSize/2 - 7, slotSize - 8, "center")
+        --[[ Theme.setColor(Theme.colors.text)
+        love.graphics.printf(item.name, dx + 4, dy + slotSize/2 - 7, slotSize - 8, "center") ]]
       end
 
-      -- Name
+      --[[ -- Name
       Theme.setColor(Theme.colors.text)
       love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-      love.graphics.printf(item.name, dx, dy + slotSize - 28, slotSize, "center")
+      love.graphics.printf(item.name, dx, dy + slotSize - 28, slotSize, "center") ]]
 
       -- Quantity
       Theme.setColor(Theme.colors.accent)
@@ -507,7 +517,8 @@ function DockedUI.drawPlayerInventoryForSale(x, y, w, h, player)
       love.graphics.printf(Util.formatNumber(item.qty), dx + 4, dy + 2, slotSize - 4, "left")
 
       -- Inventory count
-      local inventoryCount = (player.inventory and player.inventory[item.id]) or 0
+      local inventoryValue = (player.inventory and player.inventory[item.id]) or 0
+      local inventoryCount = (type(inventoryValue) == "number") and inventoryValue or 1
       Theme.setColor(Theme.colors.textDisabled)
       love.graphics.printf("In Cargo: " .. Util.formatNumber(inventoryCount), dx, dy + slotSize - 14, slotSize, "center")
 
@@ -523,12 +534,19 @@ function DockedUI.drawPlayerInventoryForSale(x, y, w, h, player)
     end
   end
 
+  -- Draw tooltips for sell items
   if currentHoveredItem then
     if DockedUI.hoveredItem and DockedUI.hoveredItem.item.id == currentHoveredItem.item.id then
       DockedUI.hoverTimer = DockedUI.hoverTimer + love.timer.getDelta()
     else
       DockedUI.hoveredItem = currentHoveredItem
       DockedUI.hoverTimer = 0
+    end
+
+    -- Show tooltip after 0.5 seconds of hovering
+    if DockedUI.hoverTimer > 0.5 then
+      local mx, my = Viewport.getMousePosition()
+      Tooltip.drawItemTooltip(currentHoveredItem.item, mx, my)
     end
   else
     DockedUI.hoveredItem = nil
@@ -591,11 +609,11 @@ function DockedUI.drawShopItems(x, y, w, h, player)
   -- Sort by price
   table.sort(shopItems, function(a, b) return a.price < b.price end)
   
-  -- Grid layout (match Inventory style)
-  local slotSize = 88
+  -- Grid layout (match Inventory style) - more compact
+  local slotSize = 64
   local slotW = slotSize
   local slotH = slotSize
-  local padding = 8
+  local padding = 6
   local cols = math.floor(w / (slotW + padding))
   if cols < 1 then cols = 1 end
   local startX = x + (w - cols * (slotW + padding) + padding) / 2
@@ -642,46 +660,50 @@ function DockedUI.drawShopItems(x, y, w, h, player)
       end
 
       -- Icon (turret or item) - constrain to an iconArea leaving room for name/price
-      local iconSize = 64
+      local iconSize = 48
       local iconPad = (slotW - iconSize) / 2
       local tdef = Content.getTurret(item.id)
       if tdef then
-        if tdef.icon and type(tdef.icon) == "userdata" then
-          Theme.setColor({1,1,1,1})
-          local scale = math.min(iconSize / tdef.icon:getWidth(), iconSize / tdef.icon:getHeight())
-          love.graphics.draw(tdef.icon, dx + iconPad, dy + iconPad, 0, scale, scale)
-        elseif UI and UI.drawTurretIcon then
-          UI.drawTurretIcon(tdef.type or tdef.kind or "gun", (tdef.tracer and tdef.tracer.color), dx + iconPad, dy + iconPad, iconSize)
-        end
+        IconSystem.drawTurretIcon(tdef, dx + iconPad, dy + iconPad, iconSize, 1.0)
       else
         local def = Content.getItem(item.id)
-        local icon = nil
-        if def and def.icon and type(def.icon) == "userdata" then icon = def.icon end
-        if icon then
-          Theme.setColor({1,1,1,1})
-          local scale = math.min(iconSize / icon:getWidth(), iconSize / icon:getHeight())
-          love.graphics.draw(icon, dx + iconPad, dy + iconPad, 0, scale, scale)
+        if def and IconSystem.getIcon(def) then
+          IconSystem.drawItemIcon(def, dx + iconPad, dy + iconPad, iconSize, 1.0)
         else
-          -- Fallback name
+          --[[ -- Fallback name
           Theme.setColor(Theme.colors.text)
-          love.graphics.printf(item.name or item.id, dx + 4, dy + iconSize/2 - 7, slotW - 8, "center")
+          love.graphics.printf(item.name or item.id, dx + 4, dy + iconSize/2 - 7, slotW - 8, "center") ]]
         end
       end
 
-      -- Name
+      --[[ -- Name
       Theme.setColor(Theme.colors.text)
       love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-      love.graphics.printf(item.name, dx, dy + slotH - 28, slotW, "center")
+      love.graphics.printf(item.name, dx, dy + slotH - 28, slotW, "center") ]]
 
       -- Quantity
       Theme.setColor(Theme.colors.accent)
       love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
       love.graphics.printf("∞", dx + 4, dy + 2, slotW - 4, "left")
 
-      -- Inventory count
-      local inventoryCount = (player.inventory and player.inventory[item.id]) or 0
-      Theme.setColor(Theme.colors.textDisabled)
-      love.graphics.printf("In Cargo: " .. Util.formatNumber(inventoryCount), dx, dy + slotH - 14, slotW, "center")
+      -- Inventory count (bottom right corner)
+      local inventoryValue = (player.inventory and player.inventory[item.id]) or 0
+      local inventoryCount = (type(inventoryValue) == "number") and inventoryValue or 1
+
+      -- Position in bottom right corner
+      local countText = Util.formatNumber(inventoryCount)
+      local countWidth = love.graphics.getFont():getWidth(countText)
+      local countX = dx + slotW - countWidth - 4
+      local countY = dy + slotH - 14
+
+      -- Color based on count
+      if inventoryCount > 0 then
+        Theme.setColor(Theme.colors.textHighlight) -- White for visible items
+      else
+        Theme.setColor(Theme.colors.textDisabled) -- Dimmed for zero items
+      end
+
+      love.graphics.print(countText, countX, countY)
 
       -- Price
       Theme.setColor(Theme.colors.accentGold)
@@ -694,12 +716,20 @@ function DockedUI.drawShopItems(x, y, w, h, player)
       table.insert(DockedUI._shopItems, { x = dx, y = dy, w = slotW, h = slotH, item = item, canAfford = canAfford })
     end
   end
+
+  -- Draw tooltips for shop items
   if currentHoveredItem then
     if DockedUI.hoveredItem and DockedUI.hoveredItem.item.id == currentHoveredItem.item.id then
       DockedUI.hoverTimer = DockedUI.hoverTimer + love.timer.getDelta()
     else
       DockedUI.hoveredItem = currentHoveredItem
       DockedUI.hoverTimer = 0
+    end
+
+    -- Show tooltip after 0.5 seconds of hovering
+    if DockedUI.hoverTimer > 0.5 then
+      local mx, my = Viewport.getMousePosition()
+      Tooltip.drawItemTooltip(currentHoveredItem.item, mx, my)
     end
   else
     DockedUI.hoveredItem = nil
@@ -732,13 +762,15 @@ function DockedUI.drawShopItems(x, y, w, h, player)
   end
 end
 
--- Purchase an item
-function DockedUI.purchaseItem(item, player)
-  if not player or not item then return end
+-- Purchase an item (can handle bulk purchases)
+function DockedUI.purchaseItem(item, player, quantity)
+  quantity = quantity or 1
+  if not player or not item or quantity <= 0 then return false end
 
-  if player:getGC() < item.price then return false end
+  local totalCost = item.price * quantity
+  if player:getGC() < totalCost then return false end
 
-  player:spendGC(item.price)
+  player:spendGC(totalCost)
 
   -- Check if this is a turret and apply procedural generation
   local itemId = item.id
@@ -747,46 +779,71 @@ function DockedUI.purchaseItem(item, player)
   local Content = require("src.content.content")
 
   if Content.getTurret(itemId) then
-    -- This is a turret, generate procedural stats
+    -- This is a turret, generate procedural stats for each one
     local baseTurret = Content.getTurret(itemId)
-    local proceduralTurret = ProceduralGen.generateTurretStats(baseTurret, 1)
+    local purchasedItems = {}
 
-    -- Store the procedural turret in player's inventory with a unique ID
-    local uniqueId = itemId .. "_" .. tostring(love.timer.getTime()) .. "_" .. tostring(math.random(10000))
-    proceduralTurret.id = uniqueId
-    proceduralTurret.baseId = itemId -- Keep track of the base turret type
+    for i = 1, quantity do
+      local proceduralTurret = ProceduralGen.generateTurretStats(baseTurret, 1)
 
-    -- Add to player's inventory as the full turret data
-    if not player.inventory then player.inventory = {} end
-    player.inventory[uniqueId] = proceduralTurret
+      -- Store the procedural turret in player's inventory with a unique ID
+      local uniqueId = itemId .. "_" .. tostring(love.timer.getTime()) .. "_" .. tostring(math.random(10000)) .. "_" .. tostring(i)
+      proceduralTurret.id = uniqueId
+      proceduralTurret.baseId = itemId -- Keep track of the base turret type
 
-    itemName = proceduralTurret.proceduralName or proceduralTurret.name
+      -- Add to player's inventory as the full turret data
+      if not player.inventory then player.inventory = {} end
+      player.inventory[uniqueId] = proceduralTurret
+
+      purchasedItems[i] = proceduralTurret.proceduralName or proceduralTurret.name
+
+      -- Refresh inventory display
+      local Inventory = require("src.ui.inventory")
+      if Inventory.refresh then Inventory.refresh() end
+    end
+
+    itemName = purchasedItems[1] -- Use the first item's name for the notification
   else
     -- Regular item, add normally
     local Cargo = require("src.core.cargo")
-    Cargo.add(player, itemId, 1, { notify = false })
+    Cargo.add(player, itemId, quantity, { notify = false })
   end
 
-  Notifications.action("Purchased " .. itemName)
+  -- Create single notification with quantity
+  local notificationText = quantity > 1 and ("Purchased " .. itemName .. " x" .. quantity) or ("Purchased " .. itemName)
+  Notifications.action(notificationText)
   return true
 end
 
--- Sell an item
-function DockedUI.sellItem(item, player)
-  if not player or not item then return end
-  
-  if not player.inventory or not player.inventory[item.id] or player.inventory[item.id] <= 0 then
+-- Sell an item (can handle bulk sales)
+function DockedUI.sellItem(item, player, quantity)
+  quantity = quantity or 1
+  if not player or not item or quantity <= 0 then return false end
+
+  if not player.inventory or not player.inventory[item.id] then
     return false
   end
-  
-  player.inventory[item.id] = player.inventory[item.id] - 1
-  if player.inventory[item.id] == 0 then
-    player.inventory[item.id] = nil
+
+  local currentValue = player.inventory[item.id]
+  local currentAmount = (type(currentValue) == "number") and currentValue or 0
+  if currentAmount < quantity then
+    return false
   end
-  
-  player:addGC(item.price)
-  Notifications.action("Sold " .. item.name)
-  
+
+  local newAmount = currentAmount - quantity
+  if newAmount <= 0 then
+    player.inventory[item.id] = nil
+  else
+    player.inventory[item.id] = newAmount
+  end
+
+  player:addGC(item.price * quantity)
+
+  -- Create single notification with quantity
+  local notificationText = quantity > 1 and ("Sold " .. item.name .. " x" .. quantity) or ("Sold " .. item.name)
+  Notifications.action(notificationText)
+
+  -- Add items to buyback list (only add one entry regardless of quantity)
   table.insert(DockedUI.buybackItems, 1, {
     id = item.id,
     price = item.price,
@@ -797,7 +854,7 @@ function DockedUI.sellItem(item, player)
   if #DockedUI.buybackItems > 10 then
     table.remove(DockedUI.buybackItems)
   end
-  
+
   return true
 end
 
@@ -809,44 +866,34 @@ function DockedUI.mousepressed(x, y, button)
   if DockedUI.contextMenu and DockedUI.contextMenu.visible then
     local menu = DockedUI.contextMenu
     local mx, my = x, y
-    local w_, h_ = 200, 160 -- Correct dimensions to match draw function
-    local bx, by = menu.x + (w_ - 100) / 2, menu.y + 116 -- Correct button position to match draw function
+    local w_, h_ = 180, 110 -- Correct dimensions to match draw function
+    local bx, by = menu.x + (w_ - 100) / 2, menu.y + 78 -- Correct button position to match draw function
     if mx >= menu.x and mx <= menu.x + w_ and my >= menu.y and my <= menu.y + h_ then
       -- Inside menu
       if button == 1 then
-        -- Check +/- buttons
-        local inputW, inputH = 100, 28
-        local inputX, inputY = menu.x + (w_ - inputW) / 2, menu.y + 36
-        local btnSize = 28
-        if mx >= inputX - btnSize - 4 and mx <= inputX - btnSize - 4 + btnSize and my >= inputY and my <= inputY + btnSize then
-          -- Minus button
-          local qty = tonumber(menu.quantity) or 1
-          if qty > 1 then
-            menu.quantity = tostring(qty - 1)
-          end
-        elseif mx >= inputX + inputW + 4 and mx <= inputX + inputW + 4 + btnSize and my >= inputY and my <= inputY + btnSize then
-          -- Plus button
-          local qty = tonumber(menu.quantity)
-          menu.quantity = tostring(qty + 1)
+        -- Check input field click
+        local inputRect = menu._inputRect
+        if inputRect and mx >= inputRect.x and mx <= inputRect.x + inputRect.w and my >= inputRect.y and my <= inputRect.y + inputRect.h then
+          -- Input field clicked - activate text input
+          DockedUI.contextMenuActive = true
+        elseif not (mx >= bx and mx <= bx + 100 and my >= by and my <= by + 28) then
+          -- Clicked outside action button - deactivate text input
+          DockedUI.contextMenuActive = false
         else
           -- Check action button (BUY/SELL)
-          if mx >= bx and mx <= bx + 120 and my >= by and my <= by + 32 then
+          if mx >= bx and mx <= bx + 100 and my >= by and my <= by + 28 then
             local qty = tonumber(menu.quantity) or 0
             if qty > 0 and DockedUI.player then
               if menu.type == "buy" then
                 local cost = (menu.item.price or 0) * qty
                 if DockedUI.player:getGC() >= cost then
-                  for i = 1, qty do
-                    DockedUI.purchaseItem(menu.item, DockedUI.player)
-                  end
+                  DockedUI.purchaseItem(menu.item, DockedUI.player, qty)
                 end
               elseif menu.type == "sell" then
                 -- Check if player has enough items to sell
                 if DockedUI.player.inventory and DockedUI.player.inventory[menu.item.id] and
                    DockedUI.player.inventory[menu.item.id] >= qty then
-                  for i = 1, qty do
-                    DockedUI.sellItem(menu.item, DockedUI.player)
-                  end
+                  DockedUI.sellItem(menu.item, DockedUI.player, qty)
                 end
               end
             end
@@ -1123,34 +1170,58 @@ function DockedUI.keypressed(key)
 
   if DockedUI.contextMenu.visible then
     local menu = DockedUI.contextMenu
-    if key == "backspace" then
-      menu.quantity = menu.quantity:sub(1, -2)
-      if menu.quantity == "" then menu.quantity = "0" end
-      return true
-    elseif key == "return" or key == "kpenter" then
-          local qty = tonumber(menu.quantity) or 0
-          if qty > 0 and DockedUI.player then
-            if menu.type == "buy" then
-              local cost = (menu.item.price or 0) * qty
-              if DockedUI.player:getGC() >= cost then
-                for i = 1, qty do
-                  DockedUI.purchaseItem(menu.item, DockedUI.player)
-                end
-              end
-            elseif menu.type == "sell" then
-          if DockedUI.player.inventory and DockedUI.player.inventory[menu.item.id] and
-             DockedUI.player.inventory[menu.item.id] >= qty then
-            for i = 1, qty do
-              DockedUI.sellItem(menu.item, DockedUI.player)
+    if DockedUI.contextMenuActive then
+      -- Text input mode
+      if key == "backspace" then
+        menu.quantity = menu.quantity:sub(1, -2)
+        if menu.quantity == "" then menu.quantity = "1" end
+        return true
+      elseif key == "return" or key == "kpenter" then
+        local qty = tonumber(menu.quantity) or 0
+        if qty > 0 and DockedUI.player then
+          if menu.type == "buy" then
+            local cost = (menu.item.price or 0) * qty
+            if DockedUI.player:getGC() >= cost then
+              DockedUI.purchaseItem(menu.item, DockedUI.player, qty)
+            end
+          elseif menu.type == "sell" then
+            if DockedUI.player.inventory and DockedUI.player.inventory[menu.item.id] and
+               DockedUI.player.inventory[menu.item.id] >= qty then
+            DockedUI.sellItem(menu.item, DockedUI.player, qty)
             end
           end
         end
+        DockedUI.contextMenu.visible = false
+        DockedUI.contextMenuActive = false
+        return true
+      elseif key == "escape" then
+        DockedUI.contextMenu.visible = false
+        DockedUI.contextMenuActive = false
+        return true
       end
-      DockedUI.contextMenu.visible = false
-      return true
-    elseif key == "escape" then
-      DockedUI.contextMenu.visible = false
-      return true
+    else
+      -- Navigation mode
+      if key == "return" or key == "kpenter" then
+        local qty = tonumber(menu.quantity) or 0
+        if qty > 0 and DockedUI.player then
+          if menu.type == "buy" then
+            local cost = (menu.item.price or 0) * qty
+            if DockedUI.player:getGC() >= cost then
+              DockedUI.purchaseItem(menu.item, DockedUI.player, qty)
+            end
+          elseif menu.type == "sell" then
+            if DockedUI.player.inventory and DockedUI.player.inventory[menu.item.id] and
+               DockedUI.player.inventory[menu.item.id] >= qty then
+            DockedUI.sellItem(menu.item, DockedUI.player, qty)
+            end
+          end
+        end
+        DockedUI.contextMenu.visible = false
+        return true
+      elseif key == "escape" then
+        DockedUI.contextMenu.visible = false
+        return true
+      end
     end
   end
 
@@ -1175,7 +1246,7 @@ function DockedUI.textinput(text)
     return true
   end
 
-  if DockedUI.contextMenu.visible then
+  if DockedUI.contextMenu.visible and DockedUI.contextMenuActive then
     if text:match("%d") then
       local menu = DockedUI.contextMenu
       if menu.quantity == "0" then menu.quantity = "" end

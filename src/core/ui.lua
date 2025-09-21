@@ -405,7 +405,8 @@ function UI.hotbarMousePressed(player, mx, my, button)
   return Hotbar.mousepressed(player, mx, my, button)
 end
 
--- Export drawTurretIcon from Hotbar for backward compatibility
-UI.drawTurretIcon = Hotbar.drawTurretIcon
+-- Export drawTurretIcon from IconSystem for unified icon rendering
+local IconSystem = require("src.core.icon_system")
+UI.drawTurretIcon = IconSystem.drawTurretIcon
 
 return UI

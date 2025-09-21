@@ -9,64 +9,23 @@ local Hotbar = {}
 local HotbarSelection = require("src.ui.hud.hotbar_selection")
 
 local function pointInRect(px, py, r)
+  -- Handle nil values gracefully
+  if px == nil or py == nil or r == nil or r.x == nil or r.y == nil or r.w == nil or r.h == nil then
+    return false
+  end
   return px >= r.x and py >= r.y and px <= r.x + r.w and py <= r.y + r.h
 end
 
+-- drawTurretIcon function moved to IconSystem for unified icon rendering
+local IconSystem = require("src.core.icon_system")
 local function drawTurretIcon(kind, tracerColor, x, y, size)
-  local turretDef = Content.getTurret(kind)
-  if turretDef and turretDef.icon and type(turretDef.icon) == "userdata" then
-    love.graphics.setColor(1, 1, 1, 1)
-    local img = turretDef.icon
-    local sx = size / img:getWidth()
-    local sy = size / img:getHeight()
-    love.graphics.draw(img, x, y, 0, sx, sy)
-    return
-  end
-
-  local c = tracerColor or Theme.colors.accent
-  local cx, cy = x + size*0.5, y + size*0.5
-  if kind == 'mining_laser' then
-    Theme.setColor(Theme.colors.bg3)
-    love.graphics.rectangle('fill', x+8, cy-12, size-16, 24)
-    Theme.setColor(c)
-    love.graphics.rectangle('fill', cx-4, y+6, 8, size-12)
-    Theme.setColor(Theme.withAlpha(c, 0.6))
-    love.graphics.rectangle('fill', cx-5, y+5, 10, size-10)
-    Theme.setColor(Theme.colors.warning)
-    love.graphics.rectangle('fill', cx-4, y+6, 8, 6)
-    Theme.setColor(Theme.colors.textSecondary)
-    love.graphics.circle('fill', cx-6, cy+8, 2)
-    love.graphics.circle('fill', cx, cy+10, 2)
-    love.graphics.circle('fill', cx+6, cy+8, 2)
-  elseif kind == 'laser' then
-    Theme.setColor(Theme.colors.bg3)
-    love.graphics.rectangle('fill', x+10, cy-10, size-20, 20)
-    Theme.setColor(c)
-    love.graphics.rectangle('fill', cx-3, y+8, 6, size-16)
-    Theme.setColor(Theme.withAlpha(c, 0.4))
-    love.graphics.rectangle('fill', cx-4, y+7, 8, size-14)
-    Theme.setColor(Theme.colors.highlight)
-    love.graphics.rectangle('fill', cx-3, y+8, 6, 4)
-  elseif kind == 'missile' then
-    Theme.setColor(Theme.colors.textSecondary)
-    love.graphics.ellipse('fill', cx, cy, 10, 16)
-    Theme.setColor(Theme.colors.danger)
-    love.graphics.polygon('fill', cx-12, cy+6, cx-4, cy+2, cx-4, cy+10)
-    love.graphics.polygon('fill', cx-12, cy-6, cx-4, cy-2, cx-4, cy-10)
-    Theme.setColor(Theme.withAlpha(c, 0.8))
-    love.graphics.circle('fill', cx+10, cy, 3)
-    Theme.setColor(Theme.withAlpha(Theme.colors.warning, 0.6))
-    love.graphics.circle('fill', cx+10, cy, 5)
-  else
-    Theme.setColor(Theme.colors.textSecondary)
-    love.graphics.rectangle('fill', cx-12, cy-8, 18, 16)
-    Theme.setColor(c)
-    love.graphics.rectangle('fill', cx+6, cy-3, 12, 6)
-    Theme.setColor(Theme.withAlpha(c, 0.6))
-    love.graphics.rectangle('fill', cx+18, cy-2, 4, 4)
-    Theme.setColor(Theme.colors.highlight)
-    love.graphics.rectangle('fill', cx-10, cy-6, 10, 2)
-  end
+  -- Create a simple turret data object for the IconSystem
+  local turretData = {
+    type = kind,
+    kind = kind,
+    tracer = { color = tracerColor }
+  }
+  IconSystem.drawTurretIcon(turretData, x, y, size, 1.0)
 end
 
 local function drawBoostIcon(x, y, size, active)

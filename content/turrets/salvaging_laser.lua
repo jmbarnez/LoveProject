@@ -40,4 +40,7 @@ return {
   heatPerShot = 3.0, -- Heat per pulse
   cooldownRate = 8.0, -- Fast cooling between pulses
   overheatDuration = 2.0, -- Quick recovery from overheat
+
+  -- Firing mode: "manual" or "automatic"
+  fireMode = "manual" -- Salvaging lasers should be manually controlled
 }

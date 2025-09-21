@@ -124,8 +124,14 @@ function DestructionSystem.update(world, gameState)
         local shipRadius = (col and col.radius) or 15
         local sizeScale = math.max(0.3, math.min(2.0, shipRadius / 15))
 
-        -- Shared: explosion + wreckage
-        Effects.spawnSonicBoom(x, y, { color = {1.0, 0.75, 0.25, 0.5}, sizeScale = sizeScale })
+        -- Shared: explosion + wreckage (simple sonic boom for ship destruction)
+        Effects.spawnSonicBoom(x, y, {
+          color = {1.0, 0.6, 0.2, 0.7},  -- Orange/red for ship destruction
+          sizeScale = sizeScale,         -- Standard size
+          rStart = 10 * sizeScale,       -- Standard start size
+          rSpan = 80 * sizeScale,        -- Standard ring width
+          life = 0.8,                    -- Standard lifetime
+        })
         local visuals = (e.components.renderable and e.components.renderable.props and e.components.renderable.props.visuals) or nil
         
         -- Don't create drops if killed by unfriendly station

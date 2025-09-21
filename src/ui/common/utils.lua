@@ -3,6 +3,79 @@ local Viewport = require("src.core.viewport")
 
 local UIUtils = {}
 
+-- UI Caching system for expensive calculations
+local textMetricsCache = {}
+local layoutCache = {}
+local cacheCounter = 0
+
+-- Cache text metrics (width/height) to avoid repeated font:getWidth/getHeight calls
+function UIUtils.getCachedTextMetrics(text, font)
+    if not text or not font then return {width = 0, height = 0} end
+
+    -- Create a cache key using available font properties
+    local fontHeight = font:getHeight() or 12
+    local lineHeight = fontHeight
+    if font.getLineHeight then
+        lineHeight = font:getLineHeight() or fontHeight
+    end
+    local fontKey = tostring(fontHeight) .. "_" .. tostring(lineHeight)
+    local cacheKey = tostring(text) .. "_" .. fontKey
+    local cached = textMetricsCache[cacheKey]
+
+    if not cached then
+        cached = {
+            width = font:getWidth(text),
+            height = font:getHeight()
+        }
+        textMetricsCache[cacheKey] = cached
+
+        -- Periodic cleanup to prevent memory leaks
+        cacheCounter = cacheCounter + 1
+        if cacheCounter > 5000 then
+            cacheCounter = 0
+            -- Clear old entries (simple FIFO eviction)
+            local newCache = {}
+            local count = 0
+            for k, v in pairs(textMetricsCache) do
+                if count < 1000 then
+                    newCache[k] = v
+                    count = count + 1
+                end
+            end
+            textMetricsCache = newCache
+        end
+    end
+
+    return cached
+end
+
+-- Cache layout calculations (positioning, dimensions)
+function UIUtils.getCachedLayout(key, calculator)
+    local cached = layoutCache[key]
+    if not cached then
+        cached = calculator()
+        layoutCache[key] = cached
+    end
+    return cached
+end
+
+-- Clear layout cache when resolution changes
+function UIUtils.clearLayoutCache()
+    layoutCache = {}
+end
+
+-- Helper function for batching UI updates
+local updateCounters = {}
+function UIUtils.shouldUpdate(name, frequency)
+    frequency = frequency or 1 -- Update every frame by default
+    if not updateCounters[name] then
+        updateCounters[name] = 0
+    end
+
+    updateCounters[name] = updateCounters[name] + 1
+    return (updateCounters[name] % frequency) == 0
+end
+
 -- Check if point is in rectangle
 function UIUtils.pointInRect(px, py, rect)
   return px >= rect.x and py >= rect.y and px <= rect.x + rect.w and py <= rect.y + rect.h
@@ -40,8 +113,8 @@ function UIUtils.drawButton(x, y, w, h, text, hover, active, options)
     Theme.setColor(textColor)
     local font = options.font or Theme.fonts.normal
     love.graphics.setFont(font)
-    local textW = font:getWidth(text)
-    local textH = font:getHeight()
+    local metrics = UIUtils.getCachedTextMetrics(text, font)
+    local textW, textH = metrics.width, metrics.height
     love.graphics.print(text, x + (w - textW) * 0.5, y + (h - textH) * 0.5)
   end
   
@@ -73,7 +146,8 @@ function UIUtils.drawTextInput(x, y, w, h, text, focused, placeholder, options)
     Theme.setColor(textColor)
     local font = options.font or Theme.fonts.normal
     love.graphics.setFont(font)
-    local textY = y + (h - font:getHeight()) * 0.5
+    local metrics = UIUtils.getCachedTextMetrics(displayText, font)
+    local textY = y + (h - metrics.height) * 0.5
     love.graphics.print(displayText, x + 8, textY)
   end
   
@@ -82,7 +156,8 @@ function UIUtils.drawTextInput(x, y, w, h, text, focused, placeholder, options)
     local cursorX = x + 8
     if text ~= "" then
       local font = options.font or Theme.fonts.normal
-      cursorX = cursorX + font:getWidth(text)
+      local metrics = UIUtils.getCachedTextMetrics(text, font)
+      cursorX = cursorX + metrics.width
     end
     
     -- Blinking cursor
@@ -183,10 +258,11 @@ function UIUtils.drawTabBar(x, y, w, h, tabs, activeTab, options)
     local textColor = isActive and Theme.colors.textHighlight or Theme.colors.text
     Theme.setColor(textColor)
     love.graphics.setFont(Theme.fonts.normal)
-    local textW = Theme.fonts.normal:getWidth(tab.label or tab.id)
-    local textX = tabX + (tabWidth - textW) * 0.5
-    local textY = y + (h - Theme.fonts.normal:getHeight()) * 0.5
-    love.graphics.print(tab.label or tab.id, textX, textY)
+    local tabText = tab.label or tab.id
+    local metrics = UIUtils.getCachedTextMetrics(tabText, Theme.fonts.normal)
+    local textX = tabX + (tabWidth - metrics.width) * 0.5
+    local textY = y + (h - metrics.height) * 0.5
+    love.graphics.print(tabText, textX, textY)
     
     tabRects[i] = { x = tabX, y = y, w = tabWidth, h = h, tab = tab }
   end
@@ -229,43 +305,16 @@ function UIUtils.drawProgressBar(x, y, w, h, progress, color, options)
     local text = string.format("%.0f%%", progress * 100)
     Theme.setColor(Theme.colors.text)
     love.graphics.setFont(Theme.fonts.small)
-    local textW = Theme.fonts.small:getWidth(text)
-    local textX = x + (w - textW) * 0.5
-    local textY = y + (h - Theme.fonts.small:getHeight()) * 0.5
+    local metrics = UIUtils.getCachedTextMetrics(text, Theme.fonts.small)
+    local textX = x + (w - metrics.width) * 0.5
+    local textY = y + (h - metrics.height) * 0.5
     love.graphics.print(text, textX, textY)
   end
   
   return { x = x, y = y, w = w, h = h }
 end
 
--- Create a tooltip
-function UIUtils.drawTooltip(x, y, text, options)
-  options = options or {}
-  local font = options.font or Theme.fonts.small
-  local padding = options.padding or 8
-  local cornerRadius = 0
-  
-  if not text or text == "" then return end
-  
-  love.graphics.setFont(font)
-  local textW = font:getWidth(text)
-  local textH = font:getHeight()
-  local w = textW + padding * 2
-  local h = textH + padding * 2
-  
-  -- Keep tooltip on screen
-  local sw, sh = Viewport.getDimensions()
-  if x + w > sw then x = sw - w end
-  if y + h > sh then y = y - h - 10 end
-  
-  -- Background
-  Theme.drawGradientGlowRect(x, y, w, h, cornerRadius,
-    Theme.colors.bg3, Theme.colors.bg2, Theme.colors.borderBright, Theme.effects.glowMedium)
-  
-  -- Text
-  Theme.setColor(Theme.colors.text)
-  love.graphics.print(text, x + padding, y + padding)
-end
+-- Note: drawTooltip function removed - use Ship.drawModuleTooltip for unified tooltips
 
 -- Layout helpers
 function UIUtils.layoutVertical(items, startX, startY, spacing)

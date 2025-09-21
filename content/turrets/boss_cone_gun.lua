@@ -31,4 +31,7 @@ return {
   secondaryProjectile = "missile",
   secondaryProjectileSpeed = 600,
   secondaryFireEvery = 1,
+
+  -- Firing mode: "manual" or "automatic"
+  fireMode = "manual"
 }

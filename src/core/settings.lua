@@ -1,9 +1,32 @@
-local function serialize(t)
-    local s = "return {\n"
+local function formatKey(k)
+    local t = type(k)
+    if t == "string" then
+        -- If valid identifier, use plain form: key = value
+        if k:match("^[A-Za-z_][A-Za-z0-9_]*$") then
+            return k
+        end
+        -- Otherwise, quote the key: ["key-with-spaces"] = value
+        return string.format("[%q]", k)
+    elseif t == "number" then
+        -- Numeric keys: [1] = value
+        return string.format("[%s]", tostring(k))
+    elseif t == "boolean" then
+        return string.format("[%s]", tostring(k))
+    else
+        -- Fallback to quoted string of tostring(k)
+        return string.format("[%q]", tostring(k))
+    end
+end
+
+local function encodeTable(t, indent)
+    indent = indent or 0
+    local pad = string.rep("    ", indent)
+    local s = "{\n"
     for k, v in pairs(t) do
-        s = s .. "    " .. k .. " = "
+        local keyPart = formatKey(k)
+        s = s .. pad .. "    " .. keyPart .. " = "
         if type(v) == "table" then
-            s = s .. serialize(v)
+            s = s .. encodeTable(v, indent + 1)
         elseif type(v) == "string" then
             s = s .. string.format("%q", v)
         else
@@ -11,8 +34,12 @@ local function serialize(t)
         end
         s = s .. ",\n"
     end
-    s = s .. "}"
+    s = s .. pad .. "}"
     return s
+end
+
+local function serialize(t)
+    return "return " .. encodeTable(t, 0)
 end
 
 local Settings = {}
@@ -28,6 +55,7 @@ local settings = {
         },
         fullscreen = false,
         fullscreen_type = "desktop",
+        borderless = false,
         vsync = true,
         max_fps = 60,
         ui_scale = 1.0,
@@ -100,32 +128,68 @@ end
 function Settings.applyGraphicsSettings(newSettings)
     local oldSettings = settings.graphics
     settings.graphics = newSettings
-    
+
     -- Only change window mode if resolution or fullscreen settings changed
-    if not oldSettings or 
+    if not oldSettings or
        oldSettings.resolution.width ~= newSettings.resolution.width or
        oldSettings.resolution.height ~= newSettings.resolution.height or
        (oldSettings.fullscreen ~= newSettings.fullscreen) or
        (oldSettings.fullscreen_type ~= newSettings.fullscreen_type) or
+       (oldSettings.borderless ~= newSettings.borderless) or
        (oldSettings.vsync ~= newSettings.vsync) then
-        
+
+        -- Determine window mode settings based on display mode
+        -- Use responsive minimum window sizes based on the chosen resolution
+        local minWidth, minHeight
+        if newSettings.resolution.width <= 800 then
+            minWidth = math.max(600, newSettings.resolution.width)
+        else
+            minWidth = 800
+        end
+
+        if newSettings.resolution.height <= 600 then
+            minHeight = math.max(400, newSettings.resolution.height)
+        else
+            minHeight = 600
+        end
+
+        print("Settings.applyGraphicsSettings - Using responsive minimum window size: " .. minWidth .. "x" .. minHeight)
+
+        local windowSettings = {
+            fullscreen = newSettings.fullscreen,
+            fullscreentype = newSettings.fullscreen_type or "desktop",
+            borderless = newSettings.borderless or false,
+            vsync = newSettings.vsync,
+            resizable = true,
+            minwidth = minWidth,
+            minheight = minHeight
+        }
+
+        -- If borderless windowed mode, ensure fullscreen is false
+        if newSettings.borderless then
+            windowSettings.fullscreen = false
+            windowSettings.borderless = true
+        end
+
+        print("Settings.applyGraphicsSettings - Applying window mode:")
+        print("  Resolution: " .. newSettings.resolution.width .. "x" .. newSettings.resolution.height)
+        print("  Fullscreen: " .. tostring(windowSettings.fullscreen))
+        print("  Fullscreen type: " .. (windowSettings.fullscreentype or "nil"))
+        print("  Borderless: " .. tostring(windowSettings.borderless))
+        print("  VSync: " .. tostring(windowSettings.vsync))
+
         love.window.setMode(
             newSettings.resolution.width,
             newSettings.resolution.height,
-            {
-                fullscreen = newSettings.fullscreen,
-                fullscreentype = newSettings.fullscreen_type,
-                vsync = newSettings.vsync,
-                resizable = true,
-                minwidth = 1024,
-                minheight = 576
-            }
+            windowSettings
         )
-        
+
+        print("Settings.applyGraphicsSettings - Window mode applied successfully")
+
         IconRenderer.clearCache()
 local Content = require("src.content.content")
 Content.rebuildIcons()
-        
+
         -- Trigger a resize event to update UI elements
         local success, err = pcall(function()
             if love.handlers and love.handlers.resize then
@@ -136,7 +200,7 @@ Content.rebuildIcons()
             Log.warn("Failed to trigger resize event: " .. tostring(err))
         end
     end
-    
+
     -- Update FPS limit in main.lua if the function exists
     if _G.updateFPSLimit then
         _G.updateFPSLimit()
@@ -182,47 +246,42 @@ function Settings.setHotbarSettings(newSettings)
 end
 
 function Settings.save()
+    print("Settings.save - Saving settings to file")
     local serializedSettings = serialize(settings)
-    love.filesystem.write("settings.lua", serializedSettings)
+    local success = love.filesystem.write("settings.lua", serializedSettings)
+    if success then
+        print("Settings.save - Settings saved successfully")
+    else
+        print("Settings.save - Failed to save settings")
+    end
+    return success
 end
 
 function Settings.load()
-    local ok, fileContent = pcall(love.filesystem.read, "settings.lua")
-    if not ok then
-        if Log and Log.warn then Log.warn("Settings.load: failed to read settings.lua") end
-        return
-    end
-    if not fileContent or #fileContent == 0 then
-        return
-    end
-
-    local func, err = loadstring(fileContent)
-    if not func then
-        if Log and Log.error then Log.error("Settings.load: invalid settings.lua:", tostring(err)) end
-        return
-    end
-
-    local ok2, loadedSettings = pcall(func)
-    if not ok2 then
-        if Log and Log.error then Log.error("Settings.load: executing settings.lua failed:", tostring(loadedSettings)) end
-        return
-    end
-    if type(loadedSettings) ~= "table" then
-        if Log and Log.error then Log.error("Settings.load: settings.lua did not return a table") end
-        return
-    end
-
-    -- Deep merge loaded settings into default settings
-    for k, v in pairs(loadedSettings) do
-        if type(v) == "table" and type(settings[k]) == "table" then
-            for k2, v2 in pairs(v) do
-                if settings[k] then
-                    settings[k][k2] = v2
-                end
+    if love.filesystem.getInfo("settings.lua") then
+        print("Settings.load - Loading settings from file")
+        local chunk, err = love.filesystem.load("settings.lua")
+        if chunk then
+            local success, loadedSettings = pcall(chunk)
+            if success and loadedSettings then
+                settings = loadedSettings
+                print("Settings.load - Settings loaded successfully")
+                print("Settings.load - Loaded fullscreen: " .. tostring(settings.graphics.fullscreen))
+                print("Settings.load - Loaded fullscreen_type: " .. (settings.graphics.fullscreen_type or "nil"))
+                print("Settings.load - Loaded resolution: " .. settings.graphics.resolution.width .. "x" .. settings.graphics.resolution.height)
+                Log.info("Settings loaded successfully")
+            else
+                print("Settings.load - Failed to load settings: " .. tostring(loadedSettings))
+                Log.warn("Failed to load settings: " .. tostring(loadedSettings))
             end
         else
-            settings[k] = v
+            print("Settings.load - Failed to load settings file: " .. tostring(err))
+            Log.warn("Failed to load settings file: " .. tostring(err))
         end
+    else
+        print("Settings.load - No settings file found, using defaults")
+        print("Settings.load - Default fullscreen: " .. tostring(settings.graphics.fullscreen))
+        print("Settings.load - Default resolution: " .. settings.graphics.resolution.width .. "x" .. settings.graphics.resolution.height)
     end
 end
 

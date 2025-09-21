@@ -50,6 +50,7 @@ local bounty = { uncollected = 0, entries = {} }
 local hoveredEntity = nil
 local hoveredEntityType = nil
 local collisionSystem
+local gamePaused = false
 
 
 -- Projectile spawner using the EntityFactory
@@ -92,14 +93,14 @@ end
 -- All legacy update functions are being removed.
 -- Their logic will be handled by dedicated systems in the future.
 
-function Game.load()
+function Game.load(fromSave, saveSlot)
   Content.load()
   HotbarSystem.load()
   NodeMarket.init()
   PortfolioManager.init()
   -- Use custom reticle instead of system cursor in-game
   if love and love.mouse and love.mouse.setVisible then love.mouse.setVisible(false) end
-  
+
   -- Initialize sound system
   local soundConfig = require("content.sounds.sounds")
   for event, config in pairs(soundConfig.events) do
@@ -110,10 +111,10 @@ function Game.load()
     end
   end
   -- Log.info("Sound system initialized") -- muted at warn level
-  
+
   -- Start ambient space music
   Sound.triggerEvent('game_start')
-  
+
   world = World.new(Config.WORLD.WIDTH, Config.WORLD.HEIGHT)
   -- Add spawnProjectile function to world so turrets can spawn projectiles
   world.spawn_projectile = spawn_projectile
@@ -173,13 +174,32 @@ function Game.load()
 
   -- Spawn the player
   local spawn_margin = assert(Config.SPAWN and Config.SPAWN.HUB_BUFFER, "Config.SPAWN.HUB_BUFFER is required")
-  local angle = math.random() * math.pi * 2
-  -- Spawn within the hub weapons-disable zone
-  local spawn_dist = (hub and (hub.shieldRadius or 600) or 600) - spawn_margin
-  local px = (hub and hub.components and hub.components.position and hub.components.position.x or 500) + math.cos(angle) * spawn_dist
-  local py = (hub and hub.components and hub.components.position and hub.components.position.y or 500) + math.sin(angle) * spawn_dist
-  -- Start player with basic combat drone
-  player = Player.new(px, py, "starter_frigate_basic")
+
+  -- Handle loading from save vs starting new game
+  if fromSave and saveSlot then
+    -- Load player from save data
+    local StateManager = require("src.managers.state_manager")
+    local slotName = "slot" .. saveSlot
+    local success = StateManager.loadGame(slotName, true)
+    if not success then
+      Log.error("Failed to load game from slot " .. saveSlot)
+      return false
+    end
+    player = StateManager.currentPlayer
+    if not player then
+      Log.error("Failed to get player from save data")
+      return false
+    end
+  else
+    -- Start new game - create player at random spawn location
+    local angle = math.random() * math.pi * 2
+    -- Spawn within the hub weapons-disable zone
+    local spawn_dist = (hub and (hub.shieldRadius or 600) or 600) - spawn_margin
+    local px = (hub and hub.components and hub.components.position and hub.components.position.x or 500) + math.cos(angle) * spawn_dist
+    local py = (hub and hub.components and hub.components.position and hub.components.position.y or 500) + math.sin(angle) * spawn_dist
+    -- Start player with basic combat drone
+    player = Player.new(px, py, "starter_frigate_basic")
+  end
   if player then
     world:addEntity(player)
     HotbarSystem.populateFromPlayer(player)
@@ -198,12 +218,27 @@ function Game.load()
   world:setQuadtree(collisionSystem.quadtree)
   -- Initialize player with clean inventory and starting credits
   player:setGC(10000)
+
+  -- Initialize audio listener to player position for positional SFX
+  do
+    local pos = player.components and player.components.position
+    if pos then
+      Sound.setListenerPosition(pos.x, pos.y)
+    end
+  end
   
   -- Give player some basic shield modules to test the system
   if not player.inventory then
     player.inventory = {}
   end
-  player.inventory["shield_module_basic"] = 2  -- Give 2 basic shield modules
+  player.inventory["shield_module_basic"] = 1  -- Give 1 basic shield module in inventory
+
+  -- Refresh inventory display
+  local Inventory = require("src.ui.inventory")
+  if Inventory.refresh then Inventory.refresh() end
+
+  -- Equip one shield module in slot 4 (after the default turrets in slots 1-3)
+  player:equipModule(4, "shield_module_basic")
 
   Input.init({
     camera = camera,
@@ -232,7 +267,7 @@ function Game.load()
   end)
   
   Events.on(Events.GAME_EVENTS.ENTITY_DESTROYED, function(data)
-    Sound.playSFX("explosion")
+    Sound.playSFX("ship_destroyed")
   end)
   
   Events.on(Events.GAME_EVENTS.PLAYER_DIED, function(data)
@@ -276,68 +311,90 @@ function Game.load()
 end
 
 function Game.update(dt)
-    Input.update(dt)
-    UIManager.update(dt, player)
-    StatusBars.update(dt, player)
-    local input = Input.getInputState()
-    
-    -- Update multiplayer system
-    Multiplayer.update(dt)
-    
-    -- Update all systems
-    PlayerSystem.update(dt, player, input, world, hub)
-    AISystem.update(dt, world, spawn_projectile)
-    -- Update physics and collisions first so any damage/death flags set by collisions
-    -- are visible to the destruction system in the same frame.
-    PhysicsSystem.update(dt, world:getEntities())
-    BoundarySystem.update(world)
-    collisionSystem:update(world, dt)
-    -- Process deaths: spawn effects, wreckage, loot before cleanup
-    local gameState = { bounty = bounty }
-    DestructionSystem.update(world, gameState)
-    SpawningSystem.update(dt, player, hub, world)
-    RepairSystem.update(dt, player, world)
-    SpaceStationSystem.update(dt, hub)
-    -- Mining progression (per-cycle, per-asteroid)
-    MiningSystem.update(dt, world, player)
-    -- Magnetic item pickup system
-    Pickups.update(dt, world, player)
+    -- Only update game systems if not paused
+    if not gamePaused then
+        Input.update(dt)
+        UIManager.update(dt, player)
+        StatusBars.update(dt, player)
+        local input = Input.getInputState()
 
-    -- Update engine trail after physics so thruster state is preserved
-    local EngineTrailSystem = require("src.systems.engine_trail")
-    EngineTrailSystem.update(dt, world)
+        -- Update multiplayer system
+        Multiplayer.update(dt)
 
-    Effects.update(dt)
-    QuestSystem.update(player)
-    NodeMarket.update(dt)
+        -- Update UI effects systems
+        local Theme = require("src.core.theme")
+        Theme.updateAnimations(dt)
+        Theme.updateParticles(dt)
+        Theme.updateScreenEffects(dt)
 
-    -- Update warp gates
-    local WarpGateSystem = require("src.systems.warp_gate_system")
-    WarpGateSystem.updateWarpGates(world, dt)
-
-    camera:update(dt)
-    world:update(dt) -- This handles dead entity cleanup
-    
-    -- Update state manager (handles auto-saving)
-    StateManager.update(dt)
-    
-    -- Process queued events each frame
-    Events.processQueue()
-
-    HotbarSystem.update(dt)
-
-    -- Expire click markers so they don't get stuck on screen.
-    for i = #clickMarkers, 1, -1 do
-        local m = clickMarkers[i]
-        m.t = m.t + dt
-        if m.t >= m.dur then
-            table.remove(clickMarkers, i)
+        -- Update all systems
+        PlayerSystem.update(dt, player, input, world, hub)
+        do
+          -- Update audio listener to follow the player for attenuation/pan
+          local pos = player and player.components and player.components.position
+          if pos then
+            Sound.setListenerPosition(pos.x, pos.y)
+          end
         end
-    end
+        AISystem.update(dt, world, spawn_projectile)
+        -- Update physics and collisions first so any damage/death flags set by collisions
+        -- are visible to the destruction system in the same frame.
+        PhysicsSystem.update(dt, world:getEntities())
+        BoundarySystem.update(world)
+        collisionSystem:update(world, dt)
+        -- Process deaths: spawn effects, wreckage, loot before cleanup
+        local gameState = { bounty = bounty }
+        DestructionSystem.update(world, gameState)
+        SpawningSystem.update(dt, player, hub, world)
+        RepairSystem.update(dt, player, world)
+        SpaceStationSystem.update(dt, hub)
+        -- Mining progression (per-cycle, per-asteroid)
+        MiningSystem.update(dt, world, player)
+        -- Magnetic item pickup system
+        Pickups.update(dt, world, player)
 
-    -- Debug: enemies list can be noisy; suppress in normal play
-    -- local enemies = world:getEntitiesWithComponents("ai")
-    -- Log.debug("Enemies in world:", enemies)
+        -- Update engine trail after physics so thruster state is preserved
+        local EngineTrailSystem = require("src.systems.engine_trail")
+        EngineTrailSystem.update(dt, world)
+
+        Effects.update(dt)
+        QuestSystem.update(player)
+        NodeMarket.update(dt)
+
+        -- Update warp gates
+        local WarpGateSystem = require("src.systems.warp_gate_system")
+        WarpGateSystem.updateWarpGates(world, dt)
+
+        camera:update(dt)
+        world:update(dt) -- This handles dead entity cleanup
+
+        -- Update state manager (handles auto-saving)
+        StateManager.update(dt)
+
+        -- Process queued events each frame
+        Events.processQueue()
+
+        HotbarSystem.update(dt)
+
+        -- Expire click markers so they don't get stuck on screen.
+        for i = #clickMarkers, 1, -1 do
+            local m = clickMarkers[i]
+            m.t = m.t + dt
+            if m.t >= m.dur then
+                table.remove(clickMarkers, i)
+            end
+        end
+
+        -- Debug: enemies list can be noisy; suppress in normal play
+        -- local enemies = world:getEntitiesWithComponents("ai")
+        -- Log.debug("Enemies in world:", enemies)
+    else
+        -- Game is paused - only update essential UI systems
+        local Theme = require("src.core.theme")
+        Theme.updateAnimations(dt)
+        Theme.updateParticles(dt)
+        Theme.updateScreenEffects(dt)
+    end
 end
 
 function Game.resize(w, h)
@@ -346,21 +403,50 @@ function Game.resize(w, h)
     end
 end
 
+function Game.pause()
+    gamePaused = true
+end
+
+function Game.unpause()
+    gamePaused = false
+end
+
+function Game.isPaused()
+    return gamePaused
+end
+
 function Game.draw()
+    -- Apply screen effects before rendering
+    local Theme = require("src.core.theme")
+    local shakeX, shakeY = Theme.getScreenShakeOffset()
+    local flashAlpha = Theme.getScreenFlashAlpha()
+    local zoomScale = Theme.getScreenZoomScale()
+
+    -- Apply shake and zoom to camera
+    camera:apply(shakeX, shakeY, zoomScale)
+
     world:drawBackground(camera)
-    camera:apply()
     if DEBUG_DRAW_BOUNDS then world:drawBounds() end
-    
+
     -- *** This is the crucial fix ***
     -- The hub is now passed to the RenderSystem so it can be drawn.
     RenderSystem.draw(world, camera, player, clickMarkers, hoveredEntity, hoveredEntityType)
-    
+
     Effects.draw()
-    
+
     camera:reset()
-    
+
+    -- Draw UI particles after camera reset but before UI overlay
+    Theme.drawParticles()
+
     -- Draw UI overlay before HUD
     UIManager.drawOverlay()
+
+    -- Apply screen flash over UI
+    if flashAlpha > 0 then
+      Theme.setColor({1, 1, 1, flashAlpha})
+      love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+    end
     
     UI.drawHUD(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, camera, Multiplayer.getRemotePlayers())
     

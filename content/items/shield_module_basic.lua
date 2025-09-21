@@ -42,7 +42,7 @@ return {
     module = {
         type = "shield",
         shield_hp = 5,
-        shield_regen = 2, -- HP per second
+        shield_regen = 0.8, -- HP per second (much slower)
         slot_type = "shield"
     }
 }

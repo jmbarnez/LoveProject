@@ -127,7 +127,7 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         damage = incoming,
         shieldDamage = shieldDamage,
         hullDamage = remainingDamage,
-        hadShield = hadShield or (reducedByShield > 0),
+        hadShield = hadShield or (shieldDamage > 0),
         source = source
     }
     -- Mark recently damaged by player for enemy HUD bars
@@ -149,7 +149,7 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         -- Do NOT emit destruction here; DestructionSystem will emit exactly once
     end
 
-    return hadShield or (reducedByShield > 0)
+    return hadShield or (shieldDamage > 0)
 end
 
 return CollisionEffects

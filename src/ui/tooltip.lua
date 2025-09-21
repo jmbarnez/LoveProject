@@ -5,17 +5,22 @@ local Util = require("src.core.util")
 
 local Tooltip = {}
 
--- Draw a tooltip for a shop item
-function Tooltip.drawShopTooltip(item, x, y)
+-- Draw a unified tooltip for any item, module, or turret
+function Tooltip.drawItemTooltip(item, x, y)
   if not item then return end
   local oldFont = love.graphics.getFont()
 
   -- Gather item details
   local name = item.proceduralName or item.name or "Unknown Item"
 
-  -- Tooltip dimensions and layout
-  local maxWidth = 320
-  local padding = 8
+  -- Tooltip dimensions and layout (using theme configuration)
+  local tooltipConfig = Theme.components and Theme.components.tooltip or {
+    maxWidth = 500, minWidth = 150, padding = 8, screenMarginRatio = 0.8,
+    nameLineSpacing = 8, statLineSpacing = 2, modifierHeaderSpacing = 8
+  }
+  local maxWidth = tooltipConfig.maxWidth
+  local minWidth = tooltipConfig.minWidth
+  local padding = tooltipConfig.padding
 
   -- Fonts
   local nameFont = Theme.fonts and Theme.fonts.medium or love.graphics.getFont()
@@ -55,6 +60,17 @@ function Tooltip.drawShopTooltip(item, x, y)
     if fullItemDef.energyCapacity then stats[#stats + 1] = {name = "Energy", value = fullItemDef.energyCapacity} end
     if fullItemDef.heatMax then stats[#stats + 1] = {name = "Heat Capacity", value = fullItemDef.heatMax} end
     if fullItemDef.heatPerShot then stats[#stats + 1] = {name = "Heat per Shot", value = fullItemDef.heatPerShot} end
+    
+    -- Module-specific stats (from drawModuleTooltip)
+    if fullItemDef.module and fullItemDef.module.shield_hp then
+      stats[#stats+1] = { name = "Shield HP", value = fullItemDef.module.shield_hp }
+    end
+    if fullItemDef.module and fullItemDef.module.shield_regen then
+      stats[#stats+1] = { name = "Shield Regen", value = fullItemDef.module.shield_regen .. "/s" }
+    end
+    if fullItemDef.module and fullItemDef.module.slot_type then
+      stats[#stats+1] = { name = "Slot Type", value = fullItemDef.module.slot_type }
+    end
 
     -- Special handling for turrets
     if fullItemDef.tracer and fullItemDef.tracer.color then
@@ -75,12 +91,12 @@ function Tooltip.drawShopTooltip(item, x, y)
   -- Calculate height based on content
   local nameH = nameFont:getHeight()
   local statH = statFont:getHeight()
-  local h = padding * 2 + nameH + 8
+  local h = padding * 2 + nameH + tooltipConfig.nameLineSpacing
   if #stats > 0 then
-    h = h + (#stats * (statH + 2)) + 4
+    h = h + (#stats * (statH + tooltipConfig.statLineSpacing)) + tooltipConfig.modifierHeaderSpacing
   end
   if #modifiers > 0 then
-    h = h + (#modifiers * (statH + 2)) + 8  -- Extra space for modifier header
+    h = h + (#modifiers * (statH + tooltipConfig.statLineSpacing)) + tooltipConfig.modifierHeaderSpacing  -- Extra space for modifier header
   end
 
   -- Calculate width based on content
@@ -121,10 +137,12 @@ function Tooltip.drawShopTooltip(item, x, y)
     w = math.max(w, modW + padding * 2)
   end
 
-  w = math.min(maxWidth, w)
+  -- Apply screen-aware width constraints
+  local sw, sh = Viewport.getDimensions()
+  local screenAwareMaxWidth = math.min(maxWidth, sw * tooltipConfig.screenMarginRatio)  -- Don't exceed configured ratio of screen width
+  w = math.max(minWidth, math.min(screenAwareMaxWidth, w))
 
   -- Positioning (keep on screen)
-  local sw, sh = Viewport.getDimensions()
   local tx = x + 20
   local ty = y
   if tx + w > sw then tx = x - w - 20 end
@@ -147,7 +165,7 @@ function Tooltip.drawShopTooltip(item, x, y)
   love.graphics.setFont(nameFont)
   Theme.setColor(Theme.colors.textHighlight)
   love.graphics.print(name, tx + padding, currentY)
-  currentY = currentY + nameH + 8
+  currentY = currentY + nameH + tooltipConfig.nameLineSpacing
 
   -- Item stats
   if #stats > 0 then
@@ -156,17 +174,17 @@ function Tooltip.drawShopTooltip(item, x, y)
       local statText = stat.name .. ": " .. tostring(stat.value)
       Theme.setColor(Theme.colors.text)
       love.graphics.print(statText, tx + padding, currentY)
-      currentY = currentY + statH + 2
+      currentY = currentY + statH + tooltipConfig.statLineSpacing
     end
   end
 
   -- Item modifiers
   if #modifiers > 0 then
-    currentY = currentY + 4  -- Small gap before modifiers section
+    currentY = currentY + tooltipConfig.modifierHeaderSpacing  -- Small gap before modifiers section
     love.graphics.setFont(statFont)
     Theme.setColor(Theme.colors.accent)
     love.graphics.print("Modifiers:", tx + padding, currentY)
-    currentY = currentY + statH + 4
+    currentY = currentY + statH + tooltipConfig.modifierHeaderSpacing
 
     for _, mod in ipairs(modifiers) do
       local changeText = ""
@@ -192,7 +210,7 @@ function Tooltip.drawShopTooltip(item, x, y)
       local modText = mod.name .. " (" .. changeText .. ")"
       Theme.setColor(Theme.colors.textSecondary)
       love.graphics.print(modText, tx + padding, currentY)
-      currentY = currentY + statH + 2
+      currentY = currentY + statH + tooltipConfig.statLineSpacing
     end
   end
 

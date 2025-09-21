@@ -37,5 +37,8 @@ return {
   cooldownRate = 15, -- Heat dissipated per second
   overheatDuration = 2.5, -- Seconds disabled when overheated
   heatCycleMult = 0.7, -- Slower firing when hot (cycle * 0.7 at max heat)
-  heatEnergyMult = 1.3 -- More energy cost when hot
+  heatEnergyMult = 1.3, -- More energy cost when hot
+
+  -- Firing mode: "manual" or "automatic"
+  fireMode = "manual"
 }

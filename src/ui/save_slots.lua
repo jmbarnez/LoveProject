@@ -1,4 +1,5 @@
 local Theme = require("src.core.theme")
+local Viewport = require("src.core.viewport")
 local StateManager = require("src.managers.state_manager")
 local Notifications = require("src.ui.notifications")
 
@@ -13,19 +14,43 @@ function SaveSlots:new()
   return o
 end
 
+-- Compute preferred content size for the slots view (content area only)
+function SaveSlots:getPreferredSize()
+  local font = love.graphics.getFont()
+  local lineHeight = (font and font:getHeight() or 12) + 4
+
+  local topBlocks = 20 + lineHeight * 2 + lineHeight * 1.5 -- title + instructions
+  local slotHeight = 80
+  local slotMargin = 10
+  local slotsCount = 3
+
+  local contentH = topBlocks + slotHeight * slotsCount + slotMargin * (slotsCount - 1) + 10 -- small bottom pad
+
+  -- Width must accommodate left/right padding and two action buttons on the right
+  local buttonW, buttonSpacing = 60, 10
+  local sidePadding = 40 + 40 -- left/right internal paddings used in draw
+  local minTextWidth = 300 -- reasonable text region
+  local contentW = sidePadding + (buttonW * 2 + buttonSpacing) + minTextWidth
+
+  -- Clamp to a sensible minimum
+  contentW = math.max(520, contentW)
+
+  return contentW, contentH
+end
+
 function SaveSlots:setMode(mode)
   self.mode = mode
 end
 
 function SaveSlots:draw(x, y, w, h)
   local font = love.graphics.getFont()
-  local lineHeight = font:getHeight() + 4
+  local lineHeight = (font:getHeight() or 12) + 4
   local currentY = y + 20
-  
+
   -- Title
   Theme.setColor(Theme.colors.text)
   local titleText = self.mode == "save" and "Save Game" or "Load Game"
-  local titleW = font:getWidth(titleText)
+  local titleW = (font:getWidth(titleText) or 0)
   love.graphics.print(titleText, x + (w - titleW) / 2, currentY)
   currentY = currentY + lineHeight * 2
   
@@ -128,34 +153,37 @@ function SaveSlots:draw(x, y, w, h)
     if not isEmpty or self.mode == "save" then
       local actionColor = self.mode == "save" and Theme.colors.success or Theme.colors.info
       local actionText = self.mode == "save" and "Save" or "Load"
-      
-      -- Use styled button from theme (hover detection will be handled by the theme)
-      local hover = false -- We'll let the theme handle hover detection
-      
-      Theme.drawStyledButton(buttonsX, buttonY, buttonW, buttonH, actionText, hover, love.timer.getTime(), actionColor, false)
+
+      -- Calculate hover state for the button (use virtual mouse coordinates)
+      local mx, my = Viewport.getMousePosition()
+      local hover = mx >= buttonsX and mx <= buttonsX + buttonW and my >= buttonY and my <= buttonY + buttonH
+
+      Theme.drawStyledButton(buttonsX, buttonY, buttonW, buttonH, actionText, hover, love.timer.getTime(), actionColor, false, { font = Theme.fonts.small })
     end
     
     -- Delete button (only for existing saves)
     if not isEmpty then
       local deleteX = buttonsX + buttonW + buttonSpacing
-      
-      local deleteHover = false -- Let the theme handle hover detection
-      
-      Theme.drawStyledButton(deleteX, buttonY, buttonW, buttonH, "Delete", deleteHover, love.timer.getTime(), Theme.colors.danger, false)
+
+      -- Calculate hover state for the delete button (use virtual mouse coordinates)
+      local mx, my = Viewport.getMousePosition()
+      local deleteHover = mx >= deleteX and mx <= deleteX + buttonW and my >= buttonY and my <= buttonY + buttonH
+
+      Theme.drawStyledButton(deleteX, buttonY, buttonW, buttonH, "Delete", deleteHover, love.timer.getTime(), Theme.colors.danger, false, { font = Theme.fonts.small })
     end
   end
 end
 
 function SaveSlots:mousepressed(x, y, button, drawX, drawY, drawW, drawH)
   if button ~= 1 then return false end
-  
+
   -- Use the same coordinate calculations as in draw()
   local font = love.graphics.getFont()
-  local lineHeight = font:getHeight() + 4
+  local lineHeight = (font:getHeight() or 12) + 4
   local currentY = drawY + 20 + lineHeight * 2 + lineHeight * 1.5  -- Title + instructions
   local slotHeight = 80
   local slotMargin = 10
-  
+
   -- Get save slots data
   local allSlots = StateManager.getSaveSlots()
   local slots = {}
@@ -170,24 +198,24 @@ function SaveSlots:mousepressed(x, y, button, drawX, drawY, drawW, drawH)
     end
     slots[i] = existingSlot
   end
-  
+
   -- Check button clicks for each slot
   for i = 1, 3 do
     local slotY = currentY + (i - 1) * (slotHeight + slotMargin)
     local slot = slots[i]
     local isEmpty = slot == nil
-    
+
     -- Skip if we'd draw outside the container
     if slotY + slotHeight > drawY + drawH then
       break
     end
-    
+
     local buttonW = 60
     local buttonH = 30
     local buttonSpacing = 10
     local buttonsX = drawX + drawW - (buttonW * 2 + buttonSpacing) - 40  -- More margin from edge
     local buttonY = slotY + slotHeight - buttonH - 15  -- More margin from bottom
-    
+
     -- Check action button (Save/Load)
     if (not isEmpty or self.mode == "save") and x >= buttonsX and x <= buttonsX + buttonW and y >= buttonY and y <= buttonY + buttonH then
       local slotName = "slot" .. i
@@ -202,24 +230,18 @@ function SaveSlots:mousepressed(x, y, button, drawX, drawY, drawW, drawH)
           return false
         end
       else
-        -- For start screen, don't actually load yet - just return the slot number
-        if StateManager.currentPlayer then
-          local success = StateManager.loadGame(slotName)
-          if success then
-            Notifications.add("Game loaded from Slot " .. i, "info")
-            return "loaded"
-          else
-            Notifications.add("Failed to load game", "error")
-            return false
-          end
+        -- Try to load the game
+        local success = StateManager.loadGame(slotName, true)
+        if success then
+          Notifications.add("Game loaded from Slot " .. i, "info")
+          return "loaded"
         else
-          -- Game not initialized yet, return slot info for later loading
-          self.selectedSlot = i
-          return "loadSelected"
+          Notifications.add("Failed to load game", "error")
+          return false
         end
       end
     end
-    
+
     -- Check delete button (only for existing saves)
     if not isEmpty then
       local deleteX = buttonsX + buttonW + buttonSpacing
@@ -235,7 +257,7 @@ function SaveSlots:mousepressed(x, y, button, drawX, drawY, drawW, drawH)
       end
     end
   end
-  
+
   return false
 end
 

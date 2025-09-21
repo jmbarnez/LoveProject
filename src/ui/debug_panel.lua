@@ -26,6 +26,11 @@ function DebugPanel.toggle()
     visible = not visible
 end
 
+-- Query debug panel visibility
+function DebugPanel.isVisible()
+    return visible
+end
+
 -- Update debug information
 function DebugPanel.update(dt)
     if not visible then return end

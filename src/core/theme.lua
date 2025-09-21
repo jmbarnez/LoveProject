@@ -2,118 +2,127 @@ local Theme = {}
 local Viewport = require("src.core.viewport")
 local Sound = require("src.core.sound")
 
--- ===== MODERN DARK SLEEK THEME =====
--- A contemporary dark UI theme with sleek modern design
--- Clean flat surfaces, subtle shadows, and sophisticated color palette
--- Professional gaming aesthetic with modern UX principles
+-- ===== DARK CYAN/LAVENDER SPACE THEME =====
+-- Ultra-dark space aesthetic with cyan primary accents and lavender highlights
+-- Deep void backgrounds with electric cyan highlights and ethereal lavender undertones
+-- Mysterious sci-fi gaming theme with stellar contrast and depth
 
 
--- === SCI-FI DARK THEME WITH CYAN ACCENTS ===
+-- === DARK CYAN/LAVENDER SPACE THEME ===
 Theme.colors = {
-  -- Sci-fi dark primaries
-  primary = {0.05, 0.08, 0.1, 1.00},       -- Deep space blue
-  primaryBright = {0.1, 0.15, 0.2, 1.00},  -- Lighter space blue
-  primaryDark = {0.02, 0.04, 0.06, 1.00},  -- Very deep space blue
-  primaryDim = {0.01, 0.02, 0.03, 0.80},   -- Near black
+  -- Ultra-dark space primaries
+  primary = {0.02, 0.02, 0.04, 1.00},      -- Ultra-deep space black
+  primaryBright = {0.04, 0.04, 0.08, 1.00}, -- Dark space void
+  primaryDark = {0.00, 0.00, 0.02, 1.00},  -- Pure void black
+  primaryDim = {0.01, 0.01, 0.03, 1.00},   -- Dim space black
 
-  -- Sci-fi accent colors (cyan focus)
-  accent = {0.0, 0.8, 0.8, 1.00},        -- Bright cyan
-  accentGold = {0.85, 0.65, 0.25, 1.00},   -- Elegant gold
-  accentTeal = {0.25, 0.75, 0.80, 1.00},   -- Cyan accent
-  accentPink = {0.90, 0.40, 0.70, 1.00},   -- Magenta accent
+  -- Cyan/lavender accents (cyan primary, lavender secondary)
+  accent = {0.2, 0.8, 0.9, 1.00},          -- Electric cyan (main accent)
+  accentGold = {0.6, 0.4, 0.9, 1.00},      -- Ethereal lavender (secondary)
+  accentTeal = {0.3, 0.9, 1.0, 1.00},      -- Bright cyan (highlights)
+  accentPink = {0.7, 0.5, 0.9, 1.00},      -- Deep lavender (accents)
 
-  -- Status colors (modern palette)
-  success = {0.25, 0.85, 0.35, 1.00},      -- Fresh green
-  warning = {0.95, 0.70, 0.20, 1.00},      -- Warm amber
-  danger = {0.95, 0.35, 0.35, 1.00},       -- Clean red
-  info = {0.35, 0.65, 0.95, 1.00},         -- Soft blue
+  -- Space-themed status colors
+  success = {0.3, 0.9, 0.6, 1.00},         -- Cyan-tinted green
+  warning = {0.9, 0.6, 0.4, 1.00},         -- Lavender-tinted amber
+  danger = {0.9, 0.3, 0.5, 1.00},          -- Magenta red
+  info = {0.5, 0.7, 0.9, 1.00},            -- Soft lavender
 
-  -- Modern background layers (subtle gradients)
-  bg0 = {0.02, 0.02, 0.03, 0.98},          -- Deep space black
-  bg1 = {0.08, 0.08, 0.10, 1.00},          -- Primary surface
-  bg2 = {0.12, 0.12, 0.15, 1.00},          -- Secondary surface
-  bg3 = {0.18, 0.18, 0.22, 1.00},          -- Tertiary surface
-  bg4 = {0.25, 0.25, 0.30, 1.00},          -- Quaternary surface
+  -- Ultra-dark space background layers
+  bg0 = {0.00, 0.00, 0.01, 1.00},          -- Pure void black
+  bg1 = {0.02, 0.02, 0.04, 1.00},          -- Deep space
+  bg2 = {0.04, 0.04, 0.08, 1.00},          -- Dark nebula
+  bg3 = {0.06, 0.06, 0.12, 1.00},          -- Medium nebula
+  bg4 = {0.08, 0.08, 0.16, 1.00},          -- Light nebula
 
-  -- Modern window chrome
-  windowBg = {0.06, 0.06, 0.08, 0.95},     -- Glass-like background
-  titleBar = {0.10, 0.12, 0.16, 1.00},     -- Subtle title bar
-  titleBarAccent = {0.20, 0.25, 0.35, 1.00}, -- Soft accent
+  -- Dark space chrome
+  windowBg = {0.01, 0.01, 0.03, 0.95},     -- Ultra-dark transparent panel
+  titleBar = {0.01, 0.01, 0.03, 0.95},     -- Same as window background
+  titleBarAccent = {0.08, 0.12, 0.18, 1.00}, -- Cyan chrome accent
 
-  -- Modern borders (subtle, not harsh)
-  border = {0.20, 0.20, 0.25, 0.60},       -- Soft border
-  borderBright = {0.35, 0.35, 0.45, 0.80}, -- Highlight border
-  borderGlow = {0.30, 0.50, 0.90, 0.20},   -- Subtle glow
-  outline = {0.15, 0.15, 0.20, 0.80},      -- Soft outline
+  -- Lavender-cyan borders
+  border = {0.6, 0.4, 0.9, 0.7},           -- Lavender border (semi-transparent)
+  borderBright = {0.5, 0.7, 0.9, 1.00},    -- Bright cyan border
+  borderGlow = {0.5, 0.7, 0.9, 0.4},       -- Cyan glow
+  outline = {0.12, 0.18, 0.24, 1.00},      -- Soft cyan outline
 
-  -- Modern typography
-  text = {0.95, 0.95, 0.98, 1.00},         -- Pure white text
-  textSecondary = {0.75, 0.75, 0.80, 1.00}, -- Light grey
-  textTertiary = {0.55, 0.55, 0.60, 1.00}, -- Medium grey
-  textDisabled = {0.40, 0.40, 0.45, 0.60}, -- Disabled text
-  textHighlight = {0.95, 0.95, 1.00, 1.00}, -- Bright highlight
+  -- Starfield typography
+  text = {0.95, 0.95, 1.00, 1.00},         -- Pure white stars
+  textSecondary = {0.8, 0.85, 0.95, 1.00}, -- Cyan-tinted grey
+  textTertiary = {0.6, 0.65, 0.75, 1.00},  -- Medium cyan-grey
+  textDisabled = {0.3, 0.35, 0.45, 0.7},   -- Disabled cyan-grey
+  textHighlight = {0.9, 0.95, 1.00, 1.00}, -- Bright starlight
+  textStatus = {1.0, 1.0, 1.0, 1.00},      -- Pure white for status bars
 
-  -- Modern status colors
-  shield = {0.25, 0.70, 0.95, 1.00},       -- Electric blue
-  armor = {0.95, 0.60, 0.25, 1.00},        -- Warm orange
-  hull = {0.95, 0.30, 0.35, 1.00},         -- Clean red
-  capacitor = {0.95, 0.90, 0.25, 1.00},    -- Bright yellow
-  damage = {0.95, 0.80, 0.30, 0.80},      -- Bright yellow-orange for damage flash
+  -- Dark space status indicators
+  shield = {0.5, 0.7, 0.9, 1.00},          -- Cyan shield
+  armor = {0.7, 0.5, 0.8, 1.00},           -- Lavender armor
+  hull = {0.9, 0.4, 0.6, 1.00},            -- Magenta hull
+  capacitor = {0.8, 0.9, 1.0, 1.00},       -- Cyan energy
+  damage = {0.9, 0.6, 0.9, 0.9},           -- Lavender damage flash
 
-  -- Modern effects (subtle and sophisticated)
-  glow = {0.30, 0.50, 0.90, 0.15},         -- Soft blue glow
-  glowStrong = {0.30, 0.50, 0.90, 0.25},   -- Enhanced glow
-  shadow = {0.00, 0.00, 0.00, 0.40},       -- Soft shadow
-  highlight = {1.00, 1.00, 1.00, 0.08},    -- Subtle highlight
+  -- Dark nebula effects
+  glow = {0.5, 0.7, 0.9, 0.3},             -- Cyan nebula glow
+  glowStrong = {0.5, 0.7, 0.9, 0.5},       -- Strong cyan glow
+  shadow = {0.00, 0.00, 0.00, 0.8},        -- Deep space shadow
+  highlight = {0.8, 0.9, 1.0, 0.2},        -- Cyan highlight
 
-  -- Modern interaction states
-  selection = {0.30, 0.50, 0.90, 0.30},    -- Soft selection
-  focus = {0.30, 0.50, 0.90, 0.50},        -- Clear focus
-  hover = {0.20, 0.20, 0.25, 0.60},        -- Subtle hover
+  -- Dark space interaction states
+  selection = {0.5, 0.7, 0.9, 0.5},        -- Cyan selection
+  focus = {0.5, 0.7, 0.9, 0.7},            -- Cyan focus
+  hover = {0.06, 0.08, 0.12, 1.00},        -- Dark cyan hover
 
-  -- Modern transparency
+  -- Dark space transparency
   transparent = {0.00, 0.00, 0.00, 0.00},
-  overlay = {0.00, 0.00, 0.00, 0.60},
+  overlay = {0.00, 0.00, 0.00, 0.8},
 }
 
 -- === FONTS ===
--- UI font definitions (Love2D default font at standardized sizes)
+-- Modern, clean font for crisp UI rendering
+-- Using a system font that scales cleanly at all sizes
+local defaultFont = love.graphics.newFont(12)
+
 Theme.fonts = {
-  normal = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", 10),
-  medium = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", 12),
-  large = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", 14),
-  small = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", 8),
-  xsmall = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", 6),
-  title = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", 16),
-  monospace = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", 10),
+  normal = defaultFont,
+  medium = love.graphics.newFont(16),
+  large = love.graphics.newFont(18),
+  small = love.graphics.newFont(12),
+  xsmall = love.graphics.newFont(10),
+  title = love.graphics.newFont(20),
+  monospace = love.graphics.newFont(12, "mono"),
 }
 
 function Theme.loadFonts()
   -- Get font scale (separate from UI scale)
   local fontScale = (Viewport.getFontScale() or 1.0) * (Viewport.getUIScale() or 1.0)
+  local fontPath = "assets/fonts/PressStart2P-Regular.ttf"
   local fontSizes = {
-    xsmall = 6,
-    small = 8,
-    normal = 10,
-    medium = 12,
-    large = 14,
-    title = 16,
-    monospace = 10
+    xsmall = 7,
+    small = 9,
+    normal = 11,
+    medium = 13,
+    large = 15,
+    title = 17,
+    monospace = 9
   }
 
   -- Initialize fonts table if it doesn't exist
   Theme.fonts = Theme.fonts or {}
-  
-  -- Create or update each font with proper filtering
+
+  -- Create or update each font with crisp filtering
   for name, size in pairs(fontSizes) do
-    local scaledSize = math.max(1, math.floor(size * fontScale + 0.5))
+    local scaledSize = math.max(8, math.floor(size * fontScale + 0.5))
     if not Theme.fonts[name] or Theme.fonts[name]:getHeight() ~= scaledSize then
-      Theme.fonts[name] = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", scaledSize)
-      -- Use nearest neighbor filtering for crisp pixel art fonts
+      if name == "monospace" then
+        Theme.fonts[name] = love.graphics.newFont(fontPath, scaledSize)
+      else
+        Theme.fonts[name] = love.graphics.newFont(fontPath, scaledSize)
+      end
+      -- Use nearest neighbor filtering for maximum crispness
       Theme.fonts[name]:setFilter('nearest', 'nearest', 1)
     end
   end
-  
+
   -- Set default font
   love.graphics.setFont(Theme.fonts.normal)
   return Theme.fonts
@@ -164,13 +173,13 @@ Theme.semantic = {
   statusShield = Theme.colors.shield,
   statusCapacitor = Theme.colors.capacitor,
 
-  -- Modern Status bar colors
+  -- Space Status bar colors
   modernStatusHull = Theme.colors.danger,
-  modernStatusShield = Theme.colors.info,
-  modernStatusCapacitor = Theme.colors.warning,
+  modernStatusShield = Theme.colors.shield,
+  modernStatusCapacitor = Theme.colors.capacitor,
   modernStatusCritical = Theme.colors.danger,
   modernStatusDamage = Theme.colors.damage,
-  modernStatusXP = {0.6, 0.4, 0.8, 1.00},
+  modernStatusXP = {0.6, 0.4, 0.9, 1.00}, -- Lavender XP
 
   -- Text colors
   textPrimary = Theme.colors.text,
@@ -178,14 +187,29 @@ Theme.semantic = {
   textDisabled = Theme.colors.textDisabled,
 }
 
--- === MINIMAL EFFECT SETTINGS ===
--- Reduced effects for classic Windows look
+-- === CRISP EFFECT SETTINGS ===
+-- Sharp, clean effects for modern UI
 Theme.effects = {
-  glowWeak = 0.05,
-  glowSubtle = 0.10,
-  glowMedium = 0.15,
-  glowStrong = 0.20,
-  glowBright = 0.25,
+  glowWeak = 0.08,
+  glowSubtle = 0.15,
+  glowMedium = 0.25,
+  glowStrong = 0.35,
+  glowBright = 0.45,
+
+  -- Animation timings
+  transitionFast = 0.15,
+  transitionNormal = 0.3,
+  transitionSlow = 0.6,
+
+  -- Particle system settings
+  particleSize = { min = 1, max = 3 },
+  particleSpeed = { min = 20, max = 80 },
+  particleLifetime = { min = 0.5, max = 1.5 },
+
+  -- Screen effects
+  screenShake = { intensity = 3, duration = 0.2 },
+  flashIntensity = 0.3,
+  zoomIntensity = 1.05,
 }
 
 -- Explorer/content theme (used by some UI windows)
@@ -197,8 +221,13 @@ Theme.explorer = {
 -- Core theme utility functions
 
 function Theme.setColor(color)
-  if color and #color >= 3 then
-    love.graphics.setColor(color[1], color[2], color[3], color[4] or 1.0)
+  if color then
+    if type(color) == "table" and #color >= 3 then
+      love.graphics.setColor(color[1], color[2], color[3], color[4] or 1.0)
+    elseif type(color) == "table" and #color >= 1 then
+      -- Handle single-value tables or other formats
+      love.graphics.setColor(color[1], color[1], color[1], color[2] or 1.0)
+    end
   end
 end
 
@@ -233,6 +262,212 @@ function Theme.shimmerColor(baseColor, time, intensity)
   }
 end
 
+-- === ANIMATION SYSTEM ===
+Theme.animations = {
+  -- Store active animations
+  active = {},
+  nextId = 1,
+}
+
+-- Easing functions for smooth animations
+function Theme.easeOut(t)
+  return 1 - math.pow(1 - t, 3)
+end
+
+function Theme.easeIn(t)
+  return t * t * t
+end
+
+function Theme.easeInOut(t)
+  if t < 0.5 then
+    return 4 * t * t * t
+  else
+    return 1 - math.pow(-2 * t + 2, 3) / 2
+  end
+end
+
+-- Animate a value from start to target over duration
+function Theme.animateValue(start, target, duration, easing, callback)
+  local id = Theme.animations.nextId
+  Theme.animations.nextId = Theme.animations.nextId + 1
+
+  local animation = {
+    start = start,
+    target = target,
+    duration = duration,
+    easing = easing or Theme.easeInOut,
+    callback = callback,
+    startTime = love.timer.getTime(),
+    completed = false
+  }
+
+  Theme.animations.active[id] = animation
+  return id
+end
+
+-- Update all active animations
+function Theme.updateAnimations(dt)
+  local currentTime = love.timer.getTime()
+
+  for id, animation in pairs(Theme.animations.active) do
+    local elapsed = currentTime - animation.startTime
+    local progress = math.min(elapsed / animation.duration, 1)
+
+    if progress >= 1 then
+      -- Animation complete
+      if animation.callback then
+        animation.callback(animation.target)
+      end
+      Theme.animations.active[id] = nil
+    else
+      -- Update animation
+      local easedProgress = animation.easing(progress)
+      local currentValue = animation.start + (animation.target - animation.start) * easedProgress
+
+      if animation.callback then
+        animation.callback(currentValue)
+      end
+    end
+  end
+end
+
+-- === PARTICLE SYSTEM ===
+Theme.particles = {
+  active = {},
+  nextId = 1,
+}
+
+-- Create a particle at position with velocity
+function Theme.createParticle(x, y, color, velocityX, velocityY, size, lifetime)
+  local id = Theme.particles.nextId
+  Theme.particles.nextId = Theme.particles.nextId + 1
+
+  local particle = {
+    x = x,
+    y = y,
+    vx = velocityX or (math.random() * 2 - 1) * Theme.effects.particleSpeed.max,
+    vy = velocityY or (math.random() * 2 - 1) * Theme.effects.particleSpeed.max,
+    color = color or {1, 1, 1, 1},
+    size = size or math.random(Theme.effects.particleSize.min, Theme.effects.particleSize.max),
+    lifetime = lifetime or math.random(Theme.effects.particleLifetime.min, Theme.effects.particleLifetime.max),
+    age = 0,
+    active = true
+  }
+
+  Theme.particles.active[id] = particle
+  return id
+end
+
+-- Update all particles
+function Theme.updateParticles(dt)
+  for id, particle in pairs(Theme.particles.active) do
+    particle.age = particle.age + dt
+    if particle.age >= particle.lifetime then
+      particle.active = false
+      Theme.particles.active[id] = nil
+    else
+      -- Update position
+      particle.x = particle.x + particle.vx * dt
+      particle.y = particle.y + particle.vy * dt
+
+      -- Fade out over time
+      local fadeProgress = particle.age / particle.lifetime
+      particle.color[4] = (1 - fadeProgress) * particle.color[4]
+    end
+  end
+end
+
+-- Draw all active particles
+function Theme.drawParticles()
+  for _, particle in pairs(Theme.particles.active) do
+    Theme.setColor(particle.color)
+    love.graphics.circle("fill", particle.x, particle.y, particle.size)
+  end
+end
+
+-- === SCREEN EFFECTS ===
+Theme.screenEffects = {
+  shake = { intensity = 0, duration = 0, timer = 0 },
+  flash = { color = {1, 1, 1, 0}, duration = 0, timer = 0 },
+  zoom = { scale = 1, duration = 0, timer = 0 },
+}
+
+-- Add screen shake effect
+function Theme.shakeScreen(intensity, duration)
+  Theme.screenEffects.shake.intensity = intensity or Theme.effects.screenShake.intensity
+  Theme.screenEffects.shake.duration = duration or Theme.effects.screenShake.duration
+  Theme.screenEffects.shake.timer = 0
+end
+
+-- Add screen flash effect
+function Theme.flashScreen(color, duration)
+  Theme.screenEffects.flash.color = color or {1, 1, 1, 1}
+  Theme.screenEffects.flash.duration = duration or 0.2
+  Theme.screenEffects.flash.timer = 0
+end
+
+-- Add zoom effect
+function Theme.zoomScreen(scale, duration)
+  Theme.screenEffects.zoom.scale = scale or Theme.effects.zoomIntensity
+  Theme.screenEffects.zoom.duration = duration or 0.1
+  Theme.screenEffects.zoom.timer = 0
+end
+
+-- Update screen effects
+function Theme.updateScreenEffects(dt)
+  -- Update shake
+  if Theme.screenEffects.shake.timer < Theme.screenEffects.shake.duration then
+    Theme.screenEffects.shake.timer = Theme.screenEffects.shake.timer + dt
+    if Theme.screenEffects.shake.timer >= Theme.screenEffects.shake.duration then
+      Theme.screenEffects.shake.intensity = 0
+    end
+  end
+
+  -- Update flash
+  if Theme.screenEffects.flash.timer < Theme.screenEffects.flash.duration then
+    Theme.screenEffects.flash.timer = Theme.screenEffects.flash.timer + dt
+    if Theme.screenEffects.flash.timer >= Theme.screenEffects.flash.duration then
+      Theme.screenEffects.flash.color[4] = 0
+    end
+  end
+
+  -- Update zoom
+  if Theme.screenEffects.zoom.timer < Theme.screenEffects.zoom.duration then
+    Theme.screenEffects.zoom.timer = Theme.screenEffects.zoom.timer + dt
+    if Theme.screenEffects.zoom.timer >= Theme.screenEffects.zoom.duration then
+      Theme.screenEffects.zoom.scale = 1
+    end
+  end
+end
+
+-- Get screen offset for shake effect
+function Theme.getScreenShakeOffset()
+  if Theme.screenEffects.shake.intensity > 0 and Theme.screenEffects.shake.timer < Theme.screenEffects.shake.duration then
+    local progress = Theme.screenEffects.shake.timer / Theme.screenEffects.shake.duration
+    local intensity = Theme.screenEffects.shake.intensity * (1 - progress)
+    return math.random(-intensity, intensity), math.random(-intensity, intensity)
+  end
+  return 0, 0
+end
+
+-- Get screen flash alpha
+function Theme.getScreenFlashAlpha()
+  if Theme.screenEffects.flash.timer < Theme.screenEffects.flash.duration then
+    local progress = Theme.screenEffects.flash.timer / Theme.screenEffects.flash.duration
+    return (1 - progress) * Theme.screenEffects.flash.color[4]
+  end
+  return 0
+end
+
+-- Get screen zoom scale
+function Theme.getScreenZoomScale()
+  if Theme.screenEffects.zoom.timer < Theme.screenEffects.zoom.duration then
+    local progress = Theme.screenEffects.zoom.timer / Theme.screenEffects.zoom.duration
+    return 1 + (Theme.screenEffects.zoom.scale - 1) * progress
+  end
+  return 1
+end
+
 function Theme.drawVerticalGradient(x, y, w, h, topColor, bottomColor, steps)
   steps = steps or 20
   local r1, g1, b1, a1 = topColor[1], topColor[2], topColor[3], topColor[4] or 1
@@ -252,45 +487,74 @@ function Theme.drawHorizontalGradient(x, y, w, h, leftColor, rightColor, steps)
 end
 
 function Theme.drawCloseButton(rect, hover)
-  Theme.drawGradientGlowRect(rect.x, rect.y, rect.w, rect.h, 4,
-    hover and Theme.colors.danger or Theme.colors.bg2,
-    Theme.colors.bg1, Theme.colors.border, hover and Theme.effects.glowMedium or Theme.effects.glowWeak)
-
+  -- Draw only the "×" symbol, no box background
   local oldFont = love.graphics.getFont()
   love.graphics.setFont(Theme.fonts and Theme.fonts.small or oldFont)
-  Theme.setColor(hover and Theme.colors.textHighlight or Theme.colors.textSecondary)
+  Theme.setColor(hover and Theme.colors.danger or Theme.colors.textSecondary)
   local font = love.graphics.getFont()
   local textWidth = font:getWidth("×")
   local textHeight = font:getHeight()
-  love.graphics.print("×", math.floor(rect.x + (rect.w - textWidth) / 2), math.floor(rect.y + (rect.h - textHeight) / 2))
+  love.graphics.print("×",
+    math.floor(rect.x + (rect.w - textWidth) / 2 + 0.5),
+    math.floor(rect.y + (rect.h - textHeight) / 2 + 0.5))
   if oldFont then love.graphics.setFont(oldFont) end
 end
 
 function Theme.drawGradientGlowRect(x, y, w, h, radius, topColor, bottomColor, glowColor, glowIntensity)
-  -- Hard corners for classic Windows style
-  local cornerRadius = 0
-
-  -- Draw subtle shadow for depth
-  if glowIntensity and glowIntensity > 0 then
-    Theme.setColor(Theme.withAlpha(Theme.colors.shadow, glowIntensity * 0.3))
-    love.graphics.rectangle("fill", x + 2, y + 2, w, h)
+  -- Handle nil parameters gracefully
+  if x == nil or y == nil or w == nil or h == nil then
+    return
   end
 
-  -- Main surface with subtle gradient
-  Theme.setColor(topColor)
-  love.graphics.rectangle("fill", x, y, w, h)
+  -- Clean, sharp corners
+  local cornerRadius = 0
 
-  -- Subtle border for definition
+  -- Sharp shadow for depth (optional)
+  if glowIntensity and glowIntensity > 0 then
+    Theme.setColor(Theme.withAlpha(Theme.colors.shadow, glowIntensity * 0.4))
+    love.graphics.rectangle("fill", math.floor(x + 1.5), math.floor(y + 1.5), w, h)
+  end
+
+  -- Main surface (flat, no gradient for crispness)
+  Theme.setColor(topColor)
+  love.graphics.rectangle("fill", math.floor(x + 0.5), math.floor(y + 0.5), w, h)
+
+  -- Sharp border for definition
   Theme.setColor(Theme.colors.border)
-  love.graphics.rectangle("line", x, y, w, h)
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("line", math.floor(x + 0.5), math.floor(y + 0.5), w, h)
 end
 
 function Theme.drawEVEBorder(x, y, w, h, radius, borderColor, cornerSize)
-  -- Hard corners for classic Windows style
-  local cornerRadius = 0
+  -- Handle nil parameters gracefully
+  if x == nil or y == nil or w == nil or h == nil then
+    return
+  end
+
+  cornerSize = cornerSize or math.min(w, h) * 0.1
   Theme.setColor(borderColor)
   love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", x, y, w, h)
+
+  x, y, w, h = math.floor(x + 0.5), math.floor(y + 0.5), w, h
+
+  -- Top line
+  love.graphics.line(x + cornerSize, y, x + w - cornerSize, y)
+  -- Bottom line
+  love.graphics.line(x + cornerSize, y + h, x + w - cornerSize, y + h)
+  -- Left line
+  love.graphics.line(x, y + cornerSize, x, y + h - cornerSize)
+  -- Right line
+  love.graphics.line(x + w, y + cornerSize, x + w, y + h - cornerSize)
+
+  -- Corners
+  -- Top-left corner
+  love.graphics.line(x, y + cornerSize, x, y, x + cornerSize, y)
+  -- Top-right corner
+  love.graphics.line(x + w - cornerSize, y, x + w, y, x + w, y + cornerSize)
+  -- Bottom-left corner
+  love.graphics.line(x, y + h - cornerSize, x, y + h, x + cornerSize, y + h)
+  -- Bottom-right corner
+  love.graphics.line(x + w - cornerSize, y + h, x + w, y + h, x + w, y + h - cornerSize)
 end
 
 function Theme.drawDesignToken(x, y, size)
@@ -298,8 +562,8 @@ function Theme.drawDesignToken(x, y, size)
     local centerX = x + radius
     local centerY = y + radius
 
-    -- A more fitting design for the currency token
-    Theme.setColor(Theme.colors.accentGold)
+    -- Space-themed currency token
+    Theme.setColor({0.6, 0.7, 1.0, 1.00}) -- Blue-tinted white
     love.graphics.circle("fill", centerX, centerY, radius)
     Theme.setColor(Theme.colors.border)
     love.graphics.circle("line", centerX, centerY, radius)
@@ -319,7 +583,7 @@ function Theme.drawXPIcon(x, y, size)
     local centerX = x + radius
     local centerY = y + radius
 
-    Theme.setColor({0.6, 0.4, 0.8, 1.00})
+    Theme.setColor({0.7, 0.5, 0.9, 1.00}) -- Purple XP
     love.graphics.circle("fill", centerX, centerY, radius)
     Theme.setColor(Theme.colors.border)
     love.graphics.circle("line", centerX, centerY, radius)
@@ -363,43 +627,33 @@ end
 
 function Theme.drawModernBar(x, y, w, h, progress, color)
     progress = math.max(0, math.min(1, progress))
-    local cornerRadius = 4
+    local cornerRadius = 0
 
-    -- Background
+    -- Clean background
     Theme.setColor(Theme.colors.bg1)
-    love.graphics.rectangle("fill", x, y, w, h, cornerRadius)
+    love.graphics.rectangle("fill", math.floor(x + 0.5), math.floor(y + 0.5), w, h, cornerRadius)
 
-    -- Inner shadow for depth
-    Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.5))
-    love.graphics.rectangle("fill", x + 1, y + 1, w - 2, h - 2, cornerRadius)
-
-    -- Compute inner fill width once and avoid drawing colored fill/glow when zero
-    local innerW = w - 4
+    -- Compute inner fill width
+    local innerW = w - 2
     local fillW = math.floor(innerW * progress)
 
-    -- Progress fill (only if at least 1px wide)
+    -- Sharp progress fill (no gradients for crispness)
     if fillW > 0 then
-        local gx, gy, gw, gh = x + 2, y + 2, fillW, h - 4
+        local gx, gy, gw, gh = math.floor(x + 1.5), math.floor(y + 1.5), fillW, h - 2
 
-        -- Main fill with gradient
-        local topColor = Theme.blend(color, {1,1,1,1}, 0.2)
-        local bottomColor = color
-        Theme.drawVerticalGradient(gx, gy, gw, gh, topColor, bottomColor)
+        -- Main fill (flat color for sharpness)
+        Theme.setColor(color)
+        love.graphics.rectangle("fill", gx, gy, gw, gh)
 
-        -- Highlight
-        if gw > 0 then
-            Theme.setColor(Theme.withAlpha(Theme.colors.highlight, 0.5))
-            love.graphics.rectangle("fill", gx, gy, gw, 2, cornerRadius)
-        end
-
-        -- Glow
-        Theme.setColor(Theme.withAlpha(color, 0.2))
-        love.graphics.rectangle("fill", gx - 2, gy - 2, gw + 4, gh + 4, cornerRadius + 2)
+        -- Clean border highlight
+        Theme.setColor(Theme.withAlpha(Theme.colors.highlight, 0.6))
+        love.graphics.rectangle("fill", gx, gy, gw, 1)
     end
 
-    -- Border
+    -- Sharp border
     Theme.setColor(Theme.colors.border)
-    love.graphics.rectangle("line", x, y, w, h, cornerRadius)
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", math.floor(x + 0.5), math.floor(y + 0.5), w, h, cornerRadius)
 end
 
 function Theme.drawSciFiBar(x, y, w, h, progress, color)
@@ -489,51 +743,69 @@ end
 function Theme.drawSimpleBar(x, y, w, h, progress, color)
     progress = math.max(0, math.min(1, progress))
 
-    -- Background
+    -- Clean background
     Theme.setColor(Theme.colors.bg1)
-    love.graphics.rectangle("fill", x, y, w, h)
+    love.graphics.rectangle("fill", math.floor(x + 0.5), math.floor(y + 0.5), w, h)
 
-    -- Inner shadow for minimal depth
-    Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.3))
-    love.graphics.rectangle("fill", x + 1, y + 1, w - 2, h - 2)
-
-    -- Progress fill
+    -- Sharp progress fill
     if progress > 0 then
         local fillW = math.floor((w - 2) * progress)
         Theme.setColor(color)
-        love.graphics.rectangle("fill", x + 1, y + 1, fillW, h - 2)
+        love.graphics.rectangle("fill", math.floor(x + 1.5), math.floor(y + 1.5), fillW, h - 2)
     end
 
-    -- Simple border
+    -- Sharp border
     Theme.setColor(Theme.colors.border)
-    love.graphics.rectangle("line", x, y, w, h)
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", math.floor(x + 0.5), math.floor(y + 0.5), w, h)
 end
 
 
 -- Optional opts: { compact=true } to use smaller text
 function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
+  -- Handle nil parameters gracefully
+  if x == nil or y == nil or w == nil or h == nil then
+    return
+  end
+
   local pulseColor = {0, 0, 0, 0.05} -- More transparent black border
   local glowIntensity = hover and Theme.effects.glowMedium * 0.7 or Theme.effects.glowWeak * 0.7
 
-  -- Create transparent versions of the colors
-  local bg3 = {Theme.colors.bg3[1], Theme.colors.bg3[2], Theme.colors.bg3[3], 0.7}
-  local bg2 = {Theme.colors.bg2[1], Theme.colors.bg2[2], Theme.colors.bg2[3], 0.5}
-  local bg4 = {Theme.colors.bg4[1], Theme.colors.bg4[2], Theme.colors.bg4[3], 0.8}
+  -- Create very transparent versions of the colors
+  local bg3 = {Theme.colors.bg3[1], Theme.colors.bg3[2], Theme.colors.bg3[3], 0.2}
+  local bg2 = {Theme.colors.bg2[1], Theme.colors.bg2[2], Theme.colors.bg2[3], 0.1}
+  local bg4 = {Theme.colors.bg4[1], Theme.colors.bg4[2], Theme.colors.bg4[3], 0.3}
   
   local topColor = color or (hover and bg3 or bg2)
   if down then
     topColor = bg4
   end
 
-  Theme.drawGradientGlowRect(x, y, w, h, 10,
+  Theme.drawGradientGlowRect(x, y, w, h, 0,
     topColor,
-    Theme.colors.bg1, pulseColor, glowIntensity)
+    topColor, pulseColor, glowIntensity)
 
-  Theme.drawEVEBorder(x, y, w, h, 10, pulseColor, 12)
+  Theme.drawEVEBorder(math.floor(x + 0.5), math.floor(y + 0.5), w, h, 0, pulseColor, 0)
 
-  -- Choose the largest prebuilt font that fits to keep text crisp
+  -- If a fixed font is provided via opts, use it for consistent sizing
   local padX = 12
   local maxTextW = math.max(10, w - padX * 2)
+  local fixedFont = opts and opts.font
+  if fixedFont then
+    local oldFont = love.graphics.getFont()
+    love.graphics.setFont(fixedFont)
+    local tw = fixedFont:getWidth(text or "")
+    local th = fixedFont:getHeight()
+
+    Theme.setColor(Theme.colors.text)
+    local textX = math.floor(x + (w - tw) * 0.5 + 0.5)
+    local textY = math.floor(y + (h - th) * 0.5 + 0.5)
+    love.graphics.print(text, textX, textY)
+    if oldFont then love.graphics.setFont(oldFont) end
+    return
+  end
+
+  -- Choose the largest prebuilt font that fits to keep text crisp
   local candidates = {
     Theme.fonts and Theme.fonts.large,
     Theme.fonts and Theme.fonts.medium,
@@ -556,8 +828,9 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
   local bestFont = nil
   for _, f in ipairs(candidates) do
     if f then
-      local tw = f:getWidth(text)
-      if tw <= maxTextW and f:getHeight() <= h - 6 then
+      local tw = f:getWidth(text or "")
+      local fh = f:getHeight()
+      if tw <= maxTextW and fh <= h - 6 then
         bestFont = f
         break
       end
@@ -565,23 +838,28 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
   end
   if not bestFont then
     -- Fallback to smallest available to avoid overflow
-    bestFont = candidates[#candidates]
+    for i = #candidates, 1, -1 do
+      if candidates[i] then
+        bestFont = candidates[i]
+        break
+      end
+    end
+  end
+
+  -- Safety check
+  if not bestFont then
+    bestFont = love.graphics.getFont() or Theme.fonts.normal or Theme.fonts.small
   end
 
   local oldFont = love.graphics.getFont()
   love.graphics.setFont(bestFont)
-  local tw = bestFont:getWidth(text)
+  local tw = bestFont:getWidth(text or "")
   local th = bestFont:getHeight()
   local textX = math.floor(x + (w - tw) * 0.5 + 0.5)
   local textY = math.floor(y + (h - th) * 0.5 + 0.5)
 
-  -- Shadow with reduced opacity
-  local shadowColor = {Theme.colors.shadow[1], Theme.colors.shadow[2], Theme.colors.shadow[3], Theme.colors.shadow[4] * 0.7}
-  Theme.setColor(shadowColor)
-  love.graphics.print(text, textX, textY + 1)
-
-  -- Semi-transparent white text
-  Theme.setColor({1, 1, 1, 0.9}) -- 90% opacity white
+  -- Clean text (no shadow for sharpness)
+  Theme.setColor(Theme.colors.text)
   love.graphics.print(text, textX, textY)
 
   -- Restore font
@@ -610,9 +888,9 @@ function Theme.handleButtonClick(button, x, y, callback, playSound)
   return isClicked
 end
 
--- === MODERN SLEEK COMPONENT PRESETS ===
+-- === SPACE COMPONENT PRESETS ===
 Theme.components = {
-  -- Modern sleek window
+  -- Deep space window
   window = {
     bg = Theme.colors.windowBg,
     border = Theme.colors.border,
@@ -623,7 +901,7 @@ Theme.components = {
     glowIntensity = Theme.effects.glowWeak,
   },
 
-  -- Modern sleek buttons
+  -- Space-themed buttons
   button = {
     bg = Theme.colors.bg2,
     bgHover = Theme.colors.bg3,
@@ -636,14 +914,41 @@ Theme.components = {
     glow = Theme.colors.glow,
     glowIntensity = Theme.effects.glowSubtle,
   },
+
+  -- Tooltip configuration
+  tooltip = {
+    maxWidth = 500,           -- Maximum tooltip width in pixels
+    minWidth = 150,           -- Minimum tooltip width for readability
+    padding = 8,              -- Padding around tooltip content
+    screenMarginRatio = 0.8,  -- Maximum ratio of screen width to use
+    nameLineSpacing = 8,      -- Extra spacing after item name
+    statLineSpacing = 2,      -- Spacing between stat lines
+    modifierHeaderSpacing = 8, -- Extra space before modifier section
+  },
 }
 
--- Modern sleek colors for turret slots
+-- Dark space-themed turret slot colors (cyan primary, lavender secondary)
 Theme.turretSlotColors = {
-  {0.30, 0.50, 0.90, 1.00}, -- Slot 1: modern blue
-  {0.25, 0.85, 0.35, 1.00}, -- Slot 2: fresh green
-  {0.95, 0.35, 0.35, 1.00}, -- Slot 3: clean red
-  {0.95, 0.70, 0.20, 1.00}, -- Slot 4: warm amber
+  {0.2, 0.8, 0.9, 1.00},    -- Slot 1: electric cyan (primary)
+  {0.3, 0.9, 1.0, 1.00},    -- Slot 2: bright cyan (highlights)
+  {0.6, 0.4, 0.9, 1.00},    -- Slot 3: ethereal lavender (secondary)
+  {0.7, 0.5, 0.9, 1.00},    -- Slot 4: deep lavender (accents)
 }
+
+-- === USAGE EXAMPLES ===
+-- Theme.createParticle(x, y, color, velocityX, velocityY, size, lifetime)
+-- Example: Theme.createParticle(100, 100, {1, 0.8, 0.2, 1}, 0, -50, 2, 1.0)
+--
+-- Theme.shakeScreen(intensity, duration)
+-- Example: Theme.shakeScreen(5, 0.3) -- Strong shake for 0.3 seconds
+--
+-- Theme.flashScreen(color, duration)
+-- Example: Theme.flashScreen({0.9, 0.7, 0.2, 0.3}, 0.2) -- Gold flash
+--
+-- Theme.zoomScreen(scale, duration)
+-- Example: Theme.zoomScreen(1.1, 0.1) -- Quick zoom in
+--
+-- Theme.animateValue(start, target, duration, easing, callback)
+-- Example: Theme.animateValue(0, 100, 1.0, Theme.easeInOut, function(v) print(v) end)
 
 return Theme

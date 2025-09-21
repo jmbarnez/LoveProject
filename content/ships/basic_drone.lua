@@ -52,6 +52,9 @@ return {
             { id = "node_wallet", min = 1, max = 1, chance = 1.0 },  -- 100% drop rate for testing
         }
     },
+
+    -- Mark as enemy for red engine trails
+    isEnemy = true,
     
     -- Create different variants with different intelligence levels
     variants = {

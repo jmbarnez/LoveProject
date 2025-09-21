@@ -39,6 +39,10 @@ function Player.new(x, y, shipId)
   if not self.inventory then
     self.inventory = {}
   end
+  -- Initialize ordered inventory slots (6x4 grid)
+  if not self.inventory_slots then
+    self.inventory_slots = {}
+  end
 
   -- Initialize shield HP based on equipped modules
   self:updateShieldHP()
@@ -190,6 +194,7 @@ function Player:equipTurret(slotNum, turretId)
     if not self.inventory then
         self.inventory = {}
     end
+    self.inventory_slots = self.inventory_slots or {}
 
     if not self.inventory[turretId] or self.inventory[turretId] <= 0 then
         return false -- Don't have this turret in inventory
@@ -242,6 +247,12 @@ function Player:equipTurret(slotNum, turretId)
                         self.inventory[turretId] = nil
                     end
                 end
+                -- Clear any slot pointing to this id
+                for i = 1, #self.inventory_slots do
+                    if self.inventory_slots[i] == turretId then
+                        self.inventory_slots[i] = nil
+                    end
+                end
 
                 Hotbar.populateFromPlayer(self)
                 Hotbar.save()
@@ -259,9 +270,12 @@ function Player:unequipTurret(slotNum)
         return false
     end
 
-    -- Initialize inventory if it doesn't exist
+    -- Initialize inventory and slots if they don't exist
     if not self.inventory then
         self.inventory = {}
+    end
+    if not self.inventory_slots then
+        self.inventory_slots = {}
     end
 
     -- Find the turret slot
@@ -272,6 +286,22 @@ function Player:unequipTurret(slotNum)
             if turretId then
                 -- Always store the full turret data when unequipping (to preserve any procedural modifiers)
                 self.inventory[turretId] = turretData.turret
+                -- Place into a free slot if not already mapped
+                local alreadyMapped = false
+                for i = 1, #self.inventory_slots do
+                    if self.inventory_slots[i] == turretId then
+                        alreadyMapped = true
+                        break
+                    end
+                end
+                if not alreadyMapped then
+                    for i = 1, 24 do
+                        if self.inventory_slots[i] == nil then
+                            self.inventory_slots[i] = turretId
+                            break
+                        end
+                    end
+                end
             end
 
             -- Remove turret from slot
@@ -298,13 +328,28 @@ function Player:equipModule(slotNum, moduleId)
         return false
     end
 
+    -- Check if player has the item in inventory
+    if not self.inventory or not self.inventory[moduleId] then
+        return false -- Don't have this item in inventory
+    end
+    
+    -- Check if it's a valid quantity (number > 0) or a turret object
+    local inventoryValue = self.inventory[moduleId]
+    local hasItem = false
+    if type(inventoryValue) == "number" and inventoryValue > 0 then
+        hasItem = true
+    elseif type(inventoryValue) == "table" and inventoryValue.damage then
+        -- This is a turret object
+        hasItem = true
+    end
+    
+    if not hasItem then
+        return false -- Don't have this item in inventory
+    end
+
     -- Get the module definition (could be any module type)
     local moduleDef = Content.getItem(moduleId)
     local turretDef = Content.getTurret(moduleId)
-    
-    if not moduleDef and not turretDef then
-        return false
-    end
 
     -- Determine module type
     local moduleType = nil
@@ -315,10 +360,21 @@ function Player:equipModule(slotNum, moduleId)
         moduleType = moduleDef.module.type or "module"
         actualModule = moduleDef
     elseif turretDef then
-        -- It's a turret
+        -- It's a base turret from content (non-procedural)
         moduleType = "turret"
         actualModule = Turret.new(self, Util.copy(turretDef))
+        -- Use base id for non-procedural turrets
         actualModule.id = moduleId
+        actualModule.baseId = moduleId
+        actualModule.slot = slotNum
+    elseif type(inventoryValue) == "table" and inventoryValue.damage then
+        -- It's a procedural turret stored as full data in inventory
+        moduleType = "turret"
+        local baseId = inventoryValue.baseId or inventoryValue.id
+        actualModule = Turret.new(self, Util.copy(inventoryValue))
+        -- Preserve unique instance id for inventory bookkeeping
+        actualModule.id = moduleId
+        actualModule.baseId = baseId
         actualModule.slot = slotNum
     else
         return false
@@ -341,6 +397,27 @@ function Player:equipModule(slotNum, moduleId)
                 type = moduleType
             }
 
+            -- Remove from inventory
+            if type(inventoryValue) == "number" then
+                -- Numeric quantity - decrement
+                self.inventory[moduleId] = self.inventory[moduleId] - 1
+                if self.inventory[moduleId] <= 0 then
+                    self.inventory[moduleId] = nil
+                end
+            elseif type(inventoryValue) == "table" then
+                -- Turret object - remove entirely
+                self.inventory[moduleId] = nil
+            end
+
+            -- Clear any inventory slot mapping for this id
+            if self.inventory_slots then
+                for i = 1, #self.inventory_slots do
+                    if self.inventory_slots[i] == moduleId then
+                        self.inventory_slots[i] = nil
+                    end
+                end
+            end
+
             -- Update systems based on module type
             if moduleType == "shield" then
                 self:updateShieldHP()
@@ -362,6 +439,9 @@ function Player:unequipModule(slotNum)
     if not self.inventory then
         self.inventory = {}
     end
+    if not self.inventory_slots then
+        self.inventory_slots = {}
+    end
 
     -- Find the grid slot
     for i, gridData in ipairs(self.components.equipment.grid) do
@@ -374,9 +454,66 @@ function Player:unequipModule(slotNum)
                 if moduleType == "shield" or moduleType == "module" then
                     -- For shield modules and other modules, increment count
                     self.inventory[moduleId] = (self.inventory[moduleId] or 0) + 1
+                    -- Map to a free slot if not already present
+                    local mapped = false
+                    for i = 1, #self.inventory_slots do
+                        if self.inventory_slots[i] == moduleId then
+                            mapped = true
+                            break
+                        end
+                    end
+                    if not mapped then
+                        for i = 1, 24 do
+                            if self.inventory_slots[i] == nil then
+                                self.inventory_slots[i] = moduleId
+                                break
+                            end
+                        end
+                    end
                 else
-                    -- For turrets, store the full turret data
-                    self.inventory[moduleId] = gridData.module
+                    -- For turrets, store the full turret data preserving unique id
+                    local turretObj = gridData.module
+                    if turretObj then
+                        -- Ensure we retain the unique id key in inventory
+                        local uniqueId = gridData.id or (turretObj and turretObj.id)
+                        if uniqueId then
+                            self.inventory[uniqueId] = turretObj
+                            -- Map unique id to a free slot if not already present
+                            local mapped = false
+                            for i = 1, #self.inventory_slots do
+                                if self.inventory_slots[i] == uniqueId then
+                                    mapped = true
+                                    break
+                                end
+                            end
+                            if not mapped then
+                                for i = 1, 24 do
+                                    if self.inventory_slots[i] == nil then
+                                        self.inventory_slots[i] = uniqueId
+                                        break
+                                    end
+                                end
+                            end
+                        else
+                            -- Fallback to base id if no unique id present
+                            self.inventory[moduleId] = turretObj
+                            local mapped = false
+                            for i = 1, #self.inventory_slots do
+                                if self.inventory_slots[i] == moduleId then
+                                    mapped = true
+                                    break
+                                end
+                            end
+                            if not mapped then
+                                for i = 1, 24 do
+                                    if self.inventory_slots[i] == nil then
+                                        self.inventory_slots[i] = moduleId
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                    end
                 end
             end
 

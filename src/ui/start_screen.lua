@@ -30,17 +30,11 @@ local startScreenHandler = function(self, x, y, button)
     return false -- don't start game, show load UI
   end
 
-  -- Exit Game button click
-  if Theme.handleButtonClick(self.exitButton, x, y, function()
-    love.timer.sleep(0.2) -- Small delay to hear the sound before quitting
-    love.event.quit()
-  end) then
-    return false -- exit game
-  end
+  -- No exit button - use Escape key or Alt+F4 instead
 
   -- Settings button click
   if Theme.handleButtonClick(self.settingsButton, x, y, function()
-    SettingsPanel.visible = true
+    SettingsPanel.toggle()
   end) then
     return false -- show settings
   end
@@ -124,7 +118,6 @@ function Start.new()
   self.button = { x = 0, y = 0, w = 260, h = 40 }
   self.multiplayerButton = { x = 0, y = 0, w = 260, h = 40 }
   self.loadButton = { x = 0, y = 0, w = 260, h = 40 }
-  self.exitButton = { x = 0, y = 0, w = 260, h = 40 }
   self.settingsButton = { x = 0, y = 0, w = 260, h = 40 }
   self.multiplayerMenu = MultiplayerMenu.new()
   self.loadSlotsUI = SaveSlots:new()
@@ -322,13 +315,7 @@ Theme.drawStyledButton(mbx, mby, bw, bh, 'MULTIPLAYER', mhover, t, nil, false, {
   local settingsHover = mx >= settingsX and mx <= settingsX + bw and my >= settingsY and my <= settingsY + bh
   Theme.drawStyledButton(settingsX, settingsY, bw, bh, 'SETTINGS', settingsHover, t, nil, false, { compact = true })
 
--- Exit Game button
-local exitX = bx
-local exitY = settingsY + bh + 20 * s
-self.exitButton._rect = { x = exitX, y = exitY, w = bw, h = bh }
-local exitHover = mx >= exitX and mx <= exitX + bw and my >= exitY and my <= exitY + bh
-
-Theme.drawStyledButton(exitX, exitY, bw, bh, 'EXIT GAME', exitHover, t, Theme.colors.danger, false, { compact = true })
+-- No exit button - users can use Escape key or Alt+F4 to exit
 
 
   
@@ -338,13 +325,18 @@ Theme.drawStyledButton(exitX, exitY, bw, bh, 'EXIT GAME', exitHover, t, Theme.co
     Theme.setColor(Theme.colors.overlay)
     love.graphics.rectangle('fill', 0, 0, w, h)
     
-    -- Draw load slots UI
-    local loadW, loadH = 600, 500
+    -- Draw load slots UI with dynamic sizing
+    local contentW, contentH = 600, 500
+    if self.loadSlotsUI and self.loadSlotsUI.getPreferredSize then
+      contentW, contentH = self.loadSlotsUI:getPreferredSize()
+    end
+    local framePaddingX, framePaddingY = 20, 60
+    local loadW, loadH = contentW + framePaddingX, contentH + framePaddingY
     local loadX = (w - loadW) / 2
     local loadY = (h - loadH) / 2
     
     -- Background
-    Theme.drawGradientGlowRect(loadX, loadY, loadW, loadH, 4, Theme.colors.bg1, Theme.colors.bg2, Theme.colors.primary, Theme.effects.glowWeak * 0.3)
+    Theme.drawGradientGlowRect(loadX, loadY, loadW, loadH, 4, Theme.colors.bg1, Theme.colors.bg2, Theme.colors.primary, Theme.effects.glowWeak * 0.1)
     Theme.drawEVEBorder(loadX, loadY, loadW, loadH, 4, Theme.colors.border, 2)
     
     -- Back button

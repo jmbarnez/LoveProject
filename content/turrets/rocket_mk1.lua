@@ -43,5 +43,8 @@ return {
   cooldownRate = 12, -- Heat dissipation rate
   overheatDuration = 5.0, -- Longer disable time due to complex systems
   heatCycleMult = 0.6, -- Slower firing when hot
-  heatEnergyMult = 1.4 -- Energy cost increase when hot
+  heatEnergyMult = 1.4, -- Energy cost increase when hot
+
+  -- Firing mode: "manual" or "automatic"
+  fireMode = "manual" -- Missile launchers should be manually controlled
 }

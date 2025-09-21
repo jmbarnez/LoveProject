@@ -3,7 +3,7 @@ function love.conf(t)
   t.version = "11.4"
   t.console = true
   t.window.title = "Novus"
-  -- Higher resolution for crisp UI and text
+  -- Default resolution, will be overridden by settings
   t.window.width = 1920
   t.window.height = 1080
   t.window.resizable = true
@@ -14,6 +14,4 @@ function love.conf(t)
   -- Reasonable minimums to keep UI usable when resizing
   t.window.minwidth = 1024
   t.window.minheight = 576
-  -- Re-enable VSync for 60fps cap
-  t.window.vsync = 1
 end
