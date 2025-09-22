@@ -421,16 +421,6 @@ function Game.draw()
     QuestLog:draw(player)
     UIManager.draw(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, bounty)
 
-    -- Draw custom cursor if over any UI
-    if UIManager.isMouseOverUI() then
-        local mx, my = love.mouse.getPosition()
-        Theme.setColor(Theme.colors.accent)
-        love.graphics.polygon("fill", mx, my, mx + 12, my + 12, mx, my + 15)
-        Theme.setColor(Theme.colors.text)
-        love.graphics.setLineWidth(1)
-        love.graphics.polygon("line", mx, my, mx + 12, my + 12, mx, my + 15)
-    end
-
     -- UI particles and flashes (top-most)
     Theme.drawParticles()
     if flashAlpha > 0 then

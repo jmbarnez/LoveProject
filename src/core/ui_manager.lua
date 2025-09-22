@@ -330,6 +330,40 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
 
   Notifications.draw()
 
+  -- Draw UI cursor when mouse is over UI elements (on top of all UI)
+  local overUI = false
+  for _, comp in ipairs(Registry.visibleSortedDescending()) do
+    local r = comp.getRect and comp.getRect()
+    if r then
+      local mx, my = love.mouse.getPosition()
+      if mx >= r.x and mx <= r.x + r.w and my >= r.y and my <= r.y + r.h then
+        overUI = true
+        break
+      end
+    end
+  end
+
+  if overUI then
+    local mx, my = love.mouse.getPosition()
+    local Theme = require("src.core.theme")
+    local Settings = require("src.core.settings")
+
+    -- Get UI cursor color (similar to reticle)
+    local g = Settings.getGraphicsSettings()
+    local uiCursorColor
+    if g and g.ui_cursor_color_rgb and type(g.ui_cursor_color_rgb) == 'table' then
+      uiCursorColor = { g.ui_cursor_color_rgb[1] or 1, g.ui_cursor_color_rgb[2] or 1, g.ui_cursor_color_rgb[3] or 1, g.ui_cursor_color_rgb[4] or 1 }
+    else
+      uiCursorColor = Theme.colors.accent
+    end
+
+    Theme.setColor(uiCursorColor)
+    love.graphics.polygon("fill", mx, my, mx + 12, my + 12, mx, my + 15)
+    Theme.setColor(Theme.colors.text)
+    love.graphics.setLineWidth(1)
+    love.graphics.polygon("line", mx, my, mx + 12, my + 12, mx, my + 15)
+  end
+
   -- Restore prior font to prevent persistent size changes across frames
   if oldFont then love.graphics.setFont(oldFont) end
 end

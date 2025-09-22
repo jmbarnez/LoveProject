@@ -132,7 +132,8 @@ function Reticle.draw(player)
   end
   local aligned = isAligned(player)
   local base = userColor
-  local color = Theme.pulseColor(base, Theme.colors.textHighlight, t, 1.0)
+  -- Preserve user's exact color choice - don't blend with theme colors
+  local color = Theme.pulseColor(base, base, t, 1.0)
 
   love.graphics.push()
   -- Reticle draws in screen-space; make it crisp

@@ -65,6 +65,9 @@ local settings = {
         reticle_style = 1,            -- 1..50 preset styles
         reticle_color = "accent",     -- legacy string (kept for fallback)
         reticle_color_rgb = nil,      -- custom color {r,g,b,a}
+        -- UI cursor customization
+        ui_cursor_color = "accent",   -- legacy string (kept for fallback)
+        ui_cursor_color_rgb = nil,    -- custom color {r,g,b,a}
   },
     audio = {
         master_volume = 0.25,
