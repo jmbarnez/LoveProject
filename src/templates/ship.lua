@@ -95,6 +95,10 @@ function Ship.new(x, y, angle, friendly, shipConfig)
     hullColor = {0.5, 0.5, 0.5, 1.0},
     shapes = {}
   }
+  -- Set engine trail color based on ship type
+  if extraConfig.isEnemy then
+    self.visuals.engineColor = {1.0, 0.0, 0.0}  -- Red for enemies
+  end
 
   -- Create the component table
   local Position = require("src.components.position")

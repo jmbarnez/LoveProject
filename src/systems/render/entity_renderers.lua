@@ -67,6 +67,8 @@ function EntityRenderers.enemy(entity, player)
     local size = v.size or 1.0
     local S = RenderUtils.createScaler(size)
 
+    -- Engine trails are drawn from the main renderer in world space
+
     local drewBody = false
     if type(v.shapes) == "table" and #v.shapes > 0 then
         for _, shape in ipairs(v.shapes) do
@@ -1018,6 +1020,14 @@ end
 
 function EntityRenderers.draw(world, camera, player)
     local entities = world:get_entities_with_components("renderable", "position")
+    -- Draw engine trails for all non-player entities first (world space)
+    for _, entity in ipairs(entities) do
+        if entity ~= player and entity.components and entity.components.engine_trail then
+            entity.components.engine_trail:draw()
+        end
+    end
+
+    -- Then draw entities themselves
     for _, entity in ipairs(entities) do
         if entity == player then goto continue end
         local pos = entity.components.position

@@ -27,8 +27,8 @@ return {
 
     engine = {
         mass = 150,
-        accel = 400,
-        maxSpeed = 280,
+        accel = 600,
+        maxSpeed = 350,
     },
 
     hull = {
@@ -77,7 +77,7 @@ return {
             bounty = 20,
             xpReward = 25,
             hull = { hp = 12, shield = 8, cap = 250 },
-            engine = { maxSpeed = 320, accel = 500 }
+            engine = { maxSpeed = 400, accel = 650 }
         },
         ace = {
             name = "Ace Combat Drone",
@@ -85,7 +85,7 @@ return {
             bounty = 35,
             xpReward = 40,
             hull = { hp = 18, shield = 12, cap = 350 },
-            engine = { maxSpeed = 380, accel = 600 },
+            engine = { maxSpeed = 420, accel = 700 },
             hardpoints = {
                 { turret = "laser_mk2" }  -- Assuming a better weapon exists
             }

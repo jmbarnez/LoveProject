@@ -31,25 +31,21 @@ function EngineTrailSystem.update(dt, world)
 		end
 	end
 
-	-- Update AI entity engine trails (red thrusters for enemies)
-	local aiEntities = world:get_entities_with_components("ai", "position")
-	for _, entity in ipairs(aiEntities) do
+	-- Update all entity engine trails
+	local entitiesWithTrails = world:get_entities_with_components("position")
+	for _, entity in ipairs(entitiesWithTrails) do
 		local trail = entity.components.engine_trail
 		if trail then
-			-- Check if AI is moving/thrusting
-			
 			local phys = entity.components.physics
 			local pos = entity.components.position
 
 			if phys and phys.body and pos then
 				local speed = math.sqrt(phys.body.vx * phys.body.vx + phys.body.vy * phys.body.vy)
-				local isThrusting = speed > 10  -- AI is thrusting if moving faster than 10 units/second
+				local isThrusting = speed > 0  -- Any entity is thrusting if moving at all
 
-				-- Engine trail colors remain consistent regardless of entity type or theme
-				-- Removed AI color changes to maintain uniform engine trail appearance
 
 				-- Update thruster state based on movement
-				local intensity = math.min(1.0, speed / 100)  -- Scale intensity based on speed
+				local intensity = math.max(0.5, math.min(1.0, speed / 100))  -- Scale intensity based on speed, minimum 0.5
 				trail:updateThrustState(isThrusting, math.max(0.2, intensity))
 
 				if pos then

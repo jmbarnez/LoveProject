@@ -1,7 +1,7 @@
 local ModelUtil = {}
 
 function ModelUtil.calculateModelWidth(visuals)
-  if not visuals or not visuals.shapes then return 0 end
+  if not visuals or not visuals.shapes then return 30 end -- Default radius for ships without shapes
 
   local maxExtent = 0
   for _, shape in ipairs(visuals.shapes) do
@@ -14,6 +14,11 @@ function ModelUtil.calculateModelWidth(visuals)
     if extent > maxExtent then
       maxExtent = extent
     end
+  end
+
+  -- If no valid extent found, use a default
+  if maxExtent == 0 then
+    maxExtent = 15 -- Default radius for ships
   end
 
   return maxExtent * (visuals.size or 1.0)
