@@ -37,12 +37,12 @@ function EngineTrailSystem.update(dt, world)
 		local trail = entity.components.engine_trail
 		if trail then
 			-- Check if AI is moving/thrusting
-			local vel = entity.components.velocity
+			
 			local phys = entity.components.physics
 			local pos = entity.components.position
 
-			if vel and pos then
-				local speed = math.sqrt(vel.x * vel.x + vel.y * vel.y)
+			if phys and phys.body and pos then
+				local speed = math.sqrt(phys.body.vx * phys.body.vx + phys.body.vy * phys.body.vy)
 				local isThrusting = speed > 10  -- AI is thrusting if moving faster than 10 units/second
 
 				-- Engine trail colors remain consistent regardless of entity type or theme

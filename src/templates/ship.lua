@@ -102,8 +102,8 @@ function Ship.new(x, y, angle, friendly, shipConfig)
   
   -- Configure engine trail colors based on ship visuals
   local engineColors = {
-    color1 = (self.visuals.engineColor and {self.visuals.engineColor[1], self.visuals.engineColor[2], self.visuals.engineColor[3], 1}) or {1, 1, 1, 1},
-    color2 = (self.visuals.engineColor and {self.visuals.engineColor[1] * 0.5, self.visuals.engineColor[2] * 0.5, self.visuals.engineColor[3], 0.5}) or {0.5, 0.5, 1, 0.5},
+    color1 = (self.visuals.engineColor and {self.visuals.engineColor[1], self.visuals.engineColor[2], self.visuals.engineColor[3], 1}) or {0.0, 0.0, 1.0, 1.0},
+    color2 = (self.visuals.engineColor and {self.visuals.engineColor[1] * 0.5, self.visuals.engineColor[2] * 0.5, self.visuals.engineColor[3], 0.5}) or {0.0, 0.0, 0.5, 0.5},
     size = self.visuals.size or 1.0,
     offset = ModelUtil.calculateModelWidth(shipConfig.visuals) * 0.4  -- Position emitter behind ship proportional to ship size
   }

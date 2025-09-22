@@ -109,10 +109,14 @@ function Start.new()
   self.showLoadUI = false
   -- Cache large title font (Press Start 2P)
   self.titleFont = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", 80)
+  self.titleFont:setFilter('nearest', 'nearest', 1)
   -- Aurora title shader
   self.auroraShader = AuroraTitle.new()
   self.blurCanvas = love.graphics.newCanvas(self.w, self.h)
-  
+
+  -- Button effect states
+  self.newGameScale = 1.0
+
   return self
 end
 
@@ -132,7 +136,13 @@ local function uiScale()
 end
 
 function Start:update(dt)
-  SettingsPanel.update(dt)
+   SettingsPanel.update(dt)
+
+   -- Update button effects
+   local t = love.timer.getTime()
+
+   -- Update button scales (pulsing)
+   self.newGameScale = 0.95 + 0.05 * math.sin(t * 2)
 end
 
 function Start:draw()
@@ -274,13 +284,34 @@ function Start:draw()
   local by = startY
   local mx, my = Viewport.getMousePosition()
   local hover = mx >= bx and mx <= bx + bw and my >= by and my <= by + bh
-  self.button._rect = UIButton.drawRect(bx, by, bw, bh, 'NEW GAME', hover, t, { compact = true, menuButton = true })
+
+  -- Draw NEW GAME button with scaling
+  love.graphics.push()
+  love.graphics.translate(bx + bw/2, by + bh/2)
+  love.graphics.scale(self.newGameScale, self.newGameScale)
+  love.graphics.translate(-bw/2, -bh/2)
+  UIButton.drawRect(0, 0, bw, bh, 'NEW GAME', hover, t, { compact = true, menuButton = true })
+  love.graphics.pop()
+
+  -- Set button rect in world coordinates for click detection
+  self.button._rect = { x = bx, y = by, w = bw * self.newGameScale, h = bh * self.newGameScale }
 
   -- Load Game button
   local lbx = bx
   local lby = by + bh + 20 * s
   local lhover = mx >= lbx and mx <= lbx + bw and my >= lby and my <= lby + bh
-  self.loadButton._rect = UIButton.drawRect(lbx, lby, bw, bh, 'LOAD GAME', lhover, t, { compact = true, menuButton = true })
+
+  -- Draw LOAD GAME button with scaling
+  love.graphics.push()
+  love.graphics.translate(lbx + bw/2, lby + bh/2)
+  love.graphics.scale(self.newGameScale, self.newGameScale)
+  love.graphics.translate(-bw/2, -bh/2)
+  UIButton.drawRect(0, 0, bw, bh, 'LOAD GAME', lhover, t, { compact = true, menuButton = true })
+  love.graphics.pop()
+
+  -- Set button rect in world coordinates for click detection
+  self.loadButton._rect = { x = lbx, y = lby, w = bw * self.newGameScale, h = bh * self.newGameScale }
+
 
 -- No exit button - users can use Escape key or Alt+F4 to exit
 

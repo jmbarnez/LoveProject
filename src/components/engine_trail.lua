@@ -10,8 +10,8 @@ function EngineTrail.new(config)
     
     -- Component properties
     self.colors = {
-        color1 = config.color1 or {0.0, 1.0, 1.0, 1.0},      -- Primary cyan
-        color2 = config.color2 or {0.2, 0.8, 1.0, 0.5}       -- Secondary cyan  
+        color1 = config.color1 or {0.0, 0.0, 1.0, 1.0},      -- Primary blue
+        color2 = config.color2 or {0.0, 0.0, 0.5, 0.5}       -- Secondary blue
     }
     self.size = config.size or 1.0
     self.offset = config.offset or 15  -- Distance behind ship to emit particles

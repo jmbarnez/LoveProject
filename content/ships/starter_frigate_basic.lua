@@ -36,7 +36,7 @@ return {
     hullColor = {0.24, 0.26, 0.32, 1.0},
     panelColor = {0.20, 0.22, 0.28, 1.0},
     accentColor = {0.0, 1.0, 1.0, 0.9},
-    engineColor = {0.0, 1.0, 1.0},
+    engineColor = {0.0, 0.0, 1.0},
     shapes = {
       -- Arrow hull (faces +X): diamond core
       { type = "polygon", mode = "fill", color = {0.24,0.26,0.32,1.0}, points = { -18,0,  6,-12,  24,0,  6,12 } },
