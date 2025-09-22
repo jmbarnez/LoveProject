@@ -26,8 +26,27 @@ local function hasRequiredTurret(player, requiredType)
 end
 
 function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, remotePlayers)
-  love.graphics.origin()
+  -- Draw modular HUD components
+  StatusBars.draw(player)
+  -- Always hide system mouse cursor - use in-game cursors instead
+  if love and love.mouse and love.mouse.setVisible then love.mouse.setVisible(false) end
 
+  -- Draw reticle when not over UI (in-game targeting cursor)
+  local UIManager = require("src.core.ui_manager")
+  local overUI = UIManager.isMouseOverUI and UIManager.isMouseOverUI() or false
+
+  if not overUI then
+    Reticle.draw(player)
+  end
+  Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, world:get_entities_with_components("mineable"))
+  Hotbar.draw(player)
+  -- Skills panel
+  local SkillsPanel = require("src.ui.skills")
+  SkillsPanel.draw()
+end
+
+
+function UI.drawHelpers(player, world, hub, camera)
   -- Helper tooltip above stations (docking prompt and repair requirements)
   do
     local Settings = require("src.core.settings")
@@ -381,26 +400,6 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
       end
     end
   end
-
-
-  -- Draw modular HUD components
-  StatusBars.draw(player)
-  -- Always hide system mouse cursor - use in-game cursors instead
-  if love and love.mouse and love.mouse.setVisible then love.mouse.setVisible(false) end
-
-  -- Draw reticle when not over UI (in-game targeting cursor)
-  local UIManager = require("src.core.ui_manager")
-  local overUI = UIManager.isMouseOverUI and UIManager.isMouseOverUI() or false
-
-  if not overUI then
-    Reticle.draw(player)
-  end
-  Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, world:get_entities_with_components("mineable"))
-  Hotbar.draw(player)
-  
-  -- Skills panel
-  local SkillsPanel = require("src.ui.skills")
-  SkillsPanel.draw()
 
 end
 

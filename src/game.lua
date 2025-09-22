@@ -18,6 +18,7 @@ local AISystem = require("src.systems.ai")
 local PlayerSystem = require("src.systems.player")
 local Sound = require("src.core.sound")
 local BoundarySystem = require("src.systems.boundary_system")
+local Viewport = require("src.core.viewport")
 
 local SpaceStationSystem = require("src.systems.hub")
 local MiningSystem = require("src.systems.mining")
@@ -411,6 +412,25 @@ function Game.draw()
     Effects.draw()
 
     camera:reset()
+
+    -- Draw helpers above game world but below UI
+    UI.drawHelpers(player, world, hub, camera)
+
+    -- Apply blur if escape menu is open
+    if UIManager.isOpen("escape") then
+        if not Game.blurCanvas then
+            local w, h = Viewport.getDimensions()
+            Game.blurCanvas = love.graphics.newCanvas(w, h)
+        end
+        love.graphics.setCanvas({Game.blurCanvas, stencil = true})
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(Viewport.getCanvas(), 0, 0)
+        love.graphics.setCanvas(Viewport.getCanvas())
+        love.graphics.setShader(Theme.shaders.ui_blur)
+        love.graphics.setColor(1, 1, 1, 0.8)
+        love.graphics.draw(Game.blurCanvas, 0, 0)
+        love.graphics.setShader()
+    end
 
     -- Non-modal HUD (reticle, status bars, minimap, hotbar)
     UI.drawHUD(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, camera, {})

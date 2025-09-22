@@ -29,7 +29,7 @@ function SaveSlots:getPreferredSize()
 
   local pad = (Theme.ui and Theme.ui.contentPadding) or 20
   local topBlocks = pad + lineHeight * 2 + lineHeight * 1.5 -- title + instructions
-  local slotHeight = 80
+  local slotHeight = 90
   local slotMargin = (Theme.ui and Theme.ui.buttonSpacing) or 10
   local slotsCount = 3
 
@@ -56,6 +56,7 @@ function SaveSlots:setMode(mode)
 end
 
 function SaveSlots:draw(x, y, w, h)
+  self.buttonRects = {}
   local font = love.graphics.getFont()
   local fontHeight = 12 -- default font height
   if font then
@@ -107,7 +108,7 @@ function SaveSlots:draw(x, y, w, h)
   end
   
   -- Draw slots
-  local slotHeight = 80
+  local slotHeight = 90
   local slotMargin = (Theme.ui and Theme.ui.buttonSpacing) or 10
   
   for i = 1, 3 do
@@ -125,14 +126,14 @@ function SaveSlots:draw(x, y, w, h)
     if self.selectedSlot == i then
       bgColor = Theme.colors.bg2
     end
-    
+
     Theme.setColor(bgColor)
-    love.graphics.rectangle("fill", x + pad + 10, slotY, w - (pad * 2 + 20), slotHeight)
-    
+    love.graphics.rectangle("fill", x + pad, slotY, w - (pad * 2), slotHeight)
+
     -- Border
     local borderColor = self.selectedSlot == i and Theme.colors.accent or Theme.colors.border
     Theme.setColor(borderColor)
-    love.graphics.rectangle("line", x + pad + 10, slotY, w - (pad * 2 + 20), slotHeight)
+    love.graphics.rectangle("line", x + pad, slotY, w - (pad * 2), slotHeight)
     
     -- Slot number
     Theme.setColor(Theme.colors.accent)
@@ -149,12 +150,12 @@ function SaveSlots:draw(x, y, w, h)
       love.graphics.print(description, x + pad + 20, slotY + 30)
       
       -- Save info
-      local infoText = string.format("Level %d | %d GC | %s", 
-        slot.playerLevel or 1, 
-        slot.playerCredits or 0, 
+      local infoText = string.format("Level %d | %d GC | %s",
+        slot.playerLevel or 1,
+        slot.playerCredits or 0,
         slot.realTime or "Unknown")
       Theme.setColor(Theme.colors.textSecondary)
-      love.graphics.print(infoText, x + pad + 20, slotY + 50)
+      love.graphics.print(infoText, x + pad + 20, slotY + 45)
       
     end
   end
@@ -174,7 +175,7 @@ function SaveSlots:draw(x, y, w, h)
     local buttonH = (Theme.ui and Theme.ui.buttonHeight) or 28
     local buttonSpacing = (Theme.ui and Theme.ui.buttonSpacing) or 10
     local buttonsX = x + w - (buttonW * 2 + buttonSpacing) - ((Theme.ui and Theme.ui.contentPadding) or 40)
-    local buttonY = slotY + slotHeight - buttonH - 15  -- More margin from bottom
+    local buttonY = slotY + slotHeight - buttonH - 5  -- More margin from bottom
     
     -- Action button (Save/Load)
     if not isEmpty or self.mode == "save" then
@@ -212,14 +213,7 @@ end
 function SaveSlots:mousepressed(x, y, button, drawX, drawY, drawW, drawH)
   if button ~= 1 then return false end
 
-  -- Use the same coordinate calculations as in draw()
-  local font = love.graphics.getFont()
-  local lineHeight = (font:getHeight() or 12) + 4
-  local currentY = drawY + 20 + lineHeight * 2 + lineHeight * 1.5  -- Title + instructions
-  local slotHeight = 80
-  local slotMargin = 10
-
-  -- Get save slots data
+  -- Get save slots data to check if a slot is empty
   local allSlots = StateManager.getSaveSlots()
   local slots = {}
   for i = 1, 3 do
@@ -234,60 +228,47 @@ function SaveSlots:mousepressed(x, y, button, drawX, drawY, drawW, drawH)
     slots[i] = existingSlot
   end
 
-  -- Check button clicks for each slot
-  for i = 1, 3 do
-    local slotY = currentY + (i - 1) * (slotHeight + slotMargin)
-    local slot = slots[i]
-    local isEmpty = slot == nil
+  -- Check all stored button rectangles
+  for key, rect in pairs(self.buttonRects) do
+    if rect and x >= rect.x and x <= rect.x + rect.w and y >= rect.y and y <= rect.y + rect.h then
+      -- Click is on a button, parse key to get action and slot index
+      local action, slotIndexStr = key:match("^(%a+)_(%d+)$")
+      if action and slotIndexStr then
+        local slotIndex = tonumber(slotIndexStr)
+        if slotIndex then
+          local isEmpty = slots[slotIndex] == nil
+          local slotName = "slot" .. slotIndex
 
-    -- Skip if we'd draw outside the container
-    if slotY + slotHeight > drawY + drawH then
-      break
-    end
-
-    local buttonW = 60
-    local buttonH = 30
-    local buttonSpacing = 10
-    local buttonsX = drawX + drawW - (buttonW * 2 + buttonSpacing) - 40  -- More margin from edge
-    local buttonY = slotY + slotHeight - buttonH - 15  -- More margin from bottom
-
-    -- Check action button (Save/Load) using Theme.handleButtonClick
-    -- Check action button (Save/Load)
-    local actionButtonKey = "action_" .. i
-    local actionRect = self.buttonRects[actionButtonKey]
-    if actionRect and (not isEmpty or self.mode == "save") then
-      if x >= actionRect.x and x <= actionRect.x + actionRect.w and y >= actionRect.y and y <= actionRect.y + actionRect.h then
-        local slotName = "slot" .. i
-        if self.mode == "save" then
-          local description = "Save Slot " .. i .. " - " .. os.date("%m/%d %H:%M")
-          if StateManager.saveGame(slotName, description) then
-            Notifications.add("Game saved to Slot " .. i, "success")
-          else
-            Notifications.add("Failed to save game", "error")
-          end
-        else
-          if StateManager.loadGame(slotName, true) then
-            Notifications.add("Game loaded from Slot " .. i, "info")
-          else
-            Notifications.add("Failed to load game", "error")
+          if action == "action" then
+            if not isEmpty or self.mode == "save" then
+              if self.mode == "save" then
+                local description = "Save Slot " .. slotIndex .. " - " .. os.date("%m/%d %H:%M")
+                if StateManager.saveGame(slotName, description) then
+                  Notifications.add("Game saved to Slot " .. slotIndex, "success")
+                else
+                  Notifications.add("Failed to save game", "error")
+                end
+                return "saved"
+              elseif not isEmpty then -- load mode, only on non-empty slots
+                if StateManager.loadGame(slotName, true) then
+                  Notifications.add("Game loaded from Slot " .. slotIndex, "info")
+                else
+                  Notifications.add("Failed to load game", "error")
+                end
+                return "loaded"
+              end
+            end
+          elseif action == "delete" then
+            if not isEmpty then
+              if StateManager.deleteSave(slotName) then
+                Notifications.add("Deleted save from Slot " .. slotIndex, "warning")
+              else
+                Notifications.add("Failed to delete save", "error")
+              end
+              return "deleted"
+            end
           end
         end
-        return self.mode == "save" and "saved" or "loaded"
-      end
-    end
-
-    -- Check delete button (only for existing saves)
-    local deleteButtonKey = "delete_" .. i
-    local deleteRect = self.buttonRects[deleteButtonKey]
-    if deleteRect and not isEmpty then
-      if x >= deleteRect.x and x <= deleteRect.x + deleteRect.w and y >= deleteRect.y and y <= deleteRect.y + deleteRect.h then
-        local slotName = "slot" .. i
-        if StateManager.deleteSave(slotName) then
-          Notifications.add("Deleted save from Slot " .. i, "warning")
-        else
-          Notifications.add("Failed to delete save", "error")
-        end
-        return "deleted"
       end
     end
   end

@@ -176,6 +176,7 @@ function UIManager.update(dt, player)
   UIManager.state.bounty.open = Bounty.visible or false
   UIManager.state.docked.open = DockedUI.isVisible()
   UIManager.state.escape.open = EscapeMenu.visible or false
+  UIManager.state.escape.showingSaveSlots = EscapeMenu.showSaveSlots or false
   UIManager.state.skills.open = SkillsPanel.visible or false
   UIManager.state.map.open = Map.isVisible()
   UIManager.state.warp.open = warpInstance.visible or false
@@ -254,7 +255,7 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
   -- Draw components via registry (lowest to highest z-index), draw escape last
   local sortedLayers = {}
   for _, comp in ipairs(Registry.visibleSortedAscending()) do
-    if comp.id ~= "escape" and comp.id ~= "settings" and comp.id ~= "debug" then
+    if comp.id ~= "escape" and comp.id ~= "settings" and comp.id ~= "debug" and comp.id ~= "escape_save_slots" then
       table.insert(sortedLayers, { name = comp.id, zIndex = (comp.getZ and comp.getZ()) or 0 })
     end
   end
@@ -308,6 +309,11 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
   -- Draw escape and settings last, with settings on top of escape
   if UIManager.state.escape.open then
     EscapeMenu.draw()
+  end
+  -- Draw save slots on top of escape menu if active
+  if UIManager.state.escape.open and UIManager.state.escape.showingSaveSlots then
+    local comp = Registry.get("escape_save_slots")
+    if comp and comp.draw then comp.draw() end
   end
   if SettingsPanel.visible then
     SettingsPanel.draw()
