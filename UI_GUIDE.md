@@ -10,8 +10,9 @@ This document provides comprehensive information about the UI system, components
 4. [UI Panels](#ui-panels)
 5. [HUD System](#hud-system)
 6. [Theme System](#theme-system)
-7. [Input Handling](#input-handling)
-8. [UI Development](#ui-development)
+7. [UI Sizing Tokens (Theme.ui)](#ui-sizing-tokens-themeui)
+8. [Input Handling](#input-handling)
+9. [UI Development](#ui-development)
 
 ## UI System Overview
 
@@ -391,6 +392,30 @@ Theme.effects = {
 }
 ```
 
+### UI Sizing Tokens (Theme.ui)
+
+All UI spacing and control dimensions are driven by a single source of truth in `src/core/theme.lua` under `Theme.ui`.
+
+```lua
+Theme.ui = {
+  titleBarHeight = 24,     -- Height of window title bars
+  borderWidth = 2,         -- Standard window border width
+  contentPadding = 15,     -- Default padding inside windows/panels
+  buttonHeight = 28,       -- Default button height
+  buttonSpacing = 4,       -- Spacing between stacked buttons/controls
+  menuButtonPaddingX = 12, -- Horizontal padding for button/input text
+}
+```
+
+Usage patterns:
+- Windows (e.g., `src/ui/common/window.lua`) use `titleBarHeight`, `borderWidth`.
+- Panel layouts use `contentPadding` for left/right/top padding; set widths as `w - pad*2`.
+- Stacked buttons use `buttonHeight` and `buttonSpacing`.
+- Common widgets (tabs, text input, scroll areas) read `buttonSpacing`, `menuButtonPaddingX`, `contentPadding`.
+
+When adding new UI:
+- Replace magic numbers (8/12/16/24/32) with `Theme.ui.*` equivalents.
+- Prefer `Theme.drawStyledButton(..., { menuButton = true })` for menu/navigation buttons.
 ### Theme Functions
 
 ```lua

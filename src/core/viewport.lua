@@ -74,8 +74,7 @@ end
 
 function Viewport.finish()
   love.graphics.setCanvas()
-  -- Clear the backbuffer to black (letterbox bars)
-  love.graphics.clear(0, 0, 0, 1)
+  -- The backbuffer is no longer cleared to prevent rendering issues.
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(canvas, ox, oy, 0, scale, scale)
   love.graphics.pop()
@@ -162,6 +161,10 @@ end
 
 function Viewport.isInsideScreen(x, y)
   return x >= ox and y >= oy and x <= ox + vw * scale and y <= oy + vh * scale
+end
+
+function Viewport.getCanvas()
+    return canvas
 end
 
 return Viewport

@@ -127,18 +127,9 @@ function Ship.new(x, y, angle, friendly, shipConfig)
       )
   }
 
-  -- Attach engine trail for all ships with appropriate colors
-  local trailColors = engineColors
-  if not extraConfig.isPlayer then
-    -- Enemy ships get red thruster trails
-    trailColors = {
-      color1 = {1.0, 0.2, 0.1, 1.0},  -- Bright red
-      color2 = {1.0, 0.2, 0.1, 0.5},  -- Darker red
-      size = self.visuals.size or 1.0,
-      offset = ModelUtil.calculateModelWidth(shipConfig.visuals) * 0.4
-    }
-  end
-  self.components.engine_trail = EngineTrail.new(trailColors)
+  -- Attach engine trail for all ships with consistent colors
+  -- Engine trail colors remain the same regardless of entity type
+  self.components.engine_trail = EngineTrail.new(engineColors)
 
   -- Attach loot drop definition if provided by content
   if shipConfig.loot and shipConfig.loot.drops then

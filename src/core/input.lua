@@ -97,6 +97,11 @@ function Input.keypressed(key)
     local DockedUI = require("src.ui.docked")
     if DockedUI.isVisible() then
         local consumed, shouldClose = DockedUI.keypressed(key)
+        if key == "escape" and shouldClose then
+            if gameState.player then gameState.player:undock() end
+            EscapeMenu.toggle()
+            return -- We're done with this keypress
+        end
         if shouldClose and gameState.player then gameState.player:undock() end
         if consumed then return end
     end
@@ -287,8 +292,8 @@ function Input.love_mousereleased(x, y, button)
         end
     end
     local vx, vy = Viewport.toVirtual(x, y)
-    if mainState.UIManager then
-      mainState.UIManager.mousereleased(vx, vy, button)
+    if mainState.UIManager and mainState.UIManager.mousereleased(vx, vy, button) then
+      return
     end
     Input.mousereleased(vx, vy, button)
   end
@@ -322,6 +327,9 @@ function Input.love_wheelmoved(dx, dy)
             return
         end
     end
+    if mainState.UIManager and mainState.UIManager.wheelmoved and mainState.UIManager.wheelmoved(dx, dy) then
+      return
+    end
     Input.wheelmoved(dx, dy)
   end
 end
@@ -350,41 +358,15 @@ function Input.textinput(text)
 end
 
 function Input.mousepressed(x, y, button)
+    -- If UI is under cursor or modal is active, don't process game clicks
+    if mainState.UIManager and mainState.UIManager.isMouseOverUI and mainState.UIManager.isMouseOverUI() then
+        return
+    end
     local wx, wy
     if gameState.camera and gameState.camera.screenToWorld then
         wx, wy = gameState.camera:screenToWorld(x, y)
     end
-    if Map and Map.mousepressed then
-        local consumed, shouldClose = Map.mousepressed(x, y, button)
-        if shouldClose then Map.hide() return end
-        if consumed then return end
-    end
-    
-    local consumed, shouldClose = EscapeMenu.mousepressed(x, y, button)
-    if shouldClose then EscapeMenu.hide() return end
-    if consumed then return end
-    
-    local DockedUI = require("src.ui.docked")
-    if DockedUI.isVisible() then
-        local consumed, shouldClose = DockedUI.mousepressed(x, y, button)
-        if shouldClose and gameState.player then gameState.player:undock() end
-        if consumed then return end
-    end
-    
-    -- Loot container UI has been removed
-
-    if SkillsPanel.isVisible() then
-        local consumed, shouldClose = SkillsPanel.mousepressed(x, y, button)
-        if shouldClose then SkillsPanel.visible = false end
-        if consumed then return end
-    end
-
-    if mainState.UIManager.isOpen("bounty") then
-        local Bounty = require("src.ui.bounty")
-        local consumed, shouldClose = Bounty.mousepressed(x, y, button, gameState.player.docked)
-        if shouldClose then mainState.UIManager.close("bounty") end
-        if consumed then return end
-    end
+    -- UI interactions are handled earlier via UIManager in love_* callbacks
 
     if require("src.ui.hud.hotbar").mousepressed(gameState.player, x, y, button) then return end
 
@@ -398,20 +380,7 @@ function Input.mousepressed(x, y, button)
 end
 
 function Input.mousereleased(x, y, button)
-    if Map and Map.mousereleased and Map.mousereleased(x, y, button) then return end
-    
-    local consumed, shouldClose = EscapeMenu.mousereleased(x, y, button)
-    if shouldClose then EscapeMenu.hide() return end
-    if consumed then return end
-    
-    local DockedUI = require("src.ui.docked")
-    if DockedUI.isVisible() then
-        local consumed, shouldClose = DockedUI.mousereleased(x, y, button)
-        if shouldClose and gameState.player then gameState.player:undock() end
-        if consumed then return end
-    end
-    
-    -- Loot container UI has been removed
+    -- UI interactions are handled earlier via UIManager in love_* callbacks
     
     if button == 1 then
         mouseState.leftButtonDown = false
@@ -440,16 +409,10 @@ function Input.mousereleased(x, y, button)
 end
 
 function Input.mousemoved(x, y, dx, dy, istouch)
-    if Map and Map.mousemoved and Map.mousemoved(x, y, dx, dy, gameState and gameState.world) then return end
-    
-    local DockedUI = require("src.ui.docked")
-    if DockedUI.isVisible() and DockedUI.mousemoved(x, y, dx, dy) then return end
-    
-    -- Loot container UI has been removed
-    if SkillsPanel.isVisible() and SkillsPanel.mousemoved(x, y, dx, dy) then return end
-
-    if mainState.UIManager.isOpen("inventory") and getInventoryModule().mousemoved(x, y, dx, dy) then return end
-    if mainState.UIManager.isOpen("bounty") and require("src.ui.bounty").mousemoved(x, y, dx, dy) then return end
+    -- If UI is under cursor or modal is active, do not process game hover
+    if mainState.UIManager and mainState.UIManager.isMouseOverUI and mainState.UIManager.isMouseOverUI() then
+        return
+    end
 
     if not gameState.camera or not gameState.camera.screenToWorld then return end
     local wx, wy = gameState.camera:screenToWorld(x, y)
@@ -491,16 +454,7 @@ end
 function Input.wheelmoved(dx, dy)
     -- Handle mouse wheel events for the game
     if not gameState or not gameState.camera then return false end
-    
-    -- Forward to map if it handles wheel events
-    if Map and Map.wheelmoved and Map.wheelmoved(dx, dy, gameState and gameState.world) then
-        return true
-    end
-    
-    local DockedUI = require("src.ui.docked")
-    if DockedUI and DockedUI.wheelmoved and DockedUI.wheelmoved(dx, dy) then
-        return true
-    end
+    -- Map/wheel events are handled in love_wheelmoved via dedicated calls
     
     -- Default behavior: zoom the camera
     if dy ~= 0 then

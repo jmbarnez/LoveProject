@@ -40,6 +40,8 @@ function Ship:new()
         title = "Ship Fitting",
         width = 600,
         height = 400,
+        draggable = true,
+        closable = true,
         drawContent = function(window, x, y, w, h) o:draw(player, x, y, w, h) end
     })
     return o
@@ -82,11 +84,12 @@ function Ship:draw(player, x, y, w, h)
   end
   
   -- Ship Header Section
-  local cx, cy = x + 16, y + 16
+  local pad = (Theme.ui and Theme.ui.contentPadding) or 16
+  local cx, cy = x + pad, y + pad
   local headerHeight = 60
   
   -- Ship visual/icon area
-  Theme.drawGradientGlowRect(cx, cy, w - 32, headerHeight, 6,
+  Theme.drawGradientGlowRect(cx, cy, w - pad * 2, headerHeight, 6,
     Theme.colors.bg2, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak)
   
   local iconSize = 48
@@ -135,7 +138,7 @@ function Ship:draw(player, x, y, w, h)
   local totalWidth = statsWidth + 20 + totalGridWidth
   
   -- Main container background
-  Theme.drawGradientGlowRect(cx, cy, w - 32, gridHeight, 6,
+  Theme.drawGradientGlowRect(cx, cy, w - pad * 2, gridHeight, 6,
     Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
   
   -- Stats section (left side)

@@ -29,7 +29,6 @@ local HotbarSystem = require("src.systems.hotbar")
 
 local Indicators = require("src.systems.render.indicators")
 local QuestLog = require("src.ui.hud.quest_log")
-local Multiplayer = require("src.core.multiplayer")
 local QuestSystem = require("src.systems.quest_system")
 local Events = require("src.core.events")
 local StateManager = require("src.managers.state_manager")
@@ -50,7 +49,6 @@ local bounty = { uncollected = 0, entries = {} }
 local hoveredEntity = nil
 local hoveredEntityType = nil
 local collisionSystem
-local gamePaused = false
 
 
 -- Projectile spawner using the EntityFactory
@@ -257,8 +255,6 @@ function Game.load(fromSave, saveSlot)
   -- Initialize UI Manager
   UIManager.init()
   
-  -- Initialize multiplayer system
-  Multiplayer.init(world, player)
   QuestLog = QuestLog:new()
   
   -- Set up event listeners for automatic sound effects
@@ -311,90 +307,78 @@ function Game.load(fromSave, saveSlot)
 end
 
 function Game.update(dt)
-    -- Only update game systems if not paused
-    if not gamePaused then
-        Input.update(dt)
-        UIManager.update(dt, player)
-        StatusBars.update(dt, player)
-        local input = Input.getInputState()
+    Input.update(dt)
+    UIManager.update(dt, player)
+    StatusBars.update(dt, player)
+    local input = Input.getInputState()
 
-        -- Update multiplayer system
-        Multiplayer.update(dt)
+    -- Update UI effects systems
+    local Theme = require("src.core.theme")
+    Theme.updateAnimations(dt)
+    Theme.updateParticles(dt)
+    Theme.updateScreenEffects(dt)
 
-        -- Update UI effects systems
-        local Theme = require("src.core.theme")
-        Theme.updateAnimations(dt)
-        Theme.updateParticles(dt)
-        Theme.updateScreenEffects(dt)
-
-        -- Update all systems
-        PlayerSystem.update(dt, player, input, world, hub)
-        do
-          -- Update audio listener to follow the player for attenuation/pan
-          local pos = player and player.components and player.components.position
-          if pos then
-            Sound.setListenerPosition(pos.x, pos.y)
-          end
+    -- Update all systems
+    PlayerSystem.update(dt, player, input, world, hub)
+    do
+        -- Update audio listener to follow the player for attenuation/pan
+        local pos = player and player.components and player.components.position
+        if pos then
+        Sound.setListenerPosition(pos.x, pos.y)
         end
-        AISystem.update(dt, world, spawn_projectile)
-        -- Update physics and collisions first so any damage/death flags set by collisions
-        -- are visible to the destruction system in the same frame.
-        PhysicsSystem.update(dt, world:getEntities())
-        BoundarySystem.update(world)
-        collisionSystem:update(world, dt)
-        -- Process deaths: spawn effects, wreckage, loot before cleanup
-        local gameState = { bounty = bounty }
-        DestructionSystem.update(world, gameState)
-        SpawningSystem.update(dt, player, hub, world)
-        RepairSystem.update(dt, player, world)
-        SpaceStationSystem.update(dt, hub)
-        -- Mining progression (per-cycle, per-asteroid)
-        MiningSystem.update(dt, world, player)
-        -- Magnetic item pickup system
-        Pickups.update(dt, world, player)
-
-        -- Update engine trail after physics so thruster state is preserved
-        local EngineTrailSystem = require("src.systems.engine_trail")
-        EngineTrailSystem.update(dt, world)
-
-        Effects.update(dt)
-        QuestSystem.update(player)
-        NodeMarket.update(dt)
-
-        -- Update warp gates
-        local WarpGateSystem = require("src.systems.warp_gate_system")
-        WarpGateSystem.updateWarpGates(world, dt)
-
-        camera:update(dt)
-        world:update(dt) -- This handles dead entity cleanup
-
-        -- Update state manager (handles auto-saving)
-        StateManager.update(dt)
-
-        -- Process queued events each frame
-        Events.processQueue()
-
-        HotbarSystem.update(dt)
-
-        -- Expire click markers so they don't get stuck on screen.
-        for i = #clickMarkers, 1, -1 do
-            local m = clickMarkers[i]
-            m.t = m.t + dt
-            if m.t >= m.dur then
-                table.remove(clickMarkers, i)
-            end
-        end
-
-        -- Debug: enemies list can be noisy; suppress in normal play
-        -- local enemies = world:getEntitiesWithComponents("ai")
-        -- Log.debug("Enemies in world:", enemies)
-    else
-        -- Game is paused - only update essential UI systems
-        local Theme = require("src.core.theme")
-        Theme.updateAnimations(dt)
-        Theme.updateParticles(dt)
-        Theme.updateScreenEffects(dt)
     end
+    AISystem.update(dt, world, spawn_projectile)
+    -- Update physics and collisions first so any damage/death flags set by collisions
+    -- are visible to the destruction system in the same frame.
+    PhysicsSystem.update(dt, world:getEntities())
+    BoundarySystem.update(world)
+    collisionSystem:update(world, dt)
+    -- Process deaths: spawn effects, wreckage, loot before cleanup
+    local gameState = { bounty = bounty }
+    DestructionSystem.update(world, gameState)
+    SpawningSystem.update(dt, player, hub, world)
+    RepairSystem.update(dt, player, world)
+    SpaceStationSystem.update(dt, hub)
+    -- Mining progression (per-cycle, per-asteroid)
+    MiningSystem.update(dt, world, player)
+    -- Magnetic item pickup system
+    Pickups.update(dt, world, player)
+
+    -- Update engine trail after physics so thruster state is preserved
+    local EngineTrailSystem = require("src.systems.engine_trail")
+    EngineTrailSystem.update(dt, world)
+
+    Effects.update(dt)
+    QuestSystem.update(player)
+    NodeMarket.update(dt)
+
+    -- Update warp gates
+    local WarpGateSystem = require("src.systems.warp_gate_system")
+    WarpGateSystem.updateWarpGates(world, dt)
+
+    camera:update(dt)
+    world:update(dt) -- This handles dead entity cleanup
+
+    -- Update state manager (handles auto-saving)
+    StateManager.update(dt)
+
+    -- Process queued events each frame
+    Events.processQueue()
+
+    HotbarSystem.update(dt)
+
+    -- Expire click markers so they don't get stuck on screen.
+    for i = #clickMarkers, 1, -1 do
+        local m = clickMarkers[i]
+        m.t = m.t + dt
+        if m.t >= m.dur then
+            table.remove(clickMarkers, i)
+        end
+    end
+
+    -- Debug: enemies list can be noisy; suppress in normal play
+    -- local enemies = world:getEntitiesWithComponents("ai")
+    -- Log.debug("Enemies in world:", enemies)
 end
 
 function Game.resize(w, h)
@@ -403,24 +387,15 @@ function Game.resize(w, h)
     end
 end
 
-function Game.pause()
-    gamePaused = true
-end
-
-function Game.unpause()
-    gamePaused = false
-end
-
-function Game.isPaused()
-    return gamePaused
-end
-
 function Game.draw()
-    -- Apply screen effects before rendering
     local Theme = require("src.core.theme")
-    local shakeX, shakeY = Theme.getScreenShakeOffset()
-    local flashAlpha = Theme.getScreenFlashAlpha()
-    local zoomScale = Theme.getScreenZoomScale()
+    local shakeX, shakeY = 0, 0
+    local flashAlpha = 0
+    local zoomScale = 1.0
+
+    shakeX, shakeY = Theme.getScreenShakeOffset()
+    flashAlpha = Theme.getScreenFlashAlpha()
+    zoomScale = Theme.getScreenZoomScale()
 
     -- Apply shake and zoom to camera
     camera:apply(shakeX, shakeY, zoomScale)
@@ -430,32 +405,39 @@ function Game.draw()
 
     -- *** This is the crucial fix ***
     -- The hub is now passed to the RenderSystem so it can be drawn.
+    -- World and gameplay
     RenderSystem.draw(world, camera, player, clickMarkers, hoveredEntity, hoveredEntityType)
 
     Effects.draw()
 
     camera:reset()
 
-    -- Draw UI particles after camera reset but before UI overlay
+    -- Non-modal HUD (reticle, status bars, minimap, hotbar)
+    UI.drawHUD(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, camera, {})
+    
+    -- Selection box removed (manual combat)
+
+    -- UI overlay (windows/menus) via UIManager
+    QuestLog:draw(player)
+    UIManager.draw(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, bounty)
+
+    -- Draw custom cursor if over any UI
+    if UIManager.isMouseOverUI() then
+        local mx, my = love.mouse.getPosition()
+        Theme.setColor(Theme.colors.accent)
+        love.graphics.polygon("fill", mx, my, mx + 12, my + 12, mx, my + 15)
+        Theme.setColor(Theme.colors.text)
+        love.graphics.setLineWidth(1)
+        love.graphics.polygon("line", mx, my, mx + 12, my + 12, mx, my + 15)
+    end
+
+    -- UI particles and flashes (top-most)
     Theme.drawParticles()
-
-    -- Draw UI overlay before HUD
-    UIManager.drawOverlay()
-
-    -- Apply screen flash over UI
     if flashAlpha > 0 then
       Theme.setColor({1, 1, 1, flashAlpha})
       love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
     end
-    
-    UI.drawHUD(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, camera, Multiplayer.getRemotePlayers())
-    
-    -- Selection box removed (manual combat)
 
-    -- Draw all UI components through UIManager
-    QuestLog:draw(player)
-    UIManager.draw(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, bounty)
-    
     Indicators.drawTargetingBorder(world)
 end
 

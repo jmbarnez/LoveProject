@@ -46,13 +46,11 @@ function Window.new(options)
   self.resizeStartH = 0
   
   -- Styling
-  self.titleBarHeight = 32  -- Match other panels like inventory
-  self.borderSize = 2
+  self.titleBarHeight = (Theme.ui and Theme.ui.titleBarHeight) or 24
+  self.borderSize = (Theme.ui and Theme.ui.borderWidth) or 2
   self.cornerRadius = 0
   self.shadow = options.shadow ~= false -- default true
 
-  -- Aurora title shader (optional)
-  self.auroraShader = nil
   
   -- Content area callback
   self.drawContent = options.drawContent
@@ -62,8 +60,6 @@ function Window.new(options)
   self.onResize = options.onResize
   self.onMove = options.onMove
 
-  -- Initialize aurora shader for title effect (lazy initialization)
-  self.auroraShader = nil
 
   return self
 end
@@ -170,34 +166,7 @@ function Window:draw()
   -- Title bar separator line
   Theme.setColor(Theme.colors.border)
   love.graphics.line(self.x, self.y + self.titleBarHeight, self.x + self.width, self.y + self.titleBarHeight)
-  
-  -- Window title (scaled to fit available space) with aurora effect
-  local paddingLeft = 8
-  local paddingRight = (self.closable and (20 + 6) or 8)  -- Adjusted for smaller close button
-  local maxTextW = math.max(10, self.width - paddingLeft - paddingRight)
-  local baseFont = Theme.fonts and Theme.fonts.small or love.graphics.getFont()  -- Use smaller font
-  local fontH = baseFont:getHeight()
-  local scale = math.max(0.7, math.min(1.4, maxTextW / math.max(1, baseFont:getWidth(self.title))))
-  local titleY = self.y + (self.titleBarHeight - fontH * scale) * 0.5
 
-  -- Initialize aurora shader if needed
-  if not self.auroraShader then
-    self.auroraShader = AuroraTitle.new()
-  end
-
-  -- Aurora shader fill (fallback to static color if shader unavailable)
-  if self.auroraShader then
-    self.auroraShader:send("time", love.timer.getTime())
-    love.graphics.setShader(self.auroraShader)
-    Theme.setColor(1, 1, 1, 1)
-    love.graphics.printf(self.title, self.x + paddingLeft, titleY, maxTextW, "left")
-    love.graphics.setShader()
-  else
-    -- Fallback to static aurora-like color
-    Theme.setColor({0.4, 0.8, 1.0, 1.0})  -- Cyan aurora color
-    love.graphics.printf(self.title, self.x + paddingLeft, titleY, maxTextW, "left")
-  end
-  
   -- Close button
   if self.closable then
     local btnSize = 20  -- Smaller close button for thinner title bar
@@ -224,6 +193,9 @@ function Window:draw()
     self.drawContent(self, content.x, content.y, content.w, content.h)
     
     love.graphics.pop()
+    -- IMPORTANT: Reset scissor after drawing content so subsequent frames
+    -- and other draw calls aren't clipped to the window's content area.
+    love.graphics.setScissor()
   end
   
   -- Window border

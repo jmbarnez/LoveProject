@@ -43,6 +43,25 @@ function updateFPSLimit()
   minFrameTime = (graphicsSettings.max_fps and graphicsSettings.max_fps > 0) and (1 / graphicsSettings.max_fps) or 0
 end
 
+function love.applyGraphicsSettings()
+    local graphicsSettings = Settings.getGraphicsSettings()
+    love.window.setMode(
+        graphicsSettings.resolution.width,
+        graphicsSettings.resolution.height,
+        {
+            fullscreen = graphicsSettings.fullscreen,
+            fullscreentype = graphicsSettings.fullscreen_type,
+            borderless = graphicsSettings.borderless,
+            vsync = graphicsSettings.vsync,
+            resizable = true,
+            minwidth = 1024,
+            minheight = 576
+        }
+    )
+    Viewport.init(graphicsSettings.resolution.width, graphicsSettings.resolution.height)
+    updateFPSLimit()
+end
+
 function love.load()
   math.randomseed(os.time())
   Settings.load()
@@ -73,49 +92,13 @@ function love.load()
       km[k] = dv
     end
   end
-  local graphicsSettings = Settings.getGraphicsSettings()
-  print("main.lua - Initial graphics settings:")
-  print("  Resolution: " .. graphicsSettings.resolution.width .. "x" .. graphicsSettings.resolution.height)
-  print("  Fullscreen: " .. tostring(graphicsSettings.fullscreen))
-  print("  Fullscreen type: " .. (graphicsSettings.fullscreen_type or "nil"))
-  print("  Borderless: " .. tostring(graphicsSettings.borderless))
-  print("  VSync: " .. tostring(graphicsSettings.vsync))
+  
+  love.applyGraphicsSettings()
 
-  -- Use responsive minimum window sizes based on the chosen resolution
-  local minWidth, minHeight
-  if graphicsSettings.resolution.width <= 800 then
-      minWidth = math.max(600, graphicsSettings.resolution.width)
-  else
-      minWidth = 800
-  end
-
-  if graphicsSettings.resolution.height <= 600 then
-      minHeight = math.max(400, graphicsSettings.resolution.height)
-  else
-      minHeight = 600
-  end
-
-  print("main.lua - Using responsive minimum window size: " .. minWidth .. "x" .. minHeight)
-
-  love.window.setMode(
-      graphicsSettings.resolution.width,
-      graphicsSettings.resolution.height,
-      {
-          fullscreen = graphicsSettings.fullscreen,
-          fullscreentype = graphicsSettings.fullscreen_type,
-          borderless = graphicsSettings.borderless,
-          vsync = graphicsSettings.vsync,
-          resizable = true,
-          minwidth = minWidth,
-          minheight = minHeight
-      }
-  )
-
-  print("main.lua - Window mode set successfully")
-  Viewport.init(graphicsSettings.resolution.width, graphicsSettings.resolution.height)
-  updateFPSLimit()
   love.mouse.setRelativeMode(false)
-  require("src.core.theme").loadFonts()
+  local Theme = require("src.core.theme")
+  Theme.init()
+  Theme.loadFonts()
   SettingsPanel.init()
   startScreen = Start.new()
   Sound.playMusic("adrift")
@@ -171,15 +154,13 @@ function love.draw()
   else
     Game.draw()
   end
-  Effects.draw()
   Viewport.finish()
   
   -- Calculate and set draw time (in ms)
   local drawTime = (love.timer.getTime() - drawStart) * 1000
   DebugPanel.setRenderStats(drawTime)
   
-  -- Draw debug panel last so it's always on top
-  DebugPanel.draw()
+  -- Debug panel is now drawn by the UIManager
 end
 
 -- Handle debug panel input first, then delegate to Input module

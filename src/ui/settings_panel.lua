@@ -5,6 +5,7 @@ local IconRenderer = require("src.content.icon_renderer")
 local AuroraTitle = require("src.shaders.aurora_title")
 local Notifications = require("src.ui.notifications")
 local Window = require("src.ui.common.window")
+local Dropdown = require("src.ui.common.dropdown")
 
 local SettingsPanel = {}
 
@@ -22,21 +23,19 @@ local vsyncTypes = {"Off", "On"}
 local fpsLimitTypes = {"Unlimited", "30", "60", "120", "144", "240"}
 -- Reticle color picker state (always visible sliders in popup)
 local colorPickerOpen = true
-local vsyncDropdownOpen = false
-local fpsLimitDropdownOpen = false
-local reticleColorDropdownOpen = false -- legacy (unused)
 local reticleGalleryOpen = false
-local accentThemeDropdownOpen = false
 local scrollY = 0
 local scrollDragOffset = 0
 local contentHeight = 0 -- Will be calculated dynamically
 
--- Dropdown hover tracking
-local hoveredDropdownOption = {
-    vsync = nil,
-    fpsLimit = nil,
-    accentTheme = nil
-}
+-- Track when accent theme was last changed for visual feedback
+local accentThemeLastChanged = 0
+local accentThemeChangeDuration = 0.5 -- Duration of highlight effect in seconds
+
+-- Standardized dropdown components
+local vsyncDropdown
+local fpsLimitDropdown
+local accentThemeDropdown
 
 -- Slider hover tracking
 local hoveredSlider = {
@@ -231,6 +230,55 @@ function SettingsPanel.init()
 
     -- Apply the current accent theme
     applyAccentTheme(currentGraphicsSettings.accent_theme or "Cyan/Lavender")
+
+    -- Initialize standardized dropdown components
+    local valueX = 150
+    local itemHeight = 40
+
+    -- VSync dropdown
+    vsyncDropdown = Dropdown.new({
+        x = valueX,
+        y = 60,
+        options = vsyncTypes,
+        selectedIndex = currentGraphicsSettings.vsync and 2 or 1,
+        onSelect = function(index, option)
+            currentGraphicsSettings.vsync = (index == 2)
+        end
+    })
+
+    -- FPS Limit dropdown
+    fpsLimitDropdown = Dropdown.new({
+        x = valueX,
+        y = 60 + itemHeight,
+        options = fpsLimitTypes,
+        selectedIndex = 1,
+        onSelect = function(index, option)
+            currentGraphicsSettings.max_fps = (option == "Unlimited") and 0 or tonumber(option)
+        end
+    })
+
+    -- Accent Theme dropdown
+    local accentThemes = {"Cyan/Lavender", "Blue/Purple", "Green/Emerald", "Red/Orange", "Monochrome"}
+    local themeIndex = 1
+    for i, theme in ipairs(accentThemes) do
+        if theme == (currentGraphicsSettings.accent_theme or "Cyan/Lavender") then
+            themeIndex = i
+            break
+        end
+    end
+
+    accentThemeDropdown = Dropdown.new({
+        x = valueX,
+        y = 60 + itemHeight * 2,
+        options = accentThemes,
+        selectedIndex = themeIndex,
+        onSelect = function(index, option)
+            currentGraphicsSettings.accent_theme = option
+            applyAccentTheme(option)
+            Notifications.add("Accent color changed to " .. option, "info")
+            accentThemeLastChanged = love.timer.getTime()
+        end
+    })
 end
 
 function SettingsPanel.update(dt)
@@ -258,8 +306,9 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     love.graphics.translate(0, -scrollY)
 
     -- Settings content with organized sections
+    local pad = (Theme.ui and Theme.ui.contentPadding) or 20
     local yOffset = y + 60
-    local labelX = x + 20
+    local labelX = x + pad
     local valueX = x + 150
     local dropdownW = 150
     local itemHeight = 40
@@ -268,24 +317,20 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     -- === GRAPHICS SECTION ===
     Theme.setColor(Theme.colors.accent)
     love.graphics.setFont(Theme.fonts and (Theme.fonts.normal or Theme.fonts.small) or love.graphics.getFont())
-    love.graphics.print("Graphics Settings", x + 20, yOffset)
+    love.graphics.print("Graphics Settings", labelX, yOffset)
     love.graphics.setFont(settingsFont)
     yOffset = yOffset + 30
 
     -- VSync
     Theme.setColor(Theme.colors.text)
     love.graphics.print("VSync:", labelX, yOffset)
-    local vsyncText = currentGraphicsSettings.vsync and "On" or "Off"
-    local vsyncBtnHover = mx >= valueX and mx <= valueX + dropdownW and my + scrollY >= yOffset - 2 and my + scrollY <= yOffset - 2 + 24
-    Theme.drawStyledButton(valueX, yOffset - 2, dropdownW, 24, vsyncText, vsyncBtnHover, love.timer.getTime())
+    vsyncDropdown:setPosition(valueX, yOffset - 2 - scrollY)
     yOffset = yOffset + itemHeight
 
     -- Max FPS
     Theme.setColor(Theme.colors.text)
     love.graphics.print("Max FPS:", labelX, yOffset)
-    local fpsText = currentGraphicsSettings.max_fps == 0 and "Unlimited" or tostring(currentGraphicsSettings.max_fps)
-    local fpsBtnHover = mx >= valueX and mx <= valueX + dropdownW and my + scrollY >= yOffset - 2 and my + scrollY <= yOffset - 2 + 24
-    Theme.drawStyledButton(valueX, yOffset - 2, dropdownW, 24, fpsText, fpsBtnHover, love.timer.getTime())
+    fpsLimitDropdown:setPosition(valueX, yOffset - 2 - scrollY)
     yOffset = yOffset + itemHeight
 
 
@@ -296,7 +341,7 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     local mx, my = Viewport.getMousePosition()
     local btnHover = mx >= btnX and mx <= btnX + btnW and my + scrollY >= btnY and my + scrollY <= btnY + btnH
     -- Show full text without truncation
-    Theme.drawStyledButton(btnX, btnY, btnW, btnH, "Choose Reticle...", btnHover, love.timer.getTime())
+    Theme.drawStyledButton(btnX, btnY, btnW, btnH, "Select Reticle", btnHover, love.timer.getTime())
     SettingsPanel._reticleButtonRect = { x = btnX, y = btnY, w = btnW, h = btnH }
     -- Preview next to button (same height as button)
     local previewSize = btnH
@@ -314,26 +359,7 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     -- Accent Color Theme
     Theme.setColor(Theme.colors.text)
     love.graphics.print("Accent Color:", labelX, yOffset)
-    local accentThemes = {"Cyan/Lavender", "Blue/Purple", "Green/Emerald", "Red/Orange", "Monochrome"}
-    local currentTheme = currentGraphicsSettings.accent_theme or "Cyan/Lavender"
-    local themeIndex = 1
-    for i, theme in ipairs(accentThemes) do
-      if theme == currentTheme then
-        themeIndex = i
-        break
-      end
-    end
-    local themeText = accentThemes[themeIndex]
-
-    -- Draw the dropdown button
-    local btnX, btnY, btnW, btnH = valueX, yOffset - 2, dropdownW, 24
-    local mx, my = Viewport.getMousePosition()
-    local btnHover = mx >= btnX and mx <= btnX + btnW and my + scrollY >= btnY and my + scrollY <= btnY + btnH
-    Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 2, Theme.colors.bg3, Theme.colors.bg2, Theme.colors.border, Theme.effects.glowWeak * 0.1)
-    Theme.setColor(Theme.colors.textHighlight)
-    love.graphics.print(themeText, btnX + 5, btnY + 4)
-    love.graphics.polygon("fill", btnX + btnW - 15, btnY + 8, btnX + btnW - 5, btnY + 8, btnX + btnW - 10, btnY + 13) -- Arrow
-    SettingsPanel._accentThemeButtonRect = { x = btnX, y = btnY, w = btnW, h = btnH }
+    accentThemeDropdown:setPosition(valueX, yOffset - 2 - scrollY)
     yOffset = yOffset + itemHeight
 
     -- Helpers toggle
@@ -348,7 +374,7 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     -- === AUDIO SECTION ===
     Theme.setColor(Theme.colors.accent)
     love.graphics.setFont(Theme.fonts and (Theme.fonts.normal or Theme.fonts.small) or love.graphics.getFont())
-    love.graphics.print("Audio Settings", x + 20, yOffset)
+    love.graphics.print("Audio Settings", labelX, yOffset)
     love.graphics.setFont(settingsFont)
     yOffset = yOffset + 30
 
@@ -421,8 +447,8 @@ function SettingsPanel.drawContent(window, x, y, w, h)
 
     -- Keybindings
     Theme.setColor(Theme.colors.text)
-    love.graphics.print("Keybindings", x + 20, yOffset)
-    love.graphics.print("(Click to change)", x + 150, yOffset + 2)
+    love.graphics.print("Keybindings", labelX, yOffset)
+    love.graphics.print("(Click to change)", labelX + 130, yOffset + 2)
     yOffset = yOffset + 30
     
     -- Use consistent order for keybindings
@@ -490,50 +516,16 @@ function SettingsPanel.drawContent(window, x, y, w, h)
         SettingsPanel._scrollbarThumb = nil
     end
 
-    love.graphics.setScissor()
+    -- Draw dropdowns within the normal scissor context (they now respect clipping)
+    -- First draw all dropdown buttons (for proper z-ordering)
+    vsyncDropdown:drawButtonOnly(mx, my)
+    fpsLimitDropdown:drawButtonOnly(mx, my)
+    accentThemeDropdown:drawButtonOnly(mx, my)
 
-    -- Dropdowns must be drawn last to be on top, outside of the scrolled scissor area
-    local vsyncButtonY = y + 60
-    local fpsButtonY = vsyncButtonY + itemHeight
-    local accentButtonY = fpsButtonY + itemHeight * 2  -- Skip UI scale and font scale sliders
-
-    if vsyncDropdownOpen then
-        local dropdownY = vsyncButtonY + 24 + 5
-        Theme.drawGradientGlowRect(valueX, dropdownY, dropdownW, #vsyncTypes * 20 + 10, 2, Theme.colors.bg0, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak * 0.2)
-        for i, vsyncType in ipairs(vsyncTypes) do
-            local isSelected = (currentGraphicsSettings.vsync and i == 2) or (not currentGraphicsSettings.vsync and i == 1)
-            local isHovered = hoveredDropdownOption.vsync == i
-            if isSelected then Theme.setColor(Theme.colors.accent) elseif isHovered then Theme.setColor(Theme.colors.textHighlight) else Theme.setColor(Theme.colors.text) end
-            love.graphics.print(vsyncType, valueX + 5, dropdownY + 5 + (i - 1) * 20)
-        end
-        Theme.setColor(Theme.colors.text)
-    end
-
-    if fpsLimitDropdownOpen then
-        local dropdownY = fpsButtonY + 24 + 5
-        Theme.drawGradientGlowRect(valueX, dropdownY, dropdownW, #fpsLimitTypes * 20 + 10, 2, Theme.colors.bg0, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak * 0.2)
-        for i, fpsType in ipairs(fpsLimitTypes) do
-            local fpsValue = fpsType == "Unlimited" and 0 or tonumber(fpsType)
-            local isSelected = fpsValue == currentGraphicsSettings.max_fps
-            local isHovered = hoveredDropdownOption.fpsLimit == i
-            if isSelected then Theme.setColor(Theme.colors.accent) elseif isHovered then Theme.setColor(Theme.colors.textHighlight) else Theme.setColor(Theme.colors.text) end
-            love.graphics.print(fpsType, valueX + 5, dropdownY + 5 + (i - 1) * 20)
-        end
-        Theme.setColor(Theme.colors.text)
-    end
-
-    if accentThemeDropdownOpen then
-        local dropdownY = accentButtonY + 24 + 5
-        local accentThemes = {"Cyan/Lavender", "Blue/Purple", "Green/Emerald", "Red/Orange", "Monochrome"}
-        Theme.drawGradientGlowRect(valueX, dropdownY, dropdownW, #accentThemes * 20 + 10, 2, Theme.colors.bg0, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak * 0.2)
-        for i, theme in ipairs(accentThemes) do
-            local isSelected = theme == (currentGraphicsSettings.accent_theme or "Cyan/Lavender")
-            local isHovered = hoveredDropdownOption.accentTheme == i
-            if isSelected then Theme.setColor(Theme.colors.accent) elseif isHovered then Theme.setColor(Theme.colors.textHighlight) else Theme.setColor(Theme.colors.text) end
-            love.graphics.print(theme, valueX + 5, dropdownY + 5 + (i - 1) * 20)
-        end
-        Theme.setColor(Theme.colors.text)
-    end
+    -- Then draw options for any open dropdowns (on top)
+    vsyncDropdown:drawOptionsOnly(mx, my)
+    fpsLimitDropdown:drawOptionsOnly(mx, my)
+    accentThemeDropdown:drawOptionsOnly(mx, my)
 
     -- Apply button (green)
     local buttonW, buttonH = 100, 30
@@ -669,13 +661,7 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     -- Check if click is outside the panel
     local isInsidePanel = x >= panelX and x <= panelX + w and y >= panelY and y <= panelY + h
     if not isInsidePanel then
-        -- Close dropdowns if clicking outside
-        if vsyncDropdownOpen or fpsLimitDropdownOpen or accentThemeDropdownOpen then
-            vsyncDropdownOpen = false
-            fpsLimitDropdownOpen = false
-            accentThemeDropdownOpen = false
-            return true -- Consume click
-        end
+        -- Close dropdowns if clicking outside (handled by dropdown components)
         return false
     end
 
@@ -685,47 +671,10 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     local fpsButtonY = vsyncButtonY + itemHeight
     local accentButtonY = fpsButtonY + itemHeight * 2  -- Skip UI scale and font scale sliders
 
-    -- Check for clicks on open dropdowns first
-    if vsyncDropdownOpen then
-        local dropdownY = vsyncButtonY + 24 + 5
-        for i, vsyncType in ipairs(vsyncTypes) do
-            if x >= valueX and x <= valueX + dropdownW and y >= dropdownY + 5 + (i - 1) * 20 and y <= dropdownY + 5 + (i - 1) * 20 + 20 then
-                currentGraphicsSettings.vsync = (i == 2)
-                vsyncDropdownOpen = false
-                return true
-            end
-        end
-        vsyncDropdownOpen = false
-        return true
-    end
-
-    if fpsLimitDropdownOpen then
-        local dropdownY = fpsButtonY + 24 + 5
-        for i, fpsType in ipairs(fpsLimitTypes) do
-            if x >= valueX and x <= valueX + dropdownW and y >= dropdownY + 5 + (i - 1) * 20 and y <= dropdownY + 5 + (i - 1) * 20 + 20 then
-                currentGraphicsSettings.max_fps = (fpsType == "Unlimited") and 0 or tonumber(fpsType)
-                fpsLimitDropdownOpen = false
-                return true
-            end
-        end
-        fpsLimitDropdownOpen = false
-        return true
-    end
-
-    if accentThemeDropdownOpen then
-        local dropdownY = accentButtonY + 24 + 5
-        local accentThemes = {"Cyan/Lavender", "Blue/Purple", "Green/Emerald", "Red/Orange", "Monochrome"}
-        for i, theme in ipairs(accentThemes) do
-            if x >= valueX and x <= valueX + dropdownW and y >= dropdownY + 5 + (i - 1) * 20 and y <= dropdownY + 5 + (i - 1) * 20 + 20 then
-                currentGraphicsSettings.accent_theme = theme
-                accentThemeDropdownOpen = false
-                applyAccentTheme(theme)
-                return true
-            end
-        end
-        accentThemeDropdownOpen = false
-        return true
-    end
+    -- Handle dropdown clicks using standardized components
+    if vsyncDropdown:mousepressed(x, y, button) then return true end
+    if fpsLimitDropdown:mousepressed(x, y, button) then return true end
+    if accentThemeDropdown:mousepressed(x, y, button) then return true end
     
     -- Handle apply button
     local buttonW, buttonH = 100, 30
@@ -815,19 +764,11 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     yOffset = yOffset + 30 -- "Graphics Settings" label
 
     -- VSync dropdown
-    if scrolledY >= yOffset - 2 and scrolledY <= yOffset + 22 and x >= valueX and x <= valueX + dropdownW then
-        vsyncDropdownOpen = not vsyncDropdownOpen
-        fpsLimitDropdownOpen, accentThemeDropdownOpen = false, false
-        return true
-    end
+    if vsyncDropdown:mousepressed(x, y, button) then return true end
     yOffset = yOffset + itemHeight
 
     -- Max FPS dropdown
-    if scrolledY >= yOffset - 2 and scrolledY <= yOffset + 22 and x >= valueX and x <= valueX + dropdownW then
-        fpsLimitDropdownOpen = not fpsLimitDropdownOpen
-        vsyncDropdownOpen, accentThemeDropdownOpen = false, false
-        return true
-    end
+    if fpsLimitDropdown:mousepressed(x, y, button) then return true end
     yOffset = yOffset + itemHeight
 
     -- Reticle button
@@ -838,11 +779,7 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     yOffset = yOffset + itemHeight
 
     -- Accent Color Theme dropdown
-    if scrolledY >= yOffset - 2 and scrolledY <= yOffset + 22 and x >= valueX and x <= valueX + dropdownW then
-        accentThemeDropdownOpen = not accentThemeDropdownOpen
-        vsyncDropdownOpen, fpsLimitDropdownOpen = false, false
-        return true
-    end
+    if accentThemeDropdown:mousepressed(x, y, button) then return true end
     yOffset = yOffset + itemHeight
 
     -- Helpers toggle
@@ -940,7 +877,6 @@ function SettingsPanel.mousemoved(raw_x, raw_y, dx, dy)
     local itemHeight = 40
 
     -- Reset hover states
-    for k in pairs(hoveredDropdownOption) do hoveredDropdownOption[k] = nil end
     for k in pairs(hoveredSlider) do hoveredSlider[k] = false end
 
     local isInsidePanel = x >= panelX and x <= panelX + w and y >= panelY and y <= panelY + h
@@ -952,31 +888,10 @@ function SettingsPanel.mousemoved(raw_x, raw_y, dx, dy)
         local fpsButtonY = vsyncButtonY + itemHeight
         local accentButtonY = fpsButtonY + itemHeight * 2
         
-        if vsyncDropdownOpen then
-            local dropdownY = vsyncButtonY + 24 + 5
-            for i in ipairs(vsyncTypes) do
-                if x >= valueX and x <= valueX + contentW and y >= dropdownY + 5 + (i - 1) * 20 and y <= dropdownY + 5 + i * 20 then
-                    hoveredDropdownOption.vsync = i; break
-                end
-            end
-        end
-        if fpsLimitDropdownOpen then
-            local dropdownY = fpsButtonY + 24 + 5
-            for i in ipairs(fpsLimitTypes) do
-                if x >= valueX and x <= valueX + contentW and y >= dropdownY + 5 + (i - 1) * 20 and y <= dropdownY + 5 + i * 20 then
-                    hoveredDropdownOption.fpsLimit = i; break
-                end
-            end
-        end
-        if accentThemeDropdownOpen then
-            local dropdownY = accentButtonY + 24 + 5
-            local accentThemes = {"Cyan/Lavender", "Blue/Purple", "Green/Emerald", "Red/Orange", "Monochrome"}
-            for i in ipairs(accentThemes) do
-                if x >= valueX and x <= valueX + contentW and y >= dropdownY + 5 + (i - 1) * 20 and y <= dropdownY + 5 + i * 20 then
-                    hoveredDropdownOption.accentTheme = i; break
-                end
-            end
-        end
+        -- Standardized dropdown components handle their own hover detection
+        vsyncDropdown:mousemoved(x, y)
+        fpsLimitDropdown:mousemoved(x, y)
+        accentThemeDropdown:mousemoved(x, y)
 
         -- Check slider hovers (scrolled content)
         if x >= contentX and x <= contentX + contentW and y >= contentY and y <= contentY + innerH then

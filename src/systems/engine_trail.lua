@@ -45,17 +45,8 @@ function EngineTrailSystem.update(dt, world)
 				local speed = math.sqrt(vel.x * vel.x + vel.y * vel.y)
 				local isThrusting = speed > 10  -- AI is thrusting if moving faster than 10 units/second
 
-				-- Update thruster colors to red for AI entities
-				if not trail.originalColors then
-					trail.originalColors = {
-						color1 = trail.colors.color1,
-						color2 = trail.colors.color2
-					}
-					-- Set red colors for AI
-					trail.colors.color1 = {1.0, 0.3, 0.2, 1.0}  -- Red primary
-					trail.colors.color2 = {1.0, 0.3, 0.2, 0.5}  -- Red secondary
-					trail:setupParticleSystem()  -- Reconfigure particle system with new colors
-				end
+				-- Engine trail colors remain consistent regardless of entity type or theme
+				-- Removed AI color changes to maintain uniform engine trail appearance
 
 				-- Update thruster state based on movement
 				local intensity = math.min(1.0, speed / 100)  -- Scale intensity based on speed

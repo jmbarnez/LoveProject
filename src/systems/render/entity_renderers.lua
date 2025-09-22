@@ -23,8 +23,6 @@ local function getEntityRendererType(entity)
     if not entity._rendererType then
         if entity.components.ai then
             entity._rendererType = 'enemy'
-        elseif entity.isRemotePlayer then
-            entity._rendererType = 'remote_player'
         elseif entity.components.warp_gate then
             entity._rendererType = 'warp_gate'
         elseif entity.components.mineable then
@@ -60,65 +58,6 @@ local function getEntityRendererType(entity)
         end
     end
     return entity._rendererType
-end
-
--- Remote player renderer (uses player renderer with blue tint)
-function EntityRenderers.remote_player(entity, player)
-    -- Use the player renderer with remote player modifications
-    PlayerRenderer.render(entity, player)
-    
-    -- Add visual feedback for remote player
-    local size = (entity.components.renderable.props and entity.components.renderable.props.visuals and entity.components.renderable.props.visuals.size) or 1.0
-    local S = RenderUtils.createScaler(size)
-    
-    -- Blue identification overlay
-    RenderUtils.setColor({0.3, 0.6, 1.0, 0.15})
-    love.graphics.circle("fill", 0, 0, S(30))
-    
-    -- Boost/warp effect removed
-    
-    -- Player ID text above the ship
-    if entity.playerId then
-        local shortId = entity.playerId:sub(-4) -- Last 4 characters
-        RenderUtils.setColor({0.7, 0.9, 1.0, 0.9})
-        love.graphics.printf(shortId, -25, -40, 50, "center")
-        
-        -- Connection quality indicator
-        local timeSinceUpdate = love.timer.getTime() - (entity.lastNetworkUpdate or 0)
-        local pingColor = {0.2, 1.0, 0.2} -- Green for good
-        if timeSinceUpdate > 0.1 then pingColor = {1.0, 1.0, 0.2} end -- Yellow for moderate
-        if timeSinceUpdate > 0.2 then pingColor = {1.0, 0.2, 0.2} end -- Red for poor
-        
-        RenderUtils.setColor({pingColor[1], pingColor[2], pingColor[3], 0.6})
-        love.graphics.circle("fill", 15, -35, 2)
-    end
-    
-    -- Health bar for remote player
-    if entity.components.health then
-        local health = entity.components.health.current or 100
-        local maxHealth = entity.components.health.max or 100
-        local healthPercent = health / maxHealth
-        
-        if healthPercent < 1.0 then -- Only show if damaged
-            local barWidth = S(40)
-            local barHeight = S(4)
-            local barX = -barWidth / 2
-            local barY = S(25)
-            
-            -- Background
-            RenderUtils.setColor({0.2, 0.2, 0.2, 0.8})
-            love.graphics.rectangle("fill", barX, barY, barWidth, barHeight)
-            
-            -- Health bar
-            local healthColor = {1.0, healthPercent, 0.0} -- Red to yellow to green
-            RenderUtils.setColor({healthColor[1], healthColor[2], healthColor[3], 0.9})
-            love.graphics.rectangle("fill", barX, barY, barWidth * healthPercent, barHeight)
-            
-            -- Border
-            RenderUtils.setColor({0.8, 0.8, 0.8, 0.6})
-            love.graphics.rectangle("line", barX, barY, barWidth, barHeight)
-        end
-    end
 end
 
 -- Enemy renderer
@@ -223,8 +162,8 @@ function EntityRenderers.planet(entity, player)
         for i = 0, ringLayers - 1 do
             local t = i / math.max(1, (ringLayers - 1))
             local rr = ringInner + (ringOuter - ringInner) * t
-            local a = (ringColor[4] or 0.28) * (0.6 + 0.4 * (1 - math.abs(0.5 - t) * 2))
-            love.graphics.setColor(ringColor[1], ringColor[2], ringColor[3], a)
+            local a = (ringColor or 0.28) * (0.6 + 0.4 * (1 - math.abs(0.5 - t) * 2))
+            love.graphics.setColor(ringColor, ringColor, ringColor, a)
             love.graphics.ellipse('line', 0, 0, S(rr), S(rr * ringFlatten))
         end
         -- Subtle brighter edge
@@ -238,11 +177,11 @@ function EntityRenderers.planet(entity, player)
     love.graphics.circle('fill', 0, 0, S(R))
 
     -- Subtle bands/accents to add depth
-    RenderUtils.setColor({accentColor[1], accentColor[2], accentColor[3], (accentColor[4] or 1) * 0.6})
+    RenderUtils.setColor({accentColor, accentColor, accentColor, (accentColor or 1) * 0.6})
     for i = -2, 2 do
         local ry = S(R * (0.72 + i * 0.06))
         local alpha = 0.05 + (0.03 * (2 - math.abs(i)))
-        love.graphics.setColor(accentColor[1], accentColor[2], accentColor[3], alpha)
+        love.graphics.setColor(accentColor, accentColor, accentColor, alpha)
         love.graphics.ellipse('fill', 0, 0, S(R * 0.96), ry)
     end
 
@@ -271,13 +210,13 @@ function EntityRenderers.planet(entity, player)
     end
 
     -- Atmosphere glow (optional)
-    if showAtmosphere and (atmosphereColor[4] or 0) > 0 then
+    if showAtmosphere and (atmosphereColor or 0) > 0 then
         local gLayers = 5
         for i = 1, gLayers do
             local t = i / gLayers
             local rr = S(R * (1.02 + t * 0.06))
-            local a = (atmosphereColor[4] or 0.14) * (1.1 - t)
-            love.graphics.setColor(atmosphereColor[1], atmosphereColor[2], atmosphereColor[3], a)
+            local a = (atmosphereColor or 0.14) * (1.1 - t)
+            love.graphics.setColor(atmosphereColor, atmosphereColor, atmosphereColor, a)
             love.graphics.circle('line', 0, 0, rr)
         end
     end
@@ -558,11 +497,12 @@ function EntityRenderers.station(entity, player)
                     local textY = -ringRadius - textH - 10
                     
                     -- Background
-                    love.graphics.setColor(0, 0, 0, 0.7)
+                    local Theme = require("src.core.theme")
+                    Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.7))
                     love.graphics.rectangle("fill", textX - 4, textY - 2, textW + 8, textH + 4, 2, 2)
                     
                     -- Text
-                    love.graphics.setColor(1.0, 1.0, 1.0, 1.0)
+                    Theme.setColor(Theme.colors.text)
                     love.graphics.print(label, textX, textY)
                     
                     if oldFont then
@@ -605,19 +545,23 @@ function EntityRenderers.wreckage(entity, player)
     if type(frags) == "table" and #frags > 0 then
         for _, s in ipairs(frags) do
             if s.type == 'polygon' and s.points then
-                local a = ((type(s.color)=="table" and (s.color[4] or 1)) or 1) * alpha
+                local baseAlpha = (type(s.color) == "table" and s.color[4]) or 1
+                local a = baseAlpha * alpha
                 RenderUtils.setColor(s.color, a)
                 love.graphics.polygon(s.mode or 'fill', s.points)
             elseif (s.type == 'rect' or s.type == 'rectangle') then
-                local a = ((type(s.color)=="table" and (s.color[4] or 1)) or 1) * alpha
+                local baseAlpha = (type(s.color) == "table" and s.color[4]) or 1
+                local a = baseAlpha * alpha
                 RenderUtils.setColor(s.color, a)
                 love.graphics.rectangle(s.mode or 'fill', s.x or -4, s.y or -4, s.w or 8, s.h or 8, s.rx or 1, s.ry or s.rx or 1)
             elseif s.type == 'circle' then
-                local a = ((type(s.color)=="table" and (s.color[4] or 1)) or 1) * alpha
+                local baseAlpha = (type(s.color) == "table" and s.color[4]) or 1
+                local a = baseAlpha * alpha
                 RenderUtils.setColor(s.color, a)
                 love.graphics.circle(s.mode or 'fill', s.x or 0, s.y or 0, s.r or 3)
             elseif s.type == 'line' and s.points then
-                local a = ((type(s.color)=="table" and (s.color[4] or 1)) or 1) * alpha
+                local baseAlpha = (type(s.color) == "table" and s.color[4]) or 1
+                local a = baseAlpha * alpha
                 RenderUtils.setColor(s.color, a)
                 love.graphics.line(s.points)
             end
@@ -707,14 +651,14 @@ function EntityRenderers.bullet(entity, player)
             phase = "buildup"
             phaseProgress = elapsed / buildupTime
             local intensity = phaseProgress * phaseProgress -- Quadratic buildup
-            alpha = (baseColor[4] or 1) * (0.3 + 0.7 * intensity)
+            alpha = (baseColor or 1) * (0.3 + 0.7 * intensity)
             coreW = baseWidth * (0.1 + 0.4 * intensity) -- Thinner beam
             glowW = coreW + 3 * intensity -- Less glow
         elseif elapsed <= buildupTime + flashTime then
             -- FLASH PHASE: Intense beam release
             phase = "flash"
             phaseProgress = (elapsed - buildupTime) / flashTime
-            alpha = (baseColor[4] or 1) * (2.0 + 0.5 * math.sin(phaseProgress * math.pi * 8)) -- Flickering intensity
+            alpha = (baseColor or 1) * (2.0 + 0.5 * math.sin(phaseProgress * math.pi * 8)) -- Flickering intensity
             coreW = baseWidth * (0.8 + 0.3 * math.sin(phaseProgress * math.pi * 12)) -- Thinner core
             glowW = coreW + 4 + 2 * math.sin(phaseProgress * math.pi * 6) -- Less glow
         else
@@ -738,35 +682,35 @@ function EntityRenderers.bullet(entity, player)
         if phase == "buildup" then
             -- BUILDUP: Growing energy effect with particles
             love.graphics.setLineWidth(glowW)
-            RenderUtils.setColor({baseColor[1], baseColor[2], baseColor[3], alpha * 0.3})
+            RenderUtils.setColor({baseColor, baseColor, baseColor, alpha * 0.3})
             love.graphics.line(0, 0, len * phaseProgress, 0)
             
             -- Energy particles building up along beam path
             for i = 1, math.floor(8 * phaseProgress) do
                 local px = (len * phaseProgress) * (i / 8) + math.sin(time * 12 + i) * 3
                 local py = math.cos(time * 10 + i * 2) * (3 * phaseProgress)
-                love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], alpha * 0.9)
+                love.graphics.setColor(baseColor, baseColor, baseColor, alpha * 0.9)
                 love.graphics.circle("fill", px, py, 1.5 + phaseProgress * 0.5)
             end
             
             -- Charging glow at muzzle
-            RenderUtils.setColor({baseColor[1], baseColor[2], baseColor[3], alpha * 0.6})
+            RenderUtils.setColor({baseColor, baseColor, baseColor, alpha * 0.6})
             love.graphics.circle("fill", 0, 0, 2 + 4 * phaseProgress)
             
         else
             -- FLASH: Massive intense beam discharge
             -- Outer glow
             love.graphics.setLineWidth(glowW)
-            RenderUtils.setColor({baseColor[1], baseColor[2], baseColor[3], alpha * 0.5})
+            RenderUtils.setColor({baseColor, baseColor, baseColor, alpha * 0.5})
             love.graphics.line(0, 0, len, 0)
             
             -- Core beam - brighter and wider
             love.graphics.setLineWidth(coreW)
-            RenderUtils.setColor({math.min(1, baseColor[1] + 0.4), math.min(1, baseColor[2] + 0.4), math.min(1, baseColor[3] + 0.4), alpha})
+            RenderUtils.setColor({math.min(1, baseColor + 0.4), math.min(1, baseColor + 0.4), math.min(1, baseColor + 0.4), alpha})
             love.graphics.line(0, 0, len, 0)
             
             -- Intense muzzle flash
-            RenderUtils.setColor({math.min(1, baseColor[1] + 0.5), math.min(1, baseColor[2] + 0.5), math.min(1, baseColor[3] + 0.5), alpha * 0.8})
+            RenderUtils.setColor({math.min(1, baseColor + 0.5), math.min(1, baseColor + 0.5), math.min(1, baseColor + 0.5), alpha * 0.8})
             love.graphics.circle("fill", 0, 0, 6 + math.sin(phaseProgress * math.pi * 20) * 2)
             
             -- Energy burst particles
@@ -775,7 +719,7 @@ function EntityRenderers.bullet(entity, player)
                 local burstDist = 8 + math.sin(phaseProgress * math.pi * 15 + i) * 3
                 local bx = math.cos(burstAngle) * burstDist
                 local by = math.sin(burstAngle) * burstDist
-                love.graphics.setColor(baseColor[1], baseColor[2], baseColor[3], alpha * 0.7)
+                love.graphics.setColor(baseColor, baseColor, baseColor, alpha * 0.7)
                 love.graphics.circle("fill", bx, by, 1 + math.sin(phaseProgress * math.pi * 10 + i) * 0.5)
             end
         end
@@ -1059,7 +1003,7 @@ function EntityRenderers.warp_gate(entity, player)
 
         -- Power bar
         local powerColor = powerPercent > 0.3 and {0.2, 1.0, 0.2} or {1.0, 0.2, 0.2}
-        RenderUtils.setColor({powerColor[1], powerColor[2], powerColor[3], 0.9})
+        RenderUtils.setColor({powerColor, powerColor, powerColor, 0.9})
         love.graphics.rectangle("fill", -barWidth/2, barY, barWidth * powerPercent, barHeight, 2, 2)
 
         -- Border
@@ -1096,8 +1040,6 @@ function EntityRenderers.draw(world, camera, player)
             -- Create renderer function once and cache it
             if rendererType == 'enemy' then
                 renderer = EntityRenderers.enemy
-            elseif rendererType == 'remote_player' then
-                renderer = EntityRenderers.remote_player
             elseif rendererType == 'warp_gate' then
                 renderer = EntityRenderers.warp_gate
             elseif rendererType == 'asteroid' then

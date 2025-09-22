@@ -9,8 +9,9 @@ This document provides detailed information about the technical architecture of 
 3. [Content Pipeline](#content-pipeline)
 4. [Rendering Pipeline](#rendering-pipeline)
 5. [Event System](#event-system)
-6. [Memory Management](#memory-management)
-7. [Performance Considerations](#performance-considerations)
+6. [UI Architecture and Input](#ui-architecture-and-input)
+7. [Memory Management](#memory-management)
+8. [Performance Considerations](#performance-considerations)
 
 ## Entity-Component System
 
@@ -206,8 +207,7 @@ The content system automatically discovers and loads game content:
 
 ### Content Structure
 
-#### Item Definition
-```lua
+#### Item Definition```lua
 -- content/items/example_item.lua
 return {
     id = "example_item",
@@ -220,8 +220,7 @@ return {
             {type = "circle", color = {1, 0, 0}, radius = 0.4}
         }
     }
-}
-```
+}```
 
 #### Ship Definition
 ```lua
@@ -317,6 +316,30 @@ GAME_EVENTS = {
     QUEST_COMPLETED = "quest_completed"
 }
 ```
+
+## UI Architecture and Input
+
+### Source of Truth for UI Sizing
+All UI layout/sizing is driven by `Theme.ui` (in `src/core/theme.lua`):
+
+```
+Theme.ui = {
+  titleBarHeight, borderWidth, contentPadding,
+  buttonHeight, buttonSpacing, menuButtonPaddingX,
+}
+```
+
+Windows, common widgets, and panels should read from `Theme.ui` instead of hardcoding numbers.
+
+### Modal Input Flow
+- `UIManager` routes input to visible components with z-ordering.
+- When Escape menu or other modal UI is open, input is consumed at the UI layer, and `PlayerSystem` also gates gameplay controls using `UIManager.isModalActive()`.
+- Mouse wheel events are consumed by UI when modals are active.
+
+Relevant code paths:
+- UI routing: `src/core/ui_manager.lua` (mouse/key/text/wheel)
+- Global gameplay gate: `src/systems/player.lua` (checks modalActive)
+- Escape menu consumption: `src/ui/escape_menu.lua`
 
 #### Event Data Structures
 ```lua

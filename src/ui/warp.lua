@@ -358,9 +358,6 @@ function Warp:drawWarpConfirmation()
     local dialogX = (sw - dialogW) / 2
     local dialogY = (sh - dialogH) / 2
 
-    -- Overlay background
-    Theme.setColor(Theme.withAlpha({0, 0, 0}, 0.5))
-    love.graphics.rectangle("fill", 0, 0, sw, sh)
 
     -- Dialog background
     Theme.drawGradientGlowRect(dialogX, dialogY, dialogW, dialogH, 8,

@@ -191,6 +191,11 @@ The UI system uses a **modular panel approach**:
 - **Individual Panels**: Self-contained UI components
 - **Theme System** (`src/core/theme.lua`): Consistent styling
 
+#### UI Sizing Source of Truth
+- All UI spacing and control sizes are defined in `Theme.ui` (`src/core/theme.lua`).
+- Tokens: `titleBarHeight`, `borderWidth`, `contentPadding`, `buttonHeight`, `buttonSpacing`, `menuButtonPaddingX`.
+- Windows, panels, and common widgets read these tokens instead of hardcoded values.
+
 ### Main UI Panels
 
 #### 1. Start Screen (`src/ui/start_screen.lua`)
@@ -217,6 +222,10 @@ The UI system uses a **modular panel approach**:
 - **Warp** (`src/ui/warp.lua`): Sector navigation
 - **Debug** (`src/ui/debug_panel.lua`): Development tools
 
+#### Modal Behavior and Input
+- When modal UI (escape menu, settings, map) is open, input is consumed by UI.
+- `PlayerSystem` additionally gates gameplay controls via `UIManager.isModalActive()`.
+
 ### UI Interaction Patterns
 
 - **Modal Windows**: Full-screen overlays (docked, settings)
@@ -231,50 +240,18 @@ LoveProject/
 ├── main.lua                    # Entry point
 ├── conf.lua                    # Love2D configuration
 ├── src/                        # Source code
-│   ├── core/                   # Core systems
-│   │   ├── camera.lua          # Camera management
-│   │   ├── events.lua          # Event system
-│   │   ├── input.lua           # Input handling
-│   │   ├── physics.lua         # Physics utilities
-│   │   ├── sound.lua           # Audio system
-│   │   ├── theme.lua           # UI theming
-│   │   ├── ui.lua              # UI utilities
-│   │   ├── ui_manager.lua      # UI coordination
-│   │   ├── util.lua            # General utilities
-│   │   ├── viewport.lua        # Screen management
-│   │   └── world.lua           # World management
-│   ├── components/             # ECS components
-│   │   ├── ai.lua              # AI behavior
-│   │   ├── collidable.lua      # Collision data
-│   │   ├── health.lua          # Health/energy
-│   │   ├── physics.lua         # Physics body
-│   │   ├── position.lua        # Position data
-│   │   ├── renderable.lua      # Rendering data
-│   │   └── velocity.lua        # Movement data
-│   ├── entities/               # Entity implementations
-│   │   ├── player.lua          # Player ship
-│   │   └── remote_player.lua   # Multiplayer players
-│   ├── systems/                # Game systems
-│   │   ├── ai.lua              # AI system
-│   │   ├── collision/          # Collision detection
-│   │   ├── mining.lua          # Mining mechanics
-│   │   ├── physics.lua         # Physics simulation
-│   │   ├── player.lua          # Player system
-│   │   ├── quest_system.lua    # Quest management
-│   │   ├── render/             # Rendering systems
-│   │   └── turret/             # Weapon systems
-│   ├── templates/              # Entity templates
-│   │   ├── entity_factory.lua  # Entity creation
-│   │   ├── ship.lua            # Ship template
-│   │   └── projectile.lua      # Projectile template
-│   ├── ui/                     # User interface
-│   │   ├── hud/                # HUD components
-│   │   ├── common/             # Shared UI utilities
-│   │   └── *.lua               # UI panels
-│   └── content/                # Content management
-│       ├── content.lua         # Content loader
-│       ├── design_loader.lua   # File discovery
-│       └── normalizer.lua      # Data normalization
+│   ├── core/                   # Core systems (camera, events, input, etc.)
+│   ├── components/             # ECS components (ai, health, position, etc.)
+│   ├── entities/               # Entity implementations (player, remote_player, etc.)
+│   ├── systems/                # Game systems (ai, collision, mining, etc.)
+│   ├── templates/              # Entity templates (ship, projectile, etc.)
+│   ├── ui/                     # User interface panels and components
+│   ├── content/                # Content management (loader, validator, etc.)
+│   ├── effects/                # Visual effects
+│   ├── libs/                   # Third-party libraries
+│   ├── managers/               # High-level managers (state, portfolio)
+│   ├── shaders/                # GLSL shaders
+│   └── tools/                  # Development tools
 ├── content/                    # Game content
 │   ├── items/                  # Item definitions
 │   ├── ships/                  # Ship definitions

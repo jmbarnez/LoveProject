@@ -1,9 +1,9 @@
 local DebugPanel = {}
 local Viewport = require("src.core.viewport")
 local Theme = require("src.core.theme")
+local Window = require("src.ui.common.window")
 
 -- Debug panel state
-local visible = false
 local stats = {
     fps = 0,
     mem = 0,
@@ -11,29 +11,39 @@ local stats = {
     updateTime = 0
 }
 
--- Panel style
-local style = {
-    padding = 8,
-    margin = 4,
-    fontSize = 10,
-    bgColor = {0, 0, 0, 0.7},
-    textColor = {1, 1, 1, 1},
-    accentColor = {0.4, 0.8, 1.0, 1.0}
-}
+function DebugPanel.init()
+    DebugPanel.window = Window.new({
+        title = "Debug Info",
+        width = 150,
+        height = 120,
+        x = Viewport.getDimensions() - 160,
+        y = 10,
+        draggable = true,
+        closable = true,
+        resizable = true,
+        drawContent = DebugPanel.drawContent,
+        onClose = function()
+            DebugPanel.visible = false
+        end
+    })
+    DebugPanel.visible = false
+end
 
 -- Toggle debug panel visibility
 function DebugPanel.toggle()
-    visible = not visible
+    if not DebugPanel.window then DebugPanel.init() end
+    DebugPanel.visible = not DebugPanel.visible
+    DebugPanel.window.visible = DebugPanel.visible
 end
 
 -- Query debug panel visibility
 function DebugPanel.isVisible()
-    return visible
+    return DebugPanel.visible
 end
 
 -- Update debug information
 function DebugPanel.update(dt)
-    if not visible then return end
+    if not DebugPanel.visible then return end
     
     -- Update FPS counter
     stats.fps = love.timer.getFPS()
@@ -49,47 +59,29 @@ end
 
 -- Draw the debug panel
 function DebugPanel.draw()
-    if not visible then return end
-    
-    local w, h = Viewport.getDimensions()
-    local font = love.graphics.newFont(style.fontSize)
+    if not DebugPanel.visible then return end
+    if not DebugPanel.window then DebugPanel.init() end
+    DebugPanel.window:draw()
+end
+
+function DebugPanel.drawContent(window, x, y, w, h)
+    local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
     local lineHeight = font:getHeight()
-    local padding = style.padding
-    local margin = style.margin
-    
-    -- Calculate text widths for alignment
+    local padding = 8
+    local margin = 4
+
     local texts = {
         string.format("FPS: %d", stats.fps),
         string.format("Update: %.1fms", stats.updateTime),
         string.format("Draw: %.1fms", stats.drawTime),
         string.format("Mem: %.1fMB", stats.mem)
     }
-    
-    -- Find the widest text for panel width
-    local maxWidth = 0
-    for _, text in ipairs(texts) do
-        local width = font:getWidth(text)
-        if width > maxWidth then
-            maxWidth = width
-        end
-    end
-    
-    local panelWidth = maxWidth + padding * 2
-    local panelHeight = #texts * (lineHeight + margin) + padding * 2 - margin
-    local x = w - panelWidth - 10  -- 10px from right edge
-    local y = 10  -- 10px from top
-    
-    -- Draw panel background with subtle border
-    love.graphics.setColor(style.bgColor)
-    love.graphics.rectangle("fill", x, y, panelWidth, panelHeight, 3)
-    love.graphics.setColor(style.accentColor)
-    love.graphics.rectangle("line", x, y, panelWidth, panelHeight, 3)
-    
-    -- Draw debug info
+
     love.graphics.setFont(font)
+    Theme.setColor(Theme.colors.text)
+
     for i, text in ipairs(texts) do
         local textY = y + padding + (i-1) * (lineHeight + margin)
-        love.graphics.setColor(style.textColor)
         love.graphics.print(text, x + padding, textY)
     end
 end
@@ -106,6 +98,24 @@ end
 -- Empty textinput handler (needed to prevent input from reaching the game)
 function DebugPanel.textinput()
     return false
+end
+
+function DebugPanel.mousepressed(x, y, button)
+    if not DebugPanel.visible then return false end
+    if not DebugPanel.window then return false end
+    return DebugPanel.window:mousepressed(x, y, button)
+end
+
+function DebugPanel.mousereleased(x, y, button)
+    if not DebugPanel.visible then return false end
+    if not DebugPanel.window then return false end
+    return DebugPanel.window:mousereleased(x, y, button)
+end
+
+function DebugPanel.mousemoved(x, y, dx, dy)
+    if not DebugPanel.visible then return false end
+    if not DebugPanel.window then return false end
+    return DebugPanel.window:mousemoved(x, y, dx, dy)
 end
 
 -- Set rendering stats (call this after your main draw)

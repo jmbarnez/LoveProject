@@ -74,6 +74,8 @@ function SkillsPanel.init()
         height = 250,
         minWidth = 250,
         minHeight = 200,
+        draggable = true,
+        closable = true,
         drawContent = SkillsPanel.drawContent,
         onClose = function()
             SkillsPanel.visible = false
@@ -90,13 +92,14 @@ end
 
 function SkillsPanel.drawContent(window, x, y, w, h)
     -- Content area
-    local cx, cy = x + 16, y + 16
+    local pad = (Theme.ui and Theme.ui.contentPadding) or 16
+    local cx, cy = x + pad, y + pad
     local skills = Skills.getAllSkills()
 
     -- Draw each skill
     for i, skill in ipairs(skills) do
         local skillY = cy + (i - 1) * 55
-        local barW = w - 32
+        local barW = w - pad * 2
         local barH = 40
 
         -- Progress bar
@@ -119,7 +122,12 @@ end
 function SkillsPanel.mousepressed(x, y, button)
     if not SkillsPanel.visible then return false end
     if not SkillsPanel.window then return false end
-    return SkillsPanel.window:mousepressed(x, y, button)
+    local handled = SkillsPanel.window:mousepressed(x, y, button)
+    if handled and not SkillsPanel.window.visible then
+        SkillsPanel.visible = false
+        return true
+    end
+    return handled
 end
 
 function SkillsPanel.mousereleased(x, y, button)

@@ -1,13 +1,13 @@
 local Input = require("src.core.input")
 local Viewport = require("src.core.viewport")
 local Theme = require("src.core.theme")
-local MultiplayerMenu = require("src.ui.multiplayer_menu")
 local SaveSlots = require("src.ui.save_slots")
 local StateManager = require("src.managers.state_manager")
 local World = require("src.core.world")
 local AuroraTitle = require("src.shaders.aurora_title")
 local Sound = require("src.core.sound")
 local SettingsPanel = require("src.ui.settings_panel")
+local UIButton = require("src.ui.common.button")
 
 local Start = {}
 Start.__index = Start
@@ -15,13 +15,6 @@ Start.__index = Start
 -- Start screen input handler
 local startScreenHandler = function(self, x, y, button)
   if button ~= 1 then return false end
-
-  -- Handle button clicks with sound using the theme's handler
-  if Theme.handleButtonClick(self.multiplayerButton, x, y, function()
-    self.multiplayerMenu:show()
-  end) then
-    return false -- don't start game, open multiplayer menu
-  end
 
   -- Load Game button click
   if Theme.handleButtonClick(self.loadButton, x, y, function()
@@ -32,12 +25,6 @@ local startScreenHandler = function(self, x, y, button)
 
   -- No exit button - use Escape key or Alt+F4 instead
 
-  -- Settings button click
-  if Theme.handleButtonClick(self.settingsButton, x, y, function()
-    SettingsPanel.toggle()
-  end) then
-    return false -- show settings
-  end
 
   -- Start button click
   if Theme.handleButtonClick(self.button, x, y, function()
@@ -116,10 +103,7 @@ function Start.new()
   self.comets = genComets(self.w, self.h, math.floor(2 * math.max(1, scale)))
   self.twinkles = genTwinkles(self.w, self.h, math.floor(50 * math.max(1, scale)))
   self.button = { x = 0, y = 0, w = 260, h = 40 }
-  self.multiplayerButton = { x = 0, y = 0, w = 260, h = 40 }
   self.loadButton = { x = 0, y = 0, w = 260, h = 40 }
-  self.settingsButton = { x = 0, y = 0, w = 260, h = 40 }
-  self.multiplayerMenu = MultiplayerMenu.new()
   self.loadSlotsUI = SaveSlots:new()
   self.loadSlotsUI:setMode("load")
   self.showLoadUI = false
@@ -127,6 +111,7 @@ function Start.new()
   self.titleFont = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", 80)
   -- Aurora title shader
   self.auroraShader = AuroraTitle.new()
+  self.blurCanvas = love.graphics.newCanvas(self.w, self.h)
   
   return self
 end
@@ -147,9 +132,6 @@ local function uiScale()
 end
 
 function Start:update(dt)
-  if self.multiplayerMenu then
-    self.multiplayerMenu:update(dt)
-  end
   SettingsPanel.update(dt)
 end
 
@@ -282,38 +264,23 @@ function Start:draw()
   -- Enhanced main button with sci-fi styling
   local s = uiScale()
   local bw, bh = self.button.w * s, self.button.h * s
-  local bx = math.floor((w - bw) * 0.5)
-  local by = math.floor((h - bh) * 0.5 - 40 * s) -- Move up to make room for multiplayer button
-  self.button._rect = { x = bx, y = by, w = bw, h = bh }
+  local s = uiScale()
+  local bw, bh = self.button.w * s, self.button.h * s
+  local totalButtonHeight = bh * 2 + 20 * s
+  local startY = math.floor((h - totalButtonHeight) / 2)
 
+  -- New Game button
+  local bx = math.floor((w - bw) * 0.5)
+  local by = startY
   local mx, my = Viewport.getMousePosition()
   local hover = mx >= bx and mx <= bx + bw and my >= by and my <= by + bh
-
-  -- Enhanced button with glow and animation
-  local pulseColor = Theme.pulseColor(Theme.colors.primary, Theme.colors.accent, t, 1.5)
-  Theme.drawStyledButton(bx, by, bw, bh, 'NEW GAME', hover, t, nil, false, { compact = true })
+  self.button._rect = UIButton.drawRect(bx, by, bw, bh, 'NEW GAME', hover, t, { compact = true, menuButton = true })
 
   -- Load Game button
   local lbx = bx
   local lby = by + bh + 20 * s
-  self.loadButton._rect = { x = lbx, y = lby, w = bw, h = bh }
   local lhover = mx >= lbx and mx <= lbx + bw and my >= lby and my <= lby + bh
-
-  Theme.drawStyledButton(lbx, lby, bw, bh, 'LOAD GAME', lhover, t, nil, false, { compact = true })
-
-  -- Multiplayer button
-  local mbx = bx
-  local mby = lby + bh + 20 * s
-  self.multiplayerButton._rect = { x = mbx, y = mby, w = bw, h = bh }
-  local mhover = mx >= mbx and mx <= mbx + bw and my >= mby and my <= mby + bh
-Theme.drawStyledButton(mbx, mby, bw, bh, 'MULTIPLAYER', mhover, t, nil, false, { compact = true })
-
-  -- Settings button
-  local settingsX = bx
-  local settingsY = mby + bh + 20 * s
-  self.settingsButton._rect = { x = settingsX, y = settingsY, w = bw, h = bh }
-  local settingsHover = mx >= settingsX and mx <= settingsX + bw and my >= settingsY and my <= settingsY + bh
-  Theme.drawStyledButton(settingsX, settingsY, bw, bh, 'SETTINGS', settingsHover, t, nil, false, { compact = true })
+  self.loadButton._rect = UIButton.drawRect(lbx, lby, bw, bh, 'LOAD GAME', lhover, t, { compact = true, menuButton = true })
 
 -- No exit button - users can use Escape key or Alt+F4 to exit
 
@@ -321,9 +288,6 @@ Theme.drawStyledButton(mbx, mby, bw, bh, 'MULTIPLAYER', mhover, t, nil, false, {
   
   -- Draw load UI on top of everything else
   if self.showLoadUI then
-    -- Draw overlay
-    Theme.setColor(Theme.colors.overlay)
-    love.graphics.rectangle('fill', 0, 0, w, h)
     
     -- Draw load slots UI with dynamic sizing
     local contentW, contentH = 600, 500
@@ -336,30 +300,38 @@ Theme.drawStyledButton(mbx, mby, bw, bh, 'MULTIPLAYER', mhover, t, nil, false, {
     local loadY = (h - loadH) / 2
     
     -- Background
-    Theme.drawGradientGlowRect(loadX, loadY, loadW, loadH, 4, Theme.colors.bg1, Theme.colors.bg2, Theme.colors.primary, Theme.effects.glowWeak * 0.1)
-    Theme.drawEVEBorder(loadX, loadY, loadW, loadH, 4, Theme.colors.border, 2)
+    -- Frosted glass effect (blur)
+    -- Frosted glass effect (blur)
+    love.graphics.setCanvas({self.blurCanvas, stencil = true})
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.draw(Viewport.getCanvas(), 0, 0)
+    love.graphics.setCanvas(Viewport.getCanvas())
+    love.graphics.setShader(Theme.shaders.ui_blur)
+    love.graphics.setColor(1, 1, 1, 0.8) -- Control blur intensity
+    love.graphics.draw(self.blurCanvas, 0, 0)
+    love.graphics.setShader()
+
+    -- Sci-fi frame
+    Theme.drawSciFiFrame(loadX, loadY, loadW, loadH)
     
     -- Back button
     local backButtonW, backButtonH = 80, 30
     local backButtonX, backButtonY = loadX + 10, loadY + 10
     local mx, my = Viewport.getMousePosition()
     local backHover = mx >= backButtonX and mx <= backButtonX + backButtonW and my >= backButtonY and my <= backButtonY + backButtonH
-    Theme.drawStyledButton(backButtonX, backButtonY, backButtonW, backButtonH, "← Back", backHover, love.timer.getTime(), nil, false)
+    self.backButtonRect = UIButton.drawRect(backButtonX, backButtonY, backButtonW, backButtonH, "← Back", backHover, love.timer.getTime(), { menuButton = true })
     
     -- Load slots content
     if self.loadSlotsUI then
       self.loadSlotsUI:draw(loadX + 10, loadY + 50, loadW - 20, loadH - 60)
     end
-  -- Draw multiplayer menu on top (but below load UI)
-  elseif self.multiplayerMenu then
-    self.multiplayerMenu:draw()
   end
 
   SettingsPanel.draw()
   
   -- Version number in bottom right
   Theme.setColor(Theme.colors.textSecondary)
-  local versionText = "v0.16"
+  local versionText = "v0.2"
   local font = love.graphics.getFont()
   local textWidth = font:getWidth(versionText)
   love.graphics.print(versionText, w - textWidth - 16, h - 20)
@@ -373,11 +345,10 @@ function Start:mousepressed(x, y, button)
     local loadX = (w - loadW) / 2
     local loadY = (h - loadH) / 2
     
-    -- Check back button
-    local backButtonW, backButtonH = 80, 30
-    local backButtonX, backButtonY = loadX + 10, loadY + 10
-    if x >= backButtonX and x <= backButtonX + backButtonW and y >= backButtonY and y <= backButtonY + backButtonH and button == 1 then
+    -- Check back button using Theme.handleButtonClick for consistent behavior
+    if Theme.handleButtonClick({ _rect = self.backButtonRect }, x, y, function()
       self.showLoadUI = false
+    end) then
       return false
     end
     
@@ -404,15 +375,6 @@ function Start:mousepressed(x, y, button)
     return false
   end
   
-  -- Check multiplayer menu next
-  if self.multiplayerMenu then
-    local result = self.multiplayerMenu:mousepressed(x, y, button)
-    if result == "startGame" then
-      return true -- Signal game start
-    elseif result then
-      return false
-    end
-  end
   
   if SettingsPanel.mousepressed(x, y, button) then
     return false
@@ -429,6 +391,13 @@ function Start:mousemoved(x, y, dx, dy)
   SettingsPanel.mousemoved(x, y, dx, dy)
 end
 
+function Start:wheelmoved(x, y, dx, dy)
+  if SettingsPanel.visible then
+    return SettingsPanel.wheelmoved(x, y, dx, dy)
+  end
+  return false
+end
+
 function Start:keypressed(key)
     -- Handle ESC key to exit game
     if key == "escape" then
@@ -441,9 +410,6 @@ function Start:keypressed(key)
         return true -- Consume all key presses when load UI is open
     end
 
-    if self.multiplayerMenu and self.multiplayerMenu:keypressed(key) then
-        return true
-    end
 
     if SettingsPanel.keypressed(key) then
       return true
@@ -452,9 +418,6 @@ function Start:keypressed(key)
 end
 
 function Start:textinput(text)
-    if self.multiplayerMenu and self.multiplayerMenu:textinput(text) then
-        return true
-    end
     return false
 end
 

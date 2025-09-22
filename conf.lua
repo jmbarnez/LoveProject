@@ -7,7 +7,7 @@ function love.conf(t)
   t.window.width = 1920
   t.window.height = 1080
   t.window.resizable = true
-  t.window.fullscreen = false
+  t.window.fullscreen = true
   t.window.fullscreentype = "desktop"
   t.window.vsync = 1
   t.window.msaa = 2

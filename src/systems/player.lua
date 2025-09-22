@@ -81,8 +81,12 @@ function PlayerSystem.update(dt, player, input, world, hub)
     player.thrusterState.isThrusting = false  -- Overall thrusting state
     
     if not body then return end
-    -- Face the mouse cursor with smooth, high-turn-rate tracking
-    if input and input.aimx and input.aimy then
+    -- Block gameplay controls when a modal UI is active (e.g., escape menu)
+    local UIManager = require("src.core.ui_manager")
+    local modalActive = UIManager and UIManager.isModalActive and UIManager.isModalActive() or false
+
+    -- Face the mouse cursor with smooth, high-turn-rate tracking (disabled while modal)
+    if not modalActive and input and input.aimx and input.aimy then
         local dx = input.aimx - ppos.x
         local dy = input.aimy - ppos.y
         local desiredAngle = math.atan2(dy, dx)
@@ -100,13 +104,13 @@ function PlayerSystem.update(dt, player, input, world, hub)
     -- Movement system: WASD moves in that screen/world direction; ship still faces cursor
     body:resetThrusters() -- Ensure physics thrusters don't add extra forces
 
-    local w = love.keyboard.isDown("w")
-    local s = love.keyboard.isDown("s")
-    local a = love.keyboard.isDown("a")
-    local d = love.keyboard.isDown("d")
+    local w = (not modalActive) and love.keyboard.isDown("w") or false
+    local s = (not modalActive) and love.keyboard.isDown("s") or false
+    local a = (not modalActive) and love.keyboard.isDown("a") or false
+    local d = (not modalActive) and love.keyboard.isDown("d") or false
     -- Boost is now an action hotkey: hold Shift = thrusters
-    local braking = love.keyboard.isDown("space")
-    local boostHeld = love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift")
+    local braking = (not modalActive) and love.keyboard.isDown("space") or false
+    local boostHeld = (not modalActive) and (love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift")) or false
 
     local h = player.components and player.components.health
     local boosting = (boostHeld and ((not h) or ((h.energy or 0) > 0))) or false
@@ -196,7 +200,7 @@ function PlayerSystem.update(dt, player, input, world, hub)
     end
 
     -- Dash: press dash key (Shift tap) to dash toward cursor
-    do
+    if not modalActive then
         player._dashCd = math.max(0, (player._dashCd or 0) - dt)
         if player._dashQueued then
             player._dashQueued = false
@@ -382,9 +386,9 @@ function PlayerSystem.update(dt, player, input, world, hub)
                 -- Allow utility turrets even in safe zones, but require canFire for weapons
                 local allow = false
                 if isUtility then
-                    allow = (perSlotActive or manualFireAll) and (not isMissile)
+                    allow = (not modalActive) and (perSlotActive or manualFireAll) and (not isMissile)
                 else
-                    allow = canFire and (perSlotActive or manualFireAll) and (not isMissile)
+                    allow = (not modalActive) and canFire and (perSlotActive or manualFireAll) and (not isMissile)
                 end
 
                 -- Handle firing mode logic

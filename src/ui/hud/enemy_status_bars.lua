@@ -33,7 +33,8 @@ function EnemyStatusBars.drawMiniBars(entity)
   -- Shield bar (top) if applicable
   if maxShield > 0 then
     local sp = math.max(0, math.min(1, shield / math.max(1, maxShield)))
-    love.graphics.setColor(0, 0, 0, 0.6)
+    local Theme = require("src.core.theme")
+    Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.6))
     love.graphics.rectangle('fill', x0, baseY, barW, barH, 2, 2)
     love.graphics.setColor(0.35, 0.85, 1.0, 0.95)
     love.graphics.rectangle('fill', x0, baseY, barW * sp, barH, 2, 2)
@@ -44,7 +45,8 @@ function EnemyStatusBars.drawMiniBars(entity)
 
   -- Health bar
   local hpPct = math.max(0, math.min(1, hp / math.max(1, maxHP)))
-  love.graphics.setColor(0, 0, 0, 0.6)
+  local Theme = require("src.core.theme")
+  Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.6))
   love.graphics.rectangle('fill', x0, baseY, barW, barH, 2, 2)
   local r, g
   if hpPct > 0.5 then

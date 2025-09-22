@@ -51,6 +51,8 @@ function Inventory.init()
         height = 320,
         minWidth = 300,
         minHeight = 200,
+        draggable = true,
+        closable = true,
         drawContent = Inventory.drawContent,
         onClose = function()
             Inventory.visible = false
@@ -337,7 +339,7 @@ function Inventory.drawContent(window, x, y, w, h)
     sortItems(items, Inventory.sortBy, Inventory.sortOrder)
 
     local iconSize = 64
-    local padding = 8
+    local padding = (Theme.ui and Theme.ui.contentPadding) or 8
     local contentY = y
     local contentH = h - 24
 

@@ -1,0 +1,145 @@
+[1mdiff --git a/src/ui/escape_menu.lua b/src/ui/escape_menu.lua[m
+[1mindex 358d25e..7c7d055 100644[m
+[1m--- a/src/ui/escape_menu.lua[m
+[1m+++ b/src/ui/escape_menu.lua[m
+[36m@@ -4,6 +4,8 @@[m [mlocal SettingsPanel = require("src.ui.settings_panel")[m
+ local SaveSlots = require("src.ui.save_slots")[m
+ local StateManager = require("src.managers.state_manager")[m
+ local Window = require("src.ui.common.window")[m
+[32m+[m[32mlocal UIButton = require("src.ui.common.button")[m
+[32m+[m[32mlocal Registry = require("src.ui.core.registry")[m
+ [m
+ local EscapeMenu = {[m
+     visible = false,[m
+[36m@@ -16,9 +18,172 @@[m [mlocal EscapeMenu = {[m
+     saveSlotsUI = nil[m
+ }[m
+ [m
+[32m+[m[32m-- Save slots component for UI registry[m
+[32m+[m[32mlocal SaveSlotsComponent = {[m
+[32m+[m[32m    id = "escape_save_slots",[m
+[32m+[m[32m    zIndex = 105, -- Above escape menu but below settings[m
+[32m+[m
+[32m+[m[32m    isVisible = function()[m
+[32m+[m[32m        return EscapeMenu.showSaveSlots and EscapeMenu.saveSlotsUI and EscapeMenu.visible[m
+[32m+[m[32m    end,[m
+[32m+[m
+[32m+[m[32m    getZ = function()[m
+[32m+[m[32m        return 105 -- Above escape menu but below settings[m
+[32m+[m[32m    end,[m
+[32m+[m
+[32m+[m[32m    getRect = function()[m
+[32m+[m[32m        if not (EscapeMenu.showSaveSlots and EscapeMenu.saveSlotsUI) then return nil end[m
+[32m+[m[32m        local sw, sh = Viewport.getDimensions()[m
+[32m+[m
+[32m+[m[32m        -- Defensive check to ensure saveSlotsUI is valid[m
+[32m+[m[32m        if not EscapeMenu.saveSlotsUI or not EscapeMenu.saveSlotsUI.getPreferredSize then[m
+[32m+[m[32m            return nil[m
+[32m+[m[32m        end[m
+[32m+[m
+[32m+[m[32m        local success, w, h = pcall(EscapeMenu.saveSlotsUI.getPreferredSize, EscapeMenu.saveSlotsUI)[m
+[32m+[m[32m        if not success or type(w) ~= "number" or type(h) ~= "number" then return nil end[m
+[32m+[m[32m        local contentW, contentH = w, h[m
+[32m+[m
+[32m+[m[32m        local x = (sw - contentW) / 2[m
+[32m+[m[32m        local y = (sh - contentH) / 2[m
+[32m+[m[32m        return { x = x, y = y, w = contentW, h = contentH }[m
+[32m+[m[32m    end,[m
+[32m+[m
+[32m+[m[32m    draw = function(ctx)[m
+[32m+[m[32m        if not (EscapeMenu.showSaveSlots and EscapeMenu.saveSlotsUI) then return end[m
+[32m+[m[32m        local sw, sh = Viewport.getDimensions()[m
+[32m+[m
+[32m+[m[32m        -- Defensive check to ensure saveSlotsUI is valid[m
+[32m+[m[32m        if not EscapeMenu.saveSlotsUI or not EscapeMenu.saveSlotsUI.getPreferredSize then[m
+[32m+[m[32m            return[m
+[32m+[m[32m        end[m
+[32m+[m
+[32m+[m[32m        local success, w, h = pcall(EscapeMenu.saveSlotsUI.getPreferredSize, EscapeMenu.saveSlotsUI)[m
+[32m+[m[32m        if not success or type(w) ~= "number" or type(h) ~= "number" then return end[m
+[32m+[m[32m        local contentW, contentH = w, h[m
+[32m+[m
+[32m+[m[32m        local x = (sw - contentW) / 2[m
+[32m+[m[32m        local y = (sh - contentH) / 2[m
+[32m+[m[32m        EscapeMenu.saveSlotsUI:draw(x, y, contentW, contentH)[m
+[32m+[m[32m    end,[m
+[32m+[m
+[32m+[m[32m    mousepressed = function(x, y, button, ctx)[m
+[32m+[m[32m        if not (EscapeMenu.showSaveSlots and EscapeMenu.saveSlotsUI) then return false end[m
+[32m+[m[32m        if type(x) ~= "number" or type(y) ~= "number" then return false end[m
+[32m+[m[32m        local sw, sh = Viewport.getDimensions()[m
+[32m+[m
+[32m+[m[32m        if not EscapeMenu.saveSlotsUI or not EscapeMenu.saveSlotsUI.getPreferredSize then[m
+[32m+[m[32m            return false[m
+[32m+[m[32m        end[m
+[32m+[m
+[32m+[m[32m        local success, w, h = pcall(EscapeMenu.saveSlotsUI.getPreferredSize, EscapeMenu.saveSlotsUI)[m
+[32m+[m[32m        if not success or type(w) ~= "number" or type(h) ~= "number" then return false end[m
+[32m+[m[32m        local contentW, contentH = w, h[m
+[32m+[m
+[32m+[m[32m        local saveSlotsX = (sw - contentW) / 2[m
+[32m+[m[32m        local saveSlotsY = (sh - contentH) / 2[m
+[32m+[m
+[32m+[m[32m        -- Check if click is within save slots UI bounds[m
+[32m+[m[32m        if x >= saveSlotsX and x <= saveSlotsX + contentW and y >= saveSlotsY and y <= saveSlotsY + contentH then[m
+[32m+[m[32m            -- Additional safety check before calling mousepressed[m
+[32m+[m[32m            if EscapeMenu.saveSlotsUI and EscapeMenu.saveSlotsUI.mousepressed then[m
+[32m+[m[32m                local result = EscapeMenu.saveSlotsUI:mousepressed(x, y, button, saveSlotsX, saveSlotsY, contentW, contentH)[m
+[32m+[m[32m                if result == "saved" or result == "loaded" or result == "deleted" then[m
+[32m+[m[32m                    -- Save/load operation completed, return to escape menu[m
+[32m+[m[32m                    EscapeMenu.showSaveSlots = false[m
+[32m+[m[32m                    if _G.UIManager and _G.UIManager.state and _G.UIManager.state.escape then[m
+[32m+[m[32m                        _G.UIManager.state.escape.showingSaveSlots = false[m
+[32m+[m[32m                    end[m
+[32m+[m[32m                    -- Unregister the component since we're closing it[m
+[32m+[m[32m                    Registry.unregister("escape_save_slots")[m
+[32m+[m[32m                end[m
+[32m+[m[32m                return true[m
+[32m+[m[32m            end[m
+[32m+[m[32m        end[m
+[32m+[m[32m        return false[m
+[32m+[m[32m    end,[m
+[32m+[m
+[32m+[m[32m    mousereleased = function(x, y, button, ctx)[m
+[32m+[m[32m        if not (EscapeMenu.showSaveSlots and EscapeMenu.saveSlotsUI) then return false end[m
+[32m+[m[32m        if type(x) ~= "number" or type(y) ~= "number" then return false end[m
+[32m+[m[32m        local sw, sh = Viewport.getDimensions()[m
+[32m+[m
+[32m+[m[32m        if not EscapeMenu.saveSlotsUI or not EscapeMenu.saveSlotsUI.getPreferredSize then[m
+[32m+[m[32m            return false[m
+[32m+[m[32m        end[m
+[32m+[m
+[32m+[m[32m        local success, w, h = pcall(EscapeMenu.saveSlotsUI.getPreferredSize, EscapeMenu.saveSlotsUI)[m
+[32m+[m[32m        if not success or type(w) ~= "number" or type(h) ~= "number" then return false end[m
+[32m+[m[32m        local contentW, contentH = w, h[m
+[32m+[m
+[32m+[m[32m        local saveSlotsX = (sw - contentW) / 2[m
+[32m+[m[32m        local saveSlotsY = (sh - contentH) / 2[m
+[32m+[m
+[32m+[m[32m        -- Check if click is within save slots UI bounds[m
+[32m+[m[32m        if x >= saveSlotsX and x <= saveSlotsX + contentW and y >= saveSlotsY and y <= saveSlotsY + contentH then[m
+[32m+[m[32m            if EscapeMenu.saveSlotsUI and EscapeMenu.saveSlotsUI.mousereleased then[m
+[32m+[m[32m                return EscapeMenu.saveSlotsUI:mousereleased(x, y, button, saveSlotsX, saveSlotsY, contentW, contentH)[m
+[32m+[m[32m            end[m
+[32m+[m[32m            return true[m
+[32m+[m[32m        end[m
+[32m+[m[32m        return false[m
+[32m+[m[32m    end,[m
+[32m+[m
+[32m+[m[32m    mousemoved = function(x, y, dx, dy, ctx)[m
+[32m+[m[32m        if not (EscapeMenu.showSaveSlots and EscapeMenu.saveSlotsUI) then return false end[m
+[32m+[m[32m        if type(x) ~= "number" or type(y) ~= "number" then return false end[m
+[32m+[m[32m        local sw, sh = Viewport.getDimensions()[m
+[32m+[m
+[32m+[m[32m        if not EscapeMenu.saveSlotsUI or not EscapeMenu.saveSlotsUI.getPreferredSize then[m
+[32m+[m[32m            return false[m
+[32m+[m[32m        end[m
+[32m+[m
+[32m+[m[32m        local success, w, h = pcall(EscapeMenu.saveSlotsUI.getPreferredSize, EscapeMenu.saveSlotsUI)[m
+[32m+[m[32m        if not success or type(w) ~= "number" or type(h) ~= "number" then[m
+[32m+[m[32m            return false[m
+[32m+[m[32m        end[m
+[32m+[m[32m        local contentW, contentH = w, h[m
+[32m+[m
+[32m+[m[32m        local saveSlotsX = (sw - contentW) / 2[m
+[32m+[m[32m        local

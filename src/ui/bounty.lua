@@ -17,11 +17,18 @@ function Bounty.init()
         height = 200,
         minWidth = 200,
         minHeight = 150,
+        draggable = true,
+        closable = true,
         drawContent = Bounty.drawContent,
         onClose = function()
             Bounty.visible = false
         end
     })
+end
+
+function Bounty.getRect()
+    if not Bounty.window then return nil end
+    return { x = Bounty.window.x, y = Bounty.window.y, w = Bounty.window.width, h = Bounty.window.height }
 end
 
 local function pointInRect(px, py, x, y, w, h)
@@ -58,9 +65,10 @@ end
 local function getClaimButtonRect()
     if not Bounty.window then return nil end
     local x, y, w, h = Bounty.window.x, Bounty.window.y, Bounty.window.width, Bounty.window.height
-    local buttonW, buttonH = 120, 28
+    local buttonW = 120
+    local buttonH = (Theme.ui and Theme.ui.buttonHeight) or 28
     local buttonX = x + (w - buttonW) / 2
-    local buttonY = y + h - buttonH - 10
+    local buttonY = y + h - buttonH - ((Theme.ui and Theme.ui.contentPadding) or 10)
     return {x = buttonX, y = buttonY, w = buttonW, h = buttonH}
 end
 
@@ -98,11 +106,12 @@ function Bounty.drawContent(window, x, y, w, h)
 
     love.graphics.push()
     local innerTop = y
-    local innerH = h - (docked and 40 or 10)
+    local innerH = h - (docked and 40 or ((Theme.ui and Theme.ui.contentPadding) or 10))
     love.graphics.setScissor(x, innerTop, w, innerH)
     love.graphics.translate(0, -Bounty.scrollY)
 
-    local cx, cy = x + 10, y + 10
+    local pad = (Theme.ui and Theme.ui.contentPadding) or 10
+    local cx, cy = x + pad, y + pad
 
     -- Uncollected totals section with icons
     love.graphics.setColor(0.75, 0.85, 1, 0.9)
@@ -150,7 +159,7 @@ function Bounty.drawContent(window, x, y, w, h)
 
     -- Scrollbar
     if Bounty.contentHeight > innerH then
-        local scrollbarX = x + w - 10
+        local scrollbarX = x + w - ((Theme.ui and Theme.ui.contentPadding) or 10)
         local scrollbarY = innerTop
         local scrollbarH = innerH
         local thumbH = math.max(24, scrollbarH * (innerH / Bounty.contentHeight))

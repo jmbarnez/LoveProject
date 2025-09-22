@@ -2,6 +2,8 @@ local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local Util = require("src.core.util")
 local Window = require("src.ui.common.window")
+local Transform = require("src.ui.map.transform")
+local Draw = require("src.ui.map.draw")
 
 local Map = {
   visible = false,
@@ -38,7 +40,7 @@ end
 
 local function getMapBounds()
   local sw, sh = Viewport.getDimensions()
-  local margin = 40
+  local margin = (Theme.ui and Theme.ui.contentPadding) or 40
   return margin, margin, sw - 2 * margin, sh - 2 * margin
 end
 
@@ -200,12 +202,6 @@ local function drawEntity(entity, mapX, mapY, mapW, mapH, world, entityType)
     love.graphics.polygon("fill", sx, sy - 4, sx + 3, sy, sx, sy + 4, sx - 3, sy)
     Theme.setColor(Theme.colors.info)
     love.graphics.polygon("fill", sx, sy - 2.5, sx + 2, sy, sx, sy + 2.5, sx - 2, sy)
-  elseif entityType == "remote_player" then
-    -- Remote player: blue circle with glow
-    Theme.setColor(Theme.withAlpha(Theme.colors.info, 0.4))
-    love.graphics.circle("fill", sx, sy, 6)
-    Theme.setColor(Theme.colors.info)
-    love.graphics.circle("fill", sx, sy, 3)
   elseif entityType == "warp_gate" then
     -- Warp gate: hexagonal icon with blue glow
     local isActive = entity.components.warp_gate and entity.components.warp_gate.isActive
@@ -306,11 +302,6 @@ local function drawLegendIcon(x, y, iconType)
     love.graphics.polygon("fill", x, y - 3, x + 2, y, x, y + 3, x - 2, y)
     Theme.setColor(Theme.colors.info)
     love.graphics.polygon("fill", x, y - 2, x + 1.5, y, x, y + 2, x - 1.5, y)
-  elseif iconType == "remote_player" then
-    Theme.setColor(Theme.withAlpha(Theme.colors.info, 0.4))
-    love.graphics.circle("fill", x, y, 4)
-    Theme.setColor(Theme.colors.info)
-    love.graphics.circle("fill", x, y, 2)
   elseif iconType == "warp_gate" then
     -- Warp gate legend icon: small blue hexagon
     Theme.setColor({0.4, 0.8, 1.0})
@@ -327,10 +318,11 @@ end
 
 local function drawLegend(mapX, mapY, mapW, mapH)
   -- Draw legend panel
-  local legendX = mapX + mapW - 220
-  local legendY = mapY + 10
+  local pad = (Theme.ui and Theme.ui.contentPadding) or 10
   local legendW = 210
   local legendH = 200
+  local legendX = mapX + mapW - (legendW + pad)
+  local legendY = mapY + pad
 
   Theme.drawGradientGlowRect(legendX, legendY, legendW, legendH, 4,
     Theme.withAlpha(Theme.colors.bg1, 0.9), Theme.withAlpha(Theme.colors.bg0, 0.9),
@@ -352,8 +344,7 @@ local function drawLegend(mapX, mapY, mapW, mapH)
     {icon = "boss", label = "Boss Enemy"},
     {icon = "asteroid", label = "Asteroid"},
     {icon = "wreck", label = "Wreckage"},
-    {icon = "loot", label = "Loot Drop"},
-    {icon = "remote_player", label = "Other Players"}
+    {icon = "loot", label = "Loot Drop"}
   }
 
   Theme.setColor(Theme.colors.textSecondary)
@@ -366,8 +357,9 @@ end
 
 local function drawControls(mapX, mapY, mapW, mapH)
   -- Draw control panel
-  local controlX = mapX + 10
-  local controlY = mapY + 10
+  local pad = (Theme.ui and Theme.ui.contentPadding) or 10
+  local controlX = mapX + pad
+  local controlY = mapY + pad
   local controlW = 200
   local controlH = 70
 
@@ -398,7 +390,7 @@ local function drawControls(mapX, mapY, mapW, mapH)
   -- Draw scale indicator
   local scaleText = string.format("Scale: %.1fx", Map.scale)
   Theme.setColor(Theme.colors.textTertiary)
-  love.graphics.print(scaleText, mapX + 10, mapY + mapH - 20)
+  love.graphics.print(scaleText, mapX + pad, mapY + mapH - 20)
 end
 
 function Map.toggle(world)
@@ -458,6 +450,8 @@ function Map.init()
         height = sh - 2 * margin,
         minWidth = 400,
         minHeight = 300,
+        draggable = true,
+        closable = true,
         drawContent = Map.drawContent,
         onClose = function()
             Map.visible = false
@@ -465,7 +459,7 @@ function Map.init()
     })
 end
 
-function Map.draw(player, world, enemies, asteroids, wrecks, stations, lootDrops, remotePlayers)
+function Map.draw(player, world, enemies, asteroids, wrecks, stations, lootDrops)
     if not Map.visible then return end
     if not Map.window then Map.init() end
     Map.window.visible = Map.visible
@@ -480,7 +474,6 @@ function Map.drawContent(window, mapX, mapY, mapW, mapH)
     local wrecks = wrecks
     local stations = stations
     local lootDrops = lootDrops
-    local remotePlayers = remotePlayers
 
     -- Draw grid
     drawGrid(mapX, mapY, mapW, mapH, world)
@@ -543,15 +536,6 @@ function Map.drawContent(window, mapX, mapY, mapW, mapH)
             for _, enemy in ipairs(enemies) do
                 if not enemy.dead then
                     drawEntity(enemy, mapX, mapY, mapW, mapH, world, "enemy")
-                end
-            end
-        end
-
-        -- Draw remote players
-        if remotePlayers then
-            for _, remotePlayer in pairs(remotePlayers) do
-                if remotePlayer.components and remotePlayer.components.position then
-                    drawEntity(remotePlayer, mapX, mapY, mapW, mapH, world, "remote_player")
                 end
             end
         end

@@ -7,6 +7,7 @@ local ChartRenderer = require("src.ui.nodes.chart_renderer")
 local History = require("src.core.history")
 local ChartAnimations = require("src.systems.chart_animations")
 local PortfolioManager = require("src.managers.portfolio")
+local Dropdown = require("src.ui.common.dropdown")
 
 local Nodes = {}
 
@@ -15,7 +16,6 @@ function Nodes:new()
     setmetatable(o, self)
     self.__index = self
     o.selectedSymbol = "AST" -- Default node
-    o.nodeDropdownOpen = false
     o.range = "1m"
     o.chartType = "candle"
     o.zoom = 1.0
@@ -40,6 +40,48 @@ function Nodes:new()
     o.orderType = "market" -- "market" or "limit"
     o.limitPrice = ""
     o.limitPriceInputActive = false
+
+    -- Initialize node dropdown
+    o.nodeDropdown = Dropdown.new({
+        x = 0,
+        y = 0,
+        width = 200,
+        optionHeight = 28,
+        options = {},
+        selectedIndex = 1,
+        onSelect = function(index, option)
+            -- Only update if we're actually changing nodes
+            if o.selectedSymbol ~= option.symbol then
+                -- Save current node's view state
+                if o.nodeViewStates then
+                    o.nodeViewStates[o.selectedSymbol] = {
+                        yScale = o.yScale,
+                        yOffset = o.yOffset,
+                        xPanBars = o.xPanBars,
+                        zoom = o.zoom
+                    }
+                end
+
+                -- Update to new node
+                o.selectedSymbol = option.symbol
+
+                -- Restore new node's view state or reset to defaults
+                local savedState = o.nodeViewStates and o.nodeViewStates[o.selectedSymbol]
+                if savedState then
+                    o.yScale = savedState.yScale
+                    o.yOffset = savedState.yOffset
+                    o.xPanBars = savedState.xPanBars
+                    o.zoom = savedState.zoom
+                else
+                    -- Reset to default view for new node
+                    o.yScale = 1.0
+                    o.yOffset = 0.0
+                    o.xPanBars = 0
+                    o.zoom = 1.0
+                end
+            end
+        end
+    })
 
     -- Push initial view state
     if o.history then
@@ -164,21 +206,23 @@ local function formatMarketCap(marketCap)
     end
 end
 
-local function drawHeader(self, node, stats, x, y, w, h)
+local function drawHeader(self, node, stats, x, y, w, h, mx, my)
     Theme.setColor(Theme.colors.textHighlight)
     love.graphics.setFont(Theme.fonts.medium)
     local headerText = node.symbol .. "/GC"
     local textW = love.graphics.getFont():getWidth(headerText)
     love.graphics.print(headerText, x, y)
 
-    -- Dropdown arrow
-    local arrowText = "▼"
-    local arrowW = love.graphics.getFont():getWidth(arrowText)
-    local arrowX = x + textW + 8
-    local arrowY = y + 2  -- Adjusted positioning
-    Theme.setColor(Theme.colors.textSecondary)
-    love.graphics.print(arrowText, arrowX, arrowY)
-    self._nodeDropdownButton = { x = x, y = y, w = arrowX + arrowW - x, h = 25 }  -- Reduced height
+    -- Set up and draw the node dropdown
+    local nodes = NodeMarket.getNodes()
+    local nodeOptions = {}
+    for i, node in ipairs(nodes) do
+        table.insert(nodeOptions, node.symbol .. " - " .. node.name)
+    end
+
+    self.nodeDropdown:setOptions(nodeOptions)
+    self.nodeDropdown:setPosition(x, y)
+    self.nodeDropdown:drawButtonOnly(mx, my)
 
     -- Format market cap for display
     local function formatMarketCap(marketCap)
@@ -661,6 +705,9 @@ function Nodes:draw(player, x, y, w, h)
     if not node then return end
     local stats = NodeMarket.getStats(node)
 
+    -- Get mouse coordinates for dropdown interaction
+    local mx, my = Viewport.getMousePosition()
+
     -- Layout definitions with trading interface in bottom-right
     local headerH = 56  -- Tighter header height
     local globalStripH = 18  -- Tighter global strip
@@ -685,7 +732,7 @@ function Nodes:draw(player, x, y, w, h)
     local tradingY = bottomPanelY
 
     -- Draw components
-    drawHeader(self, node, stats, x + margin, y + margin, w - margin * 2, headerH)
+    drawHeader(self, node, stats, x + margin, y + margin, w - margin * 2, headerH, mx, my)
     drawGlobalStrip(self, x + margin, y + headerH + margin, w - margin * 2, globalStripH)
     drawChartPanel(self, node, chartX, chartY, chartW, chartH)
     drawBottomPanel(self, player, bottomPanelX, bottomPanelY, bottomPanelW, bottomPanelH)
@@ -693,27 +740,7 @@ function Nodes:draw(player, x, y, w, h)
     -- Trading interface in bottom-right
     drawTradingInterface(self, player, node, stats, tradingX, tradingY, tradingW, tradingH)
 
-    -- Draw node dropdown if open
-    if self.nodeDropdownOpen and self._nodeDropdownButton then
-        local btn = self._nodeDropdownButton
-        local dropdownX = btn.x
-        local dropdownY = btn.y + btn.h
-        local dropdownW = 200
-        local rowH = 28
-        Theme.drawGradientGlowRect(dropdownX, dropdownY, dropdownW, #nodes * rowH + 8, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
-        self._nodeDropdownItems = {}
-        for i, c in ipairs(nodes) do
-            local itemY = dropdownY + 4 + (i - 1) * rowH
-            local rect = { x = dropdownX, y = itemY, w = dropdownW, h = rowH }
-            local mx, my = Viewport.getMousePosition()
-            if Util.rectContains(mx, my, rect.x, rect.y, rect.w, rect.h) then
-                Theme.drawGradientGlowRect(rect.x, rect.y, rect.w, rect.h, 4, Theme.colors.bg3, Theme.colors.bg2, Theme.colors.accent, Theme.effects.glowWeak)
-            end
-            Theme.setColor(Theme.colors.text)
-            love.graphics.print(c.symbol .. " - " .. c.name, dropdownX + 8, itemY + 6)
-            table.insert(self._nodeDropdownItems, { rect = rect, node = c })
-        end
-    end
+    -- Node dropdown is handled by the standardized component
 end
 
 function Nodes:update(dt)
@@ -799,52 +826,10 @@ function Nodes:mousepressed(player, x, y, button)
     self.buyInputActive = false
     self.sellInputActive = false
 
-    -- Node dropdown
-    if self.nodeDropdownOpen and self._nodeDropdownItems then
-        for _, item in ipairs(self._nodeDropdownItems) do
-            if Util.rectContains(x, y, item.rect.x, item.rect.y, item.rect.w, item.rect.h) then
-                -- Only update if we're actually changing nodes
-                if self.selectedSymbol ~= item.node.symbol then
-                    -- Save current node's view state
-                    if self.nodeViewStates then
-                        self.nodeViewStates[self.selectedSymbol] = {
-                            yScale = self.yScale,
-                            yOffset = self.yOffset,
-                            xPanBars = self.xPanBars,
-                            zoom = self.zoom
-                        }
-                    end
-                    
-                    -- Update to new node
-                    self.selectedSymbol = item.node.symbol
-                    
-                    -- Restore new node's view state or reset to defaults
-                    local savedState = self.nodeViewStates and self.nodeViewStates[self.selectedSymbol]
-                    if savedState then
-                        self.yScale = savedState.yScale
-                        self.yOffset = savedState.yOffset
-                        self.xPanBars = savedState.xPanBars
-                        self.zoom = savedState.zoom
-                    else
-                        -- Reset to default view for new node
-                        self.yScale = 1.0
-                        self.yOffset = 0.0
-                        self.xPanBars = 0
-                        self.zoom = 1.0
-                    end
-                end
-                self.nodeDropdownOpen = false
-                return true
-            end
-        end
-    end
-
-    if self._nodeDropdownButton and Util.rectContains(x, y, self._nodeDropdownButton.x, self._nodeDropdownButton.y, self._nodeDropdownButton.w, self._nodeDropdownButton.h) then
-        self.nodeDropdownOpen = not self.nodeDropdownOpen
+    -- Handle node dropdown using standardized component
+    if self.nodeDropdown:mousepressed(x, y, button) then
         return true
     end
-    -- If we clicked outside the dropdown, close it
-    self.nodeDropdownOpen = false
 
     -- Y-axis scale dragging (check first, higher priority than chart dragging)
     if self._yAxisLabels then

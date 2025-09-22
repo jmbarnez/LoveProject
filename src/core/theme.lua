@@ -74,7 +74,17 @@ Theme.colors = {
 
   -- Dark space transparency
   transparent = {0.00, 0.00, 0.00, 0.00},
-  overlay = {0.00, 0.00, 0.00, 0.8},
+  overlay = {0.00, 0.00, 0.00, 0.0},
+}
+
+-- === UI TOKENS (Source of truth for sizes/spacing) ===
+Theme.ui = {
+  titleBarHeight = 24,     -- Height of window title bars
+  borderWidth = 2,         -- Standard window border width
+  contentPadding = 15,     -- Default padding inside windows/panels
+  buttonHeight = 28,       -- Default button height
+  buttonSpacing = 4,       -- Spacing between stacked buttons
+  menuButtonPaddingX = 12, -- Horizontal padding for button text
 }
 
 -- === FONTS ===
@@ -775,7 +785,7 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
   local bg3 = {Theme.colors.bg3[1], Theme.colors.bg3[2], Theme.colors.bg3[3], 0.2}
   local bg2 = {Theme.colors.bg2[1], Theme.colors.bg2[2], Theme.colors.bg2[3], 0.1}
   local bg4 = {Theme.colors.bg4[1], Theme.colors.bg4[2], Theme.colors.bg4[3], 0.3}
-  
+
   local topColor = color or (hover and bg3 or bg2)
   if down then
     topColor = bg4
@@ -805,56 +815,70 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
     return
   end
 
-  -- Choose the largest prebuilt font that fits to keep text crisp
-  local candidates = {
-    Theme.fonts and Theme.fonts.large,
-    Theme.fonts and Theme.fonts.medium,
-    Theme.fonts and Theme.fonts.normal,
-    Theme.fonts and Theme.fonts.small,
-    Theme.fonts and Theme.fonts.xsmall,
-    love.graphics.getFont(),
-  }
+  -- Use consistent font sizing for menu buttons
+  local buttonFont = nil
 
-  if opts and opts.compact then
-    -- Prefer smaller fonts for compact buttons
-    candidates = {
+  -- For menu buttons (start screen, escape menu), use consistent normal font size
+  if opts and opts.menuButton then
+    buttonFont = Theme.fonts and Theme.fonts.normal
+  elseif opts and opts.compact then
+    -- For other compact buttons, prefer smaller fonts but maintain consistency
+    buttonFont = Theme.fonts and Theme.fonts.small
+  end
+
+  -- Fallback to choosing best fit if no specific font was requested
+  if not buttonFont then
+    local candidates = {
+      Theme.fonts and Theme.fonts.large,
+      Theme.fonts and Theme.fonts.medium,
       Theme.fonts and Theme.fonts.normal,
       Theme.fonts and Theme.fonts.small,
       Theme.fonts and Theme.fonts.xsmall,
       love.graphics.getFont(),
     }
-  end
 
-  local bestFont = nil
-  for _, f in ipairs(candidates) do
-    if f then
-      local tw = f:getWidth(text or "")
-      local fh = f:getHeight()
-      if tw <= maxTextW and fh <= h - 6 then
-        bestFont = f
-        break
+    if opts and opts.compact then
+      -- Prefer smaller fonts for compact buttons
+      candidates = {
+        Theme.fonts and Theme.fonts.normal,
+        Theme.fonts and Theme.fonts.small,
+        Theme.fonts and Theme.fonts.xsmall,
+        love.graphics.getFont(),
+      }
+    end
+
+    local bestFont = nil
+    for _, f in ipairs(candidates) do
+      if f then
+        local tw = f:getWidth(text or "")
+        local fh = f:getHeight()
+        if tw <= maxTextW and fh <= h - 6 then
+          bestFont = f
+          break
+        end
       end
     end
-  end
-  if not bestFont then
-    -- Fallback to smallest available to avoid overflow
-    for i = #candidates, 1, -1 do
-      if candidates[i] then
-        bestFont = candidates[i]
-        break
+    if not bestFont then
+      -- Fallback to smallest available to avoid overflow
+      for i = #candidates, 1, -1 do
+        if candidates[i] then
+          bestFont = candidates[i]
+          break
+        end
       end
     end
+    buttonFont = bestFont
   end
 
   -- Safety check
-  if not bestFont then
-    bestFont = love.graphics.getFont() or Theme.fonts.normal or Theme.fonts.small
+  if not buttonFont then
+    buttonFont = love.graphics.getFont() or Theme.fonts.normal or Theme.fonts.small
   end
 
   local oldFont = love.graphics.getFont()
-  love.graphics.setFont(bestFont)
-  local tw = bestFont:getWidth(text or "")
-  local th = bestFont:getHeight()
+  love.graphics.setFont(buttonFont)
+  local tw = buttonFont:getWidth(text or "")
+  local th = buttonFont:getHeight()
   local textX = math.floor(x + (w - tw) * 0.5 + 0.5)
   local textY = math.floor(y + (h - th) * 0.5 + 0.5)
 
@@ -950,5 +974,51 @@ Theme.turretSlotColors = {
 --
 -- Theme.animateValue(start, target, duration, easing, callback)
 -- Example: Theme.animateValue(0, 100, 1.0, Theme.easeInOut, function(v) print(v) end)
+
+function Theme.drawSciFiFrame(x, y, w, h)
+    local cornerSize = math.min(w, h) * 0.1
+    local accent = Theme.colors.accent
+    local border = Theme.colors.border
+
+    -- Main border
+    Theme.setColor(border)
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", x, y, w, h)
+
+    -- Corner details
+    Theme.setColor(accent)
+    love.graphics.line(x, y, x + cornerSize, y)
+    love.graphics.line(x, y, x, y + cornerSize)
+    love.graphics.line(x + w, y, x + w - cornerSize, y)
+    love.graphics.line(x + w, y, x + w, y + cornerSize)
+    love.graphics.line(x, y + h, x + cornerSize, y + h)
+    love.graphics.line(x, y + h, x, y + h - cornerSize)
+    love.graphics.line(x + w, y + h, x + w - cornerSize, y + h)
+    love.graphics.line(x + w, y + h, x + w, y + h - cornerSize)
+end
+
+Theme.shaders = {}
+
+function Theme.init()
+    -- Frosted glass shader for UI backgrounds
+    Theme.shaders.ui_blur = love.graphics.newShader[[
+        extern number blur_amount;
+        vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
+            vec4 sum = vec4(0.0);
+            float blur = blur_amount / love_ScreenSize.x;
+            sum += Texel(tex, vec2(texture_coords.x - 4.0 * blur, texture_coords.y)) * 0.05;
+            sum += Texel(tex, vec2(texture_coords.x - 3.0 * blur, texture_coords.y)) * 0.09;
+            sum += Texel(tex, vec2(texture_coords.x - 2.0 * blur, texture_coords.y)) * 0.12;
+            sum += Texel(tex, vec2(texture_coords.x - 1.0 * blur, texture_coords.y)) * 0.15;
+            sum += Texel(tex, vec2(texture_coords.x, texture_coords.y)) * 0.16;
+            sum += Texel(tex, vec2(texture_coords.x + 1.0 * blur, texture_coords.y)) * 0.15;
+            sum += Texel(tex, vec2(texture_coords.x + 2.0 * blur, texture_coords.y)) * 0.12;
+            sum += Texel(tex, vec2(texture_coords.x + 3.0 * blur, texture_coords.y)) * 0.09;
+            sum += Texel(tex, vec2(texture_coords.x + 4.0 * blur, texture_coords.y)) * 0.05;
+            return sum;
+        }
+    ]]
+    Theme.shaders.ui_blur:send("blur_amount", 2.0)
+end
 
 return Theme

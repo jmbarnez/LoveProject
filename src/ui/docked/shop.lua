@@ -1,0 +1,281 @@
+local Theme = require("src.core.theme")
+local Util = require("src.core.util")
+local Content = require("src.content.content")
+local Viewport = require("src.core.viewport")
+local Tooltip = require("src.ui.tooltip")
+local IconSystem = require("src.core.icon_system")
+
+local Shop = {}
+
+function Shop.drawBuybackItems(DockedUI, x, y, w, h, player)
+  if not player then return end
+  local items = DockedUI.buybackItems or {}
+  local rowH = 40
+  local padding = 8
+  local startX = x
+  local startY = y
+  local mx, my = Viewport.getMousePosition()
+  DockedUI._buybackButtons = {}
+  local currentHoveredItem = nil
+  love.graphics.push()
+  love.graphics.setScissor(x, y, w, h)
+  for i, item in ipairs(items) do
+    local sx = startX
+    local sy = startY + (i - 1) * (rowH + padding)
+    local dx, dy = math.floor(sx + 0.5), math.floor(sy + 0.5)
+    if sy + rowH >= startY and sy <= startY + h then
+      local icon = item.def.icon
+      if icon and type(icon) == "userdata" then
+        Theme.setColor({1,1,1,1})
+        local scale = math.min((rowH - 8) / icon:getWidth(), (rowH - 8) / icon:getHeight())
+        love.graphics.draw(icon, dx + 4, dy + 4, 0, scale, scale)
+      end
+      Theme.setColor(Theme.colors.text)
+      love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
+      love.graphics.print(item.name, dx + rowH + 8, dy + (rowH - 16)/2)
+      Theme.setColor(Theme.colors.accentGold)
+      local priceText = Util.formatNumber(item.price)
+      local priceWidth = love.graphics.getFont():getWidth(priceText)
+      love.graphics.print(priceText, dx + w - 200 - priceWidth - 14, dy + (rowH - 10)/2)
+      Theme.drawCurrencyToken(dx + w - 200 - 12, dy + (rowH - 10)/2, 10)
+      local btnW, btnH = 80, 28
+      local btnX, btnY = dx + w - btnW - 8, dy + (rowH - btnH)/2
+      if mx >= dx and my >= dy and mx <= dx + w - btnW - 16 and my <= dy + rowH then
+        currentHoveredItem = { item = item }
+      end
+      local hover = mx >= btnX and my <= btnX + btnW and my >= btnY and my <= btnY + btnH
+      local canAfford = player:getGC() >= item.price
+      local btnColor = canAfford and (hover and Theme.colors.success or Theme.colors.bg3) or Theme.colors.bg1
+      Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 4, btnColor, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+      Theme.setColor(canAfford and Theme.colors.textHighlight or Theme.colors.textSecondary)
+      love.graphics.printf("Buy", btnX, btnY + 8, btnW, "center")
+      table.insert(DockedUI._buybackButtons, { x = btnX, y = btnY, w = btnW, h = btnH, item = item, index = i })
+    end
+  end
+  love.graphics.setScissor()
+  love.graphics.pop()
+  if currentHoveredItem then
+    if DockedUI.hoveredItem and DockedUI.hoveredItem.item.id == currentHoveredItem.item.id then
+      DockedUI.hoverTimer = DockedUI.hoverTimer + love.timer.getDelta()
+    else
+      DockedUI.hoveredItem = currentHoveredItem
+      DockedUI.hoverTimer = 0
+    end
+    if DockedUI.hoverTimer > 0.5 then
+      local mx, my = Viewport.getMousePosition()
+      Tooltip.drawItemTooltip(currentHoveredItem.item, mx, my)
+    end
+  else
+    if not DockedUI.hoveredItem or (DockedUI.hoveredItem and not DockedUI.hoveredItem.x) then
+      -- keep
+    else
+      DockedUI.hoveredItem = nil
+      DockedUI.hoverTimer = 0
+    end
+  end
+end
+
+function Shop.drawPlayerInventoryForSale(DockedUI, x, y, w, h, player)
+  if not player or not player.inventory then return end
+  local items = {}
+  for id, qty in pairs(player.inventory) do
+    local def = Content.getItem(id) or Content.getTurret(id)
+    if def and not def.unsellable then
+      local itemQty = (type(qty) == "number") and qty or 1
+      table.insert(items, {
+        id = id,
+        qty = itemQty,
+        def = def,
+        name = def.name or id,
+        price = math.floor((def.price or 0) * 0.5)
+      })
+    end
+  end
+  table.sort(items, function(a, b) return a.name < b.name end)
+  local slotSize = 64
+  local padding = 6
+  local cols = math.floor(w / (slotSize + padding))
+  if cols < 1 then cols = 1 end
+  local startX = x + (w - cols * (slotSize + padding) + padding) / 2
+  local startY = y
+  local mx, my = Viewport.getMousePosition()
+  DockedUI._sellItems = {}
+  local currentHoveredItem = nil
+  love.graphics.push()
+  love.graphics.setScissor(x, y, w, h)
+  for i, item in ipairs(items) do
+    local index = i - 1
+    local row = math.floor(index / cols)
+    local col = index % cols
+    local sx = startX + col * (slotSize + padding)
+    local sy = startY + row * (slotSize + padding)
+    local dx, dy = math.floor(sx + 0.5), math.floor(sy + 0.5)
+    if sy + slotSize >= startY and sy <= startY + h then
+      local hover = mx >= sx and my >= sy and mx <= sx + slotSize and my <= sy + slotSize
+      if hover then currentHoveredItem = { x = dx, y = dy, w = slotSize, h = slotSize, item = item } end
+      Theme.drawGradientGlowRect(dx, dy, slotSize, slotSize, 4, hover and Theme.colors.bg2 or Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
+      local icon = item.def.icon
+      if icon and type(icon) == "userdata" then
+        Theme.setColor({1,1,1,1})
+        local scale = math.min((slotSize - 8) / icon:getWidth(), (slotSize - 8) / icon:getHeight())
+        love.graphics.draw(icon, dx + 4, dy + 4, 0, scale, scale)
+      end
+      Theme.setColor(Theme.colors.accent)
+      love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+      love.graphics.printf(Util.formatNumber(item.qty), dx + 4, dy + 2, slotSize - 4, "left")
+      local inventoryValue = (player.inventory and player.inventory[item.id]) or 0
+      local inventoryCount = (type(inventoryValue) == "number") and inventoryValue or 1
+      Theme.setColor(Theme.colors.textDisabled)
+      love.graphics.printf("In Cargo: " .. Util.formatNumber(inventoryCount), dx, dy + slotSize - 14, slotSize, "center")
+      Theme.setColor(Theme.colors.accentGold)
+      love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+      local priceText = Util.formatNumber(item.price)
+      local priceWidth = love.graphics.getFont():getWidth(priceText)
+      love.graphics.print(priceText, dx + slotSize - priceWidth - 12, dy + 2)
+      Theme.drawCurrencyToken(dx + slotSize - 10, dy + 2, 8)
+      table.insert(DockedUI._sellItems, { x = dx, y = dy, w = slotSize, h = slotSize, item = item })
+    end
+  end
+  if currentHoveredItem then
+    if DockedUI.hoveredItem and DockedUI.hoveredItem.item.id == currentHoveredItem.item.id then
+      DockedUI.hoverTimer = DockedUI.hoverTimer + love.timer.getDelta()
+    else
+      DockedUI.hoveredItem = currentHoveredItem
+      DockedUI.hoverTimer = 0
+    end
+    if DockedUI.hoverTimer > 0.5 then
+      local mx, my = Viewport.getMousePosition()
+      Tooltip.drawItemTooltip(currentHoveredItem.item, mx, my)
+    end
+  else
+    DockedUI.hoveredItem = nil
+    DockedUI.hoverTimer = 0
+  end
+  love.graphics.setScissor()
+  love.graphics.pop()
+end
+
+function Shop.drawShopItems(DockedUI, x, y, w, h, player)
+  if not player then return end
+  local allShopItems = {}
+  for _, turret in ipairs(Content.turrets or {}) do
+    if turret.price then
+      table.insert(allShopItems, { type = "turret", data = turret, price = turret.price, name = turret.name, description = turret.description, id = turret.id, category = "Weapons" })
+    end
+  end
+  for _, item in ipairs(Content.items) do
+    if item.price then
+      table.insert(allShopItems, { type = "item", data = item, price = item.price, name = item.name, description = item.description, id = item.id, category = item.type == "consumable" and "Consumables" or "Materials" })
+    end
+  end
+  local shopItems = {}
+  for _, item in ipairs(allShopItems) do
+    local matchesCategory = DockedUI.selectedCategory == "All" or item.category == DockedUI.selectedCategory
+    local matchesSearch = DockedUI.searchText == "" or string.lower(item.name):find(string.lower(DockedUI.searchText), 1, true)
+    if matchesCategory and matchesSearch then table.insert(shopItems, item) end
+  end
+  table.sort(shopItems, function(a, b) return a.price < b.price end)
+  local slotSize = 64
+  local slotW = slotSize
+  local slotH = slotSize
+  local padding = 6
+  local cols = math.floor(w / (slotW + padding))
+  if cols < 1 then cols = 1 end
+  local startX = x + (w - cols * (slotW + padding) + padding) / 2
+  local startY = y
+  local mx, my = Viewport.getMousePosition()
+  DockedUI._shopItems = {}
+  local currentHoveredItem = nil
+  local itemFullH = slotH + padding
+  local totalRows = math.ceil(#shopItems / cols)
+  local contentHeight = math.max(0, totalRows * itemFullH - padding)
+  local maxScroll = math.max(0, contentHeight - h)
+  DockedUI.shopScroll = math.max(0, math.min(DockedUI.shopScroll or 0, maxScroll))
+  love.graphics.push()
+  love.graphics.setScissor(x, y, w, h)
+  for i, item in ipairs(shopItems) do
+    local index = i - 1
+    local row = math.floor(index / cols)
+    local col = index % cols
+    local sx = startX + col * (slotW + padding)
+    local sy = startY + row * (slotH + padding) - DockedUI.shopScroll
+    local dx = math.floor(sx + 0.5)
+    local dy = math.floor(sy + 0.5)
+    if sy + slotH >= startY and sy <= startY + h then
+      local hover = mx >= sx and my >= sy and mx <= sx + slotW and my <= sy + slotH
+      if hover then currentHoveredItem = { x = dx, y = dy, w = slotW, h = slotH, item = item } end
+      if hover then
+        Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+      else
+        Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
+      end
+      local iconSize = 48
+      local iconPad = (slotW - iconSize) / 2
+      local tdef = Content.getTurret(item.id)
+      if tdef then
+        IconSystem.drawTurretIcon(tdef, dx + iconPad, dy + iconPad, iconSize, 1.0)
+      else
+        local def = Content.getItem(item.id)
+        if def and IconSystem.getIcon(def) then
+          IconSystem.drawItemIcon(def, dx + iconPad, dy + iconPad, iconSize, 1.0)
+        end
+      end
+      Theme.setColor(Theme.colors.accent)
+      love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+      love.graphics.printf("∞", dx + 4, dy + 2, slotW - 4, "left")
+      local inventoryValue = (player.inventory and player.inventory[item.id]) or 0
+      local inventoryCount = (type(inventoryValue) == "number") and inventoryValue or 1
+      local countText = Util.formatNumber(inventoryCount)
+      local countWidth = love.graphics.getFont():getWidth(countText)
+      local countX = dx + slotW - countWidth - 4
+      local countY = dy + slotH - 14
+      if inventoryCount > 0 then Theme.setColor(Theme.colors.textHighlight) else Theme.setColor(Theme.colors.textDisabled) end
+      love.graphics.print(countText, countX, countY)
+      Theme.setColor(Theme.colors.accentGold)
+      love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+      local priceText = Util.formatNumber(item.price)
+      local priceWidth = love.graphics.getFont():getWidth(priceText)
+      love.graphics.print(priceText, dx + slotW - priceWidth - 12, dy + 2)
+      Theme.drawCurrencyToken(dx + slotW - 10, dy + 2, 8)
+      table.insert(DockedUI._shopItems, { x = dx, y = dy, w = slotW, h = slotH, item = item, canAfford = (player:getGC() >= item.price) })
+    end
+  end
+  if currentHoveredItem then
+    if DockedUI.hoveredItem and DockedUI.hoveredItem.item.id == currentHoveredItem.item.id then
+      DockedUI.hoverTimer = DockedUI.hoverTimer + love.timer.getDelta()
+    else
+      DockedUI.hoveredItem = currentHoveredItem
+      DockedUI.hoverTimer = 0
+    end
+    if DockedUI.hoverTimer > 0.5 then
+      local mx, my = Viewport.getMousePosition()
+      Tooltip.drawItemTooltip(currentHoveredItem.item, mx, my)
+    end
+  else
+    DockedUI.hoveredItem = nil
+    DockedUI.hoverTimer = 0
+  end
+  love.graphics.setScissor()
+  love.graphics.pop()
+  if contentHeight > h then
+    local scrollBarW = 8
+    local scrollBarX = x + w - scrollBarW - 6
+    local scrollBarY = y + 4
+    local scrollBarH = h - 8
+    Theme.setColor(Theme.withAlpha(Theme.colors.bg3, 0.6))
+    love.graphics.rectangle("fill", scrollBarX, scrollBarY, scrollBarW, scrollBarH)
+    local thumbH = math.max(20, (h / contentHeight) * scrollBarH)
+    local tPct = (DockedUI.shopScroll / (maxScroll > 0 and maxScroll or 1))
+    local thumbY = scrollBarY + tPct * (scrollBarH - thumbH)
+    Theme.setColor(Theme.colors.accent)
+    love.graphics.rectangle("fill", scrollBarX, thumbY, scrollBarW, thumbH)
+    DockedUI._shopScrollBar = { x = scrollBarX, y = scrollBarY, w = scrollBarW, h = scrollBarH, thumbY = thumbY, thumbH = thumbH }
+    DockedUI._shopMaxScroll = maxScroll
+  else
+    DockedUI._shopScrollBar = nil
+  end
+end
+
+return Shop
+
+
