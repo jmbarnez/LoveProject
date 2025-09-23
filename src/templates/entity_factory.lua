@@ -112,7 +112,6 @@ function EntityFactory.createEnemy(shipId, x, y)
     local shipConfig = Content.getShip(shipId)
     local config = {
         isEnemy = true,
-        aggroRange = 800,
         bounty = (shipConfig and shipConfig.bounty) or 25,
         xpReward = (shipConfig and shipConfig.xpReward) or 50,
         energyRegen = 35, -- Faster regen than player (20) for aggressive firing,

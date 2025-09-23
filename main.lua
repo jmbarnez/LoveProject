@@ -9,12 +9,13 @@ local Settings = require("src.core.settings")
 local Sound = require("src.core.sound")
 local Effects = require("src.systems.effects")
 local DebugPanel = require("src.ui.debug_panel")
+local Constants = require("src.core.constants")
 
 local UIManager
 local screen = "start"
 local startScreen
 
-local minFrameTime = 1/60
+local minFrameTime = 1/Constants.TIMING.FPS_60
 local lastFrameTime = 0
 
 love = love or {}
@@ -54,8 +55,8 @@ function love.applyGraphicsSettings()
             borderless = graphicsSettings.borderless,
             vsync = graphicsSettings.vsync,
             resizable = true,
-            minwidth = 1024,
-            minheight = 576
+            minwidth = Constants.RESOLUTION.MIN_WINDOW_WIDTH_1024PX,
+            minheight = Constants.RESOLUTION.MIN_WINDOW_HEIGHT_1024PX
         }
     )
     Viewport.init(graphicsSettings.resolution.width, graphicsSettings.resolution.height)

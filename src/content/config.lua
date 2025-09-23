@@ -10,8 +10,8 @@ Config.WORLD = {
 
 Config.SPAWN = {
   MARGIN = 75,             -- keep spawns away from world edges (scaled for smaller world)
-  HUB_BUFFER = 50,         -- additional buffer from hub radius
-  STATION_BUFFER = 300,    -- safe zone radius around all stations (no enemy spawns)
+  STATION_BUFFER = 5000,   -- safe zone radius around all stations (no enemy spawns)
+  PLAYER_SPAWN_BUFFER = 100, -- buffer for spawning player near the station
   MIN_PLAYER_DIST = 150,   -- min distance from player for new enemy spawns (scaled for smaller world)
   INTERVAL_MIN = 2.0,      -- seconds
   INTERVAL_MAX = 4.0,      -- seconds
@@ -59,14 +59,6 @@ Config.COMBAT = {
   ENEMY_BAR_VIS_TIME = 2.5,   -- seconds after player damage
 
   -- No parry/directional multipliers in simple manual mode
-}
-
--- Dash settings
-Config.DASH = {
-  SPEED = 900,         -- target velocity added by dash (units/s)
-  IFRAMES = 0.25,      -- invulnerability duration during dash (seconds)
-  COOLDOWN = 0.9,      -- seconds between dashes
-  ENERGY_COST = 25,    -- energy cost per dash
 }
 
 Config.HUB = {

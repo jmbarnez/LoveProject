@@ -1,5 +1,6 @@
 -- Entity-specific renderers
 local RenderUtils = require("src.systems.render.utils")
+local util = require("src.core.util")
 local EnemyStatusBars = require("src.ui.hud.enemy_status_bars")
 local Config = require("src.content.config")
 local PlayerRenderer = require("src.systems.render.player_renderer")
@@ -626,13 +627,13 @@ function EntityRenderers.bullet(entity, player)
         
         -- Type-specific colors for charged pulse system
         if kind == 'salvaging_laser' then
-            baseColor = props.color or {0.2, 1.0, 0.3, 0.8} -- Green
+            baseColor = util.copy(props.color or {0.2, 1.0, 0.3, 0.8}) -- Green
             baseWidth = props.tracerWidth or 2.0
         elseif kind == 'mining_laser' then
-            baseColor = props.color or {1.0, 0.7, 0.2, 0.8} -- Orange
+            baseColor = util.copy(props.color or {1.0, 0.7, 0.2, 0.8}) -- Orange
             baseWidth = props.tracerWidth or 2.0
         else
-            baseColor = props.color or {0.3, 0.7, 1.0, 0.8} -- Blue (combat)
+            baseColor = util.copy(props.color or {0.3, 0.7, 1.0, 0.8}) -- Blue (combat)
             baseWidth = props.tracerWidth or 1.5
         end
         
@@ -1088,7 +1089,7 @@ function EntityRenderers.draw(world, camera, player)
         -- Draw enemy laser beams after pop, in world space
         if entity.components.ai and entity.components.equipment and entity.components.equipment.grid then
             for _, gridData in ipairs(entity.components.equipment.grid) do
-                if gridData.type == "turret" and gridData.module and gridData.module.beamActive then
+                if gridData.type == "turret" and gridData.module and (gridData.module.kind == "laser" or gridData.module.kind == "mining_laser" or gridData.module.kind == "salvaging_laser") and gridData.module.beamActive then
                     local turret = gridData.module
                     local TurretEffects = require("src.systems.turret.effects")
                     TurretEffects.renderBeam(turret, turret.beamStartX, turret.beamStartY, turret.beamEndX, turret.beamEndY, turret.beamTarget)

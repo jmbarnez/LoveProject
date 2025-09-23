@@ -2,19 +2,41 @@ local CollisionHelpers = require("src.systems.turret.collision_helpers")
 local HeatManager = require("src.systems.turret.heat_manager")
 local Targeting = require("src.systems.turret.targeting")
 local TurretEffects = require("src.systems.turret.effects")
+local Log = require("src.core.log")
 
 local BeamWeapons = {}
 
 -- Handle laser turret firing (hitscan beam weapons)
 function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
+    Log.debug("BeamWeapons.updateLaserTurret called for turret: " .. tostring(turret.id) .. ", cooldown: " .. tostring(turret.cooldown))
     if locked or not turret:canFire() then
         return
     end
 
-    -- Manual shooting - fire in the direction the player is facing
-    local angle = turret.owner.components.position.angle or 0
+    -- Reset beam state to allow new collisions each shot
+    turret.has_hit = false
+    turret.beamActive = false
+    turret.beamStartX = nil
+    turret.beamStartY = nil
+    turret.beamEndX = nil
+    turret.beamEndY = nil
+    turret.beamTarget = nil
+
+    -- Get owner position
     local sx = turret.owner.components.position.x
     local sy = turret.owner.components.position.y
+
+    -- Aim in the direction of the target if provided, otherwise use owner's facing
+    local angle
+    if target then
+        -- For automatic firing (AI), aim directly at the target
+        local tx = target.components.position.x
+        local ty = target.components.position.y
+        angle = math.atan2(ty - sy, tx - sx)
+    else
+        -- For manual firing, use the owner's facing direction
+        angle = turret.owner.components.position.angle or 0
+    end
 
     -- Perform hitscan collision check
     local maxRange = turret.maxRange or 1500
@@ -26,6 +48,7 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     )
 
     if hitTarget then
+        Log.debug("BeamWeapons.performLaserHitscan found target: " .. tostring(hitTarget.id) .. " for turret: " .. tostring(turret.id))
         -- Only apply damage if target is an enemy
         if BeamWeapons.isEnemyTarget(hitTarget, turret.owner) then
             -- Apply damage
@@ -35,6 +58,7 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
             } or {min = 1, max = 2}
 
             local dmgValue = math.random(damage.min, damage.max)
+            Log.debug("Applying damage from turret: " .. tostring(turret.id) .. " to target: " .. tostring(hitTarget.id) .. " with value: " .. tostring(dmgValue))
             BeamWeapons.applyLaserDamage(hitTarget, dmgValue, turret.owner)
 
             -- Create combat impact effects
@@ -43,6 +67,8 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
             -- Hit a non-enemy object - no damage, but still create impact effect
             TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
         end
+    else
+        Log.debug("BeamWeapons.performLaserHitscan found no target for turret: " .. tostring(turret.id))
     end
 
     -- Store beam data for rendering during draw phase

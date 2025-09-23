@@ -6,6 +6,7 @@ local AuroraTitle = require("src.shaders.aurora_title")
 local Notifications = require("src.ui.notifications")
 local Window = require("src.ui.common.window")
 local Dropdown = require("src.ui.common.dropdown")
+local Strings = require("src.core.strings")
 
 local SettingsPanel = {}
 
@@ -19,8 +20,8 @@ local keymap
 local bindingAction
 local draggingSlider = nil
 
-local vsyncTypes = {"Off", "On"}
-local fpsLimitTypes = {"Unlimited", "30", "60", "120", "144", "240"}
+local vsyncTypes = {Strings.getUI("off"), Strings.getUI("on")}
+local fpsLimitTypes = {Strings.getUI("unlimited"), "30", "60", "120", "144", "240"}
 -- Reticle color picker state (always visible sliders in popup)
 local colorPickerOpen = true
 local reticleGalleryOpen = false
@@ -178,14 +179,14 @@ end
 
 function SettingsPanel.init()
     SettingsPanel.window = Window.new({
-        title = "Settings",
+        title = Strings.getUI("settings_title"),
         width = 800,
         height = 600,
         minWidth = 600,
         minHeight = 400,
         useLoadPanelTheme = true,
         draggable = true,
-        resizable = true,
+        resizable = false,
         drawContent = SettingsPanel.drawContent,
         onClose = function()
             SettingsPanel.visible = false
@@ -259,7 +260,13 @@ function SettingsPanel.init()
     })
 
     -- Accent Theme dropdown
-    local accentThemes = {"Cyan/Lavender", "Blue/Purple", "Green/Emerald", "Red/Orange", "Monochrome"}
+    local accentThemes = {
+        Strings.getTheme("cyan_lavender"),
+        Strings.getTheme("blue_purple"),
+        Strings.getTheme("green_emerald"),
+        Strings.getTheme("red_orange"),
+        Strings.getTheme("monochrome")
+    }
     local themeIndex = 1
     for i, theme in ipairs(accentThemes) do
         if theme == (currentGraphicsSettings.accent_theme or "Cyan/Lavender") then
@@ -276,7 +283,7 @@ function SettingsPanel.init()
         onSelect = function(index, option)
             currentGraphicsSettings.accent_theme = option
             applyAccentTheme(option)
-            Notifications.add("Accent color changed to " .. option, "info")
+            Notifications.add(Strings.getNotification("accent_color_changed") .. " " .. option, "info")
             accentThemeLastChanged = love.timer.getTime()
         end
     })
@@ -467,7 +474,7 @@ function SettingsPanel.drawContent(window, x, y, w, h)
             
             -- Draw keybinding as a button
             local btnX, btnY, btnW, btnH = x + 200, yOffset - 2, 100, 24
-            local keyText = bindingAction == action and "Press key..." or key
+            local keyText = bindingAction == action and Strings.getControl("press_key") or key
             local mx, my = Viewport.getMousePosition()
             local hover = mx >= btnX and mx <= btnX + btnW and my + scrollY >= btnY and my + scrollY <= btnY + btnH
             
@@ -544,9 +551,10 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     -- Button text
     Theme.setColor(Theme.colors.textHighlight)
     local font = Theme.fonts and (Theme.fonts.small or Theme.fonts.normal) or love.graphics.getFont()
-    local textW = font:getWidth("Apply")
+    local applyText = Strings.getUI("apply_button")
+    local textW = font:getWidth(applyText)
     local textH = font:getHeight()
-    love.graphics.print("Apply", applyButtonX + (buttonW - textW) / 2, buttonY + (buttonH - textH) / 2)
+    love.graphics.print(applyText, applyButtonX + (buttonW - textW) / 2, buttonY + (buttonH - textH) / 2)
 
     -- Reticle Gallery Popup
     if reticleGalleryOpen then
@@ -556,7 +564,7 @@ function SettingsPanel.drawContent(window, x, y, w, h)
         Theme.drawGradientGlowRect(gx, gy, gw, gh, 6, Theme.colors.bg1, Theme.colors.bg0, Theme.colors.accent, Theme.effects.glowWeak)
         Theme.drawEVEBorder(gx, gy, gw, gh, 6, Theme.colors.border, 8)
         Theme.setColor(Theme.colors.textHighlight)
-        love.graphics.print("Choose Reticle", gx + 16, gy + 12)
+        love.graphics.print(Strings.getUI("choose_reticle"), gx + 16, gy + 12)
         -- Color selector inside popup (RGB sliders)
         -- Determine current color (RGB)
         local function getCurrentRGB()
@@ -630,7 +638,7 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     local doneX, doneY = gx + gw - doneW - 16, gy + gh - doneH - 12
     local doneButton = {_rect = {x = doneX, y = doneY, w = doneW, h = doneH}}
     local hover = Theme.handleButtonClick(doneButton, Viewport.getMousePosition())
-    Theme.drawStyledButton(doneX, doneY, doneW, doneH, "Done", hover, love.timer.getTime())
+    Theme.drawStyledButton(doneX, doneY, doneW, doneH, Strings.getUI("done_button"), hover, love.timer.getTime())
     SettingsPanel._reticleDone = doneButton
     else
         SettingsPanel._reticlePopup = nil
@@ -689,7 +697,7 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         for k, v in pairs(currentAudioSettings) do newAudioSettings[k] = v end
         Settings.applySettings(newGraphicsSettings, newAudioSettings)
         Settings.save()
-        Notifications.add("Settings applied successfully!", "success")
+        Notifications.add(Strings.getNotification("settings_applied"), "success")
         return true
     end
 

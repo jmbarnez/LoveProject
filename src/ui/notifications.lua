@@ -1,5 +1,6 @@
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
+local Strings = require("src.core.strings")
 
 local Notifications = {}
 

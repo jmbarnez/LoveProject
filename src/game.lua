@@ -37,6 +37,7 @@ local NodeMarket = require("src.systems.node_market")
 local PortfolioManager = require("src.managers.portfolio")
 local PlayerRef = require("src.core.player_ref")
 local Log = require("src.core.log")
+local Constants = require("src.core.constants")
 
 local Game = {}
 
@@ -114,7 +115,7 @@ function Game.load(fromSave, saveSlot)
   -- Start ambient space music
   Sound.triggerEvent('game_start')
 
-  world = World.new(Config.WORLD.WIDTH, Config.WORLD.HEIGHT)
+  world = World.new(Constants.WORLD.WIDTH, Constants.WORLD.HEIGHT)
   -- Add spawnProjectile function to world so turrets can spawn projectiles
   world.spawn_projectile = spawn_projectile
   camera = Camera.new()
@@ -172,7 +173,7 @@ function Game.load(fromSave, saveSlot)
   end
 
   -- Spawn the player
-  local spawn_margin = assert(Config.SPAWN and Config.SPAWN.HUB_BUFFER, "Config.SPAWN.HUB_BUFFER is required")
+  local spawn_margin = assert(Config.SPAWN and Config.SPAWN.STATION_BUFFER, "Config.SPAWN.STATION_BUFFER is required") or Constants.SPAWNING.STATION_BUFFER
 
   -- Handle loading from save vs starting new game
   if fromSave and saveSlot then
@@ -192,10 +193,10 @@ function Game.load(fromSave, saveSlot)
   else
     -- Start new game - create player at random spawn location
     local angle = math.random() * math.pi * 2
-    -- Spawn within the hub weapons-disable zone
-    local spawn_dist = (hub and (hub.shieldRadius or 600) or 600) - spawn_margin
-    local px = (hub and hub.components and hub.components.position and hub.components.position.x or 500) + math.cos(angle) * spawn_dist
-    local py = (hub and hub.components and hub.components.position and hub.components.position.y or 500) + math.sin(angle) * spawn_dist
+    -- Spawn within the station weapons-disable zone
+    local spawn_dist = (hub and (hub.shieldRadius or Constants.STATION.WEAPONS_DISABLE_DURATION * 200) or Constants.STATION.WEAPONS_DISABLE_DURATION * 200) - spawn_margin
+    local px = (hub and hub.components and hub.components.position and hub.components.position.x or Constants.SPAWNING.MARGIN) + math.cos(angle) * spawn_dist
+    local py = (hub and hub.components and hub.components.position and hub.components.position.y or Constants.SPAWNING.MARGIN) + math.sin(angle) * spawn_dist
     -- Start player with basic combat drone
     player = Player.new(px, py, "starter_frigate_basic")
   end
@@ -216,7 +217,7 @@ function Game.load(fromSave, saveSlot)
 
   world:setQuadtree(collisionSystem.quadtree)
   -- Initialize player with clean inventory and starting credits
-  player:setGC(10000)
+  player:setGC(Constants.PLAYER.STARTING_CREDITS or 10000)
 
   -- Initialize audio listener to player position for positional SFX
   do
@@ -230,14 +231,14 @@ function Game.load(fromSave, saveSlot)
   if not player.inventory then
     player.inventory = {}
   end
-  player.inventory["shield_module_basic"] = 1  -- Give 1 basic shield module in inventory
+  player.inventory["shield_module_basic"] = Constants.PLAYER.STARTING_SHIELD_MODULES or 1  -- Give basic shield modules in inventory
 
   -- Refresh inventory display
   local Inventory = require("src.ui.inventory")
   if Inventory.refresh then Inventory.refresh() end
 
-  -- Equip one shield module in slot 4 (after the default turrets in slots 1-3)
-  player:equipModule(4, "shield_module_basic")
+  -- Equip one shield module in equipment slot (after the default turrets in slots 1-3)
+  player:equipModule(Constants.PLAYER.SHIELD_EQUIPMENT_SLOT or 4, "shield_module_basic")
 
   Input.init({
     camera = camera,

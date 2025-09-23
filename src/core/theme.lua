@@ -1,5 +1,4 @@
 local Theme = {}
-local Viewport = require("src.core.viewport")
 local Sound = require("src.core.sound")
 
 -- ===== DARK CYAN/LAVENDER SPACE THEME =====
@@ -103,6 +102,9 @@ Theme.fonts = {
 }
 
 function Theme.loadFonts()
+  -- Lazy load viewport to avoid circular dependency
+  local Viewport = require("src.core.viewport")
+
   -- Get font scale (separate from UI scale)
   local fontScale = (Viewport.getFontScale() or 1.0) * (Viewport.getUIScale() or 1.0)
   local fontPath = "assets/fonts/PressStart2P-Regular.ttf"

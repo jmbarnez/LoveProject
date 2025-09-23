@@ -8,6 +8,7 @@ local AuroraTitle = require("src.shaders.aurora_title")
 local Sound = require("src.core.sound")
 local SettingsPanel = require("src.ui.settings_panel")
 local UIButton = require("src.ui.common.button")
+local Strings = require("src.core.strings")
 
 local Start = {}
 Start.__index = Start
@@ -156,7 +157,7 @@ function Start:draw()
   -- Draw Title
   local titleFont = self.titleFont
   love.graphics.setFont(titleFont)
-  local titleText = "NOVUS"
+  local titleText = Strings.getUI("game_title")
   local textWidth = titleFont:getWidth(titleText)
   local titleX = (w - textWidth) / 2
   local titleY = h * 0.2
@@ -290,7 +291,7 @@ function Start:draw()
   love.graphics.translate(bx + bw/2, by + bh/2)
   love.graphics.scale(self.newGameScale, self.newGameScale)
   love.graphics.translate(-bw/2, -bh/2)
-  UIButton.drawRect(0, 0, bw, bh, 'NEW GAME', hover, t, { compact = true, menuButton = true })
+  UIButton.drawRect(0, 0, bw, bh, Strings.getUI('new_game'), hover, t, { compact = true, menuButton = true })
   love.graphics.pop()
 
   -- Set button rect in world coordinates for click detection
@@ -306,7 +307,7 @@ function Start:draw()
   love.graphics.translate(lbx + bw/2, lby + bh/2)
   love.graphics.scale(self.newGameScale, self.newGameScale)
   love.graphics.translate(-bw/2, -bh/2)
-  UIButton.drawRect(0, 0, bw, bh, 'LOAD GAME', lhover, t, { compact = true, menuButton = true })
+  UIButton.drawRect(0, 0, bw, bh, Strings.getUI('load_game'), lhover, t, { compact = true, menuButton = true })
   love.graphics.pop()
 
   -- Set button rect in world coordinates for click detection
@@ -350,7 +351,7 @@ function Start:draw()
     local backButtonX, backButtonY = loadX + 10, loadY + 10
     local mx, my = Viewport.getMousePosition()
     local backHover = mx >= backButtonX and mx <= backButtonX + backButtonW and my >= backButtonY and my <= backButtonY + backButtonH
-    self.backButtonRect = UIButton.drawRect(backButtonX, backButtonY, backButtonW, backButtonH, "← Back", backHover, love.timer.getTime(), { menuButton = true })
+    self.backButtonRect = UIButton.drawRect(backButtonX, backButtonY, backButtonW, backButtonH, Strings.getUI("back_button"), backHover, love.timer.getTime(), { menuButton = true })
     
     -- Load slots content
     if self.loadSlotsUI then
@@ -362,7 +363,7 @@ function Start:draw()
   
   -- Version number in bottom right
   Theme.setColor(Theme.colors.textSecondary)
-  local versionText = "v0.2"
+  local versionText = Strings.getUI("version")
   local font = love.graphics.getFont()
   local textWidth = font:getWidth(versionText)
   love.graphics.print(versionText, w - textWidth - 16, h - 20)

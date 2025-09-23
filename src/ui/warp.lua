@@ -500,7 +500,7 @@ function Warp:executeWarp()
             print(string.format("Warped to %s for %d GC", self.selectedSector.name, cost))
             return true
         else
-            print("Insufficient funds for warp")
+            print(Strings.getError("insufficient_funds_warp"))
             return false
         end
     else

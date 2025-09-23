@@ -249,6 +249,7 @@ function DestructionSystem.update(world, gameState)
           end
           
           -- Reset velocities
+          phys = e.components.physics
           if phys and phys.body and not phys.body:isDestroyed() then
             phys.body:setLinearVelocity(0, 0)
             phys.body:setAngularVelocity(0)

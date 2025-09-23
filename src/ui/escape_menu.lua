@@ -222,31 +222,15 @@ end
 
 -- Calculate preferred layout size based on content
 local function getLayoutSize()
-    local font = love.graphics.getFont() or Theme.fonts.normal
     local buttonH = (Theme.ui and Theme.ui.buttonHeight) or 28
     local buttonSpacing = (Theme.ui and Theme.ui.buttonSpacing) or 4
     local totalButtons = 3
-    local buttonPadding = (Theme.ui and Theme.ui.contentPadding) or 15  -- Consistent padding like other panels
 
-    -- Calculate width based on longest button text
-    local buttonTexts = {"Save", "Settings", "Exit to Menu"}
-    local maxTextWidth = 0
-    for _, text in ipairs(buttonTexts) do
-        local textW = font:getWidth(text)
-        if textW > maxTextWidth then
-            maxTextWidth = textW
-        end
-    end
+    local w = 200 -- Set a fixed width for the content area
 
-    -- Add padding for button content and spacing (consistent with drawContent)
-  local buttonW = maxTextWidth + 20 -- 10px padding on each side
-  -- Return CONTENT width. The window chrome (borders/titlebar) is added in init()
-  local w = buttonW + buttonPadding * 2
-
-    -- Calculate height with consistent padding
-  local totalHeight = buttonPadding + (buttonH * totalButtons) + (buttonSpacing * (totalButtons - 1)) + buttonPadding
-  -- Return CONTENT height. The window chrome (borders/titlebar) is added in init()
-  local h = totalHeight
+    -- Calculate height without padding
+    local totalHeight = (buttonH * totalButtons) + (buttonSpacing * (totalButtons - 1))
+    local h = totalHeight
 
     return w, h
 end
@@ -255,7 +239,6 @@ local function getLayout()
   -- Always compute layout in CONTENT coordinates so it matches drawContent()
   local buttonH = 28
   local buttonSpacing = 4
-  local buttonPadding = 15
 
   local x, y, w, h
   if EscapeMenu.window and EscapeMenu.window.getContentBounds then
@@ -275,9 +258,9 @@ local function getLayout()
     w, h = cw, ch
   end
 
-    local buttonW = w - buttonPadding * 2  -- Account for consistent padding
-    local buttonX = x + buttonPadding
-    local startY = y + buttonPadding
+    local buttonW = w  -- Full width
+    local buttonX = x
+    local startY = y
     local saveButtonY = startY
     local settingsButtonY = saveButtonY + buttonH + buttonSpacing
     local exitButtonY = settingsButtonY + buttonH + buttonSpacing
@@ -373,13 +356,9 @@ function EscapeMenu.drawContent(window, x, y, w, h)
     -- Calculate button dimensions consistently
     local buttonH = (Theme.ui and Theme.ui.buttonHeight) or 28
     local buttonSpacing = (Theme.ui and Theme.ui.buttonSpacing) or 4
-    local buttonPadding = (Theme.ui and Theme.ui.contentPadding) or 15
-    local buttonH = (Theme.ui and Theme.ui.buttonHeight) or 28
-    local buttonSpacing = (Theme.ui and Theme.ui.buttonSpacing) or 4
-    local buttonPadding = (Theme.ui and Theme.ui.contentPadding) or 15
-    local buttonW = w - buttonPadding * 2
-    local buttonX = x + buttonPadding
-    local startY = y + buttonPadding
+    local buttonW = w
+    local buttonX = x
+    local startY = y
 
     -- Calculate button positions
     local saveButtonY = startY

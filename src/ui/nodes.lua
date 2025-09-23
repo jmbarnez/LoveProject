@@ -1076,7 +1076,7 @@ function Nodes:executeBuy(player)
     local funds = PortfolioManager.getAvailableFunds()
 
     if totalCost > funds then
-        print("Insufficient funds for purchase")
+        print(Strings.getError("insufficient_funds"))
         return
     end
 
@@ -1091,7 +1091,7 @@ function Nodes:executeBuy(player)
         -- Show success message or notification
         print("Successfully bought", amount, self.selectedSymbol, "for", formatPrice(totalCost), "GC")
     else
-        print("Trade execution failed")
+        print(Strings.getError("trade_execution_failed"))
     end
 end
 
@@ -1108,7 +1108,7 @@ function Nodes:executeSell(player)
     local holding = holdings[self.selectedSymbol] or { quantity = 0 }
 
     if amount > holding.quantity then
-        print("Insufficient holdings for sale")
+        print(Strings.getError("insufficient_holdings"))
         return
     end
 
@@ -1128,7 +1128,7 @@ function Nodes:executeSell(player)
 
         -- PortfolioManager already updated holdings and funds
     else
-        print("Trade execution failed")
+        print(Strings.getError("trade_execution_failed"))
     end
 end
 

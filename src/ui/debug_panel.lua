@@ -21,7 +21,7 @@ function DebugPanel.init()
         useLoadPanelTheme = true,
         draggable = true,
         closable = true,
-        resizable = true,
+        resizable = false,
         drawContent = DebugPanel.drawContent,
         onClose = function()
             DebugPanel.visible = false

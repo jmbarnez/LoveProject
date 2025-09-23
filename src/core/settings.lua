@@ -45,19 +45,20 @@ end
 local Settings = {}
 
 local Log = require("src.core.log")
+local Constants = require("src.core.constants")
 
 local IconRenderer = require("src.content.icon_renderer")
 local settings = {
   graphics = {
         resolution = {
-            width = 1920,
-            height = 1080,
+            width = Constants.RESOLUTION.DEFAULT_WIDTH,
+            height = Constants.RESOLUTION.DEFAULT_HEIGHT,
         },
         fullscreen = false,
         fullscreen_type = "desktop",
         borderless = false,
         vsync = true,
-        max_fps = 60,
+        max_fps = Constants.TIMING.FPS_60,
         ui_scale = 1.0,
         font_scale = 1.0,
         helpers_enabled = true,
@@ -144,16 +145,16 @@ function Settings.applyGraphicsSettings(newSettings)
         -- Determine window mode settings based on display mode
         -- Use responsive minimum window sizes based on the chosen resolution
         local minWidth, minHeight
-        if newSettings.resolution.width <= 800 then
-            minWidth = math.max(600, newSettings.resolution.width)
+        if newSettings.resolution.width <= Constants.RESOLUTION.MIN_WINDOW_WIDTH_800PX then
+            minWidth = math.max(Constants.RESOLUTION.MIN_WINDOW_WIDTH_800PX, newSettings.resolution.width)
         else
-            minWidth = 800
+            minWidth = Constants.RESOLUTION.MIN_WINDOW_WIDTH_1024PX
         end
 
-        if newSettings.resolution.height <= 600 then
-            minHeight = math.max(400, newSettings.resolution.height)
+        if newSettings.resolution.height <= Constants.RESOLUTION.MIN_WINDOW_HEIGHT_800PX then
+            minHeight = math.max(Constants.RESOLUTION.MIN_WINDOW_HEIGHT_800PX, newSettings.resolution.height)
         else
-            minHeight = 600
+            minHeight = Constants.RESOLUTION.MIN_WINDOW_HEIGHT_1024PX
         end
 
         print("Settings.applyGraphicsSettings - Using responsive minimum window size: " .. minWidth .. "x" .. minHeight)

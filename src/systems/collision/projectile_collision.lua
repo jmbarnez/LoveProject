@@ -171,6 +171,9 @@ function ProjectileCollision.handle_beam_collision(collision_system, beam, world
     local x1, y1 = pos.x, pos.y
     local x2, y2 = pos.x + math.cos(angle) * max_len, pos.y + math.sin(angle) * max_len
 
+    -- Reset beam length to maximum range every frame to ensure full range rendering when no target hit
+    renderable.props.length = max_len
+
     local bb = {
         x = math.min(x1, x2) - 50,
         y = math.min(y1, y2) - 50,

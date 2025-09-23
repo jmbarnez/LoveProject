@@ -1,177 +1,70 @@
-# Novus - Space Trading & Combat Game
+# Novus Project
 
-A Love2D-based space trading and combat game inspired by DarkOrbit, featuring ship customization, quests, mining, trading, and multiplayer capabilities.
+This project is a LÖVE2D game, featuring an ECS-like architecture with a clear separation of concerns for content definitions, core engine functionalities, game systems, and a modular UI.
 
-## Quick Start
+## Table of Contents
 
-### Prerequisites
-- **Love2D 11.x**: Download from [love2d.org](https://love2d.org)
-- **Lua 5.1**: Included with Love2D
-
-### Running the Game
-1. Install Love2D on your system
-2. Navigate to the project directory
-3. Run: `love .` (or drag folder onto Love2D executable)
-
-### Building Distribution
-- **Windows**: Use `build_love.bat` to create `.love` file
-- **Distribution**: Package with Love2D executable for standalone
-
-## Game Features
-
-- **Space Combat**: Ship-to-ship combat with various weapons and projectiles
-- **Trading System**: Buy/sell items, ships, and equipment
-- **Mining**: Extract resources from asteroids
-- **Quest System**: Procedural and scripted missions
-- **Ship Customization**: Equip different turrets and modules
-- **Multiplayer**: Basic multiplayer support
-- **Trading Nodes**: Stock market simulation with technical analysis
-- **Sector Warping**: Travel between different galactic sectors
-
-## Documentation
-
-This project includes comprehensive documentation to help you understand and extend the codebase:
-
-### 📚 Main Documentation
-- **[PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md)** - Complete project overview and navigation guide
-- **[ARCHITECTURE_GUIDE.md](ARCHITECTURE_GUIDE.md)** - Technical architecture and ECS system details
-- **[SYSTEMS_GUIDE.md](SYSTEMS_GUIDE.md)** - Detailed information about all game systems
-- **[CONTENT_GUIDE.md](CONTENT_GUIDE.md)** - How to create and manage game content
-- **[UI_GUIDE.md](UI_GUIDE.md)** - User interface system and component development
-
-### 🎮 Game Controls
-
-#### Movement
-- **WASD** or **Arrow Keys**: Move ship
-- **Right Click**: Set move destination
-- **Space**: Boost (sustained thrust with energy cost)
-
-#### Combat
-- **Left Click**: Target and fire weapons
-- **Q/E/R**: Hotbar actions (1-5)
-- **Shift**: Shield ability (damage reduction)
-
-#### Interface
-- **Tab**: Toggle inventory
-- **M**: Toggle minimap
-- **F1**: Debug panel
-- **Escape**: Main menu
-
-#### Docked Interface
-- **Shop Tab**: Buy/sell items and ships
-- **Ship Tab**: Equipment and customization
-- **Quests Tab**: Mission management
-- **Nodes Tab**: Trading interface
+*   [Project Structure](#project-structure)
+*   [Getting Started](#getting-started)
+    *   [Prerequisites](#prerequisites)
+    *   [Installation](#installation)
+    *   [Running the Application](#running-the-application)
+*   [Code Entry Point](#code-entry-point)
+*   [Dependencies](#dependencies)
+*   [License](#license)
 
 ## Project Structure
 
-```
-LoveProject/
-├── main.lua                    # Entry point
-├── conf.lua                    # Love2D configuration
-├── src/                        # Source code
-│   ├── core/                   # Core systems
-│   ├── components/             # ECS components
-│   ├── entities/               # Entity implementations
-│   ├── systems/                # Game systems
-│   ├── templates/              # Entity templates
-│   ├── ui/                     # User interface
-│   └── content/                # Content management
-├── content/                    # Game content
-│   ├── items/                  # Item definitions
-│   ├── ships/                  # Ship definitions
-│   ├── turrets/                # Weapon definitions
-│   ├── projectiles/            # Projectile definitions
-│   ├── world_objects/          # World object definitions
-│   └── sounds/                 # Audio files
-└── assets/                     # Static assets
-    └── fonts/                  # Font files
-```
+The project is organized into several key directories:
 
-## Architecture Overview
+*   `assets/`: Contains game assets such as fonts, sounds, and potentially images (though not explicitly listed, it's a common pattern).
+*   `content/`: Defines game content, including items, projectiles, ships, sounds, turrets, and world objects. This directory is crucial for configuring game entities and their properties.
+*   `src/`: The core source code of the application, further divided into:
+    *   `src/components/`: Data-only tables that define properties of entities (e.g., `health.lua`, `physics.lua`).
+    *   `src/content/`: Modules for loading, validating, and managing game content (e.g., `content.lua`, `design_loader.lua`).
+    *   `src/core/`: Core engine functionalities such as camera, events, input, physics, UI management, and utility functions.
+    *   `src/entities/`: Definitions for various game entities like the player, remote players, and item pickups.
+    *   `src/libs/`: External or utility libraries, such as `json.lua`.
+    *   `src/managers/`: Modules for managing game states or portfolios (e.g., `portfolio.lua`, `state_manager.lua`).
+    *   `src/systems/`: Contains the game logic that operates on entities with specific components (e.g., `ai.lua`, `physics.lua`, `render.lua`, `turret/`). This directory is further subdivided for collision, rendering, and turret systems.
+    *   `src/templates/`: Blueprints or factories for creating various game objects (e.g., `ship.lua`, `projectile.lua`).
+    *   `src/ui/`: Modules for the user interface, including various screens (start, escape, settings), HUD elements, and common UI components.
 
-The game uses a **hybrid Entity-Component-System (ECS)** pattern:
+## Getting Started
 
-- **Entities**: Game objects (ships, projectiles, stations, etc.)
-- **Components**: Data containers (position, health, renderable, etc.)
-- **Systems**: Logic processors that operate on entities with specific components
+To get the Novus project up and running, follow these steps:
 
-### Key Systems
+### Prerequisites
 
-1. **Physics System**: Movement and velocity updates
-2. **Collision System**: Entity-to-entity collisions and damage
-3. **AI System**: Enemy ship behavior and decision making
-4. **Rendering System**: Visual output and effects
-5. **UI System**: User interface and interaction
-6. **Content System**: Auto-discovery and loading of game content
+*   **LÖVE2D 11.x**: The game is built using the LÖVE2D framework. You will need version 11.x installed on your system.
 
-## Development
+### Installation
 
-### Adding New Content
+1.  **Download LÖVE2D**: Visit the official LÖVE2D website at [love2d.org](https://love2d.org) and download the appropriate installer for your operating system.
+2.  **Install LÖVE2D**: Follow the installation instructions provided on the LÖVE2D website.
+3.  **Clone the Repository**: Obtain the project files by cloning the repository or downloading the source code.
 
-1. Create content definition file in appropriate `content/` directory
-2. Follow existing patterns for your content type
-3. Content will be automatically loaded on game start
+### Running the Application
 
-### Adding New Features
+1.  **Navigate to the Project Root**: Open your terminal or command prompt and navigate to the root directory of the Novus project (e.g., `cd c:/Users/JBCry/Desktop/LoveProject`).
+2.  **Execute LÖVE2D**: Run the game using one of the following methods:
+    *   **Command Line**: Type `love .` and press Enter.
+    *   **Drag and Drop**: Drag the entire project folder onto the LÖVE2D executable.
 
-1. Create system file in `src/systems/`
-2. Add update call in `src/game.lua`
-3. Implement component interactions
-4. Add UI integration if needed
+## Code Entry Point
 
-### Debugging
+The application's primary entry point is `main.lua`.
 
-- **Debug Panel**: Press F1 for debug information
-- **Console Logging**: Use `Log` module for output
-- **Entity Inspection**: Debug panel shows entity details
-- **Performance**: Debug panel shows frame timing
+*   **`conf.lua`**: This file is loaded first by the LÖVE2D engine to configure basic window settings (title, resolution, fullscreen, VSync).
+*   **`main.lua`**: Defines the core LÖVE2D callback functions (`love.load()`, `love.update(dt)`, `love.draw()`). It orchestrates the overall application flow, handling screen transitions between the "start" screen (`src.ui.start_screen`) and the "game" screen (`src.game`). It also initializes global settings, sound, input, and the UI theme.
+*   **`src/game.lua`**: This module is loaded by `main.lua` when the application transitions to the "game" screen. It handles extensive game-specific initialization, including loading game content, initializing various game systems, creating the game world and entities, and setting up in-game event listeners.
 
-## Content System
+## Dependencies
 
-The game uses a file-based content system with automatic discovery:
+The project primarily relies on the LÖVE2D framework. Additionally, it includes a self-contained Lua JSON parsing library:
 
-- **Items**: Equipment, resources, modules
-- **Ships**: Player and AI-controlled vessels
-- **Turrets**: Weapon systems
-- **Projectiles**: Ammunition types
-- **World Objects**: Stations, asteroids, planets
-
-Content is defined in Lua files and automatically loaded with validation and normalization.
-
-## Multiplayer
-
-Basic multiplayer support is included with:
-- Player synchronization
-- Event broadcasting
-- Connection management
-- State reconciliation
-
-## Performance
-
-The game includes several performance optimizations:
-- Quadtree for spatial queries and collision detection
-- Entity cleanup and memory management
-- Icon caching for UI elements
-- Distance-based rendering optimizations
-
-## Contributing
-
-1. Follow the existing code style and patterns
-2. Add documentation for new features
-3. Test changes thoroughly
-4. Use the debug panel for development
+*   **`src/libs/json.lua`**: A local Lua module for JSON serialization and deserialization, included directly within the project.
 
 ## License
 
-See `license.txt` for license information.
-
-## Credits
-
-- **Love2D**: Game engine
-- **Press Start 2P**: Font by codeman38
-- **Audio**: Various sound effects and music
-
----
-
-For detailed information about the codebase, refer to the comprehensive documentation files listed above.
+This project is licensed under the MIT License. See the `license.txt` file for more details.

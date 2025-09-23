@@ -8,6 +8,7 @@ local UtilityBeams = require("src.systems.turret.utility_beams")
 local TurretEffects = require("src.systems.turret.effects")
 
 local Events = require("src.core.events")
+local Log = require("src.core.log")
 local Turret = {}
 Turret.__index = Turret
 
@@ -80,6 +81,16 @@ function Turret.new(owner, params)
     end
     if self.kind == 'laser' then
         self.tracer.color = self.tracer.color or {0.3, 0.7, 1.0, 0.8}
+        self.tracer.width = self.tracer.width or 1.5
+        self.tracer.coreRadius = self.tracer.coreRadius or 1
+    elseif self.kind == 'mining_laser' then
+        self.tracer.color = self.tracer.color or {1.0, 0.7, 0.2, 0.8}
+        self.tracer.width = self.tracer.width or 2.0
+        self.tracer.coreRadius = self.tracer.coreRadius or 2
+    elseif self.kind == 'salvaging_laser' then
+        self.tracer.color = self.tracer.color or {0.2, 1.0, 0.3, 0.8}
+        self.tracer.width = self.tracer.width or 2.0
+        self.tracer.coreRadius = self.tracer.coreRadius or 3
     elseif self.kind == 'missile' then
         self.tracer.color = self.tracer.color or {1.0, 0.5, 0.2, 1.0}
     end
@@ -114,7 +125,8 @@ function Turret:update(dt, target, locked, world)
     -- For manual shooting, we fire in the direction the player is facing
     -- or towards a specific target for utility beams (mining/salvaging)
     -- Prevent enemy turrets from firing until the owner is facing the target
-    if target and self.owner and not (self.owner.isPlayer or self.owner.isFriendly) then
+    -- Skip facing check for lasers since they aim directly at the target
+    if self.kind ~= "laser" and target and self.owner and not (self.owner.isPlayer or self.owner.isFriendly) then
         if target.components and target.components.position and self.owner.components and self.owner.components.position then
             local tx = target.components.position.x
             local ty = target.components.position.y
@@ -153,6 +165,7 @@ function Turret:update(dt, target, locked, world)
 
         -- Set cooldown for next shot
         self.cooldown = effectiveCycle
+        Log.debug("Turret:update - Cooldown set to: " .. tostring(self.cooldown) .. " for turret: " .. tostring(self.id))
     end
 
     -- Update last fire time (legacy compatibility)

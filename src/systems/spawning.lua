@@ -7,7 +7,7 @@ local SpawningSystem = {}
 local enemySpawnTimer = 0
 local bossSpawnTimer = 0
 local asteroidSpawnTimer = 0
-local maxEnemies = 12 -- Significantly increased for relentless pressure
+local maxEnemies = 36 -- Significantly increased for relentless pressure
 local maxBosses = 3   -- Hard cap on boss drones
 local maxAsteroids = 15
 
@@ -35,7 +35,7 @@ local function isPositionSafeFromStations(x, y, world, hub)
     local dx = x - hub.components.position.x
     local dy = y - hub.components.position.y
     local distanceSquared = dx * dx + dy * dy
-    local stationBuffer = (Config.SPAWN and Config.SPAWN.STATION_BUFFER) or 300
+    local stationBuffer = (Config.SPAWN and Config.SPAWN.STATION_BUFFER) or 5000
     local safeDistanceSquared = stationBuffer * stationBuffer
     
     if distanceSquared <= safeDistanceSquared then
@@ -95,21 +95,13 @@ local function spawnEnemy(player, hub, world)
     -- Check custom no-spawn zones
     local okNoSpawnZones = not isPositionInNoSpawnZone(x, y)
     
-    -- Legacy hub check for backward compatibility (in case hub isn't marked as station)
-    local okHub = true
-    if hub then
-      local dxh, dyh = x - hub.components.position.x, y - hub.components.position.y
-      local minHub = (hub.radius or 0) + ((Config.SPAWN and Config.SPAWN.HUB_BUFFER) or 50)
-      okHub = (dxh*dxh + dyh*dyh) > (minHub * minHub)
-    end
-    
     local okPlayer = true
     if player then
       local dxp, dyp = x - player.components.position.x, y - player.components.position.y
       local minP = (Config.SPAWN and Config.SPAWN.MIN_PLAYER_DIST) or 450  -- Reduced from 600 for closer spawns
       okPlayer = (dxp*dxp + dyp*dyp) > (minP * minP)
     end
-  until (okStations and okHub and okPlayer and okNoSpawnZones) or attempts > 200
+  until (okStations and okPlayer and okNoSpawnZones) or attempts > 200
 
   -- Use the factory to create a basic drone.
   local enemyShip = EntityFactory.createEnemy("basic_drone", x, y)
@@ -146,19 +138,13 @@ local function spawnBoss(player, hub, world)
     y = math.random(margin, world.height - margin)
     local okStations = isPositionSafeFromStations(x, y, world, hub)
     local okNoSpawnZones = not isPositionInNoSpawnZone(x, y)
-    local okHub = true
-    if hub then
-      local dxh, dyh = x - hub.components.position.x, y - hub.components.position.y
-      local minHub = (hub.radius or 0) + ((Config.SPAWN and Config.SPAWN.HUB_BUFFER) or 50)
-      okHub = (dxh*dxh + dyh*dyh) > (minHub * minHub)
-    end
     local okPlayer = true
     if player then
       local dxp, dyp = x - player.components.position.x, y - player.components.position.y
       local minP = (Config.SPAWN and Config.SPAWN.MIN_PLAYER_DIST) or 600
       okPlayer = (dxp*dxp + dyp*dyp) > (minP * minP)
     end
-  until (okStations and okHub and okPlayer and okNoSpawnZones) or attempts > 200
+  until (okStations and okPlayer and okNoSpawnZones) or attempts > 200
 
   local boss = EntityFactory.createEnemy("boss_drone", x, y)
   if boss then
@@ -256,23 +242,6 @@ local function spawnInitialEntities(player, hub, world)
         spawnAsteroid(hub, world)
     end
 
-    -- Only spawn 1-2 enemies initially, very close to player for immediate engagement
-    -- But only if player is ready (has some basic equipment)
-    if player and player.components and player.components.position then
-        local px, py = player.components.position.x, player.components.position.y
-        for i = 1, 2 do  -- Reduced from maxEnemies to just 2
-            local margin = 200 + i * 100  -- Spawn close to player
-            local angle = math.random() * math.pi * 2
-            local x = px + math.cos(angle) * margin
-            local y = py + math.sin(angle) * margin
-
-            local enemyShip = EntityFactory.createEnemy("basic_drone", x, y)
-            if enemyShip then
-                world:addEntity(enemyShip)
-            end
-        end
-    end
-
     -- Don't spawn bosses at startup either
   end
 
@@ -287,7 +256,7 @@ function SpawningSystem.update(dt, player, hub, world)
   enemySpawnTimer = enemySpawnTimer - dt
 
   -- More aggressive spawning when there are very few enemies (less than 4)
-  if enemySpawnTimer <= 0 and #enemies < 4 then
+  if enemySpawnTimer <= 0 and #enemies < 12 then
     spawnEnemy(player, hub, world)
     -- More aggressive spawn rates - faster and more frequent
     local smin = (Config.SPAWN and Config.SPAWN.INTERVAL_MIN) or 2.0
@@ -296,7 +265,7 @@ function SpawningSystem.update(dt, player, hub, world)
   end
 
   -- Only spawn more enemies if we have very few (less than 8 instead of maxEnemies * 0.7)
-  if #enemies < 8 and math.random() < 0.3 then
+  if #enemies < 24 and math.random() < 0.3 then
     spawnEnemy(player, hub, world)
   end
 

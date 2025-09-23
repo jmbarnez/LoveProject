@@ -22,13 +22,8 @@ function Enemy.new(x, y, options)
   physics.body.radius = 10
   self.sig = 80
   
-  -- AI behavior properties with intelligence level
-  local intelligenceLevel = options.intelligenceLevel or "STANDARD"
-  local aggressiveType = options.aggressiveType or "aggressive"  -- Default to aggressive for enemies
+  -- Basic enemy properties
   self.aggro = false
-  self.moveTarget = nil
-  self.combatState = "patrol" -- patrol, engage, retreat, orbit
-  self.wasAttacked = false
   
   -- Hardcoded enemy type
   self.name = "Scout Drone"
@@ -52,12 +47,6 @@ function Enemy.new(x, y, options)
     cycle = 4.5, capCost = 0,
     fireMode = "automatic"  -- Enemy turrets should fire automatically
   })
-  -- Behavior ranges
-  local opt = self.turret.optimal or 380
-  local fall = self.turret.falloff or 250
-  self.aggroRange = opt + fall + 200 -- a bit further than turret range
-  self.wanderDir = math.random() * math.pi * 2
-  self.wanderTimer = 1 + math.random() * 2
   self.dead = false
   -- Simple loot table (placeholder items)
   self.lootTable = {
@@ -80,6 +69,18 @@ function Enemy.new(x, y, options)
     }
   }
   
+  -- Create equipment grid for turrets
+  local equipmentGrid = {}
+
+  -- Add turret to equipment grid slot 1
+  table.insert(equipmentGrid, {
+    id = "laser_mk1",
+    module = self.turret,
+    enabled = true,
+    slot = 1,
+    type = "turret"
+  })
+
   -- ECS components (for systems and standardized access)
   self.components = {
     position   = Position.new({ x = x, y = y, angle = 0 }),
@@ -88,13 +89,10 @@ function Enemy.new(x, y, options)
     physics    = physics,
     renderable = Renderable.new("enemy", { visuals = self.visuals }),
     ai         = AI.new({
-      intelligenceLevel = intelligenceLevel,
-      aggressiveType = aggressiveType,
-      range = self.aggroRange or 600,
       spawnPos = {x = x, y = y},  -- Set spawn position for patrolling
       patrolCenter = {x = x, y = y}  -- Patrol around spawn location
     }),
-    equipment  = { turrets = {} },
+    equipment  = { grid = equipmentGrid },
     engine_trail = EngineTrail.new({
         size = 0.6,  -- Smaller size for minimal effect
         offset = 10,  -- Slightly smaller offset
@@ -103,8 +101,6 @@ function Enemy.new(x, y, options)
     }),  -- Red thrusters for AI
   }
 
-  -- Provide turret via components.equipment for consistency when inspected by systems
-  table.insert(self.components.equipment.turrets, { id = "laser_mk1", turret = self.turret, enabled = true, slot = 1 })
 
   return self
 end
@@ -128,9 +124,6 @@ function Enemy:hit(dmg)
   end
 end
 
-function Enemy:onTargeted()
-  self.aggro = true
-end
 
 function Enemy:update(dt, player, shoot)
     -- Update physics and sync position
@@ -140,185 +133,11 @@ function Enemy:update(dt, player, shoot)
     local b = self.components.physics.body
     local pos = self.components.position
     pos.x, pos.y, pos.angle = b.x, b.y, b.angle
-    
-    local ppos = player.components and player.components.position or {x=0,y=0}
-    local dx, dy = ppos.x - pos.x, ppos.y - pos.y
-    local dist = math.sqrt(dx * dx + dy * dy)
-    local optimalRange = self.turret.optimal or 380
-    local maxRange = optimalRange + (self.turret.falloff or 250)
-    
-    -- Range-focused AI behavior - keep player in effective attack range
-    local h = self.components and self.components.health
-    local retreat = (h and h.maxHP and ((h.hp or 0) / math.max(1, h.maxHP)) < 0.4) or false
-    local idealRange = optimalRange * 0.85  -- Slightly closer than optimal for better accuracy
-    local tooClose = idealRange * 0.6      -- Back away if player gets too close
-    local tooFar = maxRange * 0.9         -- Chase if player gets too far
-    
-    if retreat then
-        self.combatState = "retreat"
-    elseif self.aggro or dist < (self.aggroRange or (maxRange + 200)) then
-        if dist < tooClose then
-            self.combatState = "backoff"  -- Back away to maintain range
-        elseif dist > tooFar then
-            self.combatState = "engage"   -- Close distance to effective range
-        else
-            self.combatState = "maintain" -- Stay at current range and strafe
-        end
-    else
-        self.combatState = "patrol"
-    end
-    
-    -- Range-control movement behaviors
-    if self.combatState == "retreat" then
-        -- Fast retreat directly away from player
-        local retreatX = pos.x - dx * 3
-        local retreatY = pos.y - dy * 3
-        self:setMoveTarget(retreatX, retreatY, 450)
-        
-    elseif self.combatState == "backoff" then
-        -- Back away to ideal range while still facing player
-        local dirX, dirY = dx / dist, dy / dist
-        local backoffX = ppos.x - dirX * idealRange * 1.2
-        local backoffY = ppos.y - dirY * idealRange * 1.2
-        self:setMoveTarget(backoffX, backoffY, 380)
-        
-    elseif self.combatState == "engage" then
-        -- Move to ideal attack range
-        local dirX, dirY = dx / dist, dy / dist
-        local engageX = ppos.x - dirX * idealRange
-        local engageY = ppos.y - dirY * idealRange
-        self:setMoveTarget(engageX, engageY, 400)
-        
-    elseif self.combatState == "maintain" then
-        -- Strafe around player at current range to avoid being a sitting duck
-        self.wanderTimer = (self.wanderTimer or 0) - dt
-        if self.wanderTimer <= 0 then
-            -- Pick a strafe direction (perpendicular to player direction)
-            local perpAngle = math.atan2(dy, dx) + math.pi * 0.5 * (math.random() > 0.5 and 1 or -1)
-            local strafeDistance = 150 + math.random() * 100
-            local strafeX = pos.x + math.cos(perpAngle) * strafeDistance
-            local strafeY = pos.y + math.sin(perpAngle) * strafeDistance
-            
-            -- Adjust strafe target to maintain distance from player
-            local strafeDir = math.sqrt((strafeX - ppos.x)^2 + (strafeY - ppos.y)^2)
-            if strafeDir > 0 then
-                local scale = idealRange / strafeDir
-                strafeX = ppos.x + (strafeX - ppos.x) * scale
-                strafeY = ppos.y + (strafeY - ppos.y) * scale
-            end
-            
-            self:setMoveTarget(strafeX, strafeY, 320)
-            self.wanderTimer = 0.8 + math.random() * 1.2  -- More frequent movement updates
-        end
-        
-    else -- patrol
-        -- Wander around looking for player
-        self.wanderTimer = (self.wanderTimer or 0) - dt
-        if self.wanderTimer <= 0 then
-            local wanderX = pos.x + (math.random() - 0.5) * 300
-            local wanderY = pos.y + (math.random() - 0.5) * 300
-            self:setMoveTarget(wanderX, wanderY, 250)
-            self.wanderTimer = 2 + math.random() * 3
-        end
-    end
-    
-    -- Execute arcade movement (same as player)
-    self:updateArcadeMovement(dt)
-    
-    -- Aggressive combat logic - shoot whenever possible in effective range
-    local canShoot = false
-    
-    if self.combatState ~= "patrol" and dist <= maxRange and dist >= 40 then
-        -- Check if we're facing the player well enough to shoot
-        local angleToPlayer = math.atan2(dy, dx)
-        local angleDiff = angleToPlayer - pos.angle
-        while angleDiff > math.pi do angleDiff = angleDiff - 2 * math.pi end
-        while angleDiff < -math.pi do angleDiff = angleDiff + 2 * math.pi end
-        
-        -- More lenient firing angle - can shoot if roughly facing the player
-        canShoot = math.abs(angleDiff) < math.pi * 0.6
-        
-        -- Don't shoot while retreating unless facing player
-        if self.combatState == "retreat" then
-            canShoot = canShoot and math.abs(angleDiff) < math.pi * 0.3
-        end
-    end
-    
-    self.turret:update(dt, player, canShoot, function(x, y, angle, friendly, kind, damage, dist2, style, target, weaponDef)
-        shoot(x, y, angle, false, kind, damage, dist2, style, target, weaponDef)
-    end)
+
+    -- AI system now handles all movement and firing logic
+    -- This template only handles basic physics updates
 end
 
--- Set movement target for arcade-style movement
-function Enemy:setMoveTarget(x, y, maxSpeed)
-    self.moveTarget = {x = x, y = y, maxSpeed = maxSpeed or 350}
-end
-
--- Arcade-style movement implementation (similar to player)
-function Enemy:updateArcadeMovement(dt)
-    if self.moveTarget then
-        local pos = self.components.position
-        local b = self.components.physics.body
-        local dx, dy = self.moveTarget.x - pos.x, self.moveTarget.y - pos.y
-        local dist = math.sqrt(dx*dx + dy*dy)
-
-        if dist < 20 then
-            -- Arrived at target
-            self.moveTarget = nil
-            b.vx = b.vx * 0.9  -- Quick stop
-            b.vy = b.vy * 0.9
-        else
-            -- Fast, snappy turning
-            local targetAngle = math.atan2(dy, dx)
-            local angleDiff = targetAngle - pos.angle
-
-            -- Normalize angle difference
-            while angleDiff > math.pi do angleDiff = angleDiff - 2 * math.pi end
-            while angleDiff < -math.pi do angleDiff = angleDiff + 2 * math.pi end
-
-            -- Very fast turning for enemies (even faster than player)
-            if math.abs(angleDiff) > 0.05 then
-                local turnSpeed = 12.0 * dt -- Faster than player
-                if math.abs(angleDiff) < turnSpeed then
-                    b.angle = targetAngle
-                else
-                    b.angle = b.angle + (angleDiff > 0 and turnSpeed or -turnSpeed)
-                end
-            end
-
-            -- Direct velocity control
-            local maxSpeed = self.moveTarget.maxSpeed or 350
-            if dist < 100 then
-                maxSpeed = maxSpeed * 0.7  -- Slow down when approaching
-            end
-
-            local dirX, dirY = dx / dist, dy / dist
-            local currentSpeed = b:getSpeed()
-            
-            -- Quick acceleration
-            if currentSpeed < maxSpeed then
-                local accelRate = 1500 * dt -- Faster acceleration than player
-                local newVx = b.vx + dirX * accelRate
-                local newVy = b.vy + dirY * accelRate
-                
-                -- Cap the speed
-                local newSpeed = math.sqrt(newVx*newVx + newVy*newVy)
-                if newSpeed > maxSpeed then
-                    local scale = maxSpeed / newSpeed
-                    newVx, newVy = newVx * scale, newVy * scale
-                end
-                
-                b.vx = newVx
-                b.vy = newVy
-            end
-        end
-    else
-        -- Natural deceleration when no target
-        local b = self.components.physics.body
-        b.vx = b.vx * 0.95
-        b.vy = b.vy * 0.95
-    end
-end
 
 -- Rendering handled by central RenderSystem using components.renderable
 
