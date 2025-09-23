@@ -15,6 +15,7 @@ function SaveLoad:new()
         title = "Save & Load Game",
         width = 400,
         height = 500,
+        useLoadPanelTheme = true,
         drawContent = function(window, x, y, w, h) o:draw(player, x, y, w, h) end
     })
     return o

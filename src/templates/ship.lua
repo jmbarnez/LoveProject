@@ -104,12 +104,12 @@ function Ship.new(x, y, angle, friendly, shipConfig)
   local Position = require("src.components.position")
   local EngineTrail = require("src.components.engine_trail")
   
-  -- Configure engine trail colors based on ship visuals
+  -- Configure engine trail colors based on ship visuals - more subtle
   local engineColors = {
-    color1 = (self.visuals.engineColor and {self.visuals.engineColor[1], self.visuals.engineColor[2], self.visuals.engineColor[3], 1}) or {0.0, 0.0, 1.0, 1.0},
-    color2 = (self.visuals.engineColor and {self.visuals.engineColor[1] * 0.5, self.visuals.engineColor[2] * 0.5, self.visuals.engineColor[3], 0.5}) or {0.0, 0.0, 0.5, 0.5},
-    size = self.visuals.size or 1.0,
-    offset = ModelUtil.calculateModelWidth(shipConfig.visuals) * 0.4  -- Position emitter behind ship proportional to ship size
+    color1 = (self.visuals.engineColor and {self.visuals.engineColor[1], self.visuals.engineColor[2], self.visuals.engineColor[3], 0.8}) or {0.0, 0.0, 1.0, 0.8},
+    color2 = (self.visuals.engineColor and {self.visuals.engineColor[1] * 0.5, self.visuals.engineColor[2] * 0.5, self.visuals.engineColor[3], 0.4}) or {0.0, 0.0, 0.5, 0.4},
+    size = (self.visuals.size or 1.0) * 0.8,  -- Smaller size for minimal effect
+    offset = ModelUtil.calculateModelWidth(shipConfig.visuals) * 0.3  -- Slightly smaller offset
   }
   
   self.components = {

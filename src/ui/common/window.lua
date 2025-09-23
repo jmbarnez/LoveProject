@@ -50,6 +50,7 @@ function Window.new(options)
   self.borderSize = (Theme.ui and Theme.ui.borderWidth) or 2
   self.cornerRadius = 0
   self.shadow = options.shadow ~= false -- default true
+  self.useLoadPanelTheme = options.useLoadPanelTheme or false
 
   
   -- Content area callback
@@ -156,16 +157,29 @@ end
 -- Draw the window
 function Window:draw()
   if not self.visible then return end
-  
+
   local mx, my = Viewport.getMousePosition()
-  
-  -- Draw window background (unified panel)
-  Theme.setColor(Theme.colors.windowBg)
-  love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
-  
-  -- Title bar separator line
-  Theme.setColor(Theme.colors.border)
-  love.graphics.line(self.x, self.y + self.titleBarHeight, self.x + self.width, self.y + self.titleBarHeight)
+
+  -- Draw window background with load panel theme if enabled
+  if self.useLoadPanelTheme then
+    -- Use the deep space background like load panels
+    Theme.setColor(Theme.colors.bg0)
+    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
+
+    -- Add subtle inner shadow for depth
+    Theme.setColor(Theme.withAlpha(Theme.colors.bg1, 0.3))
+    love.graphics.rectangle("fill", self.x + 1, self.y + 1, self.width - 2, self.height - 2)
+  else
+    -- Original window background
+    Theme.setColor(Theme.colors.windowBg)
+    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
+  end
+
+  -- Title bar separator line (only if not using load panel theme or for title bar)
+  if not self.useLoadPanelTheme then
+    Theme.setColor(Theme.colors.border)
+    love.graphics.line(self.x, self.y + self.titleBarHeight, self.x + self.width, self.y + self.titleBarHeight)
+  end
 
   -- Close button
   if self.closable then
@@ -179,10 +193,17 @@ function Window:draw()
   
   -- Draw content area
   local content = self:getContentBounds()
-  
-  -- Content background
-  Theme.setColor(Theme.colors.bg1)
-  love.graphics.rectangle("fill", content.x, content.y, content.w, content.h)
+
+  -- Content background with load panel theme if enabled
+  if self.useLoadPanelTheme then
+    -- Use the same deep space background as the main window
+    Theme.setColor(Theme.colors.bg1)
+    love.graphics.rectangle("fill", content.x, content.y, content.w, content.h)
+  else
+    -- Original content background
+    Theme.setColor(Theme.colors.bg1)
+    love.graphics.rectangle("fill", content.x, content.y, content.w, content.h)
+  end
   
   -- Draw custom content
   if self.drawContent then
@@ -198,9 +219,15 @@ function Window:draw()
     love.graphics.setScissor()
   end
   
-  -- Window border
-  Theme.drawEVEBorder(self.x, self.y, self.width, self.height, self.cornerRadius,
-                     Theme.colors.borderBright, 8)
+  -- Window border with load panel theme if enabled
+  if self.useLoadPanelTheme then
+    -- Use sci-fi frame border for load panel theme
+    Theme.drawSciFiFrame(self.x, self.y, self.width, self.height)
+  else
+    -- Original window border
+    Theme.drawEVEBorder(self.x, self.y, self.width, self.height, self.cornerRadius,
+                       Theme.colors.borderBright, 8)
+  end
 end
 
 -- Handle mouse press

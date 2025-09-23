@@ -249,22 +249,31 @@ local function spawnAsteroid(hub, world)
 end
 
 local function spawnInitialEntities(player, hub, world)
-    for i = 1, maxEnemies do
-        spawnEnemy(player, hub, world)
-    end
+    -- Don't spawn any enemies at startup - only spawn when player is nearby or explicitly needed
+    -- This prevents red engine trails from appearing immediately on startup
 
     for i = 1, maxAsteroids do
         spawnAsteroid(hub, world)
     end
 
-    -- Seed one boss at game start if under cap
-    local bosses = 0
-    for _, e in ipairs(world:get_entities_with_components("ai")) do
-      if e.isBoss or e.shipId == 'boss_drone' then bosses = bosses + 1 end
+    -- Only spawn 1-2 enemies initially, very close to player for immediate engagement
+    -- But only if player is ready (has some basic equipment)
+    if player and player.components and player.components.position then
+        local px, py = player.components.position.x, player.components.position.y
+        for i = 1, 2 do  -- Reduced from maxEnemies to just 2
+            local margin = 200 + i * 100  -- Spawn close to player
+            local angle = math.random() * math.pi * 2
+            local x = px + math.cos(angle) * margin
+            local y = py + math.sin(angle) * margin
+
+            local enemyShip = EntityFactory.createEnemy("basic_drone", x, y)
+            if enemyShip then
+                world:addEntity(enemyShip)
+            end
+        end
     end
-    if bosses < maxBosses then
-      spawnBoss(player, hub, world)
-    end
+
+    -- Don't spawn bosses at startup either
   end
 
 function SpawningSystem.init(player, hub, world)
@@ -276,20 +285,19 @@ function SpawningSystem.update(dt, player, hub, world)
   local asteroids = world:get_entities_with_components("mineable")
 
   enemySpawnTimer = enemySpawnTimer - dt
-  if enemySpawnTimer <= 0 and #enemies < maxEnemies then
+
+  -- More aggressive spawning when there are very few enemies (less than 4)
+  if enemySpawnTimer <= 0 and #enemies < 4 then
     spawnEnemy(player, hub, world)
     -- More aggressive spawn rates - faster and more frequent
-    local smin = (Config.SPAWN and Config.SPAWN.INTERVAL_MIN) or 1.5  -- Reduced from 2
-    local smax = (Config.SPAWN and Config.SPAWN.INTERVAL_MAX) or 2.5  -- Reduced from 4
+    local smin = (Config.SPAWN and Config.SPAWN.INTERVAL_MIN) or 2.0
+    local smax = (Config.SPAWN and Config.SPAWN.INTERVAL_MAX) or 4.0
     enemySpawnTimer = smin + math.random() * (smax - smin)
-    
-    -- Spawn additional enemies if player has been alive for a while
-    if #enemies < maxEnemies * 0.7 then
-      -- Chance to spawn multiple enemies at once for pressure
-      if math.random() < 0.4 then
-        spawnEnemy(player, hub, world)
-      end
-    end
+  end
+
+  -- Only spawn more enemies if we have very few (less than 8 instead of maxEnemies * 0.7)
+  if #enemies < 8 and math.random() < 0.3 then
+    spawnEnemy(player, hub, world)
   end
 
   -- Boss spawn logic: slow timer, cap at 3

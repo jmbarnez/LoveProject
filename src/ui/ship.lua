@@ -40,6 +40,7 @@ function Ship:new()
         title = "Ship Fitting",
         width = 600,
         height = 400,
+        useLoadPanelTheme = true,
         draggable = true,
         closable = true,
         drawContent = function(window, x, y, w, h) o:draw(player, x, y, w, h) end

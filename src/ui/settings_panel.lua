@@ -183,6 +183,7 @@ function SettingsPanel.init()
         height = 600,
         minWidth = 600,
         minHeight = 400,
+        useLoadPanelTheme = true,
         draggable = true,
         resizable = true,
         drawContent = SettingsPanel.drawContent,

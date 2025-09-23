@@ -450,6 +450,7 @@ function Map.init()
         height = sh - 2 * margin,
         minWidth = 400,
         minHeight = 300,
+        useLoadPanelTheme = true,
         draggable = true,
         closable = true,
         drawContent = Map.drawContent,

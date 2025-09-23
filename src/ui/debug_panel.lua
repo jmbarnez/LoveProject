@@ -18,6 +18,7 @@ function DebugPanel.init()
         height = 120,
         x = Viewport.getDimensions() - 160,
         y = 10,
+        useLoadPanelTheme = true,
         draggable = true,
         closable = true,
         resizable = true,

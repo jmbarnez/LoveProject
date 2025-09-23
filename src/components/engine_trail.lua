@@ -41,31 +41,31 @@ end
 function EngineTrail:setupParticleSystem()
     local ps = self.particleSystem
     
-    -- Particle behavior
-    ps:setParticleLifetime(1.4, 2.0)
+    -- Particle behavior - more minimal settings
+    ps:setParticleLifetime(1.0, 1.5)  -- Shorter lifetime
     ps:setEmissionRate(0)  -- Start off; controlled by thrust state
-    ps:setSizeVariation(0.2)
-    ps:setLinearDamping(1, 2)
-    ps:setSpread(math.pi * 0.05)
-    ps:setSpeed(30, 70)
-    ps:setLinearAcceleration(-10, -5, 10, 5)
+    ps:setSizeVariation(0.1)  -- Less size variation
+    ps:setLinearDamping(2, 4)  -- More damping for quicker fade
+    ps:setSpread(math.pi * 0.03)  -- Tighter spread
+    ps:setSpeed(20, 40)  -- Slower, more subtle particles
+    ps:setLinearAcceleration(-5, -3, 5, 3)  -- Less acceleration
     
-    -- Use provided primary color for particles (supports enemy red)
+    -- Use provided primary color for particles (supports enemy red) - more subtle
     local c1 = self.colors.color1 or {1, 1, 1, 1}
     local r, g, b, a = c1[1] or 1, c1[2] or 1, c1[3] or 1, c1[4] or 1
     ps:setColors(
-        r, g, b, a * 0.9,
-        r, g, b, a * 0.8,
-        r, g, b, a * 0.6,
-        r, g, b, a * 0.4
+        r, g, b, a * 0.6,  -- Much more subtle opacity
+        r, g, b, a * 0.4,
+        r, g, b, a * 0.2,
+        r, g, b, a * 0.1
     )
     
-    -- Set size progression
+    -- Set size progression - much smaller particles
     ps:setSizes(
-        self.size * 1.0,
-        self.size * 4.0,
-        self.size * 2.0,
-        self.size * 0.5
+        self.size * 0.3,  -- Start smaller
+        self.size * 1.5,  -- Peak smaller
+        self.size * 0.8,  -- End smaller
+        self.size * 0.1   -- Final very small
     )
 end
 
@@ -74,20 +74,20 @@ function EngineTrail:updateThrustState(isThrusting, intensity)
     self.isThrusting = isThrusting or false
     self.intensity = 1.0
 
-    -- Stable emission rate: on/off only
-    local emissionRate = self.isThrusting and 200 or 0
+    -- Stable emission rate: on/off only - much lower rate for minimal effect
+    local emissionRate = self.isThrusting and 80 or 0  -- Reduced from 200 to 80
     self.particleSystem:setEmissionRate(emissionRate)
 
     
-    -- Fixed particle properties (no dynamic changes)
-    self.particleSystem:setSpeed(48, 84)
+    -- Fixed particle properties (no dynamic changes) - more minimal
+    self.particleSystem:setSpeed(24, 48)  -- Reduced speed
     self.particleSystem:setSizes(
-        self.size * 0.5,
-        self.size * 2.0,
-        self.size * 1.0,
-        self.size * 0.2
+        self.size * 0.2,  -- Smaller particles
+        self.size * 0.8,
+        self.size * 0.4,
+        self.size * 0.05  -- Much smaller end particles
     )
-    self.particleSystem:setLinearAcceleration(-10, -5, 10, 5)
+    self.particleSystem:setLinearAcceleration(-3, -2, 3, 2)  -- Reduced acceleration
 end
 
 function EngineTrail:updatePosition(x, y, angle)

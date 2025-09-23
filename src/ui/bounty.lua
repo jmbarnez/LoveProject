@@ -17,6 +17,7 @@ function Bounty.init()
         height = 200,
         minWidth = 200,
         minHeight = 150,
+        useLoadPanelTheme = true,
         draggable = true,
         closable = true,
         drawContent = Bounty.drawContent,

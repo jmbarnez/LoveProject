@@ -46,6 +46,7 @@ function DockedUI.init()
         y = 0,
         width = sw,
         height = sh,
+        useLoadPanelTheme = true,
         closable = true,
         draggable = true,
         resizable = false,
@@ -128,7 +129,7 @@ function DockedUI.drawContent(window, x, y, w, h)
         -- Category tabs
         local tabY = contentY
         local tabH = (Theme.ui and Theme.ui.buttonHeight) or 28
-        DockedUI.drawCategoryTabs(x + pad, tabY, w - pad * 2, tabH)
+        DockedUI.drawCategoryTabs(x + pad, tabY, w - pad * 2, tabH, mx, my)
         
         -- Shop content area
         local shopContentY = tabY + tabH + ((Theme.ui and Theme.ui.buttonSpacing) or 8)
@@ -211,7 +212,7 @@ function DockedUI.drawMainTabs(x, y, w, h)
 end
 
 -- Draw main Buy/Sell/Buyback tabs and category tabs
-function DockedUI.drawCategoryTabs(x, y, w, h)
+function DockedUI.drawCategoryTabs(x, y, w, h, mx, my)
   local shopTabs = {"Buy", "Sell", "Buyback"}
   local res = UITabs.draw(x, y, math.min(w, 3 * 84 + 8), h, shopTabs, DockedUI.activeShopTab)
   DockedUI._shopTabs = res.rects

@@ -330,6 +330,7 @@ function EscapeMenu.init()
         y = windowY,
         width = windowW,
         height = windowH,
+        useLoadPanelTheme = true,
         closable = true,
         draggable = true,
         resizable = false,

@@ -96,10 +96,10 @@ function Enemy.new(x, y, options)
     }),
     equipment  = { turrets = {} },
     engine_trail = EngineTrail.new({
-        size = 0.8,
-        offset = 12,
-        color1 = {1.0, 0.2, 0.1, 1.0},  -- Red primary
-        color2 = {1.0, 0.2, 0.1, 0.5}   -- Red secondary
+        size = 0.6,  -- Smaller size for minimal effect
+        offset = 10,  -- Slightly smaller offset
+        color1 = {1.0, 0.2, 0.1, 0.8},  -- Red primary, slightly more subtle
+        color2 = {1.0, 0.2, 0.1, 0.4}   -- Red secondary, more subtle
     }),  -- Red thrusters for AI
   }
 

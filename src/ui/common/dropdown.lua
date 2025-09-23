@@ -42,6 +42,7 @@ end
 
 function Dropdown:draw()
     local mx, my = Viewport.getMousePosition()
+    if not mx or not my then return end
 
     -- Draw the main button
     self:drawButton(mx, my)
@@ -54,12 +55,14 @@ end
 
 function Dropdown:drawButtonOnly(mx, my)
     -- Draw only the button (for z-ordering when other dropdowns are open)
+    if not mx or not my then return end
     self:drawButton(mx, my)
 end
 
 function Dropdown:drawOptionsOnly(mx, my)
     -- Draw only the options (for z-ordering when this dropdown is open)
     if self.open then
+        if not mx or not my then return end
         self:drawOptions(mx, my)
     end
 end
@@ -241,6 +244,7 @@ end
 
 function Dropdown:isPointInButton(mx, my)
     return self._buttonRect and
+           mx and my and
            mx >= self._buttonRect.x and mx <= self._buttonRect.x + self._buttonRect.w and
            my >= self._buttonRect.y and my <= self._buttonRect.y + self._buttonRect.h
 end
@@ -250,12 +254,13 @@ function Dropdown:isPointInOption(mx, my, optionIndex)
         return false
     end
     local rect = self._optionRects[optionIndex]
-    return mx >= rect.x and mx <= rect.x + rect.w and
+    return mx and my and
+           mx >= rect.x and mx <= rect.x + rect.w and
            my >= rect.y and my <= rect.y + rect.h
 end
 
 function Dropdown:mousepressed(mx, my, button)
-    if self.disabled then return false end
+    if self.disabled or not mx or not my then return false end
 
     -- Check if click is on the button
     if self:isPointInButton(mx, my) then
@@ -317,7 +322,7 @@ function Dropdown:mousepressed(mx, my, button)
 end
 
 function Dropdown:mousemoved(mx, my)
-    if self.disabled then return false end
+    if self.disabled or not mx or not my then return false end
 
     -- Update hover state
     self.hoveredOption = nil
@@ -344,7 +349,7 @@ function Dropdown:mousemoved(mx, my)
                 isWithinBounds = false
             else
                 -- Check if mouse is within the intersection bounds
-                if mx < intersectX or mx > intersectRight or my < intersectY or my > intersectBottom then
+                if not mx or not my or mx < intersectX or mx > intersectRight or my < intersectY or my > intersectBottom then
                     isWithinBounds = false
                 end
             end

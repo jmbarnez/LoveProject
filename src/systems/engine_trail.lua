@@ -25,7 +25,14 @@ function EngineTrailSystem.update(dt, world)
 				+ ((thrusterState.strafeLeft or 0) + (thrusterState.strafeRight or 0)) * 0.5
 				+ (thrusterState.reverse or 0) * 0.5
 			local isThrusting = thrusterState.isThrusting or (intensity > 0)
-			trail:updateThrustState(isThrusting, math.max(0.2, intensity))
+
+			-- Only show trails if there's actual thrust input or significant movement
+			if isThrusting and intensity > 0.1 then  -- Require minimum thrust intensity
+				trail:updateThrustState(true, math.max(0.3, intensity))
+			else
+				trail:updateThrustState(false, 0)
+			end
+
 			trail:updatePosition(pos.x, pos.y, pos.angle or 0)
 			trail:update(dt)
 		end
@@ -41,12 +48,16 @@ function EngineTrailSystem.update(dt, world)
 
 			if phys and phys.body and pos then
 				local speed = math.sqrt(phys.body.vx * phys.body.vx + phys.body.vy * phys.body.vy)
-				local isThrusting = speed > 0  -- Any entity is thrusting if moving at all
+				-- Only show trails if ship is actually moving at a reasonable speed
+				local isThrusting = speed > 10  -- Increased threshold to prevent idle trails
 
-
-				-- Update thruster state based on movement
-				local intensity = math.max(0.5, math.min(1.0, speed / 100))  -- Scale intensity based on speed, minimum 0.5
-				trail:updateThrustState(isThrusting, math.max(0.2, intensity))
+				-- Update thruster state based on movement - only if actively moving
+				if isThrusting then
+					local intensity = math.max(0.3, math.min(1.0, speed / 150))  -- Lower minimum intensity and higher speed threshold
+					trail:updateThrustState(isThrusting, intensity)
+				else
+					trail:updateThrustState(false, 0)  -- Explicitly turn off trails when not moving
+				end
 
 				if pos then
 					trail:updatePosition(pos.x, pos.y, pos.angle or 0)

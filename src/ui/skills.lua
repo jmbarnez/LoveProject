@@ -74,6 +74,7 @@ function SkillsPanel.init()
         height = 250,
         minWidth = 250,
         minHeight = 200,
+        useLoadPanelTheme = true,
         draggable = true,
         closable = true,
         drawContent = SkillsPanel.drawContent,

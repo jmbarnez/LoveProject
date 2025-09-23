@@ -51,6 +51,7 @@ function Inventory.init()
         height = 320,
         minWidth = 300,
         minHeight = 200,
+        useLoadPanelTheme = true,
         draggable = true,
         closable = true,
         drawContent = Inventory.drawContent,
