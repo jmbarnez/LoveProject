@@ -201,19 +201,14 @@ function DestructionSystem.update(world, gameState)
             Events.emit('player_death', {player = e})
           end
           
-          -- Player death: respawn at the station
-          -- dropPlayerLoot(world, e, x, y)
-          -- e.inventory = {}
- 
-          -- Find station and respawn near it
-          local hub = findHubStation(world)
-          local spawn_margin = 48
+          -- Player death: respawn at the station without nearby spawns
           local px, py = x, y
+          local hub = findHubStation(world)
           if hub and hub.components and hub.components.position then
-            local angle = math.random() * math.pi * 2
-            local spawnDist = (hub.radius or ((hub.components.collidable and hub.components.collidable.radius) or 600)) - spawn_margin
-            px = hub.components.position.x + math.cos(angle) * spawnDist
-            py = hub.components.position.y + math.sin(angle) * spawnDist
+            local stationPos = hub.components.position
+            px, py = stationPos.x, stationPos.y
+            -- Flag prevents spawn system from placing enemies near the player this frame
+            world._suppressPlayerDeathSpawn = true
           end
           
           -- Restore player state (keep entity alive)
@@ -289,6 +284,13 @@ function DestructionSystem.update(world, gameState)
           end
 
           if e.isPlayer then
+            -- Deduct repair cost (minimum 0 credits remaining)
+            local repairCost = 500
+            if e.spendGC then
+              e:spendGC(repairCost)
+            elseif e.components and e.components.progression and e.components.progression.spendGC then
+              e.components.progression:spendGC(repairCost)
+            end
             Events.emit('player_respawn', {player = e})
           end
           e._destructionProcessed = true

@@ -4,6 +4,7 @@ local Normalizer = require("src.content.normalizer")
 local Builder = require("src.templates.builder")
 local Log = require("src.core.log")
 local Util = require("src.core.util")
+local TurretCore = require("src.systems.turret.core")
 
 -- A registry for entity blueprints/templates.
 local entity_templates = {
@@ -116,6 +117,45 @@ function EntityFactory.createEnemy(shipId, x, y)
     }
     local enemy = EntityFactory.create("ship", shipId, x, y, config)
     if enemy and enemy.components then
+        -- Ensure enemy ships spawn with their configured turrets equipped
+        local hardpoints = shipConfig and shipConfig.hardpoints
+        local equipment = enemy.components.equipment
+        if hardpoints and equipment and equipment.grid then
+            local grid = equipment.grid
+            local function getSlot(index)
+                if not grid[index] then
+                    grid[index] = { slot = index, id = nil, module = nil, enabled = false, type = nil }
+                end
+                return grid[index]
+            end
+
+            local nextSlot = 1
+            for _, hardpoint in ipairs(hardpoints) do
+                local turretId = hardpoint.turret or hardpoint.id
+                if turretId then
+                    local turretDef = Content.getTurret(turretId)
+                    if turretDef then
+                        local turretParams = Util.deepCopy(turretDef)
+                        turretParams.fireMode = turretParams.fireMode or "automatic"
+                        local turretInstance = TurretCore.new(enemy, turretParams)
+                        turretInstance.fireMode = "automatic"
+                        turretInstance.autoFire = true
+
+                        local slotIndex = hardpoint.slot or nextSlot
+                        local slot = getSlot(slotIndex)
+                        slot.id = turretId
+                        slot.module = turretInstance
+                        slot.enabled = true
+                        slot.type = "turret"
+
+                        nextSlot = math.max(nextSlot, slotIndex + 1)
+                    else
+                        Log.warn("EntityFactory - Missing turret definition for", tostring(turretId))
+                    end
+                end
+            end
+        end
+
         -- Mark bosses for special handling
         if shipId == 'boss_drone' then
             enemy.isBoss = true

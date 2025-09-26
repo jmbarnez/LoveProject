@@ -29,7 +29,14 @@ function Turret.new(owner, params)
 
     -- Firing facing tolerance: enemies must face target within this angle to fire
     -- (radians). Players/friendly turrets are not restricted by this.
-    self.fireFacingTolerance = params.fireFacingTolerance or math.rad(12)
+    -- Turrets now ignore facing by default so AI can fire in any direction
+    -- while maneuvering. Leave a hook for configs that explicitly want a
+    -- tolerance by allowing params.fireFacingTolerance to override.
+    if params.fireFacingTolerance then
+        self.fireFacingTolerance = params.fireFacingTolerance
+    else
+        self.fireFacingTolerance = nil
+    end
 
     -- Visual and audio parameters
     self.tracer = params.tracer or {}
@@ -126,7 +133,7 @@ function Turret:update(dt, target, locked, world)
     -- or towards a specific target for utility beams (mining/salvaging)
     -- Prevent enemy turrets from firing until the owner is facing the target
     -- Skip facing check for lasers since they aim directly at the target
-    if self.kind ~= "laser" and target and self.owner and not (self.owner.isPlayer or self.owner.isFriendly) then
+    if self.fireFacingTolerance and self.kind ~= "laser" and target and self.owner and not (self.owner.isPlayer or self.owner.isFriendly) then
         if target.components and target.components.position and self.owner.components and self.owner.components.position then
             local tx = target.components.position.x
             local ty = target.components.position.y
@@ -138,7 +145,7 @@ function Turret:update(dt, target, locked, world)
             -- Normalize to [-pi,pi]
             local nd = math.atan2(math.sin(diff), math.cos(diff))
             -- More forgiving facing tolerance for enemy ships to allow firing while orbiting
-            local tolerance = self.fireFacingTolerance or (self.owner.isPlayer and math.pi/6 or math.pi/3)  -- 60 degrees for enemies, 30 for players
+            local tolerance = self.fireFacingTolerance or (self.owner.isPlayer and math.pi / 6 or math.pi / 3)
             if math.abs(nd) > tolerance then
                 -- Not facing yet; skip firing this update
                 self.firing = false

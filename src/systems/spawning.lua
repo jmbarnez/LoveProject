@@ -101,7 +101,23 @@ local function spawnEnemy(player, hub, world)
       local minP = (Config.SPAWN and Config.SPAWN.MIN_PLAYER_DIST) or 450  -- Reduced from 600 for closer spawns
       okPlayer = (dxp*dxp + dyp*dyp) > (minP * minP)
     end
-  until (okStations and okPlayer and okNoSpawnZones) or attempts > 200
+    local suppressDeathSpawn = world._suppressPlayerDeathSpawn
+    local playerEntity = getPlayer(world)
+    local safeFromPlayerDeath = true
+    if suppressDeathSpawn and playerEntity and playerEntity.components and playerEntity.components.position then
+      local px = playerEntity.components.position.x
+      local py = playerEntity.components.position.y
+      local dx = x - px
+      local dy = y - py
+      local distSq = dx * dx + dy * dy
+      safeFromPlayerDeath = distSq >= (minP * minP)
+    end
+
+  until (okStations and okPlayer and okNoSpawnZones and safeFromPlayerDeath) or attempts > 200
+
+  if world._suppressPlayerDeathSpawn then
+    world._suppressPlayerDeathSpawn = nil
+  end
 
   -- Use the factory to create a basic drone.
   local enemyShip = EntityFactory.createEnemy("basic_drone", x, y)
