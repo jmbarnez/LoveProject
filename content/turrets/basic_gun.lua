@@ -8,15 +8,18 @@ return {
   icon = {
     size = 32,
     shapes = {
-      -- Gun barrel
-      { type = "rectangle", mode = "fill", color = {0.7, 0.7, 0.7, 1}, x = 8, y = 12, w = 16, h = 8, rx = 1 },
-      -- Gun housing
-      { type = "rectangle", mode = "fill", color = {0.5, 0.5, 0.5, 1}, x = 4, y = 8, w = 24, h = 16, rx = 2 },
-      -- Muzzle
-      { type = "rectangle", mode = "fill", color = {0.9, 0.8, 0.6, 1}, x = 24, y = 14, w = 4, h = 4, rx = 0.5 },
-      -- Details
-      { type = "rectangle", mode = "fill", color = {0.3, 0.3, 0.3, 1}, x = 6, y = 10, w = 3, h = 2, rx = 0.5 },
-      { type = "rectangle", mode = "fill", color = {0.3, 0.3, 0.3, 1}, x = 23, y = 10, w = 3, h = 2, rx = 0.5 },
+      -- Faceted chassis panels
+      { type = "polygon", mode = "fill", color = {0.10, 0.14, 0.20, 1}, points = {4, 12, 8, 6, 24, 6, 28, 12, 24, 20, 8, 20} },
+      { type = "polygon", mode = "fill", color = {0.22, 0.30, 0.38, 1}, points = {6, 13, 10, 9, 22, 9, 26, 13, 22, 19, 10, 19} },
+      -- Magnetic rail shrouds
+      { type = "rectangle", mode = "fill", color = {0.00, 0.65, 0.95, 0.85}, x = 9, y = 12, w = 14, h = 3, rx = 1 },
+      { type = "rectangle", mode = "fill", color = {0.00, 0.65, 0.95, 0.7}, x = 9, y = 18, w = 14, h = 2, rx = 1 },
+      -- Barrel core and muzzle bloom
+      { type = "rectangle", mode = "fill", color = {0.55, 0.80, 1.00, 1}, x = 14, y = 6, w = 4, h = 13, rx = 1 },
+      { type = "circle", mode = "fill", color = {0.95, 0.98, 1.00, 0.9}, x = 16, y = 6, r = 3 },
+      -- Targeting lights
+      { type = "circle", mode = "fill", color = {0.00, 0.85, 1.00, 0.85}, x = 11, y = 15, r = 1.2 },
+      { type = "circle", mode = "fill", color = {0.00, 0.85, 1.00, 0.85}, x = 21, y = 15, r = 1.2 },
     }
   },
   spread = { minDeg = 0.15, maxDeg = 1.2, decay = 600 }, -- Much tighter spread for excellent accuracy

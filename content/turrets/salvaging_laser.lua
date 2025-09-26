@@ -8,19 +8,24 @@ return {
   icon = {
     size = 32,
     shapes = {
-      -- Salvaging laser housing
-      { type = "rectangle", mode = "fill", color = {0.2, 0.5, 0.2, 1}, x = 6, y = 10, w = 20, h = 12, rx = 1 },
-      -- Lens
-      { type = "circle", mode = "fill", color = {0.4, 0.8, 0.4, 1}, x = 16, y = 16, r = 3 },
-      -- Salvaging beam
-      { type = "rectangle", mode = "fill", color = {0.5, 1.0, 0.5, 0.7}, x = 15, y = 4, w = 2, h = 12 },
-      -- Salvage particles
-      { type = "circle", mode = "fill", color = {0.6, 1.0, 0.6, 0.5}, x = 16, y = 8, r = 1 },
-      { type = "circle", mode = "fill", color = {0.6, 1.0, 0.6, 0.5}, x = 14, y = 12, r = 1 },
-      { type = "circle", mode = "fill", color = {0.6, 1.0, 0.6, 0.5}, x = 18, y = 10, r = 1 },
-      -- Magnet attachment
-      { type = "circle", mode = "fill", color = {0.3, 0.6, 0.3, 1}, x = 16, y = 22, r = 4 },
-      { type = "rectangle", mode = "fill", color = {0.4, 0.7, 0.4, 1}, x = 14, y = 20, w = 4, h = 2 },
+      -- Adaptive salvage frame
+      { type = "polygon", mode = "fill", color = {0.08, 0.12, 0.10, 1}, points = {6, 24, 9, 10, 23, 10, 26, 24, 16, 30} },
+      { type = "polygon", mode = "fill", color = {0.16, 0.36, 0.20, 1}, points = {8, 20, 12, 12, 20, 12, 24, 20, 16, 26} },
+      -- Stabilized emitter core
+      { type = "circle", mode = "fill", color = {0.12, 0.35, 0.18, 1}, x = 16, y = 12, r = 3.2 },
+      { type = "circle", mode = "fill", color = {0.40, 0.85, 0.45, 0.95}, x = 16, y = 12, r = 2 },
+      -- Salvage beam
+      { type = "polygon", mode = "fill", color = {0.45, 1.00, 0.60, 0.75}, points = {14, 13, 18, 13, 22, 28, 10, 28} },
+      { type = "polygon", mode = "fill", color = {0.70, 1.00, 0.80, 0.85}, points = {15, 13, 17, 13, 20, 28, 12, 28} },
+      -- Magnetized recovery claws
+      { type = "polygon", mode = "fill", color = {0.05, 0.45, 0.28, 1}, points = {10, 20, 6, 24, 10, 24, 12, 22} },
+      { type = "polygon", mode = "fill", color = {0.05, 0.45, 0.28, 1}, points = {22, 20, 26, 24, 22, 24, 20, 22} },
+      -- Salvaged fragment
+      { type = "polygon", mode = "fill", color = {0.65, 0.82, 0.65, 0.9}, points = {13, 26, 16, 29, 19, 26, 16, 23} },
+      { type = "polygon", mode = "line", color = {0.80, 1.00, 0.80, 0.65}, points = {13, 26, 16, 29, 19, 26, 16, 23}, lineWidth = 1 },
+      -- Scanner lights
+      { type = "circle", mode = "fill", color = {0.40, 1.00, 0.60, 0.9}, x = 12, y = 18, r = 1.1 },
+      { type = "circle", mode = "fill", color = {0.40, 1.00, 0.60, 0.9}, x = 20, y = 18, r = 1.1 },
     }
   },
   -- Visuals: green salvaging beam
@@ -45,3 +50,4 @@ return {
   -- Firing mode: "manual" or "automatic"
   fireMode = "manual" -- Salvaging lasers should be manually controlled
 }
+
