@@ -362,7 +362,7 @@ end
 function Input.textinput(text)
     if mainState.UIManager.isOpen("inventory") then
         local Inventory = getInventoryModule()
-        if Inventory.textinput and Inventory.textinput() then
+        if Inventory.textinput and Inventory.textinput(text) then
             return
         end
     end
