@@ -60,6 +60,18 @@ UIManager.layerOrder = {
   "debug"
 }
 
+local function isTextInputFocused()
+    if UIManager.state.inventory.open and Inventory.isSearchInputActive and Inventory.isSearchInputActive() then
+        return true
+    end
+
+    if UIManager.state.docked.open and DockedUI.isSearchActive and DockedUI.isSearchActive() then
+        return true
+    end
+
+    return false
+end
+
 -- Modal state - when true, blocks input to lower layers
 UIManager.modalActive = false
 UIManager.modalComponent = nil
@@ -742,6 +754,8 @@ end
 
 -- Handle keyboard input for UI components
 function UIManager.keypressed(key, scancode, isrepeat)
+  local textInputFocused = isTextInputFocused()
+
   -- Check for global hotkeys first
   if key == "escape" then
     -- Priority order: escape menu > docked UI > other modals
@@ -776,14 +790,18 @@ function UIManager.keypressed(key, scancode, isrepeat)
     end
     return true
   elseif key == "i" then
-    UIManager.toggle("inventory")
-    return true
+    if not textInputFocused then
+      UIManager.toggle("inventory")
+      return true
+    end
   end
 
   -- Also accept TAB as inventory toggle at UI manager level so tab works regardless
   if key == "tab" then
-    UIManager.toggle("inventory")
-    return true
+    if not textInputFocused then
+      UIManager.toggle("inventory")
+      return true
+    end
   end
   
   -- Route to active components
