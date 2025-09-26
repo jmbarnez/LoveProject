@@ -16,7 +16,6 @@ function Ship.debugTurrets()
   -- No-op in production; left for potential future debugging hooks
 end
 
-local UI = require("src.core.ui")
 local Theme = require("src.core.theme")
 local Content = require("src.content.content")
 local Turret = require("src.systems.turret.core")
@@ -26,6 +25,42 @@ local IconSystem = require("src.core.icon_system")
 local Tooltip = require("src.ui.tooltip")
 local Log = require("src.core.log")
 local Dropdown = require("src.ui.common.dropdown")
+local PlayerRef = require("src.core.player_ref")
+
+local function normalizePressArgs(playerArg, xArg, yArg, buttonArg)
+    local player, x, y, button = playerArg, xArg, yArg, buttonArg
+
+    if button == nil and type(player) == "number" and type(x) == "number" then
+        button = y
+        y = x
+        x = player
+        player = nil
+    end
+
+    if type(player) ~= "table" or not player.components then
+        player = PlayerRef.get()
+    end
+
+    return player, x, y, button
+end
+
+local function normalizeMoveArgs(playerArg, xArg, yArg, dxArg, dyArg)
+    local player, x, y, dx, dy = playerArg, xArg, yArg, dxArg, dyArg
+
+    if dy == nil and type(player) == "number" and type(x) == "number" and type(y) == "number" then
+        dy = dx
+        dx = y
+        y = x
+        x = player
+        player = nil
+    end
+
+    if type(player) ~= "table" or not player.components then
+        player = PlayerRef.get()
+    end
+
+    return player, x, y, dx, dy
+end
 
 function Ship:new()
     local o = {}
@@ -40,16 +75,85 @@ function Ship:new()
         useLoadPanelTheme = true,
         draggable = true,
         closable = true,
-        drawContent = function(window, x, y, w, h) o:draw(player, x, y, w, h) end
+        drawContent = function(window, x, y, w, h) o:draw(nil, x, y, w, h) end,
+        onShow = function()
+            Ship.visible = true
+        end,
+        onClose = function()
+            Ship.visible = false
+        end
     })
+    Ship.window = o.window
+    Ship._instance = Ship._instance or o
     return o
 end
 
 -- Drag state for drag-and-drop equipping
 Ship.drag = nil -- { from = 'inventory'|'slot', id = string, slot = number }
 Ship.removeButtons = {}
+Ship.visible = false
+Ship._instance = nil
+
+function Ship.ensure()
+  if not Ship._instance then
+    Ship._instance = Ship:new()
+  end
+  return Ship._instance
+end
+
+function Ship.show()
+  local instance = Ship.ensure()
+  Ship.visible = true
+  if instance.window then
+    if not instance.window.visible then
+      do
+        local Viewport = require("src.core.viewport")
+        local sw, sh = Viewport.getDimensions()
+        instance.window.x = math.floor((sw - instance.window.width) * 0.5)
+        instance.window.y = math.floor((sh - instance.window.height) * 0.5)
+      end
+    end
+    instance.window:show()
+  end
+  local player = PlayerRef.get()
+  if player then
+    instance:updateDropdowns(player)
+  end
+  return true
+end
+
+function Ship.hide()
+  if not Ship._instance then
+    Ship.visible = false
+    return false
+  end
+  if Ship._instance.window then
+    Ship._instance.window:hide()
+  end
+  Ship.visible = false
+  return false
+end
+
+function Ship.toggle()
+  if Ship.visible then
+    return Ship.hide()
+  else
+    return Ship.show()
+  end
+end
+
+function Ship:getWindow()
+    local instance = Ship.ensure()
+    return instance.window
+end
+
+function Ship:getInstance()
+    return Ship.ensure()
+end
 
 function Ship:updateDropdowns(player)
+    player = player or PlayerRef.get()
+    if not player then return end
     local equipment = player.components and player.components.equipment
     if not equipment or not equipment.grid then return end
 
@@ -142,6 +246,8 @@ function Ship:updateDropdowns(player)
 end
 
 function Ship:draw(player, x, y, w, h)
+  player = player or PlayerRef.get()
+  if not player then return end
   -- Safety checks for parameters
   if not x or not y or not w or not h then
     return
@@ -316,43 +422,112 @@ function Ship:drawDropdownOptions()
     end
 end
 
-function Ship:mousepressed(player, x, y, button)
-    if button == 1 then
-        if player and player.components and player.components.equipment then
-            local grid = player.components.equipment.grid
-            for i, btn in ipairs(self.removeButtons) do
-                if btn.rect and pointInRect(x, y, btn.rect) then
-                    if grid and grid[i] and grid[i].module then
-                        player:unequipModule(i)
-                        self:updateDropdowns(player)
-                        if InventoryUI and InventoryUI.refresh then
-                            InventoryUI.refresh()
-                        end
-                        return true, false
-                    end
-                end
+function Ship:mousepressed(playerArg, xArg, yArg, buttonArg)
+    local instance = Ship.ensure()
+    if not Ship.visible or not instance.window or not instance.window.visible then
+        return false
+    end
+
+    local player, x, y, button = normalizePressArgs(playerArg, xArg, yArg, buttonArg)
+    if not x or not y or not button then
+        return false
+    end
+
+    local handled = instance.window:mousepressed(x, y, button)
+    if handled then
+        return true, false
+    end
+
+    local dropdownHandled = false
+    if instance.slotDropdowns then
+        for _, dropdown in ipairs(instance.slotDropdowns) do
+            if dropdown:mousepressed(x, y, button) then
+                dropdownHandled = true
+                break
             end
         end
-        for i, dropdown in ipairs(self.slotDropdowns) do
-            if dropdown:mousepressed(x, y, button) then
+    end
+    if dropdownHandled then
+        return true, false
+    end
+
+    local content = instance.window:getContentBounds()
+    if not content or x < content.x or x > content.x + content.w or y < content.y or y > content.y + content.h then
+        return false
+    end
+
+    if not player or type(player) ~= "table" then
+        return false
+    end
+
+    if button == 1 and instance.removeButtons then
+        for index, removeButton in ipairs(instance.removeButtons) do
+            local rect = removeButton and removeButton.rect
+            if rect and pointInRect(x, y, rect) then
+                local unequipped = player.unequipModule and player:unequipModule(index)
+                if unequipped then
+                    instance:updateDropdowns(player)
+                    if InventoryUI and InventoryUI.refresh then
+                        InventoryUI.refresh()
+                    end
+                end
                 return true, false
             end
         end
     end
+
     return false
 end
 
-function Ship:mousereleased(player, x, y, button)
-  return false, false
-end
+function Ship:mousereleased(playerArg, xArg, yArg, buttonArg)
+    local instance = Ship.ensure()
+    if not Ship.visible or not instance.window or not instance.window.visible then
+        return false, false
+    end
 
-function Ship:mousemoved(player, x, y, dx, dy)
-    local handled = false
-    for _, dropdown in ipairs(self.slotDropdowns) do
-        if dropdown and dropdown:mousemoved(x, y) then
-            handled = true
+    local player, x, y, button = normalizePressArgs(playerArg, xArg, yArg, buttonArg)
+    if not x or not y or not button then
+        return false, false
+    end
+
+    local handled = instance.window:mousereleased(x, y, button)
+    if handled then
+        return true, false
+    end
+
+    if instance.slotDropdowns then
+        for _, dropdown in ipairs(instance.slotDropdowns) do
+            if dropdown.mousereleased then
+                local dropdownHandled = dropdown:mousereleased(x, y, button)
+                if dropdownHandled then
+                    return true, false
+                end
+            end
         end
     end
+
+    return false, false
+end
+
+function Ship:mousemoved(playerArg, xArg, yArg, dxArg, dyArg)
+    local instance = Ship.ensure()
+    if not Ship.visible or not instance.window or not instance.window.visible then
+        return false
+    end
+
+    local player, x, y, dx, dy = normalizeMoveArgs(playerArg, xArg, yArg, dxArg, dyArg)
+    if not x or not y or dx == nil or dy == nil then
+        return false
+    end
+
+    local handled = instance.window:mousemoved(x, y, dx, dy)
+
+    if instance.slotDropdowns then
+        for _, dropdown in ipairs(instance.slotDropdowns) do
+            dropdown:mousemoved(x, y)
+        end
+    end
+
     return handled
 end
 

@@ -68,6 +68,9 @@ end
 -- Show the window
 function Window:show()
   self.visible = true
+  if self.onShow then
+    self.onShow(self)
+  end
 end
 
 -- Hide the window

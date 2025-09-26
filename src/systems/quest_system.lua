@@ -35,12 +35,49 @@ function QuestSystem.addQuest(player, quest)
     questLog:add(quest)
     questLog.progress[quest.id] = 0
     questLog.startTimes[quest.id] = love.timer.getTime()
+
+    player.active_quests = player.active_quests or {}
+    table.insert(player.active_quests, quest)
 end
 
 function QuestSystem.removeQuest(player, quest)
     local questLog = ensureQuestLog(player)
     if not questLog or not quest then return end
     questLog:remove(quest.id)
+
+    if player.active_quests then
+        for i = #player.active_quests, 1, -1 do
+            if player.active_quests[i].id == quest.id then
+                table.remove(player.active_quests, i)
+            end
+        end
+    end
+end
+
+function QuestSystem.startQuest(player, quest)
+    if not player or not quest then return false end
+
+    if QuestSystem.start then
+        local result = QuestSystem.start(player, quest)
+        if result then
+            QuestSystem.addQuest(player, quest)
+        end
+        return result
+    end
+
+    QuestSystem.addQuest(player, quest)
+    return true
+end
+
+function QuestSystem.completeQuest(player, quest)
+    if not player or not quest then return false end
+
+    if QuestSystem.complete then
+        QuestSystem.complete(player, quest)
+    end
+
+    QuestSystem.removeQuest(player, quest)
+    return true
 end
 
 function QuestSystem.addProgress(player, questId, amount)

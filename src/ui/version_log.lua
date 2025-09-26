@@ -31,14 +31,16 @@ local VersionLog = {
 }
 
 local REFRESH_INTERVAL = 60
-local ENTRY_PADDING_Y = 12
-local ENTRY_SPACING = 12
+local ENTRY_PADDING_Y = 16
+local ENTRY_SPACING = 24
+local BODY_PARAGRAPH_SPACING = 10
 local TEXT_LEFT_MARGIN = 16
 local TEXT_RIGHT_PADDING = 12
 local BULLET_INDENT = 12
 local SCROLL_TRACK_WIDTH = 8
 local SCROLL_EXTRA_GAP = 8
 local PATH_SEPARATOR = package.config and package.config:sub(1, 1) or "/"
+local DISPLAY_VERSION_HEADER = "Version 0.3"
 
 local function getCommitGroupCount(data)
     if type(data) ~= "table" then
@@ -63,11 +65,14 @@ end
 
 local function wrapText(font, text, width)
     if not text or text == "" then
-        return {}
+        return { "" }
     end
     if width and width > 0 then
-        local wrapped = { font:getWrap(text, width) }
-        return wrapped[1] or { text }
+        local wraps = { font:getWrap(text, width) }
+        local lines = wraps[1]
+        if type(lines) == "table" and #lines > 0 then
+            return lines
+        end
     end
     return { text }
 end
@@ -84,9 +89,6 @@ local function normalizeFallbackCommits(data)
 
     local grouped = {}
     local order = {}
-    local defaultKey = "Changelog"
-    grouped[defaultKey] = {}
-    table.insert(order, defaultKey)
 
     local function collectBodyLines(value)
         local lines = {}
@@ -107,7 +109,7 @@ local function normalizeFallbackCommits(data)
     end
 
     for index, entry in ipairs(data) do
-        if type(entry) == "table" and entry.subject then
+        if type(entry) == "table" and (entry.subject or entry.version) then
             local bodyLines = {}
             if entry.details then
                 local lines = collectBodyLines(entry.details)
@@ -122,20 +124,26 @@ local function normalizeFallbackCommits(data)
                 for _, line in ipairs(lines) do table.insert(bodyLines, line) end
             end
 
+            local versionKey = DISPLAY_VERSION_HEADER
+            if not grouped[versionKey] then
+                grouped[versionKey] = {}
+                table.insert(order, versionKey)
+            end
+
             local commit = {
                 hash = entry.hash or string.format("fallback_%d", index),
                 short = entry.short or entry.relative or string.format("#%d", index),
                 author = entry.author or "",
                 date = entry.date or entry.relative or "",
-                subject = entry.subject,
+                subject = entry.subject or string.format("Entry %d", index),
                 bodyLines = bodyLines,
             }
 
-            table.insert(grouped[defaultKey], commit)
+            table.insert(grouped[versionKey], commit)
         end
     end
 
-    if #grouped[defaultKey] == 0 then
+    if #order == 0 then
         return nil, "fallback_invalid"
     end
 
@@ -382,7 +390,7 @@ function VersionLog.draw(x, y, w, h)
             for _, versionKey in ipairs(commitData.order) do
                 local commits = commitData.grouped[versionKey]
                 if commits then
-                    local versionHeader = string.format("Version %s", versionKey)
+                    local versionHeader = versionKey
                     local headerHeight = lineHeight + ENTRY_PADDING_Y * 2
                     totalContentHeight = totalContentHeight + headerHeight + ENTRY_SPACING
                     table.insert(VersionLog.layoutCache.entries, {
@@ -392,46 +400,60 @@ function VersionLog.draw(x, y, w, h)
                     })
 
                     for _, commit in ipairs(commits) do
-                        local headerText = string.format("%s (%s)", commit.subject or "", commit.short or "")
+                        local headerText = commit.subject or ""
                         local headerLines = wrapText(font, headerText, textColumnWidth)
-                        if type(headerLines) ~= "table" then
-                            headerLines = { tostring(headerLines) }
-                        end
-                        if #headerLines == 0 then
-                            headerLines = { "" }
-                        end
 
                         local metaLines = {}
-                        local metaText
-                        if commit.date or commit.author then
-                            metaText = string.format("%s • %s", commit.date or "", commit.author or "")
+                        if (commit.date and commit.date ~= "") or (commit.author and commit.author ~= "") then
+                            local parts = {}
+                            if commit.date and commit.date ~= "" then table.insert(parts, commit.date) end
+                            if commit.author and commit.author ~= "" then table.insert(parts, commit.author) end
+                            local metaText = table.concat(parts, " • ")
                             metaLines = wrapText(font, metaText, textColumnWidth)
-                            if type(metaLines) ~= "table" then
-                                metaLines = { tostring(metaLines) }
+                        end
+
+                        local sections = {}
+                        if commit.bodyLines and #commit.bodyLines > 0 then
+                            local current = {}
+                            for _, line in ipairs(commit.bodyLines) do
+                                if line:match("%S") then
+                                    table.insert(current, line)
+                                elseif #current > 0 then
+                                    table.insert(sections, current)
+                                    current = {}
+                                end
+                            end
+                            if #current > 0 then
+                                table.insert(sections, current)
                             end
                         end
 
                         local bodyWraps = {}
-                        if commit.bodyLines and #commit.bodyLines > 0 then
-                            for _, line in ipairs(commit.bodyLines) do
+                        for _, paragraph in ipairs(sections) do
+                            local wraps = {}
+                            for _, line in ipairs(paragraph) do
                                 local wrapLines = wrapText(font, line, bodyColumnWidth)
-                                if type(wrapLines) ~= "table" then
-                                    wrapLines = { tostring(wrapLines) }
-                                end
-                                table.insert(bodyWraps, { lines = wrapLines })
+                                table.insert(wraps, wrapLines)
                             end
+                            table.insert(bodyWraps, wraps)
                         end
 
                         local commitHeaderHeight = #headerLines * lineHeight
-                        local metaHeight = #metaLines * lineHeight
-                        local bodyHeight = 0
-                        for _, wrap in ipairs(bodyWraps) do
-                            bodyHeight = bodyHeight + (#wrap.lines * lineHeight) + 2
+                        local metaHeight = (#metaLines > 0 and (#metaLines * lineHeight + BODY_PARAGRAPH_SPACING * 0.5)) or 0
+                        local bodyHeight = (#bodyWraps > 0) and BODY_PARAGRAPH_SPACING or 0
+                        for _, paragraph in ipairs(bodyWraps) do
+                            for _, wrapLines in ipairs(paragraph) do
+                                bodyHeight = bodyHeight + (#wrapLines * lineHeight)
+                            end
+                            bodyHeight = bodyHeight + BODY_PARAGRAPH_SPACING
+                        end
+                        if bodyHeight > 0 then
+                            bodyHeight = bodyHeight - BODY_PARAGRAPH_SPACING
                         end
 
                         local entryHeight = ENTRY_PADDING_Y * 2 + commitHeaderHeight + metaHeight
                         if bodyHeight > 0 then
-                            entryHeight = entryHeight + bodyHeight + 6
+                            entryHeight = entryHeight + BODY_PARAGRAPH_SPACING + bodyHeight
                         end
 
                         totalContentHeight = totalContentHeight + entryHeight + ENTRY_SPACING
@@ -502,14 +524,20 @@ function VersionLog.draw(x, y, w, h)
         local reservedTrackSpace = trackWidth + SCROLL_EXTRA_GAP
         local textAreaWidth = math.max(0, listW - reservedTrackSpace)
         local textX = listX + TEXT_LEFT_MARGIN
+        local textWidth = math.max(0, textAreaWidth - TEXT_LEFT_MARGIN - TEXT_RIGHT_PADDING)
 
         for _, entry in ipairs(VersionLog.layoutCache.entries) do
             local entryTop = rowY
             local entryBottom = rowY + entry.height
             if entryBottom >= listY - ENTRY_SPACING and entryTop <= listY + listH + ENTRY_SPACING then
                 if entry.kind == "version" then
+                    local headerLines = wrapText(font, entry.text, textWidth)
                     Theme.setColor(Theme.colors.accentGold or Theme.colors.accent)
-                    love.graphics.print(entry.text, textX, entryTop + ENTRY_PADDING_Y)
+                    local cursorY = entryTop + ENTRY_PADDING_Y
+                    for _, line in ipairs(headerLines) do
+                        love.graphics.print(line, textX, cursorY)
+                        cursorY = cursorY + lineHeight
+                    end
                 elseif entry.kind == "commit" then
                     local commit = entry.commit
                     local cursorY = entryTop + ENTRY_PADDING_Y
@@ -520,6 +548,7 @@ function VersionLog.draw(x, y, w, h)
                     end
 
                     if entry.metaLines and #entry.metaLines > 0 then
+                        cursorY = cursorY + BODY_PARAGRAPH_SPACING * 0.5
                         Theme.setColor(Theme.colors.textSecondary)
                         for _, line in ipairs(entry.metaLines) do
                             love.graphics.print(line, textX, cursorY)
@@ -528,16 +557,20 @@ function VersionLog.draw(x, y, w, h)
                     end
 
                     if entry.bodyWraps and #entry.bodyWraps > 0 then
-                        cursorY = cursorY + 4
+                        cursorY = cursorY + BODY_PARAGRAPH_SPACING
                         Theme.setColor(Theme.colors.text)
-                            local bulletIndent = BULLET_INDENT
-                        for _, wrap in ipairs(entry.bodyWraps) do
-                            for _, line in ipairs(wrap.lines) do
-                                love.graphics.print("•", textX, cursorY)
-                                love.graphics.print(line, textX + bulletIndent, cursorY)
-                                cursorY = cursorY + lineHeight
+                        local bulletIndent = BULLET_INDENT
+                        for paragraphIndex, paragraph in ipairs(entry.bodyWraps) do
+                            for _, wrapLines in ipairs(paragraph) do
+                                for _, line in ipairs(wrapLines) do
+                                    love.graphics.print("•", textX, cursorY)
+                                    love.graphics.print(line, textX + bulletIndent, cursorY)
+                                    cursorY = cursorY + lineHeight
+                                end
                             end
-                            cursorY = cursorY + 2
+                            if paragraphIndex < #entry.bodyWraps then
+                                cursorY = cursorY + BODY_PARAGRAPH_SPACING
+                            end
                         end
                     end
 

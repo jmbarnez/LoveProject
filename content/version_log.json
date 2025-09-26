@@ -1,15 +1,21 @@
 [
   {
-    "version": "0.6.2",
-    "subject": "Refactor Destruction and Spawning Systems for Player Death Handling",
-    "date": "2025-09-24",
+    "subject": "Stabilize 0.3 launch build",
+    "date": "2025-09-26",
     "notes": [
-      "Ensure player death triggers destruction effects consistently",
-      "Improve spawning cleanup to avoid lingering projectiles"
+      "Bundled fallback changelog for launcher",
+      "Simplified version log presentation"
     ]
   },
   {
-    "version": "0.6.1",
+    "subject": "Refactor Destruction and Spawning Systems",
+    "date": "2025-09-24",
+    "notes": [
+      "Ensured player death triggers destruction effects consistently",
+      "Improved spawning cleanup to avoid lingering projectiles"
+    ]
+  },
+  {
     "subject": "Enhance turret configurations and player systems",
     "date": "2025-09-21",
     "body": [
@@ -18,7 +24,6 @@
     ]
   },
   {
-    "version": "0.6.0",
     "subject": "Refactor UI architecture and enhance input handling",
     "date": "2025-09-18",
     "details": [

@@ -149,7 +149,9 @@ function Input.keypressed(key)
         local Inventory = getInventoryModule()
         -- Loot container UI has been removed
     end
-    if key == keymap.toggle_inventory then mainState.UIManager.toggle("inventory") end
+    if key == keymap.toggle_inventory or key == keymap.toggle_ship then
+        mainState.UIManager.toggle("ship")
+    end
     if key == keymap.toggle_bounty then mainState.UIManager.toggle("bounty") end
     if key == keymap.toggle_skills then SkillsPanel.toggle() end
     if key == keymap.toggle_map then Map.toggle(gameState and gameState.world) end

@@ -83,11 +83,19 @@ function Quests:draw(player, x, y, w, h)
       drawRewardRow(quest, cx + 10, cy + 48)
 
       -- Determine slot/quest state for buttons
+      local questLog = player and player.components and player.components.questLog
       local isAccepted = false
-      for _, aq in ipairs(player.active_quests or {}) do
-        if aq.id == quest.id then isAccepted = true break end
+      local readyTurnIn = false
+      if questLog and questLog.active then
+        for _, aq in ipairs(questLog.active) do
+          if aq.id == quest.id then
+            isAccepted = true
+            local readinessCheck = QuestSystem.isQuestReadyToTurnIn or QuestSystem.isReady
+            readyTurnIn = readinessCheck and readinessCheck(player, quest) or false
+            break
+          end
+        end
       end
-      local readyTurnIn = isAccepted and QuestSystem.isQuestReadyToTurnIn(player, quest)
 
       local btnW, btnH = 120, 28
       local btnX, btnY = cx + cw - btnW - 10, cy + ch - btnH - 10
@@ -190,7 +198,8 @@ function Quests:mousepressed(player, x, y, button)
         return true
       elseif btn.action == "turnin" and slot and slot.quest then
         -- Only allow if truly complete
-        if QuestSystem.isQuestReadyToTurnIn(player, slot.quest) then
+        local readinessCheck = QuestSystem.isQuestReadyToTurnIn or QuestSystem.isReady
+        if readinessCheck and readinessCheck(player, slot.quest) then
           QuestSystem.completeQuest(player, slot.quest)
           -- Start cooldown timer for this slot
           local cooldown = (Config.QUESTS and Config.QUESTS.REFRESH_AFTER_TURNIN_SEC) or (15 * 60)

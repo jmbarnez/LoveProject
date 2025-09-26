@@ -13,6 +13,7 @@ local Map = require("src.ui.map")
 local SettingsPanel = require("src.ui.settings_panel")
 local Warp = require("src.ui.warp")
 local DebugPanel = require("src.ui.debug_panel")
+local Ship = require("src.ui.ship")
 
 -- Normalize potentially-broken modules (protect against empty/incomplete inventory module)
 if type(Inventory) ~= "table" then
@@ -36,6 +37,7 @@ local warpInstance = Warp:new()
 -- Central UI state
 UIManager.state = {
   inventory = { open = false, zIndex = 10 },
+  ship = { open = false, zIndex = 15 },
   bounty = { open = false, zIndex = 20 },
   skills = { open = false, zIndex = 30 },
   docked = { open = false, zIndex = 40 },
@@ -50,6 +52,7 @@ UIManager.topZ = 120
 -- UI priorities for proper layering
 UIManager.layerOrder = {
   "inventory",
+  "ship",
   "bounty",
   "skills",
   "docked",
@@ -63,6 +66,10 @@ UIManager.layerOrder = {
 local function isTextInputFocused()
     if UIManager.state.inventory.open and Inventory.isSearchInputActive and Inventory.isSearchInputActive() then
         return true
+    end
+
+    if UIManager.state.ship.open then
+        return false
     end
 
     if UIManager.state.docked.open and DockedUI.isSearchActive and DockedUI.isSearchActive() then
@@ -84,6 +91,13 @@ local componentFallbacks = {
     onClose = function()
       UIManager.close("inventory")
     end,
+  },
+  ship = {
+    module = Ship,
+    onClose = function()
+      UIManager.close("ship")
+    end,
+    useSelf = true,
   },
   bounty = {
     module = Bounty,
@@ -169,6 +183,7 @@ function UIManager.init()
   if SkillsPanel.init then SkillsPanel.init() end
   if warpInstance.init then warpInstance:init() end
   if DebugPanel.init then DebugPanel.init() end
+  if Ship.init then Ship.init() end
   -- Register components in the UI registry once
   if not UIManager._registryInitialized then
     Registry.register({
@@ -176,6 +191,20 @@ function UIManager.init()
       isVisible = function() return UIManager.state.inventory.open or (Inventory and Inventory.visible) end,
       getZ = function() return (UIManager.state.inventory and UIManager.state.inventory.zIndex) or 0 end,
       getRect = function() return Inventory and Inventory.getRect and Inventory.getRect() or nil end,
+    })
+    Registry.register({
+      id = "ship",
+      isVisible = function()
+        return UIManager.state.ship.open
+      end,
+      getZ = function() return (UIManager.state.ship and UIManager.state.ship.zIndex) or 0 end,
+      getRect = function()
+        local win = Ship.window
+        if win then
+          return { x = win.x, y = win.y, w = win.width, h = win.height }
+        end
+        return nil
+      end,
     })
     Registry.register({
       id = "bounty",
@@ -375,6 +404,13 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
       elseif component == "docked" then
         if DockedUI.setBounty then DockedUI.setBounty(bounty) end
         DockedUI.draw(player)
+    elseif component == "ship" then
+      local shipUI = Ship.ensure()
+      local window = shipUI and shipUI.window
+      if window then
+        window.visible = Ship.visible
+        window:draw()
+      end
       elseif component == "skills" then
         SkillsPanel.draw()
       elseif component == "map" then
@@ -496,6 +532,8 @@ function UIManager.open(component)
     -- Sync with legacy UI systems
     if component == "inventory" then
       Inventory.visible = true
+    elseif component == "ship" then
+      Ship.show()
     elseif component == "bounty" then
       Bounty.visible = true
     elseif component == "docked" then
@@ -530,6 +568,8 @@ function UIManager.close(component)
     if component == "inventory" then
       Inventory.visible = false
       if Inventory.clearSearchFocus then Inventory.clearSearchFocus() end
+    elseif component == "ship" then
+      Ship.hide()
     elseif component == "bounty" then
       Bounty.visible = false
     elseif component == "docked" then
@@ -664,9 +704,6 @@ end
 -- Handle mouse release for UI components
 function UIManager.mousereleased(x, y, button)
   -- Give both Equipment panels priority so drops are handled before Inventory clears drags
-  if UIManager.state.docked.open and DockedUI and DockedUI.equipment and DockedUI.activeTab == "Ship" and DockedUI.equipment.mousereleased then
-    DockedUI.equipment:mousereleased(DockedUI.player, x, y, button)
-  end
   -- Process all open components for mouse release
   for _, component in ipairs(UIManager.layerOrder) do
     if UIManager.state[component].open then

@@ -108,6 +108,7 @@ local settings = {
     },
     keymap = {
         toggle_inventory = "tab",
+        toggle_ship = "g",
         toggle_bounty = "b",
         toggle_skills = "p",
         toggle_map = "m",

@@ -81,13 +81,25 @@ function Player.new(x, y, shipId)
 
   local equipment = self.components and self.components.equipment
   if equipment and equipment.grid then
-      local equippedTurret = self:equipModule(1, "basic_gun")
-      if not equippedTurret and self.components and self.components.cargo then
+      local function equipStartingModule(slotNum, moduleId)
+          local cargo = self.components and self.components.cargo
+          local seeded = false
+          if cargo and not cargo:has(moduleId, 1) then
+              self:addItem(moduleId, 1)
+              seeded = true
+          end
+          local equipped = self:equipModule(slotNum, moduleId)
+          if not equipped and seeded and cargo then
+              cargo:remove(moduleId, 1)
+          end
+          return equipped
+      end
+
+      if not equipStartingModule(1, "basic_gun") and self.components and self.components.cargo then
           self:addItem("basic_gun", 1)
       end
 
-      local equippedShield = self:equipModule(2, "shield_module_basic")
-      if not equippedShield and self.components and self.components.cargo then
+      if not equipStartingModule(2, "shield_module_basic") and self.components and self.components.cargo then
           self:addItem("shield_module_basic", 1)
       end
   end

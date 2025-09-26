@@ -5,7 +5,6 @@ local Viewport = require("src.core.viewport")
 local Tooltip = require("src.ui.tooltip")
 local Input = require("src.core.input")
 local Notifications = require("src.ui.notifications")
-local Ship = require("src.ui.ship")
 local Quests = require("src.ui.quests")
 local Nodes = require("src.ui.nodes")
 local IconSystem = require("src.core.icon_system")
@@ -13,6 +12,7 @@ local Window = require("src.ui.common.window")
 local UITabs = require("src.ui.common.tabs")
 local Shop = require("src.ui.docked.shop")
 local Dropdown = require("src.ui.common.dropdown")
+local Ship = require("src.ui.ship")
 
 local DockedUI = {}
 
@@ -49,7 +49,7 @@ DockedUI.contextMenuActive = false -- For text input focus
 DockedUI._bountyRef = nil
 
 -- New Tabbed Interface State
-DockedUI.tabs = {"Shop", "Ship", "Quests", "Nodes"}
+DockedUI.tabs = {"Shop", "Quests", "Nodes"}
 DockedUI.activeTab = "Shop"
 
 -- Window properties
@@ -68,9 +68,9 @@ function DockedUI.init()
         resizable = false,
         drawContent = DockedUI.drawContent,
         onClose = function()
-            if DockedUI.player then
-                DockedUI.player:undock()
-            end
+        if DockedUI.player then
+            DockedUI.player:undock()
+        end
         end
     })
     DockedUI.equipment = Ship:new()
@@ -103,8 +103,8 @@ function DockedUI.show(player, station)
     DockedUI.quests.station = station
   end
 
-  -- Update ship UI with current player equipment
-  if DockedUI.equipment and player then
+  -- Refresh shared ship UI instance with current player equipment
+  if player then
     DockedUI.equipment:updateDropdowns(player)
   end
 end
@@ -169,23 +169,17 @@ function DockedUI.drawContent(window, x, y, w, h)
         elseif DockedUI.activeShopTab == "Buyback" then
             DockedUI.drawBuybackItems(x + pad, shopContentY, w - pad * 2, shopContentH, player)
         end
-    elseif DockedUI.activeTab == "Ship" then
-        -- Ensure ship UI is updated with current player equipment
-        if DockedUI.equipment and player then
-          DockedUI.equipment:updateDropdowns(player)
-        end
-        DockedUI.equipment:draw(player, x + pad, contentY, w - pad * 2, contentH)
-    elseif DockedUI.activeTab == "Quests" then
+  elseif DockedUI.activeTab == "Quests" then
         DockedUI.quests:draw(player, x + pad, contentY, w - pad * 2, contentH)
     elseif DockedUI.activeTab == "Nodes" then
         DockedUI.nodes:draw(player, x + pad, contentY, w - pad * 2, contentH)
+    elseif DockedUI.activeTab == "Ship" then
+        if DockedUI.equipment and player then
+          DockedUI.equipment:updateDropdowns(player)
+          DockedUI.equipment:draw(player, x + pad, contentY, w - pad * 2, contentH)
+        end
     end
 
-    -- Category dropdown is handled by the standardized component
-    if DockedUI.activeTab == "Ship" then
-        DockedUI.equipment:drawDropdownOptions()
-    end
-    
     -- Draw context menu for numeric purchase/sale
     if DockedUI.contextMenu.visible then
         local menu = DockedUI.contextMenu
@@ -239,6 +233,10 @@ function DockedUI.drawContent(window, x, y, w, h)
         Theme.setColor(canAfford and Theme.colors.textHighlight or Theme.colors.textSecondary)
         love.graphics.printf(actionText, btnX, btnY + 6, btnW, "center")
         menu._buttonRect = { x = btnX, y = btnY, w = btnW, h = btnH }
+    end
+
+    if DockedUI.activeTab == "Ship" and DockedUI.equipment then
+        DockedUI.equipment:drawDropdownOptions()
     end
 end
 
@@ -435,7 +433,7 @@ function DockedUI.mousepressed(x, y, button)
         for _, tab in ipairs(DockedUI._mainTabs) do
             if x >= tab.x and x <= tab.x + tab.w and y >= tab.y and y <= tab.y + tab.h then
                 DockedUI.activeTab = tab.name
-                if tab.name == "Ship" then
+                if tab.name == "Ship" and DockedUI.equipment then
                     DockedUI.equipment:updateDropdowns(DockedUI.player)
                 end
                 return true, false
@@ -494,12 +492,12 @@ function DockedUI.mousepressed(x, y, button)
                 end
             end
         end
-    elseif DockedUI.activeTab == "Ship" and DockedUI.equipment then
-        return DockedUI.equipment:mousepressed(DockedUI.player, x, y, button)
     elseif DockedUI.activeTab == "Quests" and DockedUI.quests then
         return DockedUI.quests:mousepressed(DockedUI.player, x, y, button)
     elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
         return DockedUI.nodes:mousepressed(DockedUI.player, x, y, button)
+    elseif DockedUI.activeTab == "Ship" and DockedUI.equipment then
+        return DockedUI.equipment:mousepressed(DockedUI.player, x, y, button)
     end
 
     return false, false
@@ -521,12 +519,12 @@ function DockedUI.mousereleased(x, y, button)
     end
 
     -- Delegate to active tab
-    if DockedUI.activeTab == "Ship" and DockedUI.equipment then
-        return DockedUI.equipment:mousereleased(DockedUI.player, x, y, button)
-    elseif DockedUI.activeTab == "Quests" and DockedUI.quests then
+    if DockedUI.activeTab == "Quests" and DockedUI.quests then
         return DockedUI.quests:mousereleased(DockedUI.player, x, y, button)
     elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
         return DockedUI.nodes:mousereleased(DockedUI.player, x, y, button)
+    elseif DockedUI.activeTab == "Ship" and DockedUI.equipment then
+        return DockedUI.equipment:mousereleased(DockedUI.player, x, y, button)
     end
 
     return false, false
@@ -551,12 +549,12 @@ function DockedUI.mousemoved(x, y, dx, dy)
     end
 
     -- Delegate to active tab
-    if DockedUI.activeTab == "Ship" and DockedUI.equipment then
-        return DockedUI.equipment:mousemoved(DockedUI.player, x, y, dx, dy)
-    elseif DockedUI.activeTab == "Quests" and DockedUI.quests then
+    if DockedUI.activeTab == "Quests" and DockedUI.quests then
         return DockedUI.quests:mousemoved(DockedUI.player, x, y, dx, dy)
     elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
         return DockedUI.nodes:mousemoved(DockedUI.player, x, y, dx, dy)
+    elseif DockedUI.activeTab == "Ship" and DockedUI.equipment then
+        return DockedUI.equipment:mousemoved(DockedUI.player, x, y, dx, dy)
     end
 
     return false, false
@@ -690,9 +688,7 @@ end
 function DockedUI.update(dt)
   if not DockedUI.visible then return end
 
-  if DockedUI.activeTab == "Ship" and DockedUI.equipment then
-    DockedUI.equipment:update(dt)
-  elseif DockedUI.activeTab == "Quests" and DockedUI.quests then
+  if DockedUI.activeTab == "Quests" and DockedUI.quests then
     DockedUI.quests:update(dt)
   elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
     DockedUI.nodes:update(dt)
