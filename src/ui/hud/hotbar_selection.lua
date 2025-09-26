@@ -88,7 +88,7 @@ function HotbarSelection.draw()
 
         if item == "turret" then
             local Hotbar = require("src.ui.hud.hotbar")
-            Hotbar.drawTurretIcon("gun", Theme.colors.accent, itemX + 4, itemY + 4, panel.itemSize - 8)
+            Hotbar.drawTurretIcon("basic_gun", itemX + 4, itemY + 4, panel.itemSize - 8)
         elseif item == "boost" then
             local Hotbar = require("src.ui.hud.hotbar")
             Hotbar.drawBoostIcon(itemX + 4, itemY + 4, panel.itemSize - 8, true)
@@ -104,10 +104,9 @@ function HotbarSelection.draw()
                   end
                 end
                 if turret then
-                    local kind = turret.kind or 'gun'
-                    local col = (turret.tracer and turret.tracer.color) or Theme.colors.accent
+                    local subject = turret._sourceData or turret.id or turret.baseId or "basic_gun"
                     local Hotbar = require("src.ui.hud.hotbar")
-                    Hotbar.drawTurretIcon(kind, col, itemX + 4, itemY + 4, panel.itemSize - 8)
+                    Hotbar.drawTurretIcon(subject, itemX + 4, itemY + 4, panel.itemSize - 8)
                 end
             end
         end

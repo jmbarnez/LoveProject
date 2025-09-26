@@ -39,7 +39,11 @@ end
 -- Spawn a detonation visual burst
 function Effects.spawnDetonation(x, y, kind, color)
   -- Play explosion sound
-  Sound.triggerEventAt('ship_explosion', x, y)
+  if kind == "asteroid" then
+    Sound.triggerEventAt('asteroid_shatter', x, y)
+  else
+    Sound.triggerEventAt('ship_explosion', x, y)
+  end
   Effects.add({ type = 'ring', x = x, y = y, r0 = 6, r1 = 90, w0 = 6, w1 = 1, t = 0, life = 0.45,
     color = color or {1.0, 0.7, 0.3, 0.5} })
   for i=1,6 do

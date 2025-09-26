@@ -7,7 +7,9 @@ function Mineable.new(values)
     instance.resources = values.resources or 100
     instance.maxResources = values.resources or 100
     -- Overall mining durability (seconds at miningPower=1); quick for now
-    instance.durability = values.durability or 5.0
+    local durability = values.durability or 5.0
+    instance.durability = durability
+    instance.maxDurability = values.maxDurability or durability
     -- Mining progression fields
     instance.mineProgress = 0
     -- Per-cycle duration (seconds)

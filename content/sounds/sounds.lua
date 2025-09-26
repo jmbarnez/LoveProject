@@ -36,6 +36,7 @@ return {
     
     -- Pickup sounds
     loot_pickup = "loot_pickup",
+    asteroid_shatter = "asteroid_shatter",
   },
   
   -- Music
@@ -73,6 +74,7 @@ return {
     
     -- Pickup events
     loot_collected = {type = "sfx", sound = "loot_pickup", volume = 0.5},
+    asteroid_shatter = {type = "sfx", sound = "asteroid_shatter", volume = 0.65},
     
     -- UI events
     ui_button_click = {type = "sfx", sound = "ui_click", volume = 0.3},

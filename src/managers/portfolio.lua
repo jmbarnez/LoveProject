@@ -22,7 +22,6 @@ function PortfolioManager.init(savedData)
       PortfolioManager.transactionHistory = {}
     end
     PortfolioManager._initialized = true
-    print("PortfolioManager initialized with " .. #PortfolioManager.transactionHistory .. " transactions")
   end
 end
 
@@ -77,8 +76,6 @@ function PortfolioManager.placeBuyOrder(symbol, quantity, price, isLimitOrder)
       timestamp = os.time()
     }
     table.insert(PortfolioManager.transactionHistory, transaction)
-    print("Recorded transaction:", transaction.type, symbol, quantity, actualPrice)
-    print("Total transactions now:", #PortfolioManager.transactionHistory)
 
     -- TODO: Dispatch event for UI update
     -- Events.dispatch("portfolio_updated")
@@ -125,8 +122,6 @@ function PortfolioManager.placeSellOrder(symbol, quantity, price, isLimitOrder)
     timestamp = os.time()
   }
   table.insert(PortfolioManager.transactionHistory, transaction)
-  print("Recorded transaction:", transaction.type, symbol, quantity, actualPrice)
-  print("Total transactions now:", #PortfolioManager.transactionHistory)
 
   -- TODO: Dispatch event for UI update
   -- Events.dispatch("portfolio_updated")

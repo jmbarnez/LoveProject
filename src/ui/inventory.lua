@@ -11,14 +11,23 @@ local Window = require("src.ui.common.window")
 
 local Inventory = {}
 
+local function hasEmptyEquipmentSlot(player)
+  local grid = player.components and player.components.equipment and player.components.equipment.grid
+  if not grid then return false end
+  for _, slot in ipairs(grid) do
+    if not slot.id then
+      return true
+    end
+  end
+  return false
+end
+
+local snapshotCargoState
+local cargoStateChanged
+
 -- Helper function to get current player safely
 local function getCurrentPlayer()
   return PlayerRef.get and PlayerRef.get() or nil
-end
-
--- Helper function to set current player reference
-function Inventory.setPlayer(player)
-  Inventory.player = player
 end
 
 -- Core inventory state
@@ -43,6 +52,20 @@ Inventory.sortOrder = "asc" -- "asc" or "desc"
 Inventory._searchInputActive = false
 Inventory._scrollDragging = false
 Inventory._scrollDragOffset = 0
+Inventory._searchRect = nil
+Inventory._sortRect = nil
+
+local function setSearchActive(active)
+  if Inventory._searchInputActive == active then return end
+  Inventory._searchInputActive = active
+  if love and love.keyboard and love.keyboard.setTextInput then
+    love.keyboard.setTextInput(active)
+  end
+end
+
+function Inventory.clearSearchFocus()
+  setSearchActive(false)
+end
 
 function Inventory.init()
     Inventory.window = Window.new({
@@ -57,6 +80,7 @@ function Inventory.init()
         drawContent = Inventory.drawContent,
         onClose = function()
             Inventory.visible = false
+            setSearchActive(false)
         end
     })
 end
@@ -66,23 +90,102 @@ function Inventory.getRect()
     return { x = Inventory.window.x, y = Inventory.window.y, w = Inventory.window.width, h = Inventory.window.height }
 end
 
+function Inventory.refresh()
+    -- Reset transient state so the next draw reflects latest inventory data
+    Inventory.hoveredItem = nil
+    Inventory.hoverTimer = 0
+    Inventory.contextMenu.visible = false
+    local player = getCurrentPlayer()
+    Inventory._cargoSnapshot = snapshotCargoState(player)
+end
+
 -- Helper functions
 local function getPlayerItems(player)
-  if not player or not player.inventory then return {} end
-  local items = {}
-  for id, qty in pairs(player.inventory) do
-    if type(qty) == "number" then
-      table.insert(items, { id = id, qty = qty })
-    elseif type(qty) == "table" and qty.damage then
-      table.insert(items, { id = id, qty = 1, turretData = qty })
-    end
+  if not player or not player.components or not player.components.cargo then
+    return {}
   end
+  local cargo = player.components.cargo
+  local items = {}
+  cargo:iterate(function(slot, entry)
+    local data = entry.meta and Util.deepCopy(entry.meta) or nil
+    table.insert(items, {
+      id = entry.id,
+      qty = entry.qty,
+      meta = data,
+      slot = slot,
+    })
+  end)
   table.sort(items, function(a, b)
-    local an = a.turretData and a.turretData.name or (Content.getItem(a.id) and Content.getItem(a.id).name) or (Content.getTurret(a.id) and Content.getTurret(a.id).name) or a.id
-    local bn = b.turretData and b.turretData.name or (Content.getItem(b.id) and Content.getItem(b.id).name) or (Content.getTurret(b.id) and Content.getTurret(b.id).name) or b.id
-    return an < bn
+    local defA = a.meta or Content.getItem(a.id) or Content.getTurret(a.id)
+    local defB = b.meta or Content.getItem(b.id) or Content.getTurret(b.id)
+    local nameA = (defA and defA.name) or a.id
+    local nameB = (defB and defB.name) or b.id
+    return nameA < nameB
   end)
   return items
+end
+
+snapshotCargoState = function(player)
+  if not player or not player.components or not player.components.cargo then
+    return nil
+  end
+  local cargo = player.components.cargo
+  local snapshot = {}
+  cargo:iterate(function(slot, entry)
+    local metaSnapshot = nil
+    if entry.meta then
+      metaSnapshot = {
+        instanceId = entry.meta.instanceId,
+        baseId = entry.meta.baseId
+      }
+    end
+    snapshot[#snapshot + 1] = {
+      slot = slot,
+      id = entry.id,
+      qty = entry.qty,
+      meta = metaSnapshot
+    }
+  end)
+  table.sort(snapshot, function(a, b)
+    if a.id == b.id then
+      return a.slot < b.slot
+    end
+    return a.id < b.id
+  end)
+  return snapshot
+end
+
+cargoStateChanged = function(prev, current)
+  if prev == nil and current == nil then
+    return false
+  end
+  if prev == nil or current == nil then
+    return true
+  end
+  if #prev ~= #current then
+    return true
+  end
+  for i = 1, #prev do
+    local a = prev[i]
+    local b = current[i]
+    if not a or not b then
+      return true
+    end
+    if a.id ~= b.id or a.qty ~= b.qty then
+      return true
+    end
+    local metaA = a.meta
+    local metaB = b.meta
+    if (metaA and not metaB) or (metaB and not metaA) then
+      return true
+    end
+    if metaA and metaB then
+      if metaA.instanceId ~= metaB.instanceId or metaA.baseId ~= metaB.baseId then
+        return true
+      end
+    end
+  end
+  return false
 end
 
 local function getItemAtPosition(x, y, slots)
@@ -106,18 +209,50 @@ local function createContextMenu(item, x, y)
   if def.consumable or def.type == "consumable" then
     table.insert(Inventory.contextMenu.options, {name = "Use", action = "use"})
   end
-  if def.module or item.turretData then
-    table.insert(Inventory.contextMenu.options, {name = "Equip", action = "equip"})
-  end
   table.insert(Inventory.contextMenu.options, {name = "Drop", action = "drop"})
-  if def.price then
-    table.insert(Inventory.contextMenu.options, {name = "Sell", action = "sell"})
-  end
 end
 
 -- Enhanced sorting and filtering functions
 local function getItemDefinition(item)
   return item.turretData or Content.getItem(item.id) or Content.getTurret(item.id)
+end
+
+local function buildInsertOptions(player)
+  local emptySlots = {}
+  local occupiedSlots = {}
+  local grid = player.components and player.components.equipment and player.components.equipment.grid
+  if not grid then return emptySlots, occupiedSlots end
+
+  for index, slotData in ipairs(grid) do
+    local occupied = slotData.id ~= nil
+    local label
+    if occupied then
+      local module = slotData.module
+      local moduleId = module and (module.baseId or module.id) or slotData.id
+      local moduleDef = moduleId and (Content.getTurret(moduleId) or Content.getItem(moduleId))
+      if moduleDef and moduleDef.name then
+        label = string.format("Slot %d: %s", index, moduleDef.name)
+      else
+        label = string.format("Slot %d: %s", index, moduleId or "Unknown")
+      end
+    else
+      label = string.format("Slot %d: Empty", index)
+    end
+
+    local option = {
+      index = index,
+      label = label,
+      occupied = occupied
+    }
+
+    if occupied then
+      occupiedSlots[#occupiedSlots + 1] = option
+    else
+      emptySlots[#emptySlots + 1] = option
+    end
+  end
+
+  return emptySlots, occupiedSlots
 end
 
 local function getSortValue(item, sortBy)
@@ -280,44 +415,73 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
 
   -- Item icon
   local def = getItemDefinition(item)
-  if def then
-    if item.turretData then
-      IconSystem.drawTurretIcon(item.turretData, x + padding, y + padding, iconSize, 1.0)
-    elseif IconSystem.getIcon(def) then
-      IconSystem.drawItemIcon(def, x + padding, y + padding, iconSize, 1.0)
+  local canonicalItem = Content.getItem(item.id)
+  local canonicalTurret = Content.getTurret(item.id)
+
+  local iconCandidates = {
+    item.turretData,
+    item.meta,
+    def ~= item.turretData and def or nil,
+    def and def.module or nil,
+    def and def._sourceData or nil,
+    canonicalItem ~= def and canonicalItem or nil,
+    canonicalItem and canonicalItem.def or nil,
+    canonicalTurret ~= def and canonicalTurret or nil,
+    canonicalTurret and canonicalTurret.module or nil,
+    canonicalTurret and canonicalTurret._sourceData or nil,
+    item.id
+  }
+
+  local iconDrawn = IconSystem.drawIconAny(iconCandidates, x + padding, y + padding, iconSize, 1.0)
+
+
+  if not iconDrawn then
+    local fallbackIcon = IconSystem.getIcon(def)
+    if fallbackIcon then
+      IconSystem.drawIcon(def, x + padding, y + padding, iconSize, 1.0)
+      iconDrawn = true
     end
+  end
 
-    -- Enhanced stack count display
-    if not item.turretData and item.qty > 1 then
-      local stackCount = Util.formatNumber(item.qty)
-      local font = Theme.fonts and Theme.fonts.xsmall or love.graphics.getFont()
-      local textW = font:getWidth(stackCount)
-      local textH = font:getHeight()
+  if not iconDrawn then
+    local oldColor = {love.graphics.getColor()}
+    Theme.setColor(Theme.colors.textSecondary)
+    local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
+    love.graphics.setFont(font)
+    love.graphics.printf(def and def.name or item.id, x + padding, y + padding + iconSize * 0.4, iconSize, "center")
+    love.graphics.setColor(oldColor)
+  end
 
-      -- Stack count background
-      Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.8))
-      love.graphics.rectangle("fill", x + size - textW - 8, y + size - textH - 6, textW + 4, textH + 2)
+  -- Enhanced stack count display
+  if not item.turretData and item.qty > 1 then
+    local stackCount = Util.formatNumber(item.qty)
+    local font = Theme.fonts and Theme.fonts.xsmall or love.graphics.getFont()
+    local textW = font:getWidth(stackCount)
+    local textH = font:getHeight()
 
-      -- Stack count text
-      Theme.setColor(Theme.colors.accent)
-      love.graphics.setFont(font)
-      love.graphics.print(stackCount, x + size - textW - 6, y + size - textH - 5)
-    end
+    -- Stack count background
+    Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.8))
+    love.graphics.rectangle("fill", x + size - textW - 8, y + size - textH - 6, textW + 4, textH + 2)
 
-    -- Rarity indicator
-    if def.rarity then
-      local rarityColors = {
-        Common = Theme.colors.textSecondary,
-        Uncommon = {0.3, 0.9, 0.3, 1.0},
-        Rare = {0.3, 0.6, 0.9, 1.0},
-        Epic = {0.8, 0.3, 0.9, 1.0},
-        Legendary = {0.9, 0.7, 0.2, 1.0}
-      }
-      local rarityColor = rarityColors[def.rarity] or Theme.colors.textSecondary
-      Theme.setColor(rarityColor)
-      love.graphics.setLineWidth(2)
-      love.graphics.rectangle("line", x + 1, y + 1, size - 2, size - 2)
-    end
+    -- Stack count text
+    Theme.setColor(Theme.colors.accent)
+    love.graphics.setFont(font)
+    love.graphics.print(stackCount, x + size - textW - 6, y + size - textH - 5)
+  end
+
+  -- Rarity indicator
+  if def and def.rarity then
+    local rarityColors = {
+      Common = Theme.colors.textSecondary,
+      Uncommon = {0.3, 0.9, 0.3, 1.0},
+      Rare = {0.3, 0.6, 0.9, 1.0},
+      Epic = {0.8, 0.3, 0.9, 1.0},
+      Legendary = {0.9, 0.7, 0.2, 1.0}
+    }
+    local rarityColor = rarityColors[def.rarity] or Theme.colors.textSecondary
+    Theme.setColor(rarityColor)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", x + 1, y + 1, size - 2, size - 2)
   end
 end
 
@@ -326,13 +490,43 @@ function Inventory.draw()
     if not Inventory.window then Inventory.init() end
     Inventory.window.visible = Inventory.visible
     Inventory.window:draw()
+
 end
 
 function Inventory.drawContent(window, x, y, w, h)
     local player = getCurrentPlayer()
     if not player then return end
 
+    local currentSnapshot = snapshotCargoState(player)
+    if cargoStateChanged(Inventory._cargoSnapshot, currentSnapshot) then
+        Inventory._cargoSnapshot = currentSnapshot
+        Inventory.hoveredItem = nil
+        Inventory.hoverTimer = 0
+        Inventory.contextMenu.visible = false
+    end
+
     local mx, my = Viewport.getMousePosition()
+
+    local headerHeight = 36
+    local headerPadding = 8
+    local sortWidth = 108
+    local searchHeight = headerHeight - headerPadding * 2
+    if searchHeight < 20 then searchHeight = 20 end
+
+    Theme.drawGradientGlowRect(x, y, w, headerHeight, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+
+    local searchWidth = w - sortWidth - (headerPadding * 3)
+    if searchWidth < 120 then
+        searchWidth = w - headerPadding * 2
+        sortWidth = 0
+    end
+
+    Inventory._searchRect = drawSearchBar(x + headerPadding, y + headerPadding, searchWidth, searchHeight, Inventory.searchText, Inventory._searchInputActive)
+    if sortWidth > 0 then
+        Inventory._sortRect = drawSortButton(x + w - sortWidth - headerPadding, y + headerPadding, sortWidth, searchHeight, Inventory.sortBy, Inventory.sortOrder)
+    else
+        Inventory._sortRect = nil
+    end
 
     -- Get items with sorting and filtering
     local items = getPlayerItems(player)
@@ -341,9 +535,10 @@ function Inventory.drawContent(window, x, y, w, h)
 
     local iconSize = 64
     local padding = (Theme.ui and Theme.ui.contentPadding) or 8
-    local contentY = y
-    local contentH = h - 24
-
+    local contentY = y + headerHeight + padding * 0.5
+    local footerHeight = 24
+    local contentH = h - headerHeight - footerHeight
+    
     local iconsPerRow = math.floor((w - padding) / (iconSize + padding))
     if iconsPerRow < 1 then iconsPerRow = 1 end
 
@@ -402,8 +597,9 @@ function Inventory.drawContent(window, x, y, w, h)
     love.graphics.pop()
 
     -- Enhanced info bar
-    local infoBarY = y + h - 18
-    Theme.drawGradientGlowRect(x, infoBarY, w, 18, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+    local infoBarHeight = footerHeight - 6
+    local infoBarY = y + h - infoBarHeight
+    Theme.drawGradientGlowRect(x, infoBarY, w, infoBarHeight, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
 
     local itemCount = #items
     local totalSlots = 24
@@ -446,8 +642,40 @@ function Inventory.mousepressed(x, y, button)
 
     local mx, my = Viewport.getMousePosition()
 
+    if button == 1 then
+        local searchRect = Inventory._searchRect
+        if searchRect and mx >= searchRect.x and mx <= searchRect.x + searchRect.w and my >= searchRect.y and my <= searchRect.y + searchRect.h then
+            setSearchActive(true)
+            Inventory.contextMenu.visible = false
+            return true
+        end
+
+        local sortRect = Inventory._sortRect
+        if sortRect and mx >= sortRect.x and mx <= sortRect.x + sortRect.w and my >= sortRect.y and my <= sortRect.y + sortRect.h then
+            if love.keyboard and (love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift")) then
+                Inventory.sortOrder = (Inventory.sortOrder == "asc") and "desc" or "asc"
+            else
+                local sortFields = {"name", "type", "rarity", "value", "quantity"}
+                local currentIndex = 1
+                for i, field in ipairs(sortFields) do
+                    if field == Inventory.sortBy then
+                        currentIndex = i
+                        break
+                    end
+                end
+                Inventory.sortBy = sortFields[(currentIndex % #sortFields) + 1]
+            end
+            Inventory.contextMenu.visible = false
+            return true
+        end
+    end
+
+  if button ~= 1 then
+        setSearchActive(false)
+    end
+
     -- Context menu clicks
-    if button == 1 and Inventory.contextMenu.visible then
+    if (button == 1 or button == 2) and Inventory.contextMenu.visible then
         local menu = Inventory.contextMenu
         local w = 180
         local optionH = 24
@@ -465,19 +693,47 @@ function Inventory.mousepressed(x, y, button)
     end
 
     -- Item interactions
+    if button == 2 then
+        setSearchActive(false)
+        local item, index = getItemAtPosition(x, y, Inventory._slotRects)
+        if item then
+            Inventory.contextMenu = {
+                visible = true,
+                x = mx,
+                y = my,
+                item = item,
+                index = index,
+                options = {}
+            }
+
+            local def = getItemDefinition(item)
+            if def then
+                if def.consumable or def.type == "consumable" then
+                    table.insert(Inventory.contextMenu.options, { name = "Use", action = "use" })
+                end
+                table.insert(Inventory.contextMenu.options, { name = "Drop", action = "drop" })
+            end
+
+            if #Inventory.contextMenu.options > 0 then
+                return true
+            else
+                Inventory.contextMenu.visible = false
+            end
+        end
+    end
+
     if button == 1 then
+        setSearchActive(false)
         local item, index = getItemAtPosition(x, y, Inventory._slotRects)
         if item then
             local def = getItemDefinition(item)
-            if def and (def.module or item.turretData or def.type == "turret" or def.type == "shield") then
-                Inventory.drag = { from = 'inventory', id = item.id, turretData = item.turretData }
-                return true
-            elseif def and (def.consumable or def.type == "consumable") then
+            if def and (def.consumable or def.type == "consumable") then
                 Inventory.useItem(player, item.id)
                 return true
             end
         end
     elseif button == 2 then
+        setSearchActive(false)
         local item, index = getItemAtPosition(x, y, Inventory._slotRects)
         if item then
             createContextMenu(item, x, y)
@@ -515,7 +771,10 @@ function Inventory.wheelmoved(x, y, dx, dy)
 end
 
 function Inventory.update(dt)
-  if not Inventory.visible then return end
+  if not Inventory.visible then
+    setSearchActive(false)
+    return
+  end
   if Inventory.hoveredItem then
     local mx, my = Viewport.getMousePosition()
     local stillHovering = false
@@ -565,13 +824,13 @@ function Inventory.keypressed(key)
   -- When search input is active, consume most hotkeys
   if Inventory._searchInputActive then
     if key == "escape" then
-      -- Escape deactivates search input and closes inventory
-      Inventory._searchInputActive = false
-      Inventory.visible = false
+      setSearchActive(false)
       return true
     elseif key == "return" or key == "kpenter" then
-      -- Enter confirms search and deactivates input
-      Inventory._searchInputActive = false
+      setSearchActive(false)
+      return true
+    elseif key == "backspace" then
+      Inventory.searchText = Inventory.searchText:sub(1, -2)
       return true
     elseif key == "tab" then
       -- Tab could cycle between controls, but for now just consume it
@@ -587,6 +846,7 @@ function Inventory.keypressed(key)
       Inventory.contextMenu.visible = false
       return true
     end
+    setSearchActive(false)
     Inventory.visible = false
     return true
   end
@@ -598,13 +858,7 @@ function Inventory.textinput(text)
 
   -- Handle search input
   if Inventory._searchInputActive then
-    if text == "backspace" then
-      Inventory.searchText = Inventory.searchText:sub(1, -2)
-    elseif text == "return" or text == "kpenter" then
-      Inventory._searchInputActive = false
-    else
-      Inventory.searchText = Inventory.searchText .. text
-    end
+    Inventory.searchText = Inventory.searchText .. text
     return true
   end
 
@@ -617,31 +871,23 @@ function Inventory.handleContextMenuClick(option)
   local item = menu.item
   local def = Content.getItem(item.id) or Content.getTurret(item.id)
   if not def then return end
-  local player = Inventory.player or getCurrentPlayer()
+  local player = getCurrentPlayer()
   if not player then return end
   if option.action == "use" then
     Inventory.useItem(player, item.id)
   elseif option.action == "drop" then
     Inventory.dropItem(player, item.id)
-  elseif option.action == "sell" then
-    Inventory.sellItem(player, item.id)
-  elseif option.action == "equip" then
-    local Notifications = require("src.ui.notifications")
-    Notifications.add("Equip functionality not yet implemented", "info")
   end
   menu.visible = false
 end
 
 function Inventory.dropItem(player, itemId)
-  if not player or not player.inventory or not player.inventory[itemId] then return false end
+  if not player or not player.components or not player.components.cargo then return false end
+  local cargo = player.components.cargo
+  if not cargo:has(itemId, 1) then return false end
   local def = Content.getItem(itemId) or Content.getTurret(itemId)
   local itemName = def and def.name or itemId
-  local currentAmount = player.inventory[itemId]
-  if type(currentAmount) == "number" and currentAmount > 1 then
-    player.inventory[itemId] = currentAmount - 1
-  else
-    player.inventory[itemId] = nil
-  end
+  cargo:remove(itemId, 1)
   local mouseX, mouseY = Viewport.getMousePosition()
   for i = 1, 3 do
     Theme.createParticle(mouseX + math.random(-8, 8), mouseY + math.random(-8, 8), {0.6, 0.6, 0.6, 1.0}, (math.random() * 2 - 1) * 20, (math.random() * 2 - 1) * 20, nil, 0.7)
@@ -651,34 +897,11 @@ function Inventory.dropItem(player, itemId)
   return true
 end
 
-function Inventory.sellItem(player, itemId)
-  if not player or not player.inventory or not player.inventory[itemId] then return false end
-  local def = Content.getItem(itemId) or Content.getTurret(itemId)
-  if not def or not def.price then return false end
-  local sellPrice = math.floor(def.price * 0.5)
-  local currentAmount = player.inventory[itemId]
-  if type(currentAmount) == "number" and currentAmount > 1 then
-    player.inventory[itemId] = currentAmount - 1
-  else
-    player.inventory[itemId] = nil
-  end
-  if player.addGC then player:addGC(sellPrice) end
-  local mouseX, mouseY = Viewport.getMousePosition()
-  for i = 1, 5 do
-    Theme.createParticle(mouseX + math.random(-10, 10), mouseY + math.random(-10, 10), {0.9, 0.7, 0.2, 1.0}, 0, -30, nil, 0.5)
-  end
-  if sellPrice > 100 then
-    Theme.flashScreen({0.9, 0.7, 0.2, 0.2}, 0.3)
-    Theme.shakeScreen(2, 0.1)
-  end
-  local Notifications = require("src.ui.notifications")
-  Notifications.add("Sold " .. (def.name or itemId) .. " for " .. sellPrice .. " GC", "success")
-  return true
-end
-
 function Inventory.useItem(player, itemId)
   if not player then player = getCurrentPlayer() end
-  if not player or not player.inventory or not player.inventory[itemId] or player.inventory[itemId] <= 0 then return false end
+  if not player or not player.components or not player.components.cargo then return false end
+  local cargo = player.components.cargo
+  if not cargo:has(itemId, 1) then return false end
   local item = Content.getItem(itemId)
   if not item then return false end
   if not (item.consumable or item.type == "consumable") then return false end
@@ -687,14 +910,7 @@ function Inventory.useItem(player, itemId)
     local PortfolioManager = require("src.managers.portfolio")
     local success, message = PortfolioManager.useNodeWallet()
     if success then
-      local currentValue = player.inventory[itemId] or 1
-      local currentAmount = (type(currentValue) == "number") and currentValue or 1
-      local newAmount = currentAmount - 1
-      if newAmount <= 0 then
-        player.inventory[itemId] = nil
-      else
-        player.inventory[itemId] = newAmount
-      end
+      cargo:remove(itemId, 1)
       local Notifications = require("src.ui.notifications")
       Notifications.add("🔓 WALLET DECRYPTED • NODES ADDED", "success")
     else

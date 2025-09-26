@@ -22,12 +22,58 @@ function SaveLoad:new()
 end
 
 function SaveLoad:draw(player, x, y, w, h)
-  local font = love.graphics.getFont()
-  local lineHeight = font:getHeight() + 4
+  local baseFont = Theme.fonts and Theme.fonts.normal or love.graphics.getFont()
+  local buttonFont = (Theme.fonts and (Theme.fonts.tiny or Theme.fonts.small)) or baseFont
+  local buttonPaddingX, buttonPaddingY = 18, 8
+  local buttonMinWidth = 105
+  local buttonMinHeight = buttonFont:getHeight() + buttonPaddingY * 2
+  local lineHeight = baseFont:getHeight() + 4
   local currentY = y + 10
+  local layout = {
+    saveButton = nil,
+    slots = {},
+    autosaveLoad = nil
+  }
+
+  local function computeButtonSize(label)
+    local prevFont = love.graphics.getFont()
+    love.graphics.setFont(buttonFont)
+    local textW = buttonFont:getWidth(label)
+    local textH = buttonFont:getHeight()
+    love.graphics.setFont(prevFont)
+    local width = math.max(buttonMinWidth, textW + buttonPaddingX * 2)
+    local height = math.max(buttonMinHeight, textH + buttonPaddingY * 2)
+    return width, height, textW, textH
+  end
+
+  local function drawButtonRect(xPos, yPos, width, height, fillColor, label)
+    Theme.setColor(fillColor)
+    love.graphics.rectangle("fill", xPos, yPos, width, height)
+    Theme.setColor(Theme.colors.text)
+    local prevFont = love.graphics.getFont()
+    love.graphics.setFont(buttonFont)
+    local textW = buttonFont:getWidth(label)
+    local textH = buttonFont:getHeight()
+    local availableW = width - buttonPaddingX * 2
+    local availableH = height - buttonPaddingY * 2
+    if textW <= 0 or textH <= 0 then
+      love.graphics.print(label, xPos + buttonPaddingX, yPos + buttonPaddingY)
+      love.graphics.setFont(prevFont)
+      return
+    end
+    local scale = math.min(1, availableW / textW, availableH / textH)
+    if scale <= 0 then scale = availableH / textH end
+    local drawW = textW * scale
+    local drawH = textH * scale
+    local drawX = xPos + (width - drawW) / 2
+    local drawY = yPos + (height - drawH) / 2
+    love.graphics.print(label, drawX, drawY, 0, scale, scale)
+    love.graphics.setFont(prevFont)
+  end
   
   -- Title
   Theme.setColor(Theme.colors.text)
+  love.graphics.setFont(baseFont)
   love.graphics.print("Save & Load Game", x + 10, currentY)
   currentY = currentY + lineHeight * 1.5
   
@@ -55,18 +101,20 @@ function SaveLoad:draw(player, x, y, w, h)
   Theme.setColor(Theme.colors.border)
   love.graphics.rectangle("line", x + 10, currentY, w - 20, lineHeight * 1.2)
   
-  Theme.setColor(Theme.colors.text)
+  Theme.setColor(Theme.colors.textSecondary)
   local saveName = self.newSaveName ~= "" and self.newSaveName or "Enter save name..."
-  love.graphics.print(saveName, x + 15, currentY + 2)
+  local inputFont = buttonFont
+  local prevFont = love.graphics.getFont()
+  love.graphics.setFont(inputFont)
+  love.graphics.print(saveName, x + 15, currentY + (lineHeight * 1.2 - inputFont:getHeight()) / 2)
+  love.graphics.setFont(prevFont)
   currentY = currentY + lineHeight * 2
   
   -- Save button
-  local saveButtonW = 80
-  local saveButtonH = lineHeight * 1.5
-  Theme.setColor(Theme.colors.success)
-  love.graphics.rectangle("fill", x + 10, currentY, saveButtonW, saveButtonH)
-  Theme.setColor(Theme.colors.text)
-  love.graphics.print("Save", x + 35, currentY + 4)
+  local saveLabel = "Save"
+  local saveButtonW, saveButtonH = computeButtonSize(saveLabel)
+  drawButtonRect(x + 10, currentY, saveButtonW, saveButtonH, Theme.colors.success, saveLabel)
+  layout.saveButton = { x = x + 10, y = currentY, w = saveButtonW, h = saveButtonH }
   
   currentY = currentY + saveButtonH + lineHeight
   
@@ -78,6 +126,15 @@ function SaveLoad:draw(player, x, y, w, h)
   -- List save slots
   local slots = StateManager.getSaveSlots()
   
+  local loadLabel = "Load"
+  local deleteLabel = "Delete"
+  local loadButtonW, loadButtonH = computeButtonSize(loadLabel)
+  local deleteButtonW, deleteButtonH = computeButtonSize(deleteLabel)
+  local slotButtonWidth = math.max(loadButtonW, deleteButtonW)
+  local slotButtonHeight = math.max(loadButtonH, deleteButtonH)
+  local slotPadding = math.max(12, buttonPaddingY + 2)
+  local buttonSpacing = math.max(10, buttonPaddingX * 0.5)
+
   if #slots == 0 then
     Theme.setColor(Theme.colors.textSecondary)
     love.graphics.print("No save files found", x + 10, currentY)
@@ -109,20 +166,19 @@ function SaveLoad:draw(player, x, y, w, h)
         love.graphics.print(infoText, x + 15, slotY + lineHeight + 2)
         
         -- Load button
-        local loadButtonX = x + w - 100
-        local loadButtonW = 60
-        local loadButtonH = lineHeight * 1.2
-        Theme.setColor(Theme.colors.info)
-        love.graphics.rectangle("fill", loadButtonX, slotY + 4, loadButtonW, loadButtonH)
-        Theme.setColor(Theme.colors.text)
-        love.graphics.print("Load", loadButtonX + 18, slotY + 8)
+        local buttonY = slotY + slotH - slotButtonHeight - slotPadding
+
+        local loadButtonX = x + w - slotPadding - slotButtonWidth
+        drawButtonRect(loadButtonX, buttonY, slotButtonWidth, slotButtonHeight, Theme.colors.info, loadLabel)
         
         -- Delete button
-        local deleteButtonX = loadButtonX - 70
-        Theme.setColor(Theme.colors.danger)
-        love.graphics.rectangle("fill", deleteButtonX, slotY + 4, loadButtonW, loadButtonH)
-        Theme.setColor(Theme.colors.text)
-        love.graphics.print("Delete", deleteButtonX + 12, slotY + 8)
+        local deleteButtonX = loadButtonX - buttonSpacing - slotButtonWidth
+        drawButtonRect(deleteButtonX, buttonY, slotButtonWidth, slotButtonHeight, Theme.colors.danger, deleteLabel)
+
+        layout.slots[slot.name] = {
+          load = { x = loadButtonX, y = buttonY, w = slotButtonWidth, h = slotButtonHeight },
+          delete = { x = deleteButtonX, y = buttonY, w = slotButtonWidth, h = slotButtonHeight }
+        }
         
         currentY = currentY + slotH + 4
       end
@@ -146,7 +202,7 @@ function SaveLoad:draw(player, x, y, w, h)
   
   if autosave then
     local autosaveY = currentY
-    local autosaveH = lineHeight * 2
+    local autosaveH = math.max(lineHeight * 2, slotButtonHeight + slotPadding * 2)
     
     Theme.setColor(Theme.colors.bg1)
     love.graphics.rectangle("fill", x + 10, autosaveY, w - 20, autosaveH)
@@ -163,28 +219,30 @@ function SaveLoad:draw(player, x, y, w, h)
     love.graphics.print(autoInfo, x + 15, autosaveY + lineHeight + 2)
     
     -- Auto-save load button
-    local autoLoadButtonX = x + w - 80
-    local autoLoadButtonW = 60
-    local autoLoadButtonH = lineHeight * 1.2
-    Theme.setColor(Theme.colors.warning)
-    love.graphics.rectangle("fill", autoLoadButtonX, autosaveY + 4, autoLoadButtonW, autoLoadButtonH)
-    Theme.setColor(Theme.colors.text)
-    love.graphics.print("Load", autoLoadButtonX + 18, autosaveY + 8)
+    local buttonY = autosaveY + autosaveH - slotButtonHeight - slotPadding
+    local autoLoadButtonX = x + w - slotPadding - slotButtonWidth
+    drawButtonRect(autoLoadButtonX, buttonY, slotButtonWidth, slotButtonHeight, Theme.colors.warning, loadLabel)
+    layout.autosaveLoad = { x = autoLoadButtonX, y = buttonY, w = slotButtonWidth, h = slotButtonHeight }
   else
     Theme.setColor(Theme.colors.textSecondary)
     love.graphics.print("No auto-save available", x + 10, currentY)
   end
+
+  self._layout = layout
 end
 
-function SaveLoad:mousepressed(player, x, y, button, w, h)
+function SaveLoad:mousepressed(player, mx, my, button, w, h)
   if button ~= 1 then return false end
 
-  local font = love.graphics.getFont()
-  local lineHeight = font:getHeight() + 4
-  local checkY = y + lineHeight * 6.5 -- Approximate position after header
+  local layout = self._layout or {}
 
-  -- Check new save button
-  if x >= 10 and x <= 90 and y >= checkY and y <= checkY + lineHeight * 1.5 then
+  local function pointInRect(px, py, rect)
+    if not rect then return false end
+    return px >= rect.x and px <= rect.x + rect.w and py >= rect.y and py <= rect.y + rect.h
+  end
+
+  -- Save button
+  if pointInRect(mx, my, layout.saveButton) then
     -- Create new save with current timestamp as name
     local saveName = self.newSaveName ~= "" and self.newSaveName or ("Save " .. os.date("%H%M%S"))
     StateManager.saveGame(saveName, "Manual save - " .. os.date("%Y-%m-%d %H:%M:%S"))
@@ -192,30 +250,22 @@ function SaveLoad:mousepressed(player, x, y, button, w, h)
   end
 
   -- Check save slots for load/delete buttons
-  local slots = StateManager.getSaveSlots()
-  local currentY = checkY + lineHeight * 4 -- Approximate start of save list
-
-  for i, slot in ipairs(slots) do
-    if slot.name ~= "autosave" then
-      local slotH = lineHeight * 2.5
-      local slotY = currentY
-
-      -- Load button area (positioned relative to the window)
-      local loadButtonX = x + w - 100
-      if x >= loadButtonX and x <= loadButtonX + 60 and y >= slotY + 4 and y <= slotY + lineHeight * 1.2 + 4 then
-        StateManager.loadGame(slot.name)
+  if layout.slots then
+    for slotName, rects in pairs(layout.slots) do
+      if pointInRect(mx, my, rects.load) then
+        StateManager.loadGame(slotName)
         return true
       end
-
-      -- Delete button area (positioned relative to the window)
-      local deleteButtonX = x + w - 170
-      if x >= deleteButtonX and x <= deleteButtonX + 60 and y >= slotY + 4 and y <= slotY + lineHeight * 1.2 + 4 then
-        StateManager.deleteSave(slot.name)
+      if pointInRect(mx, my, rects.delete) then
+        StateManager.deleteSave(slotName)
         return true
       end
-
-      currentY = currentY + slotH + 4
     end
+  end
+
+  if pointInRect(mx, my, layout.autosaveLoad) then
+    StateManager.loadGame("autosave")
+    return true
   end
 
   return false

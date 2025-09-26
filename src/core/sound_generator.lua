@@ -396,7 +396,7 @@ function SoundGenerator.getCachedSound(soundType, ...)
         end
         
         soundCache[key] = love.audio.newSource(soundData, "static")
-        Log.info("Generated procedural sound:", key)
+        Log.debug("Generated procedural sound:", key)
     end
     
     return soundCache[key]
@@ -424,7 +424,7 @@ function SoundGenerator.generateBasicGameSounds()
     -- Generate missile launch
     SoundGenerator.getCachedSound("missile", 0.8)
 
-    Log.info("Generated all basic game sounds")
+    Log.debug("Generated all basic game sounds")
 end
 
 return SoundGenerator

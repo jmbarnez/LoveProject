@@ -8,7 +8,9 @@ local AuroraTitle = require("src.shaders.aurora_title")
 local Sound = require("src.core.sound")
 local SettingsPanel = require("src.ui.settings_panel")
 local UIButton = require("src.ui.common.button")
+local Window = require("src.ui.common.window")
 local Strings = require("src.core.strings")
+local VersionLog = require("src.ui.version_log")
 
 local Start = {}
 Start.__index = Start
@@ -22,6 +24,12 @@ local startScreenHandler = function(self, x, y, button)
     self.showLoadUI = true
   end) then
     return false -- don't start game, show load UI
+  end
+
+  if Theme.handleButtonClick(self.versionButton, x, y, function()
+    VersionLog.toggle()
+  end) then
+    return false
   end
 
   -- No exit button - use Escape key or Alt+F4 instead
@@ -105,6 +113,24 @@ function Start.new()
   self.twinkles = genTwinkles(self.w, self.h, math.floor(50 * math.max(1, scale)))
   self.button = { x = 0, y = 0, w = 260, h = 40 }
   self.loadButton = { x = 0, y = 0, w = 260, h = 40 }
+  self.versionButton = { x = 0, y = 0, w = 260, h = 40 }
+  self.versionWindow = Window.new({
+    title = Strings.getUI("version_log_title"),
+    width = 640,
+    height = 540,
+    visible = false,
+    closable = true,
+    draggable = true,
+    resizable = false,
+    useLoadPanelTheme = true,
+    drawContent = function(_, x, y, w, h)
+      VersionLog.draw(x, y, w, h)
+    end,
+    onClose = function()
+      VersionLog.close()
+    end
+  })
+  VersionLog.showWindow(self.versionWindow)
   self.loadSlotsUI = SaveSlots:new()
   self.loadSlotsUI:setMode("load")
   self.showLoadUI = false
@@ -115,8 +141,6 @@ function Start.new()
   self.auroraShader = AuroraTitle.new()
   self.blurCanvas = love.graphics.newCanvas(self.w, self.h)
 
-  -- Button effect states
-  self.newGameScale = 1.0
 
   return self
 end
@@ -138,12 +162,6 @@ end
 
 function Start:update(dt)
    SettingsPanel.update(dt)
-
-   -- Update button effects
-   local t = love.timer.getTime()
-
-   -- Update button scales (pulsing)
-   self.newGameScale = 0.95 + 0.05 * math.sin(t * 2)
 end
 
 function Start:draw()
@@ -275,44 +293,65 @@ function Start:draw()
   -- Enhanced main button with sci-fi styling
   local s = uiScale()
   local bw, bh = self.button.w * s, self.button.h * s
-  local s = uiScale()
-  local bw, bh = self.button.w * s, self.button.h * s
-  local totalButtonHeight = bh * 2 + 20 * s
+  local totalButtonHeight = bh * 3 + 40 * s
   local startY = math.floor((h - totalButtonHeight) / 2)
 
-  -- New Game button
   local bx = math.floor((w - bw) * 0.5)
   local by = startY
   local mx, my = Viewport.getMousePosition()
   local hover = mx >= bx and mx <= bx + bw and my >= by and my <= by + bh
+  UIButton.drawRect(bx, by, bw, bh, Strings.getUI('new_game'), hover, t, { compact = true, menuButton = true })
+  self.button._rect = { x = bx, y = by, w = bw, h = bh }
 
-  -- Draw NEW GAME button with scaling
-  love.graphics.push()
-  love.graphics.translate(bx + bw/2, by + bh/2)
-  love.graphics.scale(self.newGameScale, self.newGameScale)
-  love.graphics.translate(-bw/2, -bh/2)
-  UIButton.drawRect(0, 0, bw, bh, Strings.getUI('new_game'), hover, t, { compact = true, menuButton = true })
-  love.graphics.pop()
-
-  -- Set button rect in world coordinates for click detection
-  self.button._rect = { x = bx, y = by, w = bw * self.newGameScale, h = bh * self.newGameScale }
-
-  -- Load Game button
   local lbx = bx
   local lby = by + bh + 20 * s
   local lhover = mx >= lbx and mx <= lbx + bw and my >= lby and my <= lby + bh
+  UIButton.drawRect(lbx, lby, bw, bh, Strings.getUI('load_game'), lhover, t, { compact = true, menuButton = true })
+  self.loadButton._rect = { x = lbx, y = lby, w = bw, h = bh }
 
-  -- Draw LOAD GAME button with scaling
-  love.graphics.push()
-  love.graphics.translate(lbx + bw/2, lby + bh/2)
-  love.graphics.scale(self.newGameScale, self.newGameScale)
-  love.graphics.translate(-bw/2, -bh/2)
-  UIButton.drawRect(0, 0, bw, bh, Strings.getUI('load_game'), lhover, t, { compact = true, menuButton = true })
-  love.graphics.pop()
+  local versionText = Strings.getUI('version') or ""
+  local baseFont = Theme.fonts and Theme.fonts.normal or love.graphics.getFont()
+  local versionWidth = baseFont:getWidth(versionText)
+  local versionButtonPadding = 20 * s
+  local vbw = math.max(160 * s, versionWidth + versionButtonPadding)
+  local vbh = bh
+  local vbx = math.floor((w - vbw) * 0.5)
+  local vby = math.floor(h - vbh - 40 * s)
 
-  -- Set button rect in world coordinates for click detection
-  self.loadButton._rect = { x = lbx, y = lby, w = bw * self.newGameScale, h = bh * self.newGameScale }
+  local vhover = mx >= vbx and mx <= vbx + vbw and my >= vby and my <= vby + vbh
 
+  -- Draw aurora background scoped to button via scissor
+  local oldScissor = { love.graphics.getScissor() }
+  love.graphics.setScissor(vbx, vby, vbw, vbh)
+
+  self.auroraShader = self.auroraShader or AuroraTitle.new()
+  if self.auroraShader then
+    self.auroraShader:send("time", love.timer.getTime())
+    love.graphics.setShader(self.auroraShader)
+  end
+
+  Theme.setColor({1, 1, 1, vhover and 0.85 or 0.7})
+  love.graphics.rectangle("fill", vbx, vby, vbw, vbh)
+
+  love.graphics.setShader()
+  love.graphics.setScissor(oldScissor[1], oldScissor[2], oldScissor[3], oldScissor[4])
+
+  Theme.setColor(Theme.colors.border)
+  love.graphics.rectangle("line", vbx, vby, vbw, vbh)
+
+  -- Draw button text in black for contrast
+  local prevColor = {love.graphics.getColor()}
+  local prevFont = love.graphics.getFont()
+  Theme.setColor({0, 0, 0, 1})
+  local font = Theme.fonts and Theme.fonts.normal or prevFont
+  love.graphics.setFont(font)
+  local tw = font:getWidth(versionText)
+  local th = font:getHeight()
+  love.graphics.print(versionText, math.floor(vbx + (vbw - tw) * 0.5 + 0.5), math.floor(vby + (vbh - th) * 0.5 + 0.5))
+  love.graphics.setFont(prevFont)
+  love.graphics.setColor(prevColor[1], prevColor[2], prevColor[3], prevColor[4])
+
+  self.versionButton._rect = { x = vbx, y = vby, w = vbw, h = vbh }
 
 -- No exit button - users can use Escape key or Alt+F4 to exit
 
@@ -360,13 +399,11 @@ function Start:draw()
   end
 
   SettingsPanel.draw()
+  if VersionLog.visible then
+    self.versionWindow:draw()
+  end
   
   -- Version number in bottom right
-  Theme.setColor(Theme.colors.textSecondary)
-  local versionText = Strings.getUI("version")
-  local font = love.graphics.getFont()
-  local textWidth = font:getWidth(versionText)
-  love.graphics.print(versionText, w - textWidth - 16, h - 20)
 end
 
 function Start:mousepressed(x, y, button)
@@ -412,21 +449,49 @@ function Start:mousepressed(x, y, button)
     return false
   end
 
+  if VersionLog.visible then
+    if self.versionWindow:mousepressed(x, y, button) then
+      return false
+    end
+    if VersionLog.mousepressed(x, y, button) then
+      return false
+    end
+  end
+
   return startScreenHandler(self, x, y, button)
 end
 
 function Start:mousereleased(x, y, button)
   SettingsPanel.mousereleased(x, y, button)
+  if VersionLog.visible then
+    self.versionWindow:mousereleased(x, y, button)
+    VersionLog.mousereleased(x, y, button)
+  end
 end
 
 function Start:mousemoved(x, y, dx, dy)
   SettingsPanel.mousemoved(x, y, dx, dy)
+  if VersionLog.visible then
+    self.versionWindow:mousemoved(x, y, dx, dy)
+    VersionLog.mousemoved(x, y, dx, dy)
+  end
 end
 
 function Start:wheelmoved(x, y, dx, dy)
-  if SettingsPanel.visible then
-    return SettingsPanel.wheelmoved(x, y, dx, dy)
+  if SettingsPanel.visible and SettingsPanel.wheelmoved(x, y, dx, dy) then
+    return true
   end
+
+  if VersionLog.visible then
+    local windowWheel = self.versionWindow and self.versionWindow.wheelmoved
+    if windowWheel and windowWheel(self.versionWindow, x, y, dx, dy) then
+      return true
+    end
+    if VersionLog.wheelmoved(x, y, dx, dy) then
+      return true
+    end
+  end
+
   return false
 end
 
@@ -446,6 +511,9 @@ function Start:keypressed(key)
     if SettingsPanel.keypressed(key) then
       return true
     end
+  if VersionLog.visible and VersionLog.keypressed(key) then
+    return true
+  end
     return false
 end
 

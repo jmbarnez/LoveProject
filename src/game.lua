@@ -29,7 +29,7 @@ local StatusBars = require("src.ui.hud.status_bars")
 local HotbarSystem = require("src.systems.hotbar")
 
 local Indicators = require("src.systems.render.indicators")
-local QuestLog = require("src.ui.hud.quest_log")
+local QuestLogHUD = require("src.ui.hud.quest_log")
 local QuestSystem = require("src.systems.quest_system")
 local Events = require("src.core.events")
 local StateManager = require("src.managers.state_manager")
@@ -217,8 +217,10 @@ function Game.load(fromSave, saveSlot)
   collisionSystem = CollisionSystem:new({x = 0, y = 0, width = world.width, height = world.height})
 
   world:setQuadtree(collisionSystem.quadtree)
-  -- Initialize player with clean inventory and starting credits
-  player:setGC(Constants.PLAYER.STARTING_CREDITS or 10000)
+
+  if not fromSave then
+    player:setGC(Constants.PLAYER.STARTING_CREDITS or 10000)
+  end
 
   -- Initialize audio listener to player position for positional SFX
   do
@@ -228,18 +230,9 @@ function Game.load(fromSave, saveSlot)
     end
   end
   
-  -- Give player some basic shield modules to test the system
-  if not player.inventory then
-    player.inventory = {}
-  end
-  player.inventory["shield_module_basic"] = Constants.PLAYER.STARTING_SHIELD_MODULES or 1  -- Give basic shield modules in inventory
-
   -- Refresh inventory display
   local Inventory = require("src.ui.inventory")
   if Inventory.refresh then Inventory.refresh() end
-
-  -- Equip one shield module in equipment slot (after the default turrets in slots 1-3)
-  player:equipModule(Constants.PLAYER.SHIELD_EQUIPMENT_SLOT or 4, "shield_module_basic")
 
   Input.init({
     camera = camera,
@@ -258,7 +251,7 @@ function Game.load(fromSave, saveSlot)
   -- Initialize UI Manager
   UIManager.init()
   
-  QuestLog = QuestLog:new()
+  QuestLogHUD = QuestLogHUD or require("src.ui.hud.quest_log")
   
   -- Set up event listeners for automatic sound effects
   Events.on(Events.GAME_EVENTS.PLAYER_DAMAGED, function(data)
@@ -456,7 +449,7 @@ function Game.draw()
     -- Selection box removed (manual combat)
 
     -- UI overlay (windows/menus) via UIManager
-    QuestLog:draw(player)
+    QuestLogHUD:draw(player)
     UIManager.draw(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, bounty)
 
     -- UI particles and flashes (top-most)

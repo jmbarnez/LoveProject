@@ -129,7 +129,7 @@ function Hotbar.keypressed(key, player)
                         if turret.fireMode == "automatic" then
                             -- For automatic mode: toggle the autoFire state
                             Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
-                            Hotbar.state.active.turret_slots[idx] = not not Hotbar.state.active.turret_slots[idx]
+                            Hotbar.state.active.turret_slots[idx] = not Hotbar.state.active.turret_slots[idx]
                         else
                             -- For manual mode: set firing to true (will be cleared on key release)
                             Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
@@ -189,7 +189,7 @@ function Hotbar.mousepressed(x, y, button, player)
                         if turret.fireMode == "automatic" then
                             -- For automatic mode: toggle the autoFire state
                             Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
-                            Hotbar.state.active.turret_slots[idx] = not not Hotbar.state.active.turret_slots[idx]
+                            Hotbar.state.active.turret_slots[idx] = not Hotbar.state.active.turret_slots[idx]
                         else
                             -- For manual mode: set firing to true (will be cleared on mouse release)
                             Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}

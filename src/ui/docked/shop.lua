@@ -24,12 +24,7 @@ function Shop.drawBuybackItems(DockedUI, x, y, w, h, player)
     local sy = startY + (i - 1) * (rowH + padding)
     local dx, dy = math.floor(sx + 0.5), math.floor(sy + 0.5)
     if sy + rowH >= startY and sy <= startY + h then
-      local icon = item.def.icon
-      if icon and type(icon) == "userdata" then
-        Theme.setColor({1,1,1,1})
-        local scale = math.min((rowH - 8) / icon:getWidth(), (rowH - 8) / icon:getHeight())
-        love.graphics.draw(icon, dx + 4, dy + 4, 0, scale, scale)
-      end
+      IconSystem.drawIconAny({ item.def, item.id }, dx + 4, dy + 4, rowH - 8, 1.0)
       Theme.setColor(Theme.colors.text)
       love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
       love.graphics.print(item.name, dx + rowH + 8, dy + (rowH - 16)/2)
@@ -76,22 +71,8 @@ function Shop.drawBuybackItems(DockedUI, x, y, w, h, player)
 end
 
 function Shop.drawPlayerInventoryForSale(DockedUI, x, y, w, h, player)
-  if not player or not player.inventory then return end
-  local items = {}
-  for id, qty in pairs(player.inventory) do
-    local def = Content.getItem(id) or Content.getTurret(id)
-    if def and not def.unsellable then
-      local itemQty = (type(qty) == "number") and qty or 1
-      table.insert(items, {
-        id = id,
-        qty = itemQty,
-        def = def,
-        name = def.name or id,
-        price = math.floor((def.price or 0) * 0.5)
-      })
-    end
-  end
-  table.sort(items, function(a, b) return a.name < b.name end)
+  if not player or not player.components or not player.components.cargo then return end
+  local items = buildPlayerInventory(player)
   local slotSize = 64
   local padding = 6
   local cols = math.floor(w / (slotSize + padding))
@@ -114,19 +95,12 @@ function Shop.drawPlayerInventoryForSale(DockedUI, x, y, w, h, player)
       local hover = mx >= sx and my >= sy and mx <= sx + slotSize and my <= sy + slotSize
       if hover then currentHoveredItem = { x = dx, y = dy, w = slotSize, h = slotSize, item = item } end
       Theme.drawGradientGlowRect(dx, dy, slotSize, slotSize, 4, hover and Theme.colors.bg2 or Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
-      local icon = item.def.icon
-      if icon and type(icon) == "userdata" then
-        Theme.setColor({1,1,1,1})
-        local scale = math.min((slotSize - 8) / icon:getWidth(), (slotSize - 8) / icon:getHeight())
-        love.graphics.draw(icon, dx + 4, dy + 4, 0, scale, scale)
-      end
+      IconSystem.drawIconAny({ item.def, item.id }, dx + 4, dy + 4, slotSize - 8, 1.0)
       Theme.setColor(Theme.colors.accent)
       love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
       love.graphics.printf(Util.formatNumber(item.qty), dx + 4, dy + 2, slotSize - 4, "left")
-      local inventoryValue = (player.inventory and player.inventory[item.id]) or 0
-      local inventoryCount = (type(inventoryValue) == "number") and inventoryValue or 1
       Theme.setColor(Theme.colors.textDisabled)
-      love.graphics.printf("In Cargo: " .. Util.formatNumber(inventoryCount), dx, dy + slotSize - 14, slotSize, "center")
+      love.graphics.printf("In Cargo: " .. Util.formatNumber(item.qty), dx, dy + slotSize - 14, slotSize, "center")
       Theme.setColor(Theme.colors.accentGold)
       love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
       local priceText = Util.formatNumber(item.price)
@@ -158,14 +132,21 @@ end
 function Shop.drawShopItems(DockedUI, x, y, w, h, player)
   if not player then return end
   local allShopItems = {}
+  local seenIds = {}
+  local function addItem(entry)
+    if entry and entry.id and not seenIds[entry.id] then
+      table.insert(allShopItems, entry)
+      seenIds[entry.id] = true
+    end
+  end
   for _, turret in ipairs(Content.turrets or {}) do
     if turret.price then
-      table.insert(allShopItems, { type = "turret", data = turret, price = turret.price, name = turret.name, description = turret.description, id = turret.id, category = "Weapons" })
+      addItem({ type = "turret", data = turret, price = turret.price, name = turret.name, description = turret.description, id = turret.id, category = "Weapons" })
     end
   end
   for _, item in ipairs(Content.items) do
     if item.price then
-      table.insert(allShopItems, { type = "item", data = item, price = item.price, name = item.name, description = item.description, id = item.id, category = item.type == "consumable" and "Consumables" or "Materials" })
+      addItem({ type = "item", data = item, price = item.price, name = item.name, description = item.description, id = item.id, category = item.type == "consumable" and "Consumables" or "Materials" })
     end
   end
   local shopItems = {}
@@ -211,25 +192,20 @@ function Shop.drawShopItems(DockedUI, x, y, w, h, player)
       end
       local iconSize = 48
       local iconPad = (slotW - iconSize) / 2
-      local tdef = Content.getTurret(item.id)
-      if tdef then
-        IconSystem.drawTurretIcon(tdef, dx + iconPad, dy + iconPad, iconSize, 1.0)
-      else
-        local def = Content.getItem(item.id)
-        if def and IconSystem.getIcon(def) then
-          IconSystem.drawItemIcon(def, dx + iconPad, dy + iconPad, iconSize, 1.0)
-        end
-      end
+      local subject = Content.getTurret(item.id) or Content.getItem(item.id) or item.id
+      IconSystem.drawIconAny({ subject, item.id }, dx + iconPad, dy + iconPad, iconSize, 1.0)
       Theme.setColor(Theme.colors.accent)
       love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
       love.graphics.printf("∞", dx + 4, dy + 2, slotW - 4, "left")
-      local inventoryValue = (player.inventory and player.inventory[item.id]) or 0
-      local inventoryCount = (type(inventoryValue) == "number") and inventoryValue or 1
-      local countText = Util.formatNumber(inventoryCount)
+      local qtyOwned = 0
+      if player and player.components and player.components.cargo and player.components.cargo.getQuantity then
+        qtyOwned = player.components.cargo:getQuantity(item.id)
+      end
+      local countText = Util.formatNumber(qtyOwned)
       local countWidth = love.graphics.getFont():getWidth(countText)
       local countX = dx + slotW - countWidth - 4
       local countY = dy + slotH - 14
-      if inventoryCount > 0 then Theme.setColor(Theme.colors.textHighlight) else Theme.setColor(Theme.colors.textDisabled) end
+      if qtyOwned > 0 then Theme.setColor(Theme.colors.textHighlight) else Theme.setColor(Theme.colors.textDisabled) end
       love.graphics.print(countText, countX, countY)
       Theme.setColor(Theme.colors.accentGold)
       love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
@@ -274,6 +250,37 @@ function Shop.drawShopItems(DockedUI, x, y, w, h, player)
   else
     DockedUI._shopScrollBar = nil
   end
+end
+
+local function buildPlayerInventory(player)
+  local items = {}
+  if not player or not player.components or not player.components.cargo then
+    return items
+  end
+
+  player.components.cargo:iterate(function(slot, entry)
+    local def = entry.meta or Content.getItem(entry.id) or Content.getTurret(entry.id)
+    if def then
+      def.icon = def.icon or IconSystem.getIcon(def)
+    end
+    table.insert(items, {
+      id = entry.id,
+      qty = entry.qty,
+      meta = entry.meta,
+      slot = slot,
+      def = def
+    })
+  end)
+
+  table.sort(items, function(a, b)
+    local defA = a.meta or Content.getItem(a.id) or Content.getTurret(a.id)
+    local defB = b.meta or Content.getItem(b.id) or Content.getTurret(b.id)
+    local nameA = (defA and defA.name) or a.id
+    local nameB = (defB and defB.name) or b.id
+    return nameA < nameB
+  end)
+
+  return items
 end
 
 return Shop

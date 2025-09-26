@@ -1,64 +1,125 @@
 local Log = {}
 
 local LEVELS = { debug = 1, info = 2, warn = 3, error = 4 }
+local LABELS_BY_VALUE = {}
+for name, value in pairs(LEVELS) do
+  LABELS_BY_VALUE[value] = name
+end
+
 -- Default to debug during active debugging; can be lowered via Log.setLevel
 local current = LEVELS.debug
+Log._infoEnabled = true
+Log._whitelist = nil
+
+local function resolveLevel(level)
+  if type(level) == 'string' then
+    local normalized = level:lower()
+    return LEVELS[normalized]
+  elseif type(level) == 'number' then
+    for _, value in pairs(LEVELS) do
+      if value == level then
+        return value
+      end
+    end
+  end
+  return nil
+end
 
 function Log.setLevel(level)
-  current = LEVELS[level] or current
+  local resolved = resolveLevel(level)
+  if resolved then
+    current = resolved
+  end
+end
+
+function Log.getLevel()
+  return current
+end
+
+function Log.getLevelName()
+  return LABELS_BY_VALUE[current] or 'unknown'
+end
+
+function Log.isLevelEnabled(level)
+  local resolved = resolveLevel(level)
+  if not resolved then return false end
+  return current <= resolved
 end
 
 function Log.setDebugWhitelist(list)
-  -- list should be an array of string prefixes to allow for debug prints
   Log._whitelist = nil
   if type(list) == 'table' and #list > 0 then
     Log._whitelist = {}
-    for _, v in ipairs(list) do
-      if type(v) == 'string' then Log._whitelist[#Log._whitelist+1] = v end
+    for _, value in ipairs(list) do
+      if type(value) == 'string' and value ~= '' then
+        Log._whitelist[#Log._whitelist + 1] = value
+      end
     end
   end
 end
 
+function Log.clearDebugWhitelist()
+  Log._whitelist = nil
+end
+
 function Log.setInfoEnabled(enabled)
-  Log._infoEnabled = not not enabled
+  if enabled == nil then
+    Log._infoEnabled = true
+  else
+    Log._infoEnabled = not not enabled
+  end
+end
+
+function Log.isInfoEnabled()
+  return Log._infoEnabled
+end
+
+local function startsWith(str, prefix)
+  if type(str) ~= 'string' or type(prefix) ~= 'string' then return false end
+  return str:sub(1, #prefix) == prefix
 end
 
 local function out(prefix, ...)
   local parts = { ... }
-  for i = 1, #parts do parts[i] = tostring(parts[i]) end
-  local line = string.format("[%s] %s", prefix, table.concat(parts, " "))
+  for i = 1, #parts do
+    parts[i] = tostring(parts[i])
+  end
+  local line = string.format('[%s] %s', prefix, table.concat(parts, ' '))
   print(line)
 end
 
 function Log.debug(...)
-  if current <= LEVELS.debug then
-    -- If a debug whitelist is active, only allow messages whose first arg
-    -- matches one of the configured prefixes
-    if Log._whitelist and #Log._whitelist > 0 then
-      local first = select(1, ...)
-      if type(first) ~= 'string' then return end
-      local allowed = false
-      for _, pref in ipairs(Log._whitelist) do
-        if first:find(pref, 1, true) then allowed = true break end
+  if not Log.isLevelEnabled('debug') then return end
+  if Log._whitelist and #Log._whitelist > 0 then
+    local first = select(1, ...)
+    if type(first) ~= 'string' then return end
+    local allowed = false
+    for _, prefix in ipairs(Log._whitelist) do
+      if startsWith(first, prefix) then
+        allowed = true
+        break
       end
-      if not allowed then return end
     end
-    out("DEBUG", ...)
+    if not allowed then return end
   end
+  out('DEBUG', ...)
 end
 
 function Log.info(...)
   if not Log._infoEnabled then return end
-  if current <= LEVELS.info then out("INFO", ...) end
+  if Log.isLevelEnabled('info') then
+    out('INFO', ...)
+  end
 end
 
 function Log.warn(...)
-  if current <= LEVELS.warn then out("WARN", ...) end
+  if Log.isLevelEnabled('warn') then
+    out('WARN', ...)
+  end
 end
 
 function Log.error(...)
-  out("ERROR", ...)
+  out('ERROR', ...)
 end
 
 return Log
-

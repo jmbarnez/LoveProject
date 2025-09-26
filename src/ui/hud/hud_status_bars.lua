@@ -240,7 +240,9 @@ function HUDStatusBars.update(dt, player)
     bars.hull:setValue(h.hp or 0, h.maxHP or (h.hp or 0))
     bars.shield:setValue(h.shield or 0, h.maxShield or (h.shield or 0))
     bars.energy:setValue(h.energy or 0, h.maxEnergy or (h.energy or 0))
-    bars.xp:setValue(player.xp or 0, (player.level or 1) * 100)
+    if player.components.progression then
+        bars.xp:setValue(player.components.progression.xp or 0, (player.components.progression.level or 1) * 100)
+    end
 
     -- Update energy animation
     local targetEnergyPct = (h.energy or 0) / math.max(1, h.maxEnergy or h.energy or 1)

@@ -260,7 +260,7 @@ local function handleHunting(entity, dt, player, spawnProjectile, world)
                 local turret = slot.module
 
                 -- Safety check: make sure turret exists and has required properties
-                if turret and turret.update then
+                if turret and turret.update and type(turret.update) == "function" then
                     -- Set turret to automatic fire mode
                     turret.fireMode = "automatic"
                     turret.autoFire = true

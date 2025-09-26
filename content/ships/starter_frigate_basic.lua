@@ -28,6 +28,7 @@ return {
   engine = { accel = 900, maxSpeed = 450, drag = 0.985, mass = 400 },
   sig = 110,
   cargo = { capacity = 120 },
+  equipmentSlots = 2,
   targeting = { lockTime = 2.0 },
   description = "A robust starter frigate with a simple square hull design and dual engines.",
 
@@ -64,12 +65,6 @@ return {
       -- Outline of main hull
       { type = "polygon", mode = "line", color = {0.35,0.75,1.0,0.9}, points = { -18,0,  6,-12,  24,0,  6,12 } },
     }
-  },
-
-  hardpoints = {
-    { turret = "basic_gun" },          -- Slot 1: basic weapon
-    { turret = "mining_laser" },       -- Slot 2: starter mining laser
-    { turret = "salvaging_laser" },    -- Slot 3: starter salvaging laser
   },
 
   -- Optional polygon collision shape (more accurate than circle)

@@ -68,28 +68,18 @@ function love.load()
   Settings.load()
   Sound.applySettings()
   
-  -- Enable debug logging with a whitelist that includes our debug messages
   local Log = require("src.core.log")
-  Log.setLevel("debug")
-  -- Temporarily disable whitelist to see all debug logs
-  Log.setDebugWhitelist(nil)  -- This will show all debug logs
-  Log.info("Debug logging enabled - showing all debug messages")
-  Log.info("Debug logging enabled with whitelist")
-  -- Disable INFO level messages during debugging to avoid overlay clutter
+  Log.setLevel("warn")
+  Log.setDebugWhitelist(nil)
   Log.setInfoEnabled(false)
-  -- One-time dump of the active keymap so we can see what's bound to hotbar_X
-  local Settings = require("src.core.settings")
-  local km = Settings.getKeymap() or {}
-  for k, v in pairs(km) do
-    Log.debug("KeymapDump " .. tostring(k), tostring(v))
-  end
-  -- Ensure hotbar keyboard bindings exist for 3..5 (Q,E,R). If user settings
-  -- mistakenly remapped them to mouse buttons, fix at runtime so keyboard hotkeys work.
+
+  -- Ensure input module has the latest settings after logging is configured
+  local SettingsModule = require("src.core.settings")
+  local km = SettingsModule.getKeymap() or {}
   local defaults = { hotbar_3 = "q", hotbar_4 = "e", hotbar_5 = "r" }
   for k, dv in pairs(defaults) do
     if km[k] ~= dv then
-      Log.debug("KeymapReset", k, "was", tostring(km[k]), "reset to", dv)
-      Settings.setKeyBinding(k, dv)
+      SettingsModule.setKeyBinding(k, dv)
       km[k] = dv
     end
   end
@@ -172,7 +162,7 @@ function love.keypressed(key, scancode, isrepeat)
   end
 
   -- Handle other input through the Input module
-  Input.love_keypressed(key, scancode, isrepeat)
+  Input.love_keypressed(key)
 end
 
 function love.keyreleased(key, scancode)
@@ -182,7 +172,7 @@ function love.keyreleased(key, scancode)
   end
 
   -- Handle other input through the Input module
-  Input.love_keyreleased(key, scancode)
+  Input.love_keyreleased(key)
 end
 
 function love.mousepressed(x, y, button)
@@ -203,7 +193,7 @@ end
 
 function love.textinput(text)
   -- Let debug panel handle text input first
-  if DebugPanel.textinput and DebugPanel.textinput(text) then
+  if DebugPanel.textinput and DebugPanel.textinput() then
     return
   end
   

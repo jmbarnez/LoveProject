@@ -34,9 +34,6 @@ function EntityFactory.create(entityType, entityId, x, y, extraConfig)
         config = Content.getProjectile(entityId)
     elseif entityType == "world_object" or entityType == "station" then
         config = Content.getWorldObject(entityId)
-        if entityId == "beacon_station" then
-            print("EntityFactory getting beacon_station config:", config and config.id or "nil", "repairable =", config and config.repairable or "nil")
-        end
     elseif entityType == "warp_gate" then
         -- Warp gates use their own config system
         config = extraConfig or {

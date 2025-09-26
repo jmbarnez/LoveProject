@@ -20,7 +20,6 @@ function PlayerSystem.init(world)
   
   Events.on('player_death', function(event)
     local player = event.player
-    player.docked = true
     player.thrusterState = {}
     player._dashCd = 0
     player.shield_active = false
@@ -63,10 +62,6 @@ function PlayerSystem.update(dt, player, input, world, hub)
     player.canWarp = player.canWarp or false
     player.wasInWarpRange = player.wasInWarpRange or false
 
-    -- Update lock-on targeting system for missile launchers
-    if player.updateLockOn and player:hasMissileLauncher() then
-        player:updateLockOn(dt, world)
-    end
 
     local ppos = player.components.position
     local body = player.components.physics and player.components.physics.body
@@ -307,8 +302,6 @@ function PlayerSystem.update(dt, player, input, world, hub)
     -- Parry removed in simple manual mode
 
     -- No locking system: manual fire only
-    player.locked = true
-    player.lockProgress = 1
 
     -- Docking and weapon disable logic
     local stations = world:get_entities_with_components("station")
@@ -356,15 +349,13 @@ function PlayerSystem.update(dt, player, input, world, hub)
 
     -- Process all turrets from the grid, but apply different rules for weapons vs utility turrets
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "turret" and gridData.module then
+        if gridData.type == "turret" and gridData.module and gridData.module.update and type(gridData.module.update) == "function" then
             local t = gridData.module
 
             -- Clean up dead assigned targets
             if gridData.assignedTarget and gridData.assignedTarget.dead then
                 gridData.assignedTarget = nil
                 gridData.assignedType = nil
-                gridData.lockProgress = 0
-                gridData.lockTime = nil
             end
 
             -- Manual fire: ignore targets; fire when aligned with cursor and LMB held
@@ -373,39 +364,37 @@ function PlayerSystem.update(dt, player, input, world, hub)
                 t.miningTarget:stopMining()
                 t.beamActive = false
             end
-            if t then
-                -- Handle turret firing based on fireMode
-                local isMissile = t.kind == 'missile'
-                local isUtility = t.kind == 'mining_laser' or t.kind == 'salvaging_laser'
-                local actionName = 'turret_slot_' .. tostring(gridData.slot)
-                local perSlotActive = (HotbarSystem and HotbarSystem.isActive and HotbarSystem.isActive(actionName)) or false
+            -- Handle turret firing based on fireMode
+            local isMissile = t.kind == 'missile'
+            local isUtility = t.kind == 'mining_laser' or t.kind == 'salvaging_laser'
+            local actionName = 'turret_slot_' .. tostring(gridData.slot)
+            local perSlotActive = (HotbarSystem and HotbarSystem.isActive and HotbarSystem.isActive(actionName)) or false
 
-                -- All turrets are considered weapons and disabled in weapon disable zones
-                local allow = (not modalActive) and canFire and (perSlotActive or manualFireAll) and (not isMissile)
+            -- All turrets are considered weapons and disabled in weapon disable zones
+            local allow = (not modalActive) and canFire and (perSlotActive or manualFireAll) and (not isMissile)
 
-                -- Handle firing mode logic
-                local firing = false
-                local autoFire = false
+            -- Handle firing mode logic
+            local firing = false
+            local autoFire = false
 
-                if t.fireMode == "automatic" then
-                    -- For automatic mode: use toggle state
-                    autoFire = allow
-                    firing = autoFire
-                else
-                    -- For manual mode: only fire when button is actively held
-                    firing = allow
-                    autoFire = false
-                end
-
-                -- Update turret with firing state
-                if t.fireMode == "automatic" then
-                    t.autoFire = autoFire
-                end
-
-                -- Call update with firing state (for manual mode)
-                t.firing = firing
-                t:update(dt, nil, not allow, world)
+            if t.fireMode == "automatic" then
+                -- For automatic mode: use toggle state
+                autoFire = allow
+                firing = autoFire
+            else
+                -- For manual mode: only fire when button is actively held
+                firing = allow
+                autoFire = false
             end
+
+            -- Update turret with firing state
+            if t.fireMode == "automatic" then
+                t.autoFire = autoFire
+            end
+
+            -- Call update with firing state (for manual mode)
+            t.firing = firing
+            t:update(dt, nil, not allow, world)
         end
     end
 

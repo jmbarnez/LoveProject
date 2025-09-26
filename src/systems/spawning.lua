@@ -73,7 +73,7 @@ end
 -- Debug log to verify enemy components
 local function logEnemyComponents(enemy)
     if enemy and enemy.components then
-        Log.info("Enemy Components:", enemy.components)
+        Log.debug("Enemy spawned:", enemy.id or enemy, enemy.components and enemy.components.ai)
     else
         Log.warn("Enemy missing components")
     end
@@ -107,15 +107,10 @@ local function spawnEnemy(player, hub, world)
   local enemyShip = EntityFactory.createEnemy("basic_drone", x, y)
   if enemyShip then
       world:addEntity(enemyShip)
-      logEnemyComponents(enemyShip) -- Log enemy components
+      logEnemyComponents(enemyShip)
       
-      -- Debug: Check if AI component was created
-      if enemyShip.components and enemyShip.components.ai then
-          print(string.format("Enemy spawned with AI: range=%.1f, state=%s", 
-              enemyShip.components.ai.range or 0, 
-              enemyShip.components.ai.state or "nil"))
-      else
-          print("ERROR: Enemy spawned without AI component!")
+      if not (enemyShip.components and enemyShip.components.ai) then
+          Log.error("Enemy spawned without AI component!")
       end
   end
 end

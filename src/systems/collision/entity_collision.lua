@@ -30,28 +30,24 @@ end
 -- Helper function to push an entity
 local function pushEntity(entity, pushX, pushY, normalX, normalY, dt, restitution)
     restitution = restitution or 0.25 -- default hull bounce if unspecified
-    if entity.components.physics and entity.components.physics.body then
-        -- Update physics body position
-        local body = entity.components.physics.body
+    local physics = entity.components.physics
+    if physics and physics.body then
+        local body = physics.body
         body.x = (body.x or entity.components.position.x) + pushX
         body.y = (body.y or entity.components.position.y) + pushY
 
-        -- Apply bounce by reflecting velocity along the collision normal
         local vx = body.vx or 0
         local vy = body.vy or 0
         local vn = vx * normalX + vy * normalY
-        if vn < 0 then -- moving into the surface
-            -- Reflect normal component with restitution, preserve tangential
+        if vn < 0 then
             local delta = -(1 + restitution) * vn
             body.vx = vx + delta * normalX
             body.vy = vy + delta * normalY
-            -- Mild tangential smoothing to reduce jitter while keeping bounce feel
             body.vx = body.vx * 0.995
             body.vy = body.vy * 0.995
-            -- Ensure a minimum outward normal speed for bouncy shields so it feels punchy
             if restitution > 0.8 then
                 local newVn = body.vx * normalX + body.vy * normalY
-                local minOut = 60 -- units/s
+                local minOut = 60
                 if newVn < minOut then
                     local add = (minOut - newVn)
                     body.vx = body.vx + add * normalX
@@ -60,11 +56,9 @@ local function pushEntity(entity, pushX, pushY, normalX, normalY, dt, restitutio
             end
         end
     else
-        -- Update position component directly
         entity.components.position.x = entity.components.position.x + pushX
         entity.components.position.y = entity.components.position.y + pushY
 
-        -- If a simple velocity component exists, apply bounce there too
         local vel = entity.components.velocity
         if vel then
             local vx = vel.x or 0
@@ -135,10 +129,13 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt)
         end
 
         -- Determine which entities can move (have physics bodies or are movable)
-        local e1CanMove = (entity1.components.physics and entity1.components.physics.body) or
-                          (entity1.isPlayer or entity1.components.player or entity1.components.ai)
-        local e2CanMove = (entity2.components.physics and entity2.components.physics.body) or
-                          (entity2.isPlayer or entity2.components.player or entity2.components.ai)
+        local e1Physics = entity1.components.physics and entity1.components.physics.body
+        local e2Physics = entity2.components.physics and entity2.components.physics.body
+        local e1Wreckage = entity1.components.wreckage ~= nil
+        local e2Wreckage = entity2.components.wreckage ~= nil
+
+        local e1CanMove = e1Physics or (entity1.isPlayer or entity1.components.player or entity1.components.ai) or e1Wreckage
+        local e2CanMove = e2Physics or (entity2.isPlayer or entity2.components.player or entity2.components.ai) or e2Wreckage
 
         local pushDistance = overlap * 0.55 -- Split the separation
 
@@ -150,15 +147,32 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt)
 
         -- Push entities apart based on their mobility
         if e1CanMove and e2CanMove then
-            -- Both can move - push each half the distance
             pushEntity(entity1, nx * pushDistance, ny * pushDistance, nx, ny, dt, e1Rest)
             pushEntity(entity2, -nx * pushDistance, -ny * pushDistance, -nx, -ny, dt, e2Rest)
         elseif e1CanMove then
-            -- Only entity1 can move - push it the full distance
-            pushEntity(entity1, nx * overlap * 1.1, ny * overlap * 1.1, nx, ny, dt, e1Rest)
+            pushEntity(entity1, nx * overlap, ny * overlap, nx, ny, dt, e1Rest)
         elseif e2CanMove then
-            -- Only entity2 can move - push it the full distance
-            pushEntity(entity2, -nx * overlap * 1.1, -ny * overlap * 1.1, -nx, -ny, dt, e2Rest)
+            pushEntity(entity2, -nx * overlap, -ny * overlap, -nx, -ny, dt, e2Rest)
+        end
+
+        -- Momentum transfer: allow the player to impart motion to wreckage pieces
+        local player, debris = nil, nil
+        if entity1.isPlayer and e2Physics then
+            player, debris = entity1, entity2
+        elseif entity2.isPlayer and e1Physics then
+            player, debris = entity2, entity1
+        end
+
+        if player and debris and debris.components.physics and debris.components.physics.body then
+            local playerBody = player.components.physics and player.components.physics.body
+            local debrisBody = debris.components.physics.body
+            if playerBody and playerBody.vx and playerBody.vy then
+                local transfer = 0.55
+                debrisBody.vx = (debrisBody.vx or 0) + playerBody.vx * transfer
+                debrisBody.vy = (debrisBody.vy or 0) + playerBody.vy * transfer
+                playerBody.vx = playerBody.vx * (1 - transfer * 0.3)
+                playerBody.vy = playerBody.vy * (1 - transfer * 0.3)
+            end
         end
 
         -- Throttle collision FX to avoid spamming when resting against geometry

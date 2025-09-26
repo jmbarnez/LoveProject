@@ -36,7 +36,16 @@ function SaveSlots:getPreferredSize()
   local contentH = topBlocks + slotHeight * slotsCount + slotMargin * (slotsCount - 1) + 10 -- small bottom pad
 
   -- Width must accommodate left/right padding and two action buttons on the right
-  local buttonW, buttonSpacing = 60, ((Theme.ui and Theme.ui.buttonSpacing) or 10)
+  local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
+  local padX = ((Theme.ui and Theme.ui.menuButtonPaddingX) or 12)
+  local actionText = (self and self.mode == "save") and "Save" or "Load"
+  local maxTextW = 0
+  local success1, w1 = pcall(function() return buttonFont:getWidth(actionText) end)
+  local success2, w2 = pcall(function() return buttonFont:getWidth("Delete") end)
+  if success1 and w1 then maxTextW = math.max(maxTextW, w1) end
+  if success2 and w2 then maxTextW = math.max(maxTextW, w2) end
+  local buttonW = math.max(90, math.floor((maxTextW or 0) + padX * 2 + 0.5))
+  local buttonSpacing = ((Theme.ui and Theme.ui.buttonSpacing) or 10)
   local sidePadding = ((Theme.ui and Theme.ui.contentPadding) or 40) * 2 -- left/right internal paddings used in draw
   local minTextWidth = 300 -- reasonable text region
   local contentW = sidePadding + (buttonW * 2 + buttonSpacing) + minTextWidth
@@ -68,6 +77,19 @@ function SaveSlots:draw(x, y, w, h)
   local lineHeight = fontHeight + 4
   local pad = (Theme.ui and Theme.ui.contentPadding) or 20
   local currentY = y + pad
+
+  -- Compute dynamic button width so labels like "Delete" fit cleanly
+  local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
+  local padXButtons = ((Theme.ui and Theme.ui.menuButtonPaddingX) or 12)
+  local actionTextGlobal = self.mode == "save" and "Save" or "Load"
+  local maxTextW = 0
+  local ok1, tw1 = pcall(function() return buttonFont:getWidth(actionTextGlobal) end)
+  local ok2, tw2 = pcall(function() return buttonFont:getWidth("Delete") end)
+  if ok1 and tw1 then maxTextW = math.max(maxTextW, tw1) end
+  if ok2 and tw2 then maxTextW = math.max(maxTextW, tw2) end
+  local buttonW = math.max(90, math.floor((maxTextW or 0) + padXButtons * 2 + 0.5))
+  local buttonH = (Theme.ui and Theme.ui.buttonHeight) or 28
+  local buttonSpacing = (Theme.ui and Theme.ui.buttonSpacing) or 10
 
   -- Title
   Theme.setColor(Theme.colors.text)
@@ -171,16 +193,13 @@ function SaveSlots:draw(x, y, w, h)
       break
     end
     
-    local buttonW = 60
-    local buttonH = (Theme.ui and Theme.ui.buttonHeight) or 28
-    local buttonSpacing = (Theme.ui and Theme.ui.buttonSpacing) or 10
     local buttonsX = x + w - (buttonW * 2 + buttonSpacing) - ((Theme.ui and Theme.ui.contentPadding) or 40)
     local buttonY = slotY + slotHeight - buttonH - 5  -- More margin from bottom
     
     -- Action button (Save/Load)
     if not isEmpty or self.mode == "save" then
       local actionColor = self.mode == "save" and Theme.colors.success or Theme.colors.info
-      local actionText = self.mode == "save" and "Save" or "Load"
+      local actionText = actionTextGlobal
 
       -- Calculate hover state for the button (use virtual mouse coordinates)
       local mx, my = Viewport.getMousePosition()

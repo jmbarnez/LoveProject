@@ -312,7 +312,7 @@ function Input.love_mousemoved(x, y, dx, dy, istouch)
     end
     local vx, vy = Viewport.toVirtual(x, y)
     local s = Viewport.getScale()
-    if mainState.UIManager and mainState.UIManager.mousemoved(vx, vy, dx / s, dy / s, istouch) then
+    if mainState.UIManager and mainState.UIManager.mousemoved(vx, vy, dx / s, dy / s) then
       return
     end
     Input.mousemoved(vx, vy, dx / s, dy / s, istouch)
@@ -320,6 +320,17 @@ function Input.love_mousemoved(x, y, dx, dy, istouch)
 end
 
 function Input.love_wheelmoved(dx, dy)
+  if mainState.screen == "start" then
+    if mainState.startScreen and mainState.startScreen.wheelmoved then
+      local mx, my = love.mouse.getPosition()
+      local vx, vy = Viewport.toVirtual(mx, my)
+      if mainState.startScreen:wheelmoved(vx, vy, dx, dy) then
+        return
+      end
+    end
+    return
+  end
+
   if mainState.screen == "game" then
     if SettingsPanel.visible then
         local x, y = love.mouse.getPosition()
@@ -351,7 +362,7 @@ end
 function Input.textinput(text)
     if mainState.UIManager.isOpen("inventory") then
         local Inventory = getInventoryModule()
-        if Inventory.textinput and Inventory.textinput(text) then
+        if Inventory.textinput and Inventory.textinput() then
             return
         end
     end

@@ -16,6 +16,22 @@ local Dropdown = require("src.ui.common.dropdown")
 
 local DockedUI = {}
 
+local function computeWindowBounds()
+    local sw, sh = Viewport.getDimensions()
+    local width = math.floor(math.min(sw - 80, math.max(900, sw * 0.65)))
+    local height = math.floor(math.min(sh - 80, math.max(560, sh * 0.7)))
+    local x = math.floor((sw - width) * 0.5)
+    local y = math.floor((sh - height) * 0.5)
+    return x, y, width, height
+end
+
+local function applyWindowBounds(window)
+    if not window then return end
+    local x, y, width, height = computeWindowBounds()
+    window.x, window.y = x, y
+    window.width, window.height = width, height
+end
+
 -- State
 DockedUI.visible = false
 DockedUI.player = nil
@@ -36,16 +52,16 @@ DockedUI._bountyRef = nil
 DockedUI.tabs = {"Shop", "Ship", "Quests", "Nodes"}
 DockedUI.activeTab = "Shop"
 
--- Window properties (fullscreen)
+-- Window properties
 -- Initialize the docked window
 function DockedUI.init()
-    local sw, sh = Viewport.getDimensions()
+    local x, y, width, height = computeWindowBounds()
     DockedUI.window = Window.new({
         title = "Station Services",
-        x = 0,
-        y = 0,
-        width = sw,
-        height = sh,
+        x = x,
+        y = y,
+        width = width,
+        height = height,
         useLoadPanelTheme = true,
         closable = true,
         draggable = true,
@@ -78,10 +94,18 @@ end
 -- Show the docked window
 function DockedUI.show(player, station)
   DockedUI.visible = true
+  if DockedUI.window then
+    applyWindowBounds(DockedUI.window)
+  end
   DockedUI.player = player
   DockedUI.station = station
   if DockedUI.quests then
     DockedUI.quests.station = station
+  end
+
+  -- Update ship UI with current player equipment
+  if DockedUI.equipment and player then
+    DockedUI.equipment:updateDropdowns(player)
   end
 end
 
@@ -142,6 +166,10 @@ function DockedUI.drawContent(window, x, y, w, h)
             DockedUI.drawBuybackItems(x + pad, shopContentY, w - pad * 2, shopContentH, player)
         end
     elseif DockedUI.activeTab == "Ship" then
+        -- Ensure ship UI is updated with current player equipment
+        if DockedUI.equipment and player then
+          DockedUI.equipment:updateDropdowns(player)
+        end
         DockedUI.equipment:draw(player, x + pad, contentY, w - pad * 2, contentH)
     elseif DockedUI.activeTab == "Quests" then
         DockedUI.quests:draw(player, x + pad, contentY, w - pad * 2, contentH)
@@ -150,6 +178,9 @@ function DockedUI.drawContent(window, x, y, w, h)
     end
 
     -- Category dropdown is handled by the standardized component
+    if DockedUI.activeTab == "Ship" then
+        DockedUI.equipment:drawDropdownOptions()
+    end
     
     -- Draw context menu for numeric purchase/sale
     if DockedUI.contextMenu.visible then
@@ -196,7 +227,8 @@ function DockedUI.drawContent(window, x, y, w, h)
         if menu.type == "buy" then
             canAfford = DockedUI.player and DockedUI.player:getGC() >= totalPrice
         else
-            canAfford = DockedUI.player and DockedUI.player.inventory and DockedUI.player.inventory[menu.item.id] and DockedUI.player.inventory[menu.item.id] >= qty
+            local cargo = DockedUI.player and DockedUI.player.components and DockedUI.player.components.cargo
+            canAfford = cargo and cargo:has(menu.item.id, qty)
         end
         local btnColor = canAfford and (btnHover and Theme.colors.success or Theme.colors.bg3) or Theme.colors.bg1
         Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 3, btnColor, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
@@ -290,27 +322,24 @@ function DockedUI.purchaseItem(item, player, quantity)
     for i = 1, quantity do
       local proceduralTurret = ProceduralGen.generateTurretStats(baseTurret, 1)
 
-      -- Store the procedural turret in player's inventory with a unique ID
-      local uniqueId = itemId .. "_" .. tostring(love.timer.getTime()) .. "_" .. tostring(math.random(10000)) .. "_" .. tostring(i)
-      proceduralTurret.id = uniqueId
-      proceduralTurret.baseId = itemId -- Keep track of the base turret type
-
-      -- Add to player's inventory as the full turret data
-      if not player.inventory then player.inventory = {} end
-      player.inventory[uniqueId] = proceduralTurret
+      if player.components and player.components.cargo then
+        player.components.cargo:add(itemId, 1)
+      end
 
       purchasedItems[i] = proceduralTurret.proceduralName or proceduralTurret.name
-
-      -- Refresh inventory display
-      local Inventory = require("src.ui.inventory")
-      if Inventory.refresh then Inventory.refresh() end
     end
+
+    -- Refresh inventory display once after adding all turrets
+    local Inventory = require("src.ui.inventory")
+    if Inventory.refresh then Inventory.refresh() end
 
     itemName = purchasedItems[1] -- Use the first item's name for the notification
   else
-    -- Regular item, add normally
-    local Cargo = require("src.core.cargo")
-    Cargo.add(player, itemId, quantity, { notify = false })
+    if player.components and player.components.cargo then
+      player.components.cargo:add(itemId, quantity)
+    end
+    local Inventory = require("src.ui.inventory")
+    if Inventory.refresh then Inventory.refresh() end
   end
 
   -- Create single notification with quantity
@@ -324,22 +353,12 @@ function DockedUI.sellItem(item, player, quantity)
   quantity = quantity or 1
   if not player or not item or quantity <= 0 then return false end
 
-  if not player.inventory or not player.inventory[item.id] then
+  local cargo = player.components and player.components.cargo
+  if not cargo or not cargo:has(item.id, quantity) then
     return false
   end
 
-  local currentValue = player.inventory[item.id]
-  local currentAmount = (type(currentValue) == "number") and currentValue or 0
-  if currentAmount < quantity then
-    return false
-  end
-
-  local newAmount = currentAmount - quantity
-  if newAmount <= 0 then
-    player.inventory[item.id] = nil
-  else
-    player.inventory[item.id] = newAmount
-  end
+  cargo:remove(item.id, quantity)
 
   player:addGC(item.price * quantity)
 
@@ -385,9 +404,14 @@ function DockedUI.mousepressed(x, y, button)
                     local qty = tonumber(menu.quantity) or 0
                     if qty > 0 and DockedUI.player then
                         if menu.type == "buy" then
-                            DockedUI.purchaseItem(menu.item, DockedUI.player, qty)
+                            local cost = (menu.item.price or 0) * qty
+                            if DockedUI.player:getGC() >= cost then
+                                DockedUI.purchaseItem(menu.item, DockedUI.player, qty)
+                            end
                         elseif menu.type == "sell" then
-                            DockedUI.sellItem(menu.item, DockedUI.player, qty)
+                            if DockedUI.sellItem(menu.item, DockedUI.player, qty) then
+                                -- sale handled inside
+                            end
                         end
                     end
                     DockedUI.contextMenu.visible = false
@@ -407,6 +431,9 @@ function DockedUI.mousepressed(x, y, button)
         for _, tab in ipairs(DockedUI._mainTabs) do
             if x >= tab.x and x <= tab.x + tab.w and y >= tab.y and y <= tab.y + tab.h then
                 DockedUI.activeTab = tab.name
+                if tab.name == "Ship" then
+                    DockedUI.equipment:updateDropdowns(DockedUI.player)
+                end
                 return true, false
             end
         end
@@ -578,19 +605,18 @@ function DockedUI.keypressed(key)
               DockedUI.purchaseItem(menu.item, DockedUI.player, qty)
             end
           elseif menu.type == "sell" then
-            if DockedUI.player.inventory and DockedUI.player.inventory[menu.item.id] and
-               DockedUI.player.inventory[menu.item.id] >= qty then
-            DockedUI.sellItem(menu.item, DockedUI.player, qty)
+            if DockedUI.player then
+              if DockedUI.sellItem(menu.item, DockedUI.player, qty) then
+                -- sale handled inside
+              end
             end
           end
         end
-        DockedUI.contextMenu.visible = false
-        DockedUI.contextMenuActive = false
-        return true
+        menu.visible = false
+        return true, false
       elseif key == "escape" then
-        DockedUI.contextMenu.visible = false
-        DockedUI.contextMenuActive = false
-        return true
+        menu.visible = false
+        return true, false
       end
     else
       -- Navigation mode
@@ -603,16 +629,17 @@ function DockedUI.keypressed(key)
               DockedUI.purchaseItem(menu.item, DockedUI.player, qty)
             end
           elseif menu.type == "sell" then
-            if DockedUI.player.inventory and DockedUI.player.inventory[menu.item.id] and
-               DockedUI.player.inventory[menu.item.id] >= qty then
-            DockedUI.sellItem(menu.item, DockedUI.player, qty)
+            if DockedUI.player then
+              if DockedUI.sellItem(menu.item, DockedUI.player, qty) then
+                -- sale handled inside
+              end
             end
           end
         end
-        DockedUI.contextMenu.visible = false
+        menu.visible = false
         return true
       elseif key == "escape" then
-        DockedUI.contextMenu.visible = false
+        menu.visible = false
         return true
       end
     end

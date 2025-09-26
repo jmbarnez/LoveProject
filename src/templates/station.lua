@@ -32,8 +32,6 @@ function Station.new(x, y, config)
 
         -- Special handling for beacon stations with custom no-spawn radius
         if config.id == "beacon_station" then
-            print("Creating beacon station with config:", config.id, "repairable =", config.repairable, "broken =", config.broken)
-
             if config.no_spawn_radius then
                 self.noSpawnRadius = config.no_spawn_radius
             end
@@ -42,8 +40,6 @@ function Station.new(x, y, config)
                 self.repairable = true
                 self.broken = config.broken or false
                 self.repairCost = config.repair_cost or {}
-
-                print("Setting beacon station broken state:", self.broken)
 
                 -- Only apply no-spawn radius when repaired
                 if self.broken then
@@ -55,10 +51,8 @@ function Station.new(x, y, config)
                     broken = self.broken,
                     repairCost = self.repairCost
                 })
-
-                print("Created repairable component with broken =", self.components.repairable.broken)
             else
-                print("Beacon station config.repairable is false/nil!")
+                self.repairable = false
             end
         end
 

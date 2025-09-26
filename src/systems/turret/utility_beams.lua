@@ -89,19 +89,52 @@ function UtilityBeams.completeMining(turret, target, world)
 
     local mineable = target.components.mineable
     local resourceType = mineable.resourceType or "stones"
-    local resourceAmount = mineable.amount or 1
+    local resourceAmount = math.max(1, mineable.amount or mineable.resources or 1)
 
     -- Create resource pickup
     local ItemPickup = require("src.entities.item_pickup")
-    local pickup = ItemPickup.new(
-        target.components.position.x,
-        target.components.position.y,
-        resourceType,
-        resourceAmount
-    )
+    for i = 1, math.max(1, resourceAmount) do
+        local angle = math.random() * math.pi * 2
+        local dist = 6 + math.random() * 18
+        local spawnX = target.components.position.x + math.cos(angle) * dist
+        local spawnY = target.components.position.y + math.sin(angle) * dist
 
-    if pickup and world then
-        world:addEntity(pickup)
+        local speed = 120 + math.random() * 180
+        local spreadAngle = angle + (math.random() - 0.5) * 0.6
+        local vx = math.cos(spreadAngle) * speed
+        local vy = math.sin(spreadAngle) * speed
+
+        local pickup = ItemPickup.new(
+            spawnX,
+            spawnY,
+            resourceType,
+            1,
+            0.85 + math.random() * 0.35,
+            vx,
+            vy
+        )
+
+        if pickup and world then
+            world:addEntity(pickup)
+        end
+    end
+
+    local Effects = require("src.systems.effects")
+    local Sound = require("src.core.sound")
+    local x = target.components.position.x
+    local y = target.components.position.y
+    local radius = (target.components.collidable and target.components.collidable.radius) or 30
+
+    if Effects and Effects.spawnExtractionFlash then
+        Effects.spawnExtractionFlash(x, y, radius * 0.6)
+    end
+
+    if Effects and Effects.spawnExtractionParticles then
+        Effects.spawnExtractionParticles(x, y, radius * 0.8)
+    end
+
+    if Effects and Effects.spawnDetonation then
+        Effects.spawnDetonation(x, y, "asteroid", {0.9, 0.75, 0.4, 0.4})
     end
 
     -- Mining completion effects

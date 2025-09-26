@@ -1,156 +1,236 @@
 -- Unified Icon System
--- Provides consistent icon rendering across all UI components
+-- Draws any definition-based icon via the declarative icon renderer
 
 local Theme = require("src.core.theme")
 local Content = require("src.content.content")
+local IconRenderer = require("src.content.icon_renderer")
 
 local IconSystem = {}
 
--- Centralized turret icon drawing function
-function IconSystem.drawTurretIcon(turretData, x, y, size, alpha)
-    alpha = alpha or 1.0
-    
-    -- Extract turret info from either turret definition or turret data
-    local kind = "gun"
-    local tracerColor = Theme.colors.accent
-    
-    if turretData then
-        if type(turretData) == "string" then
-            -- It's a turret ID, get the definition
-            local def = Content.getTurret(turretData)
-            if def then
-                kind = def.type or def.kind or "gun"
-                tracerColor = (def.tracer and def.tracer.color) or Theme.colors.accent
-            end
-        else
-            -- It's turret data object
-            kind = turretData.type or turretData.kind or "gun"
-            tracerColor = (turretData.tracer and turretData.tracer.color) or Theme.colors.accent
+local function resolveById(id)
+    if not id or type(id) ~= "string" or id == "" then return nil end
+    return Content.getItem(id)
+        or Content.getTurret(id)
+        or Content.getShip(id)
+        or Content.getWorldObject(id)
+end
+
+local function resolveDefinition(subject)
+    if not subject then return nil end
+
+    if type(subject) == "string" then
+        return resolveById(subject)
+    end
+
+    local idCandidates = {
+        subject.id,
+        subject.baseId,
+        subject.moduleId,
+        subject.itemId,
+        subject.turretId,
+        subject.weaponId,
+        subject.defId,
+        subject.blueprintId,
+    }
+
+    for _, candidate in ipairs(idCandidates) do
+        local canonical = resolveById(candidate)
+        if canonical then return canonical end
+    end
+
+    local nestedCandidates = {
+        subject.turret and subject.turret._sourceData,
+        subject._sourceData,
+        subject.def,
+        subject.module,
+        subject.moduleDef,
+        subject.definition,
+        subject.blueprint,
+        subject.template,
+        subject.source,
+        subject.base,
+    }
+
+    for _, nested in ipairs(nestedCandidates) do
+        local canonical = resolveDefinition(nested)
+        if canonical then return canonical end
+    end
+
+    return subject
+end
+
+local function renderDeclarativeIcon(iconDef, id)
+    if not iconDef or type(iconDef) ~= "table" then return nil end
+    if not iconDef.shapes then return nil end
+    local targetSize = iconDef.size or 128
+    return IconRenderer.renderIcon(iconDef, targetSize, id)
+end
+
+local function ensureIcon(def)
+    if not def then return nil end
+
+    if def.icon and type(def.icon) == "userdata" then
+        return def.icon
+    end
+
+    if def.iconImage and type(def.iconImage) == "userdata" then
+        return def.iconImage
+    end
+
+    if def.icon and type(def.icon) == "table" and def.icon.shapes then
+        def.iconDef = def.iconDef or def.icon
+        def.icon = renderDeclarativeIcon(def.icon, def.id)
+        return def.icon
+    end
+
+    if def.iconDef and type(def.iconDef) == "table" and def.iconDef.shapes then
+        def.icon = renderDeclarativeIcon(def.iconDef, def.id)
+        return def.icon
+    end
+
+    if def.iconImage and type(def.iconImage) == "table" and def.iconImage.type == "Image" then
+        return def.iconImage
+    end
+
+    if def.iconPath then
+        local image = Content.getImage(def.iconPath)
+        if image then
+            def.icon = image
+            def.iconImage = image
+            return def.iconImage
         end
     end
-    
-    local c = tracerColor
-    local cx, cy = x + size*0.5, y + size*0.5
-    
-    -- Set alpha for all drawing
+
+    if def.icon and type(def.icon) == "string" then
+        local image = Content.getImage(def.icon)
+        if image then
+            def.icon = image
+            def.iconImage = image
+            return def.iconImage
+        end
+    end
+
+    return nil
+end
+
+function IconSystem.getIcon(subject)
+    local def = resolveDefinition(subject)
+    local icon = ensureIcon(def)
+    return icon, def
+end
+
+local function drawImage(icon, x, y, size, alpha)
     local oldColor = {love.graphics.getColor()}
     love.graphics.setColor(1, 1, 1, alpha)
-    
-    if kind == 'mining_laser' then
-        Theme.setColor(Theme.withAlpha(Theme.colors.bg3, alpha))
-        love.graphics.rectangle('fill', x+8, cy-12, size-16, 24)
-        Theme.setColor(Theme.withAlpha(c, alpha))
-        love.graphics.rectangle('fill', cx-4, y+6, 8, size-12)
-        Theme.setColor(Theme.withAlpha(c, alpha * 0.6))
-        love.graphics.rectangle('fill', cx-5, y+5, 10, size-10)
-        Theme.setColor(Theme.withAlpha(Theme.colors.warning, alpha))
-        love.graphics.rectangle('fill', cx-4, y+6, 8, 6)
-        Theme.setColor(Theme.withAlpha(Theme.colors.textSecondary, alpha))
-        love.graphics.circle('fill', cx-6, cy+8, 2)
-        love.graphics.circle('fill', cx, cy+10, 2)
-        love.graphics.circle('fill', cx+6, cy+8, 2)
-    elseif kind == 'laser' or kind == 'laser_mk1' then
-        Theme.setColor(Theme.withAlpha(Theme.colors.bg3, alpha))
-        love.graphics.rectangle('fill', x+10, cy-10, size-20, 20)
-        Theme.setColor(Theme.withAlpha(c, alpha))
-        love.graphics.rectangle('fill', cx-3, y+8, 6, size-16)
-        Theme.setColor(Theme.withAlpha(c, alpha * 0.4))
-        love.graphics.rectangle('fill', cx-4, y+7, 8, size-14)
-        Theme.setColor(Theme.withAlpha(Theme.colors.highlight, alpha))
-        love.graphics.rectangle('fill', cx-3, y+8, 6, 4)
-    elseif kind == 'missile' or kind == 'rocket_mk1' then
-        Theme.setColor(Theme.withAlpha(Theme.colors.textSecondary, alpha))
-        love.graphics.ellipse('fill', cx, cy, 10, 16)
-        Theme.setColor(Theme.withAlpha(Theme.colors.danger, alpha))
-        love.graphics.polygon('fill', cx-12, cy+6, cx-4, cy+2, cx-4, cy+10)
-        love.graphics.polygon('fill', cx-12, cy-6, cx-4, cy-2, cx-4, cy-10)
-        Theme.setColor(Theme.withAlpha(c, alpha * 0.8))
-        love.graphics.circle('fill', cx+10, cy, 3)
-        Theme.setColor(Theme.withAlpha(Theme.colors.warning, alpha * 0.6))
-        love.graphics.circle('fill', cx+10, cy, 5)
-    elseif kind == 'salvaging_laser' then
-        Theme.setColor(Theme.withAlpha(Theme.colors.bg3, alpha))
-        love.graphics.rectangle('fill', x+8, cy-12, size-16, 24)
-        Theme.setColor(Theme.withAlpha(c, alpha))
-        love.graphics.rectangle('fill', cx-4, y+6, 8, size-12)
-        Theme.setColor(Theme.withAlpha(c, alpha * 0.6))
-        love.graphics.rectangle('fill', cx-5, y+5, 10, size-10)
-        Theme.setColor(Theme.withAlpha(Theme.colors.success, alpha))
-        love.graphics.rectangle('fill', cx-4, y+6, 8, 6)
-        Theme.setColor(Theme.withAlpha(Theme.colors.textSecondary, alpha))
-        love.graphics.circle('fill', cx-6, cy+8, 2)
-        love.graphics.circle('fill', cx, cy+10, 2)
-        love.graphics.circle('fill', cx+6, cy+8, 2)
-    elseif kind == 'giant_cannon' then
-        Theme.setColor(Theme.withAlpha(Theme.colors.bg3, alpha))
-        love.graphics.rectangle('fill', x+6, cy-14, size-12, 28)
-        Theme.setColor(Theme.withAlpha(c, alpha))
-        love.graphics.rectangle('fill', cx-6, y+4, 12, size-8)
-        Theme.setColor(Theme.withAlpha(c, alpha * 0.7))
-        love.graphics.rectangle('fill', cx-7, y+3, 14, size-6)
-        Theme.setColor(Theme.withAlpha(Theme.colors.danger, alpha))
-        love.graphics.rectangle('fill', cx-6, y+4, 12, 8)
-        Theme.setColor(Theme.withAlpha(Theme.colors.textSecondary, alpha))
-        love.graphics.circle('fill', cx-8, cy+6, 2)
-        love.graphics.circle('fill', cx, cy+8, 2)
-        love.graphics.circle('fill', cx+8, cy+6, 2)
-    else
-        -- Default gun icon
-        Theme.setColor(Theme.withAlpha(Theme.colors.textSecondary, alpha))
-        love.graphics.rectangle('fill', cx-12, cy-8, 18, 16)
-        Theme.setColor(Theme.withAlpha(c, alpha))
-        love.graphics.rectangle('fill', cx+6, cy-3, 12, 6)
-        Theme.setColor(Theme.withAlpha(c, alpha * 0.6))
-        love.graphics.rectangle('fill', cx+5, cy-4, 14, 8)
-        Theme.setColor(Theme.withAlpha(Theme.colors.highlight, alpha))
-        love.graphics.rectangle('fill', cx+6, cy-3, 12, 2)
-    end
-    
-    -- Restore original color
+    local iw, ih = icon:getWidth(), icon:getHeight()
+    local scale = math.min(size / iw, size / ih)
+    local drawW = iw * scale
+    local drawH = ih * scale
+    local dx = x + (size - drawW) * 0.5
+    local dy = y + (size - drawH) * 0.5
+    love.graphics.draw(icon, dx, dy, 0, scale, scale)
     love.graphics.setColor(oldColor)
 end
 
--- Draw item icon (for non-turret items)
-function IconSystem.drawItemIcon(itemData, x, y, size, alpha)
-    alpha = alpha or 1.0
-    
-    -- If it has a pre-rendered icon, use that
-    if itemData and itemData.icon and type(itemData.icon) == "userdata" then
-        local oldColor = {love.graphics.getColor()}
-        love.graphics.setColor(1, 1, 1, alpha)
-        local img = itemData.icon
-        local sx = size / img:getWidth()
-        local sy = size / img:getHeight()
-        love.graphics.draw(img, x, y, 0, sx, sy)
-        love.graphics.setColor(oldColor)
-        return true
-    end
-    
-    -- Fallback: draw a simple placeholder
+local function drawPlaceholder(x, y, size, alpha)
     local oldColor = {love.graphics.getColor()}
     Theme.setColor(Theme.withAlpha(Theme.colors.bg2, alpha))
     love.graphics.rectangle('fill', x, y, size, size)
     Theme.setColor(Theme.withAlpha(Theme.colors.text, alpha))
     love.graphics.rectangle('line', x, y, size, size)
     love.graphics.setColor(oldColor)
+end
+
+function IconSystem.tryDrawIcon(subject, x, y, size, alpha)
+    size = size or 64
+    alpha = alpha or 1.0
+
+    local icon = IconSystem.getIcon(subject)
+    if icon then
+        drawImage(icon, x, y, size, alpha)
+        return true
+    end
+
     return false
 end
 
--- Get the appropriate icon for any item/turret
-function IconSystem.getIcon(itemData, size)
+function IconSystem.drawIcon(subject, x, y, size, alpha)
     size = size or 64
-    
-    -- For turrets, we always use the procedural drawing
-    if itemData and (itemData.type == "turret" or itemData.kind or itemData.damage) then
-        return nil -- Signal to use drawTurretIcon
+    alpha = alpha or 1.0
+
+    if type(subject) == "table" and subject[1] ~= nil and subject.id == nil then
+        return IconSystem.drawIconAny(subject, x, y, size, alpha)
     end
-    
-    -- For items with pre-rendered icons, return the image
-    if itemData and itemData.icon and type(itemData.icon) == "userdata" then
-        return itemData.icon
+
+    if IconSystem.tryDrawIcon(subject, x, y, size, alpha) then
+        return true
     end
-    
-    return nil -- Signal to use fallback
+
+    drawPlaceholder(x, y, size, alpha)
+    return false
+end
+
+local function normalizeSubjects(subjects, ...)
+    if select("#", ...) > 0 then
+        local list = {}
+        list[#list + 1] = subjects
+        for i = 1, select("#", ...) do
+            list[#list + 1] = select(i, ...)
+        end
+        return list
+    end
+
+    if type(subjects) == "table" then
+        if subjects[1] ~= nil and subjects.id == nil then
+            return subjects
+        end
+        local list = {}
+        for _, value in pairs(subjects) do
+            list[#list + 1] = value
+        end
+        return list
+    end
+
+    return { subjects }
+end
+
+function IconSystem.drawIconAny(subjects, x, y, size, alpha, ...)
+    size = size or 64
+    alpha = alpha or 1.0
+
+    local candidates = normalizeSubjects(subjects, ...)
+    if type(candidates) == "table" and candidates[1] ~= nil then
+        for _, candidate in ipairs(candidates) do
+            if candidate ~= nil and IconSystem.tryDrawIcon(candidate, x, y, size, alpha) then
+                return true
+            end
+        end
+    else
+        if IconSystem.tryDrawIcon(candidates, x, y, size, alpha) then
+            return true
+        end
+    end
+
+    drawPlaceholder(x, y, size, alpha)
+    return false
+end
+
+function IconSystem.invalidateCache()
+    for _, bucket in pairs(Content.byId) do
+        for _, def in pairs(bucket) do
+            if def.iconImage then
+                def.iconImage = nil
+            end
+            if def.icon and type(def.icon) == "userdata" then
+                -- keep existing userdata references
+            elseif def.icon and type(def.icon) ~= "userdata" then
+                def.icon = nil
+            end
+        end
+    end
+    if IconRenderer.clearCache then
+        IconRenderer.clearCache()
+    end
 end
 
 return IconSystem

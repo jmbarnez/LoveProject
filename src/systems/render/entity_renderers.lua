@@ -2,6 +2,7 @@
 local RenderUtils = require("src.systems.render.utils")
 local util = require("src.core.util")
 local EnemyStatusBars = require("src.ui.hud.enemy_status_bars")
+local ResourceNodeBars = require("src.ui.hud.resource_node_bars")
 local Config = require("src.content.config")
 local PlayerRenderer = require("src.systems.render.player_renderer")
 local Log = require("src.core.log")
@@ -91,46 +92,22 @@ function EntityRenderers.enemy(entity, player)
     -- Mini shield and health bars (screen-aligned) above enemy
     EnemyStatusBars.drawMiniBars(entity)
 
-    -- Draw detection cone for AI enemies (only in debug, always forward in local +X)
+    -- Draw detection radius overlay (debug only)
     if entity.components.ai and entity.components.ai.state ~= "dead" and DebugPanel.isVisible() then
         local ai = entity.components.ai
-        local detectionRange = ai.intelligence.detectionRange
-
-        -- Cone settings
-        local coneAngle = math.pi / 3  -- 60 degrees total (30 degrees each side)
-        local halfConeAngle = coneAngle / 2
-        local coneLength = detectionRange * 0.8  -- 80% of detection range
-
-        -- Local-space cone points (ship is already rotated by pos.angle outside)
-        local startX, startY = 0, 0
-        local tipX, tipY = coneLength, 0
-        local leftX = math.cos(-halfConeAngle) * coneLength
-        local leftY = math.sin(-halfConeAngle) * coneLength
-        local rightX = math.cos(halfConeAngle) * coneLength
-        local rightY = math.sin(halfConeAngle) * coneLength
-
-        if ai.state == "hunting" then
-            RenderUtils.setColor({1.0, 0.8, 0.0, 0.12})
+        local detectionRange = ai.detectionRange or 0
+        if detectionRange > 0 then
+            local engaged = (ai.state == "hunting")
+            local primaryColor = engaged and {1.0, 0.35, 0.1, 0.55} or {1.0, 0.85, 0.05, 0.35}
+            RenderUtils.setColor(primaryColor)
+            love.graphics.setLineWidth(engaged and 1.6 or 1.2)
+            love.graphics.circle("line", 0, 0, detectionRange)
+            RenderUtils.setColor({primaryColor[1], primaryColor[2], primaryColor[3], 0.18})
             love.graphics.setLineWidth(1)
-            love.graphics.line(startX, startY, leftX, leftY)
-            love.graphics.line(startX, startY, rightX, rightY)
-            love.graphics.line(leftX, leftY, tipX, tipY)
-            love.graphics.line(rightX, rightY, tipX, tipY)
-            RenderUtils.setColor({1.0, 0.8, 0.0, 0.05})
-            love.graphics.polygon("fill", startX, startY, leftX, leftY, tipX, tipY, rightX, rightY)
-            love.graphics.setLineWidth(1)
-            RenderUtils.setColor({1.0, 0.8, 0.0, 0.20})
-            love.graphics.circle("line", tipX, tipY, 3)
-        else
-            RenderUtils.setColor({1.0, 0.8, 0.0, 0.06})
-            love.graphics.setLineWidth(1)
-            love.graphics.line(startX, startY, leftX, leftY)
-            love.graphics.line(startX, startY, rightX, rightY)
-            love.graphics.line(leftX, leftY, tipX, tipY)
-            love.graphics.line(rightX, rightY, tipX, tipY)
-            love.graphics.setLineWidth(1)
+            love.graphics.circle("line", 0, 0, detectionRange * 0.5)
         end
     end
+
 end
 
 -- Massive planet renderer (decorative background body)
@@ -329,85 +306,9 @@ function EntityRenderers.asteroid(entity, player)
         
         -- No hover glow ring; visible effects only when laser is cutting
 
-        -- Draw break-line cracks indicating overall mining progress
-        local m = entity.components and entity.components.mineable
-        if m then
-            -- Use durability-based progress for cracks visibility
-            local dTotal = math.max(0.001, m.durability or 5.0)
-            local dProg = math.max(0, m._durabilityProgress or 0)
-            local progress = math.max(0, math.min(1, dProg / dTotal))
-            if progress > 0 then
-                local r = (entity.components and entity.components.collidable and entity.components.collidable.radius) or 30
-                local cracks = math.floor(1 + progress * 4)
-                local baseAlpha = 0.2 + 0.6 * progress
-                love.graphics.setLineWidth(0.8 + progress * 0.7)
-                
-                -- Generate procedural crack patterns that grow from center outward
-                for i=1,cracks do
-                    -- Use entity id as base seed for consistency across frames
-                    local baseSeed = (entity.id or 0) * 73 + i * 127
-                    
-                    -- All cracks start from the exact center (impact point)
-                    local sx, sy = 0, 0
-                    
-                    -- Generate main crack direction with random angle
-                    local mainAngle = ((baseSeed % 360) / 360) * math.pi * 2
-                    -- Cracks reach the edge by 70% progress, ensuring they hit the edge before destruction
-                    local minLength = r * 0.5 * math.min(1, progress / 0.7) -- Reach edge at 70% progress
-                    local maxLength = r * 0.9 * math.min(1, progress / 0.7) -- Almost to edge at 70%
-                    local mainLength = minLength + ((baseSeed % 47) / 47) * (maxLength - minLength)
-                    
-                    -- Create natural zigzag path from center to edge
-                    local segments = 3 + math.floor(progress * 2) -- More segments as damage increases
-                    local segmentLength = mainLength / segments
-                    local currentX, currentY = sx, sy
-                    local currentAngle = mainAngle
-                    
-                    -- Draw main crack with mining laser color (golden/orange)
-                    local crackAlpha = baseAlpha * (0.8 + ((baseSeed % 13) / 13) * 0.2)
-                    love.graphics.setColor(1.0, 0.8, 0.2, crackAlpha)
-                    
-                    for seg = 1, segments do
-                        -- Add random deviation to each segment
-                        local deviation = ((baseSeed * seg % 61) - 30) * 0.3 / 180 * math.pi
-                        currentAngle = currentAngle + deviation
-                        
-                        local nextX = currentX + math.cos(currentAngle) * segmentLength
-                        local nextY = currentY + math.sin(currentAngle) * segmentLength
-                        
-                        love.graphics.line(currentX, currentY, nextX, nextY)
-                        
-                        -- Add random branches from this segment (less frequent for cleaner look)
-                        if progress > 0.5 and seg > 1 and ((baseSeed * seg) % 100) < (progress * 20) then
-                            local branchSeed = baseSeed * seg * 17
-                            local branchAngle = currentAngle + (((branchSeed % 121) - 60) * 1.5 / 180 * math.pi)
-                            local branchLength = segmentLength * (0.4 + ((branchSeed % 19) / 19) * 0.6)
-                            
-                            local branchX = currentX + math.cos(branchAngle) * branchLength
-                            local branchY = currentY + math.sin(branchAngle) * branchLength
-                            
-                            love.graphics.setColor(1.0, 0.8, 0.2, crackAlpha * 0.7)
-                            love.graphics.line(currentX, currentY, branchX, branchY)
-                            
-                            -- Occasional sub-branches
-                            if progress > 0.6 and ((branchSeed % 100) < 25) then
-                                local subAngle = branchAngle + (((branchSeed % 31) - 15) * 2 / 180 * math.pi)
-                                local subLength = branchLength * 0.5
-                                local subX = branchX + math.cos(subAngle) * subLength
-                                local subY = branchY + math.sin(subAngle) * subLength
-                                
-                                love.graphics.setColor(1.0, 0.8, 0.2, crackAlpha * 0.5)
-                                love.graphics.line(branchX, branchY, subX, subY)
-                            end
-                        end
-                        
-                        currentX, currentY = nextX, nextY
-                        love.graphics.setColor(1.0, 0.8, 0.2, crackAlpha) -- Reset color for main crack
-                    end
-                end
-                love.graphics.setLineWidth(1)
-            end
-        end
+        ResourceNodeBars.drawMiningBar(entity, {
+            isHovered = isHovered,
+        })
     end
 end
 
@@ -577,6 +478,9 @@ function EntityRenderers.wreckage(entity, player)
         love.graphics.rectangle('line', -size/2, -size/2, size, size, 2, 2)
     end
     
+    ResourceNodeBars.drawSalvageBar(entity, {
+        isHovered = isHovered,
+    })
     -- Remove hover glow for wreckage to match new system
     if false and isHovered and canSalvage then
         if type(frags) == "table" and #frags > 0 then

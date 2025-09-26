@@ -25,7 +25,7 @@ function RenderSystem.draw(world, camera, player, clickMarkers, hoveredEntity, h
         ShieldEffects.draw(world, camera)
     end
     if ShieldImpactEffects and ShieldImpactEffects.draw then
-        ShieldImpactEffects.draw(world)
+        ShieldImpactEffects.draw()
     end
 
     -- Draw click markers

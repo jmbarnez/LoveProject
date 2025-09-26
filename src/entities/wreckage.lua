@@ -89,7 +89,7 @@ local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals)
   local sizeHint = (avgR or 6) * ((visuals and visuals.size) or 1.0)
   e.components.wreckage = WreckageComponent.new({
       resourceType = "scraps",
-      salvageAmount = math.max(1, math.floor(sizeHint / 4)),
+      salvageAmount = math.max(5, math.floor(sizeHint)), -- Increased minimum and multiplier for more durability
       salvageCycleTime = 0.9 + math.random() * 0.6,
       scanned = false
   })

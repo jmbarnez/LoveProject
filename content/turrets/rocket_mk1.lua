@@ -4,6 +4,7 @@ return {
   name = "Tech 1 Rocket Launcher",
   description = "Guided missile launcher with strong homing capability and heavy damage.",
   price = 3000,
+  module = { type = "turret" },
   icon = {
     size = 32,
     shapes = {

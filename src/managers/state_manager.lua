@@ -27,7 +27,7 @@ function StateManager.init(player, world)
     love.filesystem.createDirectory(SAVE_DIRECTORY)
   end
   
-  Log.info("State Manager initialized")
+  Log.debug("State Manager initialized")
 end
 
 -- Safely copy primitive values, avoiding circular references
@@ -94,7 +94,7 @@ local function getGameState()
       } or {hp = 100, maxHp = 100, shield = 0, maxShield = 0},
       
       -- Inventory (safe copy)
-      inventory = safeCopy(currentPlayer.inventory) or {},
+      cargo = currentPlayer.components and currentPlayer.components.cargo and currentPlayer.components.cargo:serialize() or nil,
       
       -- Quest progress (safe copy)
       active_quests = safeCopy(currentPlayer.active_quests) or {},
@@ -105,7 +105,9 @@ local function getGameState()
       shipId = currentPlayer.shipId or "starter_frigate_basic",
       
       -- Status flags
-      docked = currentPlayer.docked or false
+      docked = currentPlayer.docked or false,
+      progression = currentPlayer.components and currentPlayer.components.progression and currentPlayer.components.progression:serialize() or nil,
+      questLog = currentPlayer.components and currentPlayer.components.questLog and currentPlayer.components.questLog:serialize() or nil,
     },
     
     -- World data (simplified to avoid circular references)
@@ -177,8 +179,19 @@ local function applyGameState(state, player, world)
     player.components.health.maxShield = playerData.health.maxShield
   end
   
-  -- Restore inventory
-  player.inventory = playerData.inventory or {}
+  if player.components and player.components.cargo then
+    if playerData.cargo then
+      player.components.cargo = require("src.components.cargo").deserialize(playerData.cargo)
+    elseif playerData.inventory then
+      for id, qty in pairs(playerData.inventory) do
+        if type(qty) == "number" then
+          player.components.cargo:add(id, qty)
+        elseif type(qty) == "table" then
+          player.components.cargo:add(id, 1, qty)
+        end
+      end
+    end
+  end
   
   -- Restore quest progress
   player.active_quests = playerData.active_quests or {}
@@ -192,10 +205,17 @@ local function applyGameState(state, player, world)
   end
   player.docked = playerData.docked or false
   
+  if currentPlayer.components and currentPlayer.components.progression and state.player.progression then
+    currentPlayer.components.progression = require("src.components.progression").deserialize(state.player.progression)
+  end
+  if currentPlayer.components and currentPlayer.components.questLog and state.player.questLog then
+    currentPlayer.components.questLog = require("src.components.quest_log").deserialize(state.player.questLog)
+  end
+
   -- TODO: Restore world entities (asteroids, wreckage, etc.)
   -- This would require more complex entity recreation logic
   
-  Log.info("Game state loaded successfully from", state.realTime)
+  Log.debug("Game state loaded successfully from", state.realTime)
   
   -- Emit load event
   Events.emit("game_loaded", {
@@ -231,7 +251,19 @@ local function createGameFromSave(state)
   player.level = playerData.level or 1
   player.xp = playerData.xp or 0
   player.gc = playerData.gc or 0
-  player.inventory = playerData.inventory or {}
+  if player.components and player.components.cargo then
+    if playerData.cargo then
+      player.components.cargo = require("src.components.cargo").deserialize(playerData.cargo)
+    elseif playerData.inventory then
+      for id, qty in pairs(playerData.inventory) do
+        if type(qty) == "number" then
+          player.components.cargo:add(id, qty)
+        elseif type(qty) == "table" then
+          player.components.cargo:add(id, 1, qty)
+        end
+      end
+    end
+  end
   player.active_quests = playerData.active_quests or {}
   player.quest_progress = playerData.quest_progress or {}
   player.quest_start_times = playerData.quest_start_times or {}
@@ -266,7 +298,7 @@ local function createGameFromSave(state)
   local success = applyGameState(state, player, world)
 
   if success then
-    Log.info("Game created from save data successfully")
+    Log.debug("Game created from save data successfully")
     return true
   else
     Log.error("Failed to create game from save data")
@@ -308,7 +340,7 @@ function StateManager.saveGame(slotName, description)
   local success, error = love.filesystem.write(filename, saveData)
   
   if success then
-    Log.info("Game saved to slot:", slotName)
+    Log.debug("Game saved to slot:", slotName)
     
     -- Emit save event
     Events.emit("game_saved", {
@@ -362,7 +394,7 @@ function StateManager.loadGame(slotName, createNewGame)
   end
 
   if loaded then
-    Log.info("Game loaded from slot:", slotName)
+    Log.debug("Game loaded from slot:", slotName)
     return true
   else
     Log.error("Failed to apply loaded state")
@@ -418,7 +450,7 @@ function StateManager.deleteSave(slotName)
   
   local success = love.filesystem.remove(filename)
   if success then
-    Log.info("Deleted save slot:", slotName)
+    Log.debug("Deleted save slot:", slotName)
     
     Events.emit("game_save_deleted", {
       slotName = slotName
@@ -480,9 +512,9 @@ end
 function StateManager.setSaveEnabled(enabled)
   saveEnabled = enabled
   if not enabled then
-    Log.info("Saving disabled")
+    Log.debug("Saving disabled")
   else
-    Log.info("Saving enabled")
+    Log.debug("Saving enabled")
   end
 end
 

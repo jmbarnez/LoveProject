@@ -222,13 +222,7 @@ function SettingsPanel.init()
         selectedFullscreenTypeIndex = 1 -- windowed
     end
 
-    -- Debug: Print current fullscreen settings
-    print("SettingsPanel.init - Current fullscreen settings:")
-    print("  fullscreen: " .. tostring(currentGraphicsSettings.fullscreen))
-    print("  fullscreen_type: " .. (currentGraphicsSettings.fullscreen_type or "nil"))
-    print("  borderless: " .. tostring(currentGraphicsSettings.borderless))
-    print("  selectedFullscreenTypeIndex: " .. selectedFullscreenTypeIndex)
-    print("  Available resolutions count: " .. (#resolutions or 0))
+    -- Debug logging removed for production cleanliness
 
     -- Apply the current accent theme
     applyAccentTheme(currentGraphicsSettings.accent_theme or "Cyan/Lavender")
@@ -494,7 +488,7 @@ function SettingsPanel.drawContent(window, x, y, w, h)
 
     -- Calculate content height
     SettingsPanel.calculateContentHeight()
-    print("Content height: " .. (contentHeight or 0) .. ", innerH: " .. innerH .. ", should show scrollbar: " .. tostring(contentHeight > innerH))
+    -- Debug logging removed for production cleanliness
 
     love.graphics.pop() -- End of scrollable content translation
 

@@ -64,6 +64,90 @@ UIManager.layerOrder = {
 UIManager.modalActive = false
 UIManager.modalComponent = nil
 
+local unpack = table.unpack or unpack
+
+local componentFallbacks = {
+  inventory = {
+    module = Inventory,
+    onClose = function()
+      UIManager.close("inventory")
+    end,
+  },
+  bounty = {
+    module = Bounty,
+    onClose = function()
+      UIManager.close("bounty")
+    end,
+  },
+  docked = {
+    module = DockedUI,
+    onClose = function()
+      local player = DockedUI.player
+      if player and player.undock then
+        player:undock()
+      else
+        UIManager.close("docked")
+      end
+    end,
+  },
+  skills = {
+    module = SkillsPanel,
+    onClose = function()
+      UIManager.close("skills")
+    end,
+  },
+  map = { module = Map },
+  warp = { module = warpInstance, useSelf = true },
+  escape = {
+    module = EscapeMenu,
+    onClose = function()
+      UIManager.close("escape")
+    end,
+  },
+  settings = { module = SettingsPanel },
+  debug = { module = DebugPanel },
+}
+
+local EMPTY_ARGS = {}
+
+local function callComponentMethod(componentId, methodName, registeredArgs, fallbackArgs)
+  local argsForRegistered = registeredArgs or EMPTY_ARGS
+  local argsForFallback = fallbackArgs or argsForRegistered
+
+  local registered = Registry.get(componentId)
+  if registered then
+    local fn = registered[methodName]
+    if type(fn) == "function" then
+      local r1, r2, r3 = fn(registered, unpack(argsForRegistered))
+      return r1, r2, r3, "registered"
+    end
+  end
+
+  local fallback = componentFallbacks[componentId]
+  if not fallback then
+    return false
+  end
+
+  local target = fallback.module
+  if not target then
+    return false
+  end
+
+  local fn = target[methodName]
+  if type(fn) ~= "function" then
+    return false
+  end
+
+  if fallback.useSelf then
+    local r1, r2, r3 = fn(target, unpack(argsForFallback))
+    return r1, r2, r3, "fallback"
+  end
+
+  local r1, r2, r3 = fn(unpack(argsForFallback))
+  return r1, r2, r3, "fallback"
+end
+
+
 -- Initialize UI Manager
 function UIManager.init()
   -- Initialize all UI components
@@ -203,7 +287,7 @@ function UIManager.update(dt, player)
   if Notifications.update then Notifications.update(dt) end
   if SkillsPanel.update then SkillsPanel.update(dt) end
   if Inventory.update then Inventory.update(dt) end
-  if DockedUI.update then DockedUI.update(dt, player) end
+  if DockedUI.update then DockedUI.update(dt) end
   if EscapeMenu.update then EscapeMenu.update(dt) end
   if Map.update then Map.update(dt, player) end
   if warpInstance.update then warpInstance:update(dt) end
@@ -273,7 +357,7 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
     else
       -- Fallback to hardcoded component drawing
       if component == "inventory" then
-        Inventory.draw(player)
+        Inventory.draw()
       elseif component == "bounty" then
         Bounty.draw(bounty, player.docked)
       elseif component == "docked" then
@@ -299,7 +383,7 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
           table.insert(stations, hub)
         end
 
-        Map.draw(player, world, enemies, asteroids, wrecks, stations, lootDrops, {})
+        Map.draw(player, world, enemies, asteroids, wrecks, stations, lootDrops)
       elseif component == "warp" then
         warpInstance:draw()
       end
@@ -384,7 +468,7 @@ function UIManager.toggle(component)
     if not wasOpen then
       UIManager.open(component)
     end
-    Log.info("UI toggle", component, "->", not wasOpen)
+    Log.debug("UI toggle", component, "->", not wasOpen)
     return not wasOpen
   end
   return false
@@ -433,6 +517,7 @@ function UIManager.close(component)
     -- Sync with legacy UI systems
     if component == "inventory" then
       Inventory.visible = false
+      if Inventory.clearSearchFocus then Inventory.clearSearchFocus() end
     elseif component == "bounty" then
       Bounty.visible = false
     elseif component == "docked" then
@@ -542,52 +627,17 @@ function UIManager.mousepressed(x, y, button)
   -- Route input to components from top to bottom
   for _, layer in ipairs(openLayers) do
     local component = layer.name
-    local handled = false
-    local shouldClose = false
+    local handled, shouldClose, _, source = callComponentMethod(
+      component,
+      "mousepressed",
+      { x, y, button, UIManager._player },
+      { x, y, button }
+    )
 
-    -- Get the registered component
-    local registeredComponent = Registry.get(component)
-
-    -- Handle registered components dynamically
-    if registeredComponent and registeredComponent.mousepressed then
-      handled = registeredComponent:mousepressed(x, y, button, UIManager._player)
-      -- For registered components, we don't handle closing here as they manage their own lifecycle
-    else
-      -- Fallback to hardcoded component handling
-      if component == "inventory" and Inventory.mousepressed then
-        handled, shouldClose = Inventory.mousepressed(x, y, button, UIManager._player)
-        if shouldClose then
-          UIManager.close("inventory")
-        end
-      elseif component == "bounty" and Bounty.mousepressed then
-        handled, shouldClose = Bounty.mousepressed(x, y, button)
-        if shouldClose then
-          UIManager.close("bounty")
-        end
-      elseif component == "docked" and DockedUI.mousepressed then
-        handled, shouldClose = DockedUI.mousepressed(x, y, button)
-        if shouldClose then
-          local player = DockedUI.player
-          if player and player.undock then
-            player:undock()
-          end
-        end
-      elseif component == "escape" and EscapeMenu.mousepressed then
-        handled, shouldClose = EscapeMenu.mousepressed(x, y, button)
-        if shouldClose then
-          UIManager.close("escape")
-        end
-      elseif component == "skills" and SkillsPanel.mousepressed then
-        handled, shouldClose = SkillsPanel.mousepressed(x, y, button)
-        if shouldClose then
-          UIManager.close("skills")
-        end
-      elseif component == "settings" and SettingsPanel.mousepressed then
-        handled = SettingsPanel.mousepressed(x, y, button)
-      elseif component == "warp" and warpInstance.mousepressed then
-        handled = warpInstance:mousepressed(x, y, button)
-      elseif component == "debug" and DebugPanel.mousepressed then
-        handled = DebugPanel.mousepressed(x, y, button)
+    if source == "fallback" and shouldClose then
+      local fallback = componentFallbacks[component]
+      if fallback and fallback.onClose then
+        fallback.onClose()
       end
     end
 
@@ -611,23 +661,12 @@ function UIManager.mousereleased(x, y, button)
       -- Get the registered component
       local registeredComponent = Registry.get(component)
 
-      -- Handle registered components dynamically
-      if registeredComponent and registeredComponent.mousereleased then
-        registeredComponent:mousereleased(x, y, button, UIManager._player)
-      else
-        -- Fallback to hardcoded component handling
-        if component == "inventory" and Inventory.mousereleased then
-          Inventory.mousereleased(x, y, button, UIManager._player)
-        elseif component == "bounty" and Bounty.mousereleased then
-          Bounty.mousereleased(x, y, button)
-        elseif component == "docked" and DockedUI.mousereleased then
-          DockedUI.mousereleased(x, y, button)
-        elseif component == "escape" and EscapeMenu.mousereleased then
-          EscapeMenu.mousereleased(x, y, button)
-        elseif component == "skills" and SkillsPanel.mousereleased then
-          SkillsPanel.mousereleased(x, y, button)
-        end
-      end
+      callComponentMethod(
+        component,
+        "mousereleased",
+        { x, y, button, UIManager._player },
+        { x, y, button }
+      )
     end
   end
   if SettingsPanel.visible and SettingsPanel.mousereleased then
@@ -654,30 +693,12 @@ function UIManager.mousemoved(x, y, dx, dy)
     local registeredComponent = Registry.get(component)
 
     -- Handle registered components dynamically
-    if registeredComponent and registeredComponent.mousemoved then
-      handled = registeredComponent:mousemoved(x, y, dx, dy, UIManager._player)
-    else
-      -- Fallback to hardcoded component handling
-      if component == "inventory" and Inventory.mousemoved then
-        handled = Inventory.mousemoved(x, y, dx, dy)
-      elseif component == "bounty" and Bounty.mousemoved then
-        handled = Bounty.mousemoved(x, y, dx, dy)
-      elseif component == "docked" and DockedUI.mousemoved then
-        handled = DockedUI.mousemoved(x, y, dx, dy)
-      elseif component == "escape" and EscapeMenu.mousemoved then
-        handled = EscapeMenu.mousemoved(x, y, dx, dy)
-      elseif component == "skills" and SkillsPanel.mousemoved then
-        handled = SkillsPanel.mousemoved(x, y, dx, dy)
-      elseif component == "settings" and SettingsPanel.mousemoved then
-        handled = SettingsPanel.mousemoved(x, y, dx, dy)
-      elseif component == "map" and Map.mousemoved then
-        handled = Map.mousemoved(x, y, dx, dy)
-      elseif component == "warp" and warpInstance.mousemoved then
-        handled = warpInstance:mousemoved(x, y, dx, dy)
-      elseif component == "debug" and DebugPanel.mousemoved then
-        handled = DebugPanel.mousemoved(x, y, dx, dy)
-      end
-    end
+    local handled = callComponentMethod(
+      component,
+      "mousemoved",
+      { x, y, dx, dy, UIManager._player },
+      { x, y, dx, dy }
+    )
 
     if handled then
       return true
@@ -687,12 +708,26 @@ function UIManager.mousemoved(x, y, dx, dy)
   return false
 end
 
-function UIManager.wheelmoved(x, y)
+function UIManager.wheelmoved(dx, dy)
   if SettingsPanel.visible and SettingsPanel.wheelmoved then
-    if SettingsPanel.wheelmoved(x, y) then return true end
+    local mx, my = love.mouse.getPosition()
+    if SettingsPanel.wheelmoved(mx, my, dx, dy) then return true end
   end
   if Bounty.visible and Bounty.wheelmoved then
-    if Bounty.wheelmoved(x, y) then return true end
+    local mx, my = love.mouse.getPosition()
+    if Bounty.wheelmoved(mx, my, dx, dy) then return true end
+  end
+  local versionLogModule = Registry.get("version_log") or UIManager.versionLog
+  if not versionLogModule then
+    local ok, module = pcall(require, "src.ui.version_log")
+    if ok then
+      UIManager.versionLog = module
+      versionLogModule = module
+    end
+  end
+  if versionLogModule and versionLogModule.visible and versionLogModule.wheelmoved then
+    local mx, my = love.mouse.getPosition()
+    if versionLogModule.wheelmoved(mx, my, dx, dy) then return true end
   end
   -- Save slots UI doesn't need wheel handling, but we need to consume the event if it's active
   if UIManager.state.escape.open and UIManager.state.escape.showingSaveSlots then
@@ -713,13 +748,13 @@ function UIManager.keypressed(key, scancode, isrepeat)
 
     -- Check escape menu is open, let it handle the keypress internally.
     -- This allows it to close the settings panel without closing itself.
-    if UIManager.state.escape.open and EscapeMenu.keypressed(key, scancode, isrepeat) then
+    if UIManager.state.escape.open and EscapeMenu.keypressed(key) then
       return true
     end
 
     -- If docked UI is open, let it handle escape key (it will close/undock)
     if UIManager.state.docked.open then
-      local handled, shouldClose = DockedUI.keypressed(key, scancode, isrepeat)
+      local handled, shouldClose = DockedUI.keypressed(key)
       if shouldClose then
         -- Trigger undocking via player
         local player = DockedUI.player
@@ -765,17 +800,17 @@ function UIManager.keypressed(key, scancode, isrepeat)
       else
         -- Fallback to hardcoded component handling
         if component == "inventory" and Inventory.keypressed then
-          handled = Inventory.keypressed(key, scancode, isrepeat)
+          handled = Inventory.keypressed(key)
         elseif component == "bounty" and Bounty.keypressed then
           handled = Bounty.keypressed(key, scancode, isrepeat)
         elseif component == "docked" and DockedUI.keypressed then
-          handled = DockedUI.keypressed(key, scancode, isrepeat)
+          handled = DockedUI.keypressed(key)
         elseif component == "map" and Map.keypressed then
-          handled = Map.keypressed(key, scancode, isrepeat)
+          handled = Map.keypressed(key, world)
         elseif component == "warp" and warpInstance.keypressed then
           handled = warpInstance:keypressed(key, scancode, isrepeat)
         elseif component == "escape" and EscapeMenu.keypressed then
-          handled = EscapeMenu.keypressed(key, scancode, isrepeat)
+          handled = EscapeMenu.keypressed(key)
         end
       end
 
@@ -858,3 +893,4 @@ function UIManager.getWarpInstance()
 end
 
 return UIManager
+

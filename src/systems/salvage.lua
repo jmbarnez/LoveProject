@@ -10,8 +10,19 @@ function SalvageSystem.update(dt, world, player)
             if wreckage.salvageProgress >= wreckage.salvageCycleTime then
                 wreckage.salvageProgress = wreckage.salvageProgress - wreckage.salvageCycleTime
                 wreckage.salvageAmount = wreckage.salvageAmount - 1
-                local Cargo = require("src.core.cargo")
-                Cargo.add(player, wreckage.resourceType or "scraps", 1)
+
+                -- Create item pickup instead of adding directly to cargo
+                local ItemPickup = require("src.entities.item_pickup")
+                local pickup = ItemPickup.new(
+                    entity.components.position.x + math.random(-15, 15),
+                    entity.components.position.y + math.random(-15, 15),
+                    wreckage.resourceType or "scraps",
+                    1,
+                    0.6 + math.random() * 0.4, -- Smaller size for scraps
+                    math.random(-80, 80), -- Slower initial velocity
+                    math.random(-80, 80)
+                )
+                table.insert(world.entities, pickup)
 
                 local xpBase = 10 -- base XP per salvaged resource
                 local salvagingLevel = Skills.getLevel("salvaging")

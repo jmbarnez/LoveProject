@@ -16,16 +16,19 @@ local function pointInRect(px, py, r)
   return px >= r.x and py >= r.y and px <= r.x + r.w and py <= r.y + r.h
 end
 
--- drawTurretIcon function moved to IconSystem for unified icon rendering
+
 local IconSystem = require("src.core.icon_system")
-local function drawTurretIcon(kind, tracerColor, x, y, size)
-  -- Create a simple turret data object for the IconSystem
-  local turretData = {
-    type = kind,
-    kind = kind,
-    tracer = { color = tracerColor }
-  }
-  IconSystem.drawTurretIcon(turretData, x, y, size, 1.0)
+
+local function drawIcon(subjects, x, y, size)
+  IconSystem.drawIconAny(subjects, x, y, size, 1.0)
+end
+
+local function resolveTurretSubject(module, fallback)
+  if not module then return fallback end
+  if module._sourceData then return module._sourceData end
+  if module.baseId then return module.baseId end
+  if module.id then return module.id end
+  return fallback
 end
 
 local function drawBoostIcon(x, y, size, active)
@@ -84,17 +87,16 @@ function Hotbar.draw(player)
 
     local drewIcon = false
     if slot.item == "turret" then
-      local primaryKind, primaryColor = 'gun', Theme.colors.accent
+      local subject = nil
       if player and player.components and player.components.equipment and player.components.equipment.grid then
         for _, gridData in ipairs(player.components.equipment.grid) do
           if gridData.type == "turret" and gridData.module then
-            primaryKind = gridData.module.kind or gridData.module.type or 'gun'
-            primaryColor = (gridData.module.tracer and gridData.module.tracer.color) or Theme.colors.accent
+            subject = resolveTurretSubject(gridData.module, gridData.id)
             break
           end
         end
       end
-      drawTurretIcon(primaryKind, primaryColor, rx + 4, ry + 4, size - 8)
+      drawIcon({ subject, "basic_gun" }, rx + 4, ry + 4, size - 8)
       drewIcon = true
     elseif slot.item == "shield" then
       drawShieldIcon(rx + 4, ry + 4, size - 8, player and player.shieldChannel)
@@ -105,9 +107,8 @@ function Hotbar.draw(player)
         local gridData = player.components.equipment.grid[idx]
         if gridData and gridData.type == "turret" and gridData.module then
           local t = gridData.module
-          local kind = t.kind or 'gun'
-          local col = (t.tracer and t.tracer.color) or Theme.colors.accent
-          drawTurretIcon(kind, col, rx + 4, ry + 4, size - 8)
+          local subject = resolveTurretSubject(t, gridData.id)
+          drawIcon({ subject, (t and t.id), "basic_gun" }, rx + 4, ry + 4, size - 8)
           drewIcon = true
 
           -- Draw heat bar for this turret
@@ -295,7 +296,14 @@ end
 
 end
 
-Hotbar.drawTurretIcon = drawTurretIcon
+Hotbar.drawIcon = drawIcon
+function Hotbar.drawTurretIcon(subject, x, y, size)
+  if type(subject) == "table" and subject[1] ~= nil then
+    drawIcon(subject, x, y, size or 48)
+  else
+    drawIcon({ subject, "basic_gun" }, x, y, size or 48)
+  end
+end
 Hotbar.drawBoostIcon = drawBoostIcon
 
 function Hotbar.getRect()

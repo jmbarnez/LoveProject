@@ -45,6 +45,7 @@ function Normalizer.normalizeShip(def)
   -- Signature, cargo
   out.sig = def.sig or (def.collidable and def.collidable.signature) or 100
   out.cargo = def.cargo and copy(def.cargo) or { capacity = 100 }
+  out.equipmentSlots = def.equipmentSlots or def.equipment_slots or def.gridSlots
   -- Hardpoints: accept direct hardpoints or simple turrets list
   if type(def.hardpoints) == 'table' then
     out.hardpoints = def.hardpoints

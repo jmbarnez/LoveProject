@@ -81,21 +81,16 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         return
     end
 
-    -- For missiles, use locked target if available, otherwise fire straight ahead
+    -- For missiles, use assigned target if available; otherwise fire straight ahead
     local angle = turret.owner.components.position.angle or 0
     local projSpeed = turret.projectileSpeed or 800
 
-    -- Check for locked target
     local missileTarget = nil
-    if turret.owner and turret.owner.getLockedTarget then
-        local lockedTarget = turret.owner:getLockedTarget()
-        if lockedTarget then
-            missileTarget = lockedTarget
-            -- Aim towards locked target
-            local dx = lockedTarget.components.position.x - turret.owner.components.position.x
-            local dy = lockedTarget.components.position.y - turret.owner.components.position.y
-            angle = math.atan2(dy, dx)
-        end
+    if target and target.components and target.components.position then
+        missileTarget = target
+        local dx = target.components.position.x - turret.owner.components.position.x
+        local dy = target.components.position.y - turret.owner.components.position.y
+        angle = math.atan2(dy, dx)
     end
 
     -- Create missile projectile

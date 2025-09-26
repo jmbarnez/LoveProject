@@ -2,14 +2,13 @@ local RepairSystem = {}
 
 -- Check if player has required materials for repair
 local function hasRepairMaterials(player, repairCost)
-    if not player.inventory then
+    local cargo = player.components and player.components.cargo
+    if not cargo then
         return false
     end
 
     for _, requirement in ipairs(repairCost) do
-        local inventoryValue = player.inventory[requirement.item] or 0
-        local playerAmount = (type(inventoryValue) == "number") and inventoryValue or 0
-        if playerAmount < requirement.amount then
+        if cargo:getQuantity(requirement.item) < requirement.amount then
             return false
         end
     end
@@ -19,16 +18,17 @@ end
 
 -- Check individual item quantities in player inventory
 local function getPlayerItemCount(player, itemId)
-    if not player.inventory then
+    local cargo = player.components and player.components.cargo
+    if not cargo then
         return 0
     end
-    local inventoryValue = player.inventory[itemId] or 0
-    return (type(inventoryValue) == "number") and inventoryValue or 0
+    return cargo:getQuantity(itemId)
 end
 
 -- Consume repair materials from player inventory
 local function consumeRepairMaterials(player, repairCost)
-    if not player.inventory then
+    local cargo = player.components and player.components.cargo
+    if not cargo then
         return false
     end
 
@@ -39,14 +39,7 @@ local function consumeRepairMaterials(player, repairCost)
 
     -- Consume the materials
     for _, requirement in ipairs(repairCost) do
-        local inventoryValue = player.inventory[requirement.item] or 0
-        local currentAmount = (type(inventoryValue) == "number") and inventoryValue or 0
-        local newAmount = currentAmount - requirement.amount
-        if newAmount <= 0 then
-            player.inventory[requirement.item] = nil
-        else
-            player.inventory[requirement.item] = newAmount
-        end
+        cargo:remove(requirement.item, requirement.amount)
     end
 
     return true

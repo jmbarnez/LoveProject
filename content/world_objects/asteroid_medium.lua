@@ -18,7 +18,7 @@ return {
 
     mineable = {
         resourceType = "stones", -- drop stone items
-        durability = 5.0, -- mining damage needed to destroy
+        durability = 20.0, -- mining damage needed to destroy
     },
 
     visuals = {

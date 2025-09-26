@@ -195,8 +195,6 @@ Constants.STATION = {
 
 Constants.PLAYER = {
     STARTING_CREDITS = 10000,
-    STARTING_SHIELD_MODULES = 1,
-    SHIELD_EQUIPMENT_SLOT = 4,
 }
 
 Constants.QUESTS = {

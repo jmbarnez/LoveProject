@@ -238,9 +238,14 @@ end
 
 function util.unpack_color(color)
     if type(color) == "table" then
-        return color or 1, color or 1, color or 1, color or 1
+        local r = color[1] or color.r or color.red or 1
+        local g = color[2] or color.g or color.green or 1
+        local b = color[3] or color.b or color.blue or 1
+        local a = color[4] or color.a or color.alpha or 1
+        return r, g, b, a
     end
     return 1, 1, 1, 1 -- Default to white if color is not a table
 end
 
 return util
+

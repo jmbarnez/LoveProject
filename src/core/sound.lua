@@ -100,7 +100,7 @@ function Sound.loadSFX(name, path)
         local success, source = pcall(love.audio.newSource, soundPath, "static")
         if success then
             sfx[name] = source
-            Log.info("Loaded SFX:", name, "from", soundPath)
+            Log.debug("Loaded SFX:", name, "from", soundPath)
             return source
         else
             Log.error("Error loading sound effect", name, ":", source)
@@ -131,7 +131,7 @@ function Sound.loadSFX(name, path)
     
     if proceduralSound then
         sfx[name] = proceduralSound
-        Log.info("Generated procedural SFX:", name)
+        Log.debug("Generated procedural SFX:", name)
         return proceduralSound
     end
     
@@ -157,7 +157,7 @@ function Sound.loadMusic(name, path)
     
     source:setLooping(true)
     music[name] = source
-    Log.info("Loaded Music:", name, "from", soundPath)
+    Log.debug("Loaded Music:", name, "from", soundPath)
     return source
 end
 

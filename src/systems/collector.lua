@@ -15,13 +15,13 @@ end
 -- Adds items in a loot container to player inventory and empties the container
 local function collectContainer(player, container)
   if not container or not container.items then return end
-  local Cargo = require("src.core.cargo")
+  local cargo = player.components and player.components.cargo
+  if not cargo then return end
   for _, stack in ipairs(container.items) do
     if stack and stack.id and stack.qty then
-      Cargo.add(player, stack.id, stack.qty)
+      cargo:add(stack.id, stack.qty, stack.meta)
     end
   end
-  -- Empty the container; ContainerSystem will clean it up
   container.items = {}
   if container.components and container.components.lootContainer then
     container.components.lootContainer.items = {}

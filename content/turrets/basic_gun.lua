@@ -4,6 +4,7 @@ return {
   name = "Basic Gun",
   description = "Standard projectile turret with moderate range and damage.",
   price = 500,
+  module = { type = "turret" },
   icon = {
     size = 32,
     shapes = {

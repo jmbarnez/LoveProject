@@ -9,6 +9,8 @@ local Util = require("src.core.util")
 
 local DestructionSystem = {}
 
+local Log = require("src.core.log")
+
 -- Add bounty rewards to uncollected bounties
 local function addBountyReward(gameState, enemy, enemyName)
   if not gameState or not gameState.bounty then return end
@@ -73,34 +75,31 @@ local function findHubStation(world)
 end
 
 local function dropPlayerLoot(world, player, x, y)
-  -- Collect inventory items (map id->qty) and equipped turrets into a flat array
+  local cargo = player.components and player.components.cargo
+  if not cargo then return end
   local byId = {}
-  if player.inventory then
-    for id, qty in pairs(player.inventory) do
-      if qty and qty > 0 then byId[id] = (byId[id] or 0) + qty end
+  cargo:iterate(function(slot, entry)
+    if entry.meta then
+      -- drop each modded stack individually
+      byId[slot] = { id = entry.id, qty = entry.qty, meta = entry.meta }
+    else
+      byId[entry.id] = (byId[entry.id] or 0) + (entry.qty or 0)
     end
-  end
-  -- Equipped turrets become items as well
-  local eq = player.components and player.components.equipment
-  if eq and eq.turrets then
-    for _, t in ipairs(eq.turrets) do
-      if t and t.id then
-        byId[t.id] = (byId[t.id] or 0) + 1
-      end
-    end
-  end
-  if next(byId) == nil then return end
+  end)
   local items = {}
-  for id, qty in pairs(byId) do table.insert(items, { id = id, qty = qty }) end
-  -- Create item pickups for each item
+  for key, value in pairs(byId) do
+    if type(value) == "table" and value.meta then
+      table.insert(items, { id = value.id, qty = value.qty, meta = value.meta })
+    else
+      table.insert(items, { id = key, qty = value })
+    end
+  end
   for _, item in ipairs(items) do
     if item.id and item.qty and item.qty > 0 then
-      -- Add some random offset to spread out the items
       local angle = math.random() * math.pi * 2
       local dist = math.random(10, 30)
       local px = x + math.cos(angle) * dist
       local py = y + math.sin(angle) * dist
-      
       local pickup = ItemPickup.new(px, py, item.id, item.qty)
       world:addEntity(pickup)
     end
@@ -228,6 +227,11 @@ function DestructionSystem.update(world, gameState)
           if phys and phys.body then
             local success, isDestroyed = pcall(function() return phys.body:isDestroyed() end)
             if success and isDestroyed then
+              Log.debug("DestructionSystem - Physics body was destroyed for entity " .. (e.id or "unknown"))
+              needsNewBody = true
+              phys.body = nil
+            elseif not success then
+              Log.debug("DestructionSystem - Failed to check if physics body is destroyed for entity " .. (e.id or "unknown"))
               needsNewBody = true
               phys.body = nil
             end
@@ -244,15 +248,39 @@ function DestructionSystem.update(world, gameState)
             })
             e.components.physics = phys
             if phys.body then
-              phys.body.skipThrusterForce = true
+              local success = pcall(function()
+                phys.body.skipThrusterForce = true
+              end)
+              if not success then
+                -- If setting property fails, the body might be invalid
+                Log.debug("DestructionSystem - Failed to set skipThrusterForce for entity " .. (e.id or "unknown"))
+                phys.body = nil
+              end
             end
           end
           
           -- Reset velocities
           phys = e.components.physics
-          if phys and phys.body and not phys.body:isDestroyed() then
-            phys.body:setLinearVelocity(0, 0)
-            phys.body:setAngularVelocity(0)
+          if phys and phys.body then
+            local success, isDestroyed = pcall(function() return phys.body:isDestroyed() end)
+            if success and not isDestroyed then
+              -- Use pcall to safely call physics methods
+              local velSuccess = pcall(function()
+                phys.body:setVelocity(0, 0)
+                phys.body.angularVel = 0
+              end)
+              if not velSuccess then
+                -- If setting velocity fails, the body might be invalid
+                Log.debug("DestructionSystem - Failed to reset velocity for entity " .. (e.id or "unknown"))
+                phys.body = nil
+              end
+            else
+              -- Body is destroyed or check failed, mark for recreation
+              if not success then
+                Log.debug("DestructionSystem - Failed to check if body is destroyed for entity " .. (e.id or "unknown"))
+              end
+              phys.body = nil
+            end
           end
           
           if e.components.health then

@@ -27,9 +27,32 @@ function MiningSystem.update(dt, world, player)
                     if (m.resources or 0) > 0 then
                         m.resources = m.resources - 1
                         if player then
-                            local Cargo = require("src.core.cargo")
                             local resourceId = m.resourceType or "stones"
-                            Cargo.add(player, resourceId, 1)
+
+                            -- Create item pickup instead of adding directly to cargo
+                            local ItemPickup = require("src.entities.item_pickup")
+                            local radius = (e.components.collidable and e.components.collidable.radius) or 30
+                            local count = math.max(1, math.ceil(radius / 12))
+
+                            for i = 1, count do
+                                local angle = math.random() * math.pi * 2
+                                local dist = radius * 0.2 + math.random() * radius * 0.6
+                                local spawnX = e.components.position.x + math.cos(angle) * dist
+                                local spawnY = e.components.position.y + math.sin(angle) * dist
+                                local speed = 160 + math.random() * 200
+                                local spreadAngle = angle + (math.random() - 0.5) * 0.8
+
+                                local pickup = ItemPickup.new(
+                                    spawnX,
+                                    spawnY,
+                                    resourceId,
+                                    1,
+                                    0.85 + math.random() * 0.35,
+                                    math.cos(spreadAngle) * speed,
+                                    math.sin(spreadAngle) * speed
+                                )
+                                table.insert(world.entities, pickup)
+                            end
 
                             local xpBase = 12 -- modest base XP per ore
                             local miningLevel = Skills.getLevel("mining")
@@ -37,11 +60,10 @@ function MiningSystem.update(dt, world, player)
                             local leveledUp = Skills.addXp("mining", xpGain)
                             player:addXP(xpGain)
 
-                            -- Cargo.add already notifies with "+N <name> added to cargo"
                             if leveledUp then
                                 Notifications.action("Mining level up!")
                             end
-                            
+
                             -- Emit mining event for quest system
                             Events.emit(Events.GAME_EVENTS.ASTEROID_MINED, {
                                 item = { id = resourceId, name = name },

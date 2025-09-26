@@ -1,0 +1,43 @@
+[
+  {
+    "subject": "Enhance configuration and gameplay mechanics to support new scenario scripts",
+    "relative": "3 days ago"
+  },
+  {
+    "subject": "Refine engine trail effects and adjust spawning mechanics for boss encounters",
+    "relative": "3 days ago"
+  },
+  {
+    "subject": "Enhance ship engine performance stats and corresponding visual effects",
+    "relative": "4 days ago"
+  },
+  {
+    "subject": "Update engine color palette and enhance start screen button animations",
+    "relative": "4 days ago"
+  },
+  {
+    "subject": "Enhance escape menu layout and expand save slot functionality",
+    "relative": "4 days ago"
+  },
+  {
+    "subject": "Implement custom UI cursor with refined reticle behavior",
+    "relative": "4 days ago"
+  },
+  {
+    "subject": "Refactor UI architecture to streamline input handling and window management",
+    "relative": "4 days ago"
+  },
+  {
+    "subject": "Update project ignores and remove redundant build artifacts",
+    "relative": "5 days ago"
+  },
+  {
+    "subject": "Remove obsolete Novus.love binary from the repository",
+    "relative": "5 days ago"
+  },
+  {
+    "subject": "Refactor UI components to utilize the shared window system",
+    "relative": "5 days ago"
+  }
+]
+

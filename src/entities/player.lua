@@ -35,33 +35,28 @@ function Player.new(x, y, shipId)
     self.components.physics.body.skipThrusterForce = true
   end
 
-  -- Initialize inventory if it doesn't exist
-  if not self.inventory then
-    self.inventory = {}
-  end
-  -- Initialize ordered inventory slots (6x4 grid)
-  if not self.inventory_slots then
-    self.inventory_slots = {}
-  end
-
   -- Initialize shield HP based on equipped modules
   self:updateShieldHP()
 
   -- Player-specific defaults
   self.moveTarget = nil
-  self.level = 1
-  self.xp = 0
-  self.gc = 10000
   self.docked = false
   self.weaponsDisabled = false
   self.wasInHub = false
   self.canDock = false
 
+  -- Ensure progression component exists
+  if not self.components.progression then
+      local ProgressionComponent = require("src.components.progression")
+      self.components.progression = ProgressionComponent.new()
+  end
+  if not self.components.questLog then
+      local QuestLogComponent = require("src.components.quest_log")
+      self.components.questLog = QuestLogComponent.new()
+  end
+
   -- Lock-on targeting system removed - combat works differently now
 
-  self.active_quests = {}
-  self.quest_progress = {}
-  -- Override the renderable type to use the specific 'player' renderer
   if self.components and self.components.renderable then
       self.components.renderable.type = "player"
   end
@@ -72,6 +67,27 @@ function Player.new(x, y, shipId)
   -- Default inventory will be initialized by game setup (see Game.load).
 
   self:resetDurability()
+
+  -- Start with no modules equipped
+  if self.components and self.components.equipment and self.components.equipment.grid then
+      for i = 1, #self.components.equipment.grid do
+          local slot = self.components.equipment.grid[i]
+          slot.id = nil
+          slot.module = nil
+          slot.type = nil
+          slot.enabled = false
+      end
+  end
+
+  -- Seed starter cargo
+  if self.components and self.components.cargo then
+      self:addItem("basic_gun", 1)
+      self:addItem("shield_module_basic", 1)
+  end
+
+  -- Populate hotbar (empty by default until player equips modules)
+  self:updateHotbar()
+
   return self
 end
 
@@ -130,42 +146,25 @@ function Player:setMoveTarget(x, y)
     self.moveTarget = {x = x, y = y}
 end
 
-function Player:addXP(x)
-  self.xp = self.xp + x
-  if self.xp >= self.level * 100 then
-    self.xp = 0
-    self.level = self.level + 1
-    self.components.health.maxHP = self.components.health.maxHP + 10
-    self.components.health.maxShield = self.components.health.maxShield + 10
-    self.components.health.shield = self.components.health.maxShield
+function Player:addXP(amount)
+  if self.components and self.components.progression then
+    local leveledUp = self.components.progression:addXP(amount)
+    if leveledUp and self.components.health then
+      self.components.health.maxHP = self.components.health.maxHP + 10
+      self.components.health.maxShield = self.components.health.maxShield + 10
+      self.components.health.shield = self.components.health.maxShield
+    end
+    return leveledUp
   end
+  return false
 end
 
 function Player:setTarget(target, targetType)
   if target == self.target then return end
   self.target = target
   self.targetType = targetType or "enemy"
-  self.locked = false
-  self.lockProgress = 0
-  if target then
-    if self.targetType == "asteroid" then
-      self.lockTime = 0.3
-    else
-      local sig = target.sig or (target.components and target.components.collidable and target.components.collidable.signature) or 80
-      
-      -- Use ship's targeting module lock speed
-      local shipTargeting = (self.components and self.components.targeting) or {}
-      local baseLockTime = shipTargeting.lockTime or shipTargeting.baseSpeed or 2.0
-
-      -- Simplified lock time calculation
-      self.lockTime = baseLockTime
-      self.lockTime = math.max(0.5, self.lockTime) -- Minimum 0.5s lock time
-    end
-    if self.targetType == "enemy" and target.onTargeted then
-      target:onTargeted()
-    end
-  else
-    self.lockTime = 0
+  if target and self.targetType == "enemy" and target.onTargeted then
+    target:onTargeted()
   end
 end
 
@@ -190,39 +189,27 @@ end
 local Hotbar = require("src.systems.hotbar")
 
 function Player:equipTurret(slotNum, turretId)
-    -- Initialize inventory if it doesn't exist
-    if not self.inventory then
-        self.inventory = {}
-    end
-    self.inventory_slots = self.inventory_slots or {}
-
-    if not self.inventory[turretId] or self.inventory[turretId] <= 0 then
-        return false -- Don't have this turret in inventory
-    end
-
     if not self.components or not self.components.equipment or not self.components.equipment.turrets then
         return false
     end
 
     -- Find the turret slot
     for i, turretData in ipairs(self.components.equipment.turrets) do
-        if turretData.slot == slotNum then
-            -- Remove old turret if present
-            if turretData.turret then
-                -- Return old turret to inventory if it exists
-                local oldId = turretData.id
-                if oldId then
-                    self.inventory[oldId] = (self.inventory[oldId] or 0) + 1
+            if turretData.slot == slotNum then
+                -- Remove old turret if present
+                if turretData.turret then
+                    local oldId = turretData.id
+                    if oldId then
+                        self:addItem(oldId, 1)
+                    end
                 end
-            end
 
-            -- Check if this is a procedural turret (stored in inventory as full turret data)
+            local cargo = self.components.cargo
+            local turretMeta = cargo and cargo:extract(turretId) or nil
             local turretDef
-            if type(self.inventory[turretId]) == "table" and self.inventory[turretId].damage then
-                -- This is a procedural turret with full data
-                turretDef = self.inventory[turretId]
+            if type(turretMeta) == "table" then
+                turretDef = turretMeta
             else
-                -- This is a regular turret, get definition from content
                 turretDef = Content.getTurret(turretId)
             end
 
@@ -236,24 +223,6 @@ function Player:equipTurret(slotNum, turretId)
                     enabled = true,
                     slot = slotNum
                 }
-                -- Remove from inventory (procedural turrets are stored as objects, regular turrets as counts)
-                if type(self.inventory[turretId]) == "table" then
-                    -- Procedural turret - remove the object
-                    self.inventory[turretId] = nil
-                else
-                    -- Regular turret - decrement count
-                    self.inventory[turretId] = self.inventory[turretId] - 1
-                    if self.inventory[turretId] <= 0 then
-                        self.inventory[turretId] = nil
-                    end
-                end
-                -- Clear any slot pointing to this id
-                for i = 1, #self.inventory_slots do
-                    if self.inventory_slots[i] == turretId then
-                        self.inventory_slots[i] = nil
-                    end
-                end
-
                 Hotbar.populateFromPlayer(self)
                 Hotbar.save()
                 Hotbar.state.active = Hotbar.state.active or {}
@@ -269,38 +238,20 @@ function Player:unequipTurret(slotNum)
     if not self.components or not self.components.equipment or not self.components.equipment.turrets then
         return false
     end
-
-    -- Initialize inventory and slots if they don't exist
-    if not self.inventory then
-        self.inventory = {}
+    if not self.components.cargo then
+        return false
     end
-    if not self.inventory_slots then
-        self.inventory_slots = {}
-    end
-
     -- Find the turret slot
     for i, turretData in ipairs(self.components.equipment.turrets) do
         if turretData.slot == slotNum and turretData.turret then
             -- Return turret to inventory
             local turretId = turretData.id
             if turretId then
-                -- Always store the full turret data when unequipping (to preserve any procedural modifiers)
-                self.inventory[turretId] = turretData.turret
-                -- Place into a free slot if not already mapped
-                local alreadyMapped = false
-                for i = 1, #self.inventory_slots do
-                    if self.inventory_slots[i] == turretId then
-                        alreadyMapped = true
-                        break
-                    end
-                end
-                if not alreadyMapped then
-                    for i = 1, 24 do
-                        if self.inventory_slots[i] == nil then
-                            self.inventory_slots[i] = turretId
-                            break
-                        end
-                    end
+                -- Return turret back to cargo (procedural turrets serialize via meta)
+                if turretData.turret and turretData.turret._sourceData then
+                    self:addItem(turretId, 1, turretData.turret._sourceData)
+                else
+                    self:addItem(turretId, 1)
                 end
             end
 
@@ -328,23 +279,23 @@ function Player:equipModule(slotNum, moduleId, turretData)
         return false
     end
 
-    -- Check if player has the item in inventory
-    if not self.inventory or not self.inventory[moduleId] then
-        return false -- Don't have this item in inventory
-    end
-    
-    -- Check if it's a valid quantity (number > 0) or a turret object
-    local inventoryValue = self.inventory[moduleId]
+    -- Check if player has the item in inventory, or if it's a turret available from content
     local hasItem = false
-    if type(inventoryValue) == "number" and inventoryValue > 0 then
-        hasItem = true
-    elseif type(inventoryValue) == "table" and inventoryValue.damage then
-        -- This is a turret object
+    local inventoryValue = nil
+
+    local cargo = self.components and self.components.cargo
+    if cargo and cargo:has(moduleId, 1) then
         hasItem = true
     end
-    
+
+    -- Allow equipping turrets directly from content system if not in inventory
+    local turretDef = Content.getTurret(moduleId)
+    if not hasItem and turretDef and turretDef.module and turretDef.module.type == "turret" then
+        hasItem = true
+    end
+
     if not hasItem then
-        return false -- Don't have this item in inventory
+        return false -- Don't have this item in inventory or content
     end
 
     -- Get the module definition (could be any module type)
@@ -354,37 +305,44 @@ function Player:equipModule(slotNum, moduleId, turretData)
     -- Determine module type
     local moduleType = nil
     local actualModule = nil
-    
+
+    local function instantiateTurret(def, instanceId, baseId)
+        if not def then return nil end
+        local turretBlueprint = Util.deepCopy(def)
+        local turretInstance = Turret.new(self, turretBlueprint)
+        turretInstance.id = instanceId
+        turretInstance.baseId = baseId or turretBlueprint.baseId or turretBlueprint.id or instanceId
+        turretInstance.slot = slotNum
+        turretInstance._sourceData = turretBlueprint
+        return turretInstance
+    end
+
     if moduleDef and moduleDef.module then
-        -- It's a module (shield, engine, etc.)
-        moduleType = moduleDef.module.type or "module"
-        actualModule = moduleDef
+        local declaredType = moduleDef.module.type or "module"
+        if declaredType == "turret" then
+            moduleType = "turret"
+            local sourceDef = turretDef or moduleDef.def or moduleDef
+            actualModule = instantiateTurret(sourceDef, moduleId, moduleId)
+            if not actualModule then
+                return false
+            end
+        else
+            moduleType = declaredType
+            actualModule = moduleDef
+        end
     elseif turretDef then
-        -- It's a base turret from content (non-procedural)
         moduleType = "turret"
-        actualModule = Turret.new(self, Util.copy(turretDef))
-        -- Use base id for non-procedural turrets
-        actualModule.id = moduleId
-        actualModule.baseId = moduleId
-        actualModule.slot = slotNum
+        actualModule = instantiateTurret(turretDef, moduleId, moduleId)
+        if not actualModule then
+            return false
+        end
     elseif turretData then
-        -- It's a procedural turret being dragged from inventory
         moduleType = "turret"
         local baseId = turretData.baseId or turretData.id
-        actualModule = Turret.new(self, Util.copy(turretData))
-        -- Preserve unique instance id for inventory bookkeeping
-        actualModule.id = moduleId
-        actualModule.baseId = baseId
-        actualModule.slot = slotNum
-    elseif type(inventoryValue) == "table" and inventoryValue.damage then
-        -- It's a procedural turret stored as full data in inventory
-        moduleType = "turret"
-        local baseId = inventoryValue.baseId or inventoryValue.id
-        actualModule = Turret.new(self, Util.copy(inventoryValue))
-        -- Preserve unique instance id for inventory bookkeeping
-        actualModule.id = moduleId
-        actualModule.baseId = baseId
-        actualModule.slot = slotNum
+        actualModule = instantiateTurret(turretData, moduleId, baseId)
+        if not actualModule then
+            return false
+        end
     else
         return false
     end
@@ -406,25 +364,9 @@ function Player:equipModule(slotNum, moduleId, turretData)
                 type = moduleType
             }
 
-            -- Remove from inventory
-            if type(inventoryValue) == "number" then
-                -- Numeric quantity - decrement
-                self.inventory[moduleId] = self.inventory[moduleId] - 1
-                if self.inventory[moduleId] <= 0 then
-                    self.inventory[moduleId] = nil
-                end
-            elseif type(inventoryValue) == "table" then
-                -- Turret object - remove entirely
-                self.inventory[moduleId] = nil
-            end
-
-            -- Clear any inventory slot mapping for this id
-            if self.inventory_slots then
-                for i = 1, #self.inventory_slots do
-                    if self.inventory_slots[i] == moduleId then
-                        self.inventory_slots[i] = nil
-                    end
-                end
+            -- Remove from inventory only if it was actually in inventory
+            if cargo then
+                cargo:remove(moduleId, 1)
             end
 
             -- Update systems based on module type
@@ -443,13 +385,9 @@ function Player:unequipModule(slotNum)
     if not self.components or not self.components.equipment or not self.components.equipment.grid then
         return false
     end
-
-    -- Initialize inventory if it doesn't exist
-    if not self.inventory then
-        self.inventory = {}
-    end
-    if not self.inventory_slots then
-        self.inventory_slots = {}
+    local cargo = self.components and self.components.cargo
+    if not cargo then
+        return false
     end
 
     -- Find the grid slot
@@ -458,70 +396,17 @@ function Player:unequipModule(slotNum)
             local moduleId = gridData.id
             local moduleType = gridData.type
 
-            -- Return module to inventory
-            if moduleId then
-                if moduleType == "shield" or moduleType == "module" then
-                    -- For shield modules and other modules, increment count
-                    self.inventory[moduleId] = (self.inventory[moduleId] or 0) + 1
-                    -- Map to a free slot if not already present
-                    local mapped = false
-                    for i = 1, #self.inventory_slots do
-                        if self.inventory_slots[i] == moduleId then
-                            mapped = true
-                            break
-                        end
-                    end
-                    if not mapped then
-                        for i = 1, 24 do
-                            if self.inventory_slots[i] == nil then
-                                self.inventory_slots[i] = moduleId
-                                break
-                            end
-                        end
-                    end
-                else
-                    -- For turrets, store the full turret data preserving unique id
-                    local turretObj = gridData.module
-                    if turretObj then
-                        -- Ensure we retain the unique id key in inventory
-                        local uniqueId = gridData.id or (turretObj and turretObj.id)
-                        if uniqueId then
-                            self.inventory[uniqueId] = turretObj
-                            -- Map unique id to a free slot if not already present
-                            local mapped = false
-                            for i = 1, #self.inventory_slots do
-                                if self.inventory_slots[i] == uniqueId then
-                                    mapped = true
-                                    break
-                                end
-                            end
-                            if not mapped then
-                                for i = 1, 24 do
-                                    if self.inventory_slots[i] == nil then
-                                        self.inventory_slots[i] = uniqueId
-                                        break
-                                    end
-                                end
-                            end
-                        else
-                            -- Fallback to base id if no unique id present
-                            self.inventory[moduleId] = turretObj
-                            local mapped = false
-                            for i = 1, #self.inventory_slots do
-                                if self.inventory_slots[i] == moduleId then
-                                    mapped = true
-                                    break
-                                end
-                            end
-                            if not mapped then
-                                for i = 1, 24 do
-                                    if self.inventory_slots[i] == nil then
-                                        self.inventory_slots[i] = moduleId
-                                        break
-                                    end
-                                end
-                            end
-                        end
+            -- Return module to inventory (stackable modules handled directly; turrets handled below)
+            if moduleId and (moduleType == "shield" or moduleType == "module") then
+                cargo:add(moduleId, 1)
+            elseif moduleType == "turret" then
+                local turretObj = gridData.module
+                if turretObj then
+                    local baseId = turretObj.baseId or moduleId
+                    if turretObj._sourceData then
+                        cargo:add(moduleId, 1, turretObj._sourceData)
+                    else
+                        cargo:add(moduleId, 1, Content.getTurret(baseId))
                     end
                 end
             end
@@ -597,24 +482,71 @@ end
 
 -- GC management functions
 function Player:getGC()
-  return self.gc or 0
+  if self.components and self.components.progression then
+    return self.components.progression.gc
+  end
+  return 0
 end
 
 function Player:setGC(amount)
-  self.gc = math.max(0, amount)
+  if self.components and self.components.progression then
+    self.components.progression.gc = math.max(0, amount)
+  end
 end
 
 function Player:addGC(amount)
-  self:setGC(self:getGC() + amount)
+  if self.components and self.components.progression then
+    return self.components.progression:addGC(amount)
+  end
+  return 0
 end
 
 function Player:spendGC(amount)
-  local current = self:getGC()
-  if current >= amount then
-    self:setGC(current - amount)
-    return true
+  if self.components and self.components.progression then
+    return self.components.progression:spendGC(amount)
   end
   return false
+end
+
+function Player:addQuest(quest)
+  if self.components and self.components.questLog then
+    self.components.questLog:add(quest)
+  end
+end
+
+function Player:removeQuest(id)
+  if self.components and self.components.questLog then
+    self.components.questLog:remove(id)
+  end
+end
+
+function Player:addItem(itemId, qty, meta)
+    if self.components and self.components.cargo then
+        local result = self.components.cargo:add(itemId, qty, meta)
+        return result
+    end
+    return false
+end
+
+function Player:removeItem(itemId, qty)
+    if self.components and self.components.cargo then
+        local result = self.components.cargo:remove(itemId, qty)
+        return result
+    end
+    return false
+end
+
+function Player:getItemCount(itemId)
+    if self.components and self.components.cargo then
+        return self.components.cargo:getQuantity(itemId)
+    end
+    return 0
+end
+
+function Player:iterCargo(cb)
+    if self.components and self.components.cargo then
+        self.components.cargo:iterate(cb)
+    end
 end
 
 return Player

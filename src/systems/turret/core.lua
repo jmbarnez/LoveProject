@@ -237,26 +237,4 @@ function Turret.getTurretBySlot(player, slot)
     return nil
 end
 
-Events.on('player_death', function(event) 
-  local player = event.player
-  if player.components.equipment and player.components.equipment.grid then 
-    for _, gridData in ipairs(player.components.equipment.grid) do
-      if gridData.type == "turret" and gridData.module then
-        gridData.module.locked = true
-        gridData.module.cooldown = 0
-      end
-    end
-  end
-end)
-Events.on('player_respawn', function(event) 
-  local player = event.player
-  if player.components.equipment and player.components.equipment.grid then 
-    for _, gridData in ipairs(player.components.equipment.grid) do
-      if gridData.type == "turret" and gridData.module then
-        gridData.module.locked = false
-      end
-    end
-  end
-end)
-
 return Turret

@@ -1,5 +1,7 @@
 local Viewport = {}
 
+local Log = require("src.core.log")
+
 -- Default virtual resolution (16:9)
 local vw, vh = 1920, 1080
 local winW, winH = 1920, 1080

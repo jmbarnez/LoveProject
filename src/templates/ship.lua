@@ -5,6 +5,9 @@ local Log = require("src.core.log")
 local Renderable = require("src.components.renderable")
 local PhysicsComponent = require("src.components.physics")
 local ModelUtil = require("src.core.model_util")
+local CargoComponent = require("src.components.cargo")
+local ProgressionComponent = require("src.components.progression")
+local QuestLogComponent = require("src.components.quest_log")
 
 local Ship = {}
 Ship.__index = Ship
@@ -128,7 +131,10 @@ function Ship.new(x, y, angle, friendly, shipConfig)
       renderable = Renderable.new(
           "enemy", -- Use the 'enemy' renderer by default
           { visuals = self.visuals }
-      )
+      ),
+      cargo = CargoComponent.new({ capacity = (shipConfig.cargo and shipConfig.cargo.capacity) or 100 }),
+      progression = ProgressionComponent.new(),
+      questLog = QuestLogComponent.new(),
   }
 
   -- Attach engine trail for all ships with consistent colors
@@ -164,44 +170,24 @@ function Ship.new(x, y, angle, friendly, shipConfig)
     self.components.player = {}
   end
 
-  -- Equipment grid setup - 3x3 grid for all ships
-  local gridSize = 9  -- 3x3 grid
+  -- Equipment grid setup
+  local gridSize = shipConfig.equipmentSlots or 9
   for i = 1, gridSize do
-    table.insert(self.components.equipment.grid, { 
-      id = nil, 
-      module = nil, 
-      enabled = false, 
+    table.insert(self.components.equipment.grid, {
+      id = nil,
+      module = nil,
+      enabled = false,
       slot = i,
       type = nil  -- Will be set when module is equipped
     })
   end
 
+  -- Note: Default turret equipping removed temporarily to avoid initialization issues
+  -- Will be re-added once the basic fitting system is working
+
   -- Legacy turret setup for backward compatibility (will be migrated to grid)
   if shipConfig.hardpoints then
-    for i, hardpoint in ipairs(shipConfig.hardpoints) do
-      if hardpoint.turret and i <= gridSize then
-        local turretId = hardpoint.turret
-        local tDef = Content.getTurret and Content.getTurret(turretId)
-        if tDef then
-          local turret = Turret.new(self, Util.copy(tDef))
-          turret.id = turretId
-          turret.slot = i
-
-          -- Enemy ships should have automatic firing turrets
-          if extraConfig.isEnemy then
-            turret.fireMode = "automatic"
-          end
-
-          self.components.equipment.grid[i] = {
-            id = turretId,
-            module = turret,
-            enabled = true,
-            slot = i,
-            type = "turret"
-          }
-        end
-      end
-    end
+    -- Legacy auto-equipping disabled so ships spawn without modules; fitting UI handles loadout.
   end
 
   -- Combat properties
@@ -230,7 +216,7 @@ function Ship:update(dt, player, shootCallback)
   -- Update turrets from the grid system
   if self.components.equipment and self.components.equipment.grid then
     for _, gridData in ipairs(self.components.equipment.grid) do
-      if gridData.type == "turret" and gridData.module and gridData.enabled then
+      if gridData.type == "turret" and gridData.module and gridData.enabled and gridData.module.update and type(gridData.module.update) == "function" then
         gridData.module:update(dt, self.target, true, shootCallback)
       end
     end

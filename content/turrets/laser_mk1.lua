@@ -4,6 +4,7 @@ return {
   name = "Tech 1 Laser",
   description = "Advanced energy turret with excellent precision and tracking, high energy cost.",
   price = 1500,
+  module = { type = "turret" },
   icon = {
     size = 32,
     shapes = {

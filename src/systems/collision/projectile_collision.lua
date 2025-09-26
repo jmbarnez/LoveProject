@@ -5,6 +5,7 @@ local Geometry = require("src.systems.collision.geometry")
 local Radius = require("src.systems.collision.radius")
 local StationShields = require("src.systems.collision.station_shields")
 local CollisionEffects = require("src.systems.collision.effects")
+local Log = require("src.core.log")
 
 local ProjectileCollision = {}
 

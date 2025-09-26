@@ -1,5 +1,4 @@
 local Pickups = {}
-local Cargo = require("src.core.cargo")
 local Events = require("src.core.events")
 local Sound = require("src.core.sound")
 
@@ -16,9 +15,11 @@ end
 
 local function collect(player, pickup)
   if not pickup or not player then return end
+  local cargo = player.components and player.components.cargo
+  if not cargo then return end
   local id = pickup.itemId or (pickup.components and pickup.components.renderable and pickup.components.renderable.props and pickup.components.renderable.props.itemId) or "stones"
   local qty = pickup.qty or (pickup.components and pickup.components.renderable and pickup.components.renderable.props and pickup.components.renderable.props.qty) or 1
-  Cargo.add(player, id, qty)
+  cargo:add(id, qty)
   Sound.triggerEventAt("loot_collected", pickup.components.position.x, pickup.components.position.y)
   pickup.dead = true
   currentTargetId = nil

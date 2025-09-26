@@ -73,7 +73,11 @@ function UI.drawHelpers(player, world, hub, camera)
         local screenY = (sy - camY) * camScale + sh * 0.5
 
         -- Only draw if on-screen and close enough
-        if distance < 500 then
+        local helperRange = 500
+        if station.radius then
+          helperRange = math.max(helperRange, station.radius + 150)
+        end
+        if distance < helperRange then
           local keymap = Settings.getKeymap()
           local text = nil
 
@@ -253,86 +257,91 @@ function UI.drawHelpers(player, world, hub, camera)
     end
   end
 
-  -- Helper tooltip for mouse-hovered asteroid or wreckage (updated to show bound keys, no LMB hold)
+  -- Helper tooltip for nearby asteroid or wreckage (shows hotkeys for mining/salvaging)
   do
     local Settings = require("src.core.settings")
     local g = Settings.getGraphicsSettings()
     local helpersEnabled = (g.helpers_enabled ~= false)
     if helpersEnabled and not player.docked and world and camera then
-      local best, bestType = nil, nil
-      
-      -- Get mouse cursor world position
       local mx, my = Viewport.getMousePosition()
       local sw, sh = Viewport.getDimensions()
       local camScale = camera and camera.scale or 1
       local camX = (camera and camera.x) or 0
       local camY = (camera and camera.y) or 0
-      
-      -- Convert mouse screen position to world position
       local worldMouseX = (mx - sw * 0.5) / camScale + camX
       local worldMouseY = (my - sh * 0.5) / camScale + camY
-      
-      -- Check if mouse is hovering over any asteroid with resources
-      for _, a in ipairs(world:get_entities_with_components("mineable")) do
-        local m = a.components and a.components.mineable
-        local pos = a.components and a.components.position
-        if m and (m.resources or 0) > 0 and pos then
-          local dx, dy = worldMouseX - pos.x, worldMouseY - pos.y
-          local dist = math.sqrt(dx*dx + dy*dy)
-          local hoverRadius = (a.components.collidable and a.components.collidable.radius or 30) + 10
-          if dist <= hoverRadius then
-            best, bestType = a, 'asteroid'
-            break -- Take the first one found (they shouldn't overlap much)
-          end
+      local px, py = player.components.position.x, player.components.position.y
+
+      local best, bestType
+      local bestScore = math.huge
+      local fallback, fallbackType
+      local fallbackDist = math.huge
+
+      local function evaluateEntity(entity, kind)
+        local pos = entity.components and entity.components.position
+        if not pos then return end
+        local dx = pos.x - px
+        local dy = pos.y - py
+        local playerDist = math.sqrt(dx * dx + dy * dy)
+        if playerDist > 600 then return end
+
+        local cursorDx = worldMouseX - pos.x
+        local cursorDy = worldMouseY - pos.y
+        local cursorDist = math.sqrt(cursorDx * cursorDx + cursorDy * cursorDy)
+        local radius = (entity.components and entity.components.collidable and entity.components.collidable.radius)
+          or (kind == 'asteroid' and 30 or 20)
+        local aimMargin = radius + 80
+        local cursorScore = math.max(0, cursorDist - aimMargin)
+        local score = cursorScore + playerDist * 0.01
+        if cursorScore <= 80 and score < bestScore then
+          best, bestType, bestScore = entity, kind, score
+        end
+        if playerDist < fallbackDist then
+          fallback, fallbackType, fallbackDist = entity, kind, playerDist
         end
       end
 
-      -- If no asteroid found, check salvageable wreckage
-      if not best then
-        for _, w in ipairs(world:get_entities_with_components("wreckage")) do
-          local pos = w.components and w.components.position
-          local canSalvage = (w.canBeSalvaged and w:canBeSalvaged())
-            or (w.salvageAmount and w.salvageAmount > 0)
-            or (w.components and w.components.lootable and #w.components.lootable.drops > 0)
-          if pos and canSalvage then
-            local dx, dy = worldMouseX - pos.x, worldMouseY - pos.y
-            local dist = math.sqrt(dx*dx + dy*dy)
-            local hoverRadius = (w.components.collidable and w.components.collidable.radius or 20) + 8
-            if dist <= hoverRadius then
-              best, bestType = w, 'wreckage'
-              break
-            end
-          end
+      for _, a in ipairs(world:get_entities_with_components("mineable")) do
+        local m = a.components and a.components.mineable
+        if m and (m.resources or 0) > 0 then
+          evaluateEntity(a, 'asteroid')
         end
+      end
+
+      for _, w in ipairs(world:get_entities_with_components("wreckage")) do
+        local canSalvage = (w.canBeSalvaged and w:canBeSalvaged())
+          or (w.salvageAmount and w.salvageAmount > 0)
+          or (w.components and w.components.lootable and #w.components.lootable.drops > 0)
+        if canSalvage then
+          evaluateEntity(w, 'wreckage')
+        end
+      end
+
+      if not best and fallback then
+        best, bestType = fallback, fallbackType
       end
 
       if best then
         local bx = best.components.position.x
         local by = best.components.position.y
-
-        -- Calculate distance to player for visibility limit
-        local px, py = player.components.position.x, player.components.position.y
         local dx = bx - px
         local dy = by - py
         local distance = math.sqrt(dx * dx + dy * dy)
+        if distance < 600 then
+          local screenX = (bx - camX) * camScale + sw * 0.5
+          local screenY = (by - camY) * camScale + sh * 0.5
 
-        local screenX = (bx - camX) * camScale + sw * 0.5
-        local screenY = (by - camY) * camScale + sh * 0.5
-        if distance < 500 then
-          local text, canPerformAction
-          -- Helper to find the hotbar key for the first turret of a given kind
           local function findKeyForTurretKind(kind)
             if not player or not player.components or not player.components.equipment then return nil end
-            local slotNum = nil
+            local slotNum
             for _, gridData in ipairs(player.components.equipment.grid) do
-              if gridData.type == "turret" and gridData.module and gridData.module.kind == kind then 
-                slotNum = gridData.slot 
-                break 
+              if gridData.type == 'turret' and gridData.module and gridData.module.kind == kind then
+                slotNum = gridData.slot
+                break
               end
             end
             if not slotNum then return nil end
-            local HotbarSystem = require("src.systems.hotbar")
-            local Settings = require("src.core.settings")
+            local HotbarSystem = require('src.systems.hotbar')
             local km = Settings.getKeymap()
             if HotbarSystem and HotbarSystem.slots and km then
               for i, s in ipairs(HotbarSystem.slots) do
@@ -343,6 +352,7 @@ function UI.drawHelpers(player, world, hub, camera)
             end
             return nil
           end
+
           local function labelForKey(k)
             if not k then return '?' end
             k = tostring(k)
@@ -352,25 +362,28 @@ function UI.drawHelpers(player, world, hub, camera)
             if #k == 1 then return k:upper() end
             return k:upper()
           end
+
+          local text, canPerformAction
           if bestType == 'asteroid' then
-            if hasRequiredTurret(player, "mining_laser") then
+            if hasRequiredTurret(player, 'mining_laser') then
               local key = findKeyForTurretKind('mining_laser')
-              text = string.format("Press [%s] to Mine", labelForKey(key))
+              text = string.format('Aim at asteroid and press [%s] to mine', labelForKey(key))
               canPerformAction = true
             else
-              text = "Install a Mining Laser"
+              text = 'Install a Mining Laser to mine asteroids'
               canPerformAction = false
             end
-          else -- wreckage
-            if hasRequiredTurret(player, "salvaging_laser") then
+          else
+            if hasRequiredTurret(player, 'salvaging_laser') then
               local key = findKeyForTurretKind('salvaging_laser')
-              text = string.format("Press [%s] to Salvage", labelForKey(key))
+              text = string.format('Aim at wreckage and press [%s] to salvage', labelForKey(key))
               canPerformAction = true
             else
-              text = "Install a Salvaging Laser"
+              text = 'Install a Salvaging Laser to process wreckage'
               canPerformAction = false
             end
           end
+
           local paddingX, paddingY = 10, 6
           local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
           local oldFont = love.graphics.getFont()
@@ -407,8 +420,10 @@ function UI.hotbarMousePressed(player, mx, my, button)
   return Hotbar.mousepressed(player, mx, my, button)
 end
 
--- Export drawTurretIcon from IconSystem for unified icon rendering
+-- Export universal icon drawing helper
 local IconSystem = require("src.core.icon_system")
-UI.drawTurretIcon = IconSystem.drawTurretIcon
+UI.drawIcon = IconSystem.drawIconAny
+UI.drawTurretIcon = IconSystem.drawIconAny
 
 return UI
+

@@ -1,37 +1,29 @@
-local QuestLog = {}
+local QuestLogHUD = {}
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
+local Util = require("src.core.util")
 
-function QuestLog:new()
-  local o = {}
-  setmetatable(o, self)
-  self.__index = self
-  return o
+local function drawQuestEntry(x, y, quest, progress, ready)
+  Theme.setColor(ready and Theme.colors.success or Theme.colors.textHighlight)
+  love.graphics.print(quest.name or quest.id, x, y)
+  Theme.setColor(Theme.colors.textSecondary)
+  love.graphics.print(progress .. "%", x, y + 16)
 end
 
-function QuestLog:draw(player)
-  if not player.active_quests or #player.active_quests == 0 then
-    return
-  end
+function QuestLogHUD.draw(player)
+  if not player or not player.components or not player.components.questLog then return end
+  local questLog = player.components.questLog
+  if not questLog.active or #questLog.active == 0 then return end
 
-  local sw, sh = Viewport.getDimensions()
-  local minimapW = 200
-  local x = sw - minimapW - 10
-  local y = 220 -- Positioned below the minimap
-  local w = minimapW
-  
-  love.graphics.setFont(Theme.fonts.small)
-  love.graphics.setColor(Theme.colors.text)
-  love.graphics.print("Quest Log", x, y)
-  y = y + 20
-
-  for i, quest in ipairs(player.active_quests) do
-    local progress = player.quest_progress[quest.id] or 0
-    local ready = (player.quest_ready_turnin and player.quest_ready_turnin[quest.id]) or false
-    local progress_text = ready and " (Turn in at station)" or string.format(" (%d/%d)", progress, quest.objective.count)
-    love.graphics.print("- " .. quest.title .. progress_text, x, y)
-    y = y + 15
+  local w, h = Viewport.getDimensions()
+  local x = 20
+  local y = h * 0.6
+  for _, quest in ipairs(questLog.active) do
+    local progress = questLog.progress[quest.id] or 0
+    local ready = questLog.readyTurnin[quest.id] or false
+    drawQuestEntry(x, y, quest, progress, ready)
+    y = y + 32
   end
 end
 
-return QuestLog
+return QuestLogHUD

@@ -8,15 +8,24 @@ local stats = {
     fps = 0,
     mem = 0,
     drawTime = 0,
-    updateTime = 0
+    updateTime = 0,
+    aiCount = 0,
+    nearestEnemyDist = nil,
+    nearestEnemyRange = nil,
+    playerInsideRange = false
 }
 
 function DebugPanel.init()
+    local viewportWidth = 0
+    viewportWidth = Viewport.getDimensions()
+    local panelWidth = 190
+    local panelHeight = 170
+    local startX = math.max(10, (viewportWidth or panelWidth) - (panelWidth + 20))
     DebugPanel.window = Window.new({
         title = "Debug Info",
-        width = 150,
-        height = 120,
-        x = Viewport.getDimensions() - 160,
+        width = panelWidth,
+        height = panelHeight,
+        x = startX,
         y = 10,
         useLoadPanelTheme = true,
         draggable = true,
@@ -71,19 +80,32 @@ function DebugPanel.drawContent(window, x, y, w, h)
     local padding = 8
     local margin = 4
 
-    local texts = {
-        string.format("FPS: %d", stats.fps),
-        string.format("Update: %.1fms", stats.updateTime),
-        string.format("Draw: %.1fms", stats.drawTime),
-        string.format("Mem: %.1fMB", stats.mem)
-    }
+    local texts = {}
+    texts[#texts + 1] = string.format("FPS: %d", stats.fps)
+    texts[#texts + 1] = string.format("Update: %.1fms", stats.updateTime)
+    texts[#texts + 1] = string.format("Draw: %.1fms", stats.drawTime)
+    texts[#texts + 1] = string.format("Mem: %.1fMB", stats.mem)
+    texts[#texts + 1] = ""
+    texts[#texts + 1] = string.format("AI Count: %d", stats.aiCount or 0)
+    if stats.nearestEnemyDist then
+        texts[#texts + 1] = string.format("Nearest AI: %.0fu", stats.nearestEnemyDist)
+    else
+        texts[#texts + 1] = "Nearest AI: --"
+    end
+    if stats.nearestEnemyRange then
+        local insideLabel = stats.playerInsideRange and "inside" or "outside"
+        texts[#texts + 1] = string.format("Detect Rng: %.0fu (%s)", stats.nearestEnemyRange, insideLabel)
+    else
+        texts[#texts + 1] = "Detect Rng: --"
+    end
 
     love.graphics.setFont(font)
     Theme.setColor(Theme.colors.text)
-
     for i, text in ipairs(texts) do
-        local textY = y + padding + (i-1) * (lineHeight + margin)
-        love.graphics.print(text, x + padding, textY)
+        local textY = y + padding + (i - 1) * (lineHeight + margin)
+        if text ~= "" then
+            love.graphics.print(text, x + padding, textY)
+        end
     end
 end
 
@@ -119,6 +141,17 @@ function DebugPanel.mousemoved(x, y, dx, dy)
     return DebugPanel.window:mousemoved(x, y, dx, dy)
 end
 
+
+function DebugPanel.setAIDebugInfo(aiCount, nearestDistance, detectionRange)
+    stats.aiCount = aiCount or 0
+    stats.nearestEnemyDist = nearestDistance
+    stats.nearestEnemyRange = detectionRange
+    if detectionRange and nearestDistance then
+        stats.playerInsideRange = nearestDistance <= detectionRange
+    else
+        stats.playerInsideRange = false
+    end
+end
 -- Set rendering stats (call this after your main draw)
 function DebugPanel.setRenderStats(drawTime)
     stats.drawTime = drawTime or stats.drawTime

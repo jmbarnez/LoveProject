@@ -4,6 +4,7 @@ return {
   name = "Mining Laser",
   description = "Specialized mining equipment for extracting ore from asteroids.",
   price = 2000,
+  module = { type = "turret" },
   icon = {
     size = 32,
     shapes = {

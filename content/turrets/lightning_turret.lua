@@ -4,6 +4,7 @@ return {
   name = "Lightning Turret",
   description = "A turret that shoots lightning.",
   price = 1000,
+  module = { type = "turret" },
   icon = {
     size = 32,
     shapes = {

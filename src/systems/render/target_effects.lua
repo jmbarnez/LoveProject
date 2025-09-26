@@ -26,7 +26,7 @@ function TargetEffects.drawTargetHighlight(player)
     local y = tgt.components.position.y
     local l = 10
     local pulse = 0.55 + 0.35 * math.abs(math.sin(love.timer.getTime() * 3))
-    local a = (player.locked and 0.9 or 0.55) * pulse
+    local a = 0.55 * pulse
     
     love.graphics.setColor(0.2, 1.0, 0.8, a)
     love.graphics.setLineWidth(2)
@@ -100,7 +100,6 @@ function TargetEffects.drawHoverHighlight(hoveredEntity, hoveredEntityType)
     -- Disabled: no yellow hover circles; rely on contextual UI or beam effects
     return
 end
-
 -- Draw player turret mining beams
 function TargetEffects.drawTurretBeams(player, entities)
     -- Draw player turret beams
@@ -138,61 +137,6 @@ function TargetEffects.drawTurretBeams(player, entities)
             end
         end
     end
-end
-
--- Draw lock-on targeting indicators
-function TargetEffects.drawLockOnIndicators(player)
-    local lockState = player.lockOnState
-    if not lockState or not lockState.target or lockState.target.dead then
-        return
-    end
-    
-    local target = lockState.target
-    local pos = target.components.position
-    if not pos then return end
-    
-    local x, y = pos.x, pos.y
-    local radius = (target.components.collidable and target.components.collidable.radius or 20) + 15
-    local time = love.timer.getTime()
-    
-    -- Lock-on progress ring
-    if lockState.lockProgress > 0 then
-        local progress = lockState.lockProgress
-        local sweepAngle = progress * 2 * math.pi
-        
-        if lockState.isLocked then
-            -- Locked - solid ring with pulse
-            local pulse = 0.7 + 0.3 * math.sin(time * 6)
-            love.graphics.setColor(1.0, 0.3, 0.1, 0.8 * pulse)
-            love.graphics.setLineWidth(3)
-            love.graphics.circle("line", x, y, radius)
-            
-            -- Lock confirmation cross
-            local crossSize = 8
-            love.graphics.setColor(1.0, 0.4, 0.2, 0.9 * pulse)
-            love.graphics.setLineWidth(2)
-            love.graphics.line(x - crossSize, y, x + crossSize, y)
-            love.graphics.line(x, y - crossSize, x, y + crossSize)
-            
-            -- "LOCKED" text
-            love.graphics.setColor(1.0, 0.5, 0.3, 0.9)
-            local oldFont = love.graphics.getFont()
-            if Theme.fonts and Theme.fonts.small then 
-                love.graphics.setFont(Theme.fonts.small) 
-            end
-            love.graphics.printf("LOCKED", x - 30, y + radius + 8, 60, "center")
-            if oldFont then love.graphics.setFont(oldFont) end
-            
-        else
-            -- Locking in progress - partial ring only
-            love.graphics.setColor(1.0, 0.8, 0.2, 0.7)
-            love.graphics.setLineWidth(3)
-            -- Draw progress arc starting from top
-            love.graphics.arc("line", "open", x, y, radius, -math.pi/2, -math.pi/2 + sweepAngle, 32)
-        end
-    end
-    
-    love.graphics.setLineWidth(1)
 end
 
 return TargetEffects

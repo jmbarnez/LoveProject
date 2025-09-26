@@ -6,7 +6,7 @@ local Minimap = {}
 
 -- Debug log to verify enemies passed to minimap
 function Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, asteroids)
-  Log.info("Enemies passed to minimap:", enemies)
+  -- Debug logging removed for production cleanliness
 
   -- (Debug removed) Minimap inspection logging removed for clean build
 

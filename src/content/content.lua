@@ -74,17 +74,32 @@ function Content.load()
     table.insert(Content.turrets, def)
     if def and def.id then
       Content.byId.turret[def.id] = def
-      Log.info("Loaded turret: " .. def.id .. " (" .. (def.name or "unnamed") .. ")")
+      Log.debug("Loaded turret: " .. def.id .. " (" .. (def.name or "unnamed") .. ")")
+      if def.module then
+        local item = Item.fromDef(def)
+        table.insert(Content.items, item)
+        Content.byId.item[item.id] = item
+      end
     end
   end
   
-  Log.info("Total turrets loaded: " .. #Content.turrets)
+  Log.debug("Total turrets loaded: " .. #Content.turrets)
 
   -- Generate icons for turrets
   for _, turret in ipairs(Content.turrets) do
     if turret.icon and type(turret.icon) == "table" and turret.icon.shapes then
       turret.iconDef = turret.icon
       turret.icon = IconRenderer.renderIcon(turret.iconDef, 128, turret.id)
+    end
+  end
+
+  -- Ensure module items injected from turret defs receive rendered icons
+  for _, item in ipairs(Content.items) do
+    if item.icon and type(item.icon) == "table" and item.icon.shapes then
+      item.iconDef = item.icon
+      item.icon = IconRenderer.renderIcon(item.iconDef, 128, item.id)
+    elseif item.iconDef and type(item.iconDef) == "table" and (not item.icon or type(item.icon) ~= "userdata") then
+      item.icon = IconRenderer.renderIcon(item.iconDef, 128, item.id)
     end
   end
 
@@ -116,6 +131,8 @@ function Content.rebuildIcons()
   for _, item in ipairs(Content.items or {}) do
     if item and item.def and type(item.def.icon) == "table" and item.def.icon.shapes then
       item.icon = IconRenderer.renderIcon(item.def.icon, 128, item.id)
+    elseif item and item.iconDef and type(item.iconDef) == "table" and item.iconDef.shapes then
+      item.icon = IconRenderer.renderIcon(item.iconDef, 128, item.id)
     end
   end
   -- Ships

@@ -9,7 +9,7 @@ local function formatKey(k)
         return string.format("[%q]", k)
     elseif t == "number" then
         -- Numeric keys: [1] = value
-        return string.format("[%s]", tostring(k))
+        return string.format("[%d]", k)
     elseif t == "boolean" then
         return string.format("[%s]", tostring(k))
     else
@@ -22,18 +22,49 @@ local function encodeTable(t, indent)
     indent = indent or 0
     local pad = string.rep("    ", indent)
     local s = "{\n"
-    for k, v in pairs(t) do
-        local keyPart = formatKey(k)
-        s = s .. pad .. "    " .. keyPart .. " = "
-        if type(v) == "table" then
-            s = s .. encodeTable(v, indent + 1)
-        elseif type(v) == "string" then
-            s = s .. string.format("%q", v)
-        else
-            s = s .. tostring(v)
+
+    -- First pass: handle array-like entries (numeric indices)
+    local maxIndex = 0
+    for k in pairs(t) do
+        if type(k) == "number" then
+            maxIndex = math.max(maxIndex, k)
         end
-        s = s .. ",\n"
     end
+
+    -- Add array-like entries
+    for i = 1, maxIndex do
+        local v = t[i]
+        if v == nil then
+            s = s .. pad .. "    nil,\n"
+        else
+            s = s .. pad .. "    "
+            if type(v) == "table" then
+                s = s .. encodeTable(v, indent + 1)
+            elseif type(v) == "string" then
+                s = s .. string.format("%q", v)
+            else
+                s = s .. tostring(v)
+            end
+            s = s .. ",\n"
+        end
+    end
+
+    -- Second pass: handle non-array entries (string keys, boolean keys, etc.)
+    for k, v in pairs(t) do
+        if type(k) ~= "number" or k < 1 or k > maxIndex or math.floor(k) ~= k then
+            local keyPart = formatKey(k)
+            s = s .. pad .. "    " .. keyPart .. " = "
+            if type(v) == "table" then
+                s = s .. encodeTable(v, indent + 1)
+            elseif type(v) == "string" then
+                s = s .. string.format("%q", v)
+            else
+                s = s .. tostring(v)
+            end
+            s = s .. ",\n"
+        end
+    end
+
     s = s .. pad .. "}"
     return s
 end
@@ -100,6 +131,42 @@ local settings = {
     }
 }
 
+local function detectNativeResolution()
+    if not love or not love.window then return nil end
+
+    local displayIndex = 1
+    if love.window.getDisplay then
+        local ok, currentDisplay = pcall(love.window.getDisplay)
+        if ok and type(currentDisplay) == "number" and currentDisplay >= 1 then
+            displayIndex = currentDisplay
+        end
+    end
+
+    if love.window.getDesktopDimensions then
+        local ok, width, height = pcall(love.window.getDesktopDimensions, displayIndex)
+        if ok and type(width) == "number" and type(height) == "number" and width > 0 and height > 0 then
+            return width, height
+        end
+    end
+
+    if love.window.getMode then
+        local ok, width, height = pcall(love.window.getMode)
+        if ok and type(width) == "number" and type(height) == "number" and width > 0 and height > 0 then
+            return width, height
+        end
+    end
+
+    return nil
+end
+
+do
+    local nativeWidth, nativeHeight = detectNativeResolution()
+    if nativeWidth and nativeHeight then
+        settings.graphics.resolution.width = nativeWidth
+        settings.graphics.resolution.height = nativeHeight
+    end
+end
+
 function Settings.getGraphicsSettings()
     return settings.graphics
 end
@@ -157,7 +224,7 @@ function Settings.applyGraphicsSettings(newSettings)
             minHeight = Constants.RESOLUTION.MIN_WINDOW_HEIGHT_1024PX
         end
 
-        print("Settings.applyGraphicsSettings - Using responsive minimum window size: " .. minWidth .. "x" .. minHeight)
+        Log.debug("Settings.applyGraphicsSettings - Using responsive minimum window size: " .. minWidth .. "x" .. minHeight)
 
         local windowSettings = {
             fullscreen = newSettings.fullscreen,
@@ -175,12 +242,12 @@ function Settings.applyGraphicsSettings(newSettings)
             windowSettings.borderless = true
         end
 
-        print("Settings.applyGraphicsSettings - Applying window mode:")
-        print("  Resolution: " .. newSettings.resolution.width .. "x" .. newSettings.resolution.height)
-        print("  Fullscreen: " .. tostring(windowSettings.fullscreen))
-        print("  Fullscreen type: " .. (windowSettings.fullscreentype or "nil"))
-        print("  Borderless: " .. tostring(windowSettings.borderless))
-        print("  VSync: " .. tostring(windowSettings.vsync))
+        Log.debug("Settings.applyGraphicsSettings - Applying window mode:")
+        Log.debug("  Resolution: " .. newSettings.resolution.width .. "x" .. newSettings.resolution.height)
+        Log.debug("  Fullscreen: " .. tostring(windowSettings.fullscreen))
+        Log.debug("  Fullscreen type: " .. (windowSettings.fullscreentype or "nil"))
+        Log.debug("  Borderless: " .. tostring(windowSettings.borderless))
+        Log.debug("  VSync: " .. tostring(windowSettings.vsync))
 
         love.window.setMode(
             newSettings.resolution.width,
@@ -188,7 +255,7 @@ function Settings.applyGraphicsSettings(newSettings)
             windowSettings
         )
 
-        print("Settings.applyGraphicsSettings - Window mode applied successfully")
+        Log.debug("Settings.applyGraphicsSettings - Window mode applied successfully")
 
         IconRenderer.clearCache()
 local Content = require("src.content.content")
@@ -250,43 +317,16 @@ function Settings.setHotbarSettings(newSettings)
 end
 
 function Settings.save()
-    print("Settings.save - Saving settings to file")
-    local serializedSettings = serialize(settings)
-    local success = love.filesystem.write("settings.lua", serializedSettings)
-    if success then
-        print("Settings.save - Settings saved successfully")
-    else
-        print("Settings.save - Failed to save settings")
-    end
-    return success
+    -- Settings saving is disabled - don't save to filesystem
+    Log.debug("Settings.save - Settings saving disabled, using defaults only")
+    return true
 end
 
 function Settings.load()
-    if love.filesystem.getInfo("settings.lua") then
-        print("Settings.load - Loading settings from file")
-        local chunk, err = love.filesystem.load("settings.lua")
-        if chunk then
-            local success, loadedSettings = pcall(chunk)
-            if success and loadedSettings then
-                settings = loadedSettings
-                print("Settings.load - Settings loaded successfully")
-                print("Settings.load - Loaded fullscreen: " .. tostring(settings.graphics.fullscreen))
-                print("Settings.load - Loaded fullscreen_type: " .. (settings.graphics.fullscreen_type or "nil"))
-                print("Settings.load - Loaded resolution: " .. settings.graphics.resolution.width .. "x" .. settings.graphics.resolution.height)
-                Log.info("Settings loaded successfully")
-            else
-                print("Settings.load - Failed to load settings: " .. tostring(loadedSettings))
-                Log.warn("Failed to load settings: " .. tostring(loadedSettings))
-            end
-        else
-            print("Settings.load - Failed to load settings file: " .. tostring(err))
-            Log.warn("Failed to load settings file: " .. tostring(err))
-        end
-    else
-        print("Settings.load - No settings file found, using defaults")
-        print("Settings.load - Default fullscreen: " .. tostring(settings.graphics.fullscreen))
-        print("Settings.load - Default resolution: " .. settings.graphics.resolution.width .. "x" .. settings.graphics.resolution.height)
-    end
+    -- Always use default settings - don't load from filesystem
+    Log.debug("Settings.load - Using default settings (saving/loading disabled)")
+    Log.debug("Settings.load - Default fullscreen: " .. tostring(settings.graphics.fullscreen))
+    Log.debug("Settings.load - Default resolution: " .. settings.graphics.resolution.width .. "x" .. settings.graphics.resolution.height)
 end
 
 return Settings
