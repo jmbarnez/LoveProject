@@ -8,7 +8,20 @@ return {
   icon = {
     size = 32,
     shapes = {
-      { type = "rectangle", mode = "fill", color = {0.7, 0.7, 0.7, 1}, x = 8, y = 12, w = 16, h = 8, rx = 1 },
+      -- Suspended coil cradle
+      { type = "polygon", mode = "fill", color = {0.08, 0.10, 0.18, 1}, points = {6, 22, 10, 12, 22, 12, 26, 22, 16, 28} },
+      { type = "polygon", mode = "fill", color = {0.16, 0.20, 0.28, 1}, points = {8, 20, 12, 14, 20, 14, 24, 20, 16, 24} },
+      -- Electromagnetic containment rings
+      { type = "circle", mode = "line", color = {0.35, 0.80, 1.00, 0.7}, x = 16, y = 16, r = 6, lineWidth = 2 },
+      { type = "circle", mode = "line", color = {0.20, 0.65, 1.00, 0.45}, x = 16, y = 16, r = 8, lineWidth = 1.5 },
+      -- Charged capacitor core
+      { type = "circle", mode = "fill", color = {0.05, 0.18, 0.30, 1}, x = 16, y = 16, r = 4 },
+      { type = "circle", mode = "fill", color = {0.45, 0.90, 1.00, 1}, x = 16, y = 16, r = 2.6 },
+      -- Lightning discharge
+      { type = "polygon", mode = "fill", color = {0.70, 0.95, 1.00, 1}, points = {14, 4, 19, 6, 16, 10, 21, 12, 12, 22, 15, 14, 11, 12} },
+      -- Spark accents
+      { type = "circle", mode = "fill", color = {0.55, 0.95, 1.00, 0.8}, x = 11, y = 18, r = 1.2 },
+      { type = "circle", mode = "fill", color = {0.55, 0.95, 1.00, 0.8}, x = 21, y = 18, r = 1.2 },
     }
   },
   tracer = { color = {0.5, 0.8, 1.0, 1.0}, width = 2.0, coreRadius = 1 },

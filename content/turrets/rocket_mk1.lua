@@ -8,19 +8,23 @@ return {
   icon = {
     size = 32,
     shapes = {
-      -- Rocket launcher housing
-      { type = "rectangle", mode = "fill", color = {0.4, 0.4, 0.4, 1}, x = 4, y = 12, w = 24, h = 8, rx = 1 },
-      -- Rocket
-      { type = "rectangle", mode = "fill", color = {0.8, 0.3, 0.1, 1}, x = 12, y = 6, w = 8, h = 16 },
-      -- Rocket nose
-      { type = "polygon", mode = "fill", color = {0.9, 0.4, 0.2, 1}, points = {12, 6, 16, 2, 20, 6} },
-      -- Fins
-      { type = "rectangle", mode = "fill", color = {0.6, 0.6, 0.6, 1}, x = 10, y = 18, w = 2, h = 4 },
-      { type = "rectangle", mode = "fill", color = {0.6, 0.6, 0.6, 1}, x = 20, y = 18, w = 2, h = 4 },
-      -- Exhaust
-      { type = "rectangle", mode = "fill", color = {1.0, 0.8, 0.3, 0.8}, x = 14, y = 22, w = 4, h = 6 },
-      -- Launch rails
-      { type = "rectangle", mode = "fill", color = {0.3, 0.3, 0.3, 1}, x = 2, y = 14, w = 28, h = 2 },
+      -- Reinforced launcher cradle
+      { type = "polygon", mode = "fill", color = {0.10, 0.12, 0.18, 1}, points = {5, 26, 8, 10, 24, 10, 27, 26, 16, 30} },
+      { type = "polygon", mode = "fill", color = {0.18, 0.22, 0.30, 1}, points = {8, 22, 10, 14, 22, 14, 24, 22, 16, 26} },
+      -- Launch tubes
+      { type = "rectangle", mode = "fill", color = {0.20, 0.36, 0.52, 1}, x = 9, y = 14, w = 6, h = 8, rx = 1 },
+      { type = "rectangle", mode = "fill", color = {0.20, 0.36, 0.52, 1}, x = 17, y = 14, w = 6, h = 8, rx = 1 },
+      -- Rocket chassis
+      { type = "polygon", mode = "fill", color = {0.85, 0.32, 0.25, 1}, points = {16, 4, 20, 12, 12, 12} },
+      { type = "polygon", mode = "fill", color = {1.00, 0.52, 0.30, 0.9}, points = {16, 5, 19, 11, 13, 11} },
+      -- Guidance fins
+      { type = "polygon", mode = "fill", color = {0.70, 0.76, 0.82, 1}, points = {12, 12, 10, 16, 14, 16} },
+      { type = "polygon", mode = "fill", color = {0.70, 0.76, 0.82, 1}, points = {20, 12, 18, 16, 22, 16} },
+      -- Exhaust plumes
+      { type = "polygon", mode = "fill", color = {1.00, 0.70, 0.25, 0.85}, points = {14, 16, 18, 16, 21, 24, 11, 24} },
+      { type = "polygon", mode = "fill", color = {1.00, 0.45, 0.15, 0.8}, points = {14, 18, 18, 18, 19, 24, 13, 24} },
+      -- Targeting strip
+      { type = "rectangle", mode = "fill", color = {0.00, 0.75, 0.95, 0.8}, x = 10, y = 20, w = 12, h = 2, rx = 1 },
     }
   },
   -- Visuals: warm orange rocket + exhaust

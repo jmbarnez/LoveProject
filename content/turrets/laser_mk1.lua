@@ -8,15 +8,21 @@ return {
   icon = {
     size = 32,
     shapes = {
-      -- Laser emitter housing
-      { type = "rectangle", mode = "fill", color = {0.3, 0.8, 1.0, 1}, x = 4, y = 8, w = 24, h = 16, rx = 2 },
-      -- Lens
-      { type = "circle", mode = "fill", color = {0.5, 0.9, 1.0, 1}, x = 16, y = 16, r = 3 },
-      -- Beam
-      { type = "rectangle", mode = "fill", color = {0.7, 1.0, 1.0, 0.8}, x = 15, y = 4, w = 2, h = 12 },
-      -- Energy arcs
-      { type = "arc", mode = "line", color = {0.4, 0.9, 1.0, 0.6}, x = 16, y = 16, r = 5, angle1 = -0.3, angle2 = 0.3, segments = 8 },
-      { type = "arc", mode = "line", color = {0.4, 0.9, 1.0, 0.6}, x = 16, y = 16, r = 7, angle1 = -0.2, angle2 = 0.2, segments = 6 },
+      -- Angular emitter frame
+      { type = "polygon", mode = "fill", color = {0.08, 0.12, 0.18, 1}, points = {6, 22, 9, 10, 23, 10, 26, 22, 16, 28} },
+      { type = "polygon", mode = "fill", color = {0.16, 0.22, 0.30, 1}, points = {8, 18, 11, 12, 21, 12, 24, 18, 16, 24} },
+      -- Energy conduits
+      { type = "rectangle", mode = "fill", color = {0.05, 0.35, 0.55, 1}, x = 9, y = 14, w = 14, h = 3, rx = 1 },
+      { type = "rectangle", mode = "fill", color = {0.05, 0.35, 0.55, 1}, x = 11, y = 18, w = 10, h = 2, rx = 1 },
+      -- Focused lens cluster
+      { type = "circle", mode = "fill", color = {0.05, 0.22, 0.32, 1}, x = 16, y = 8, r = 5 },
+      { type = "circle", mode = "fill", color = {0.15, 0.70, 0.95, 1}, x = 16, y = 8, r = 3.2 },
+      { type = "circle", mode = "fill", color = {0.70, 1.00, 1.00, 0.9}, x = 16, y = 8, r = 1.8 },
+      -- Projection spike
+      { type = "polygon", mode = "fill", color = {0.55, 0.95, 1.00, 0.9}, points = {14, 2, 18, 2, 20, 8, 12, 8} },
+      -- Containment rings
+      { type = "arc", mode = "line", color = {0.15, 0.75, 1.00, 0.6}, x = 16, y = 8, r = 7, angle1 = -0.7, angle2 = 0.7, segments = 14, lineWidth = 1.5 },
+      { type = "arc", mode = "line", color = {0.25, 0.85, 1.00, 0.45}, x = 16, y = 8, r = 9, angle1 = -0.5, angle2 = 0.5, segments = 12, lineWidth = 1 },
     }
   },
   -- Visuals: blue combat beam, crisp shield arcs
