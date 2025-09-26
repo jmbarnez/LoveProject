@@ -17,6 +17,7 @@ local VersionLog = {
     lastRefresh = nil,
     closing = false,
     fallbackPath = "content/version_log.json",
+    fallbackWriteError = nil,
     layoutCache = {
         width = nil,
         count = 0,
@@ -32,6 +33,27 @@ local VersionLog = {
 local REFRESH_INTERVAL = 60
 local ENTRY_PADDING_Y = 12
 local ENTRY_SPACING = 12
+local TEXT_LEFT_MARGIN = 16
+local TEXT_RIGHT_PADDING = 12
+local BULLET_INDENT = 12
+local SCROLL_TRACK_WIDTH = 8
+local SCROLL_EXTRA_GAP = 8
+local PATH_SEPARATOR = package.config and package.config:sub(1, 1) or "/"
+
+local function getCommitGroupCount(data)
+    if type(data) ~= "table" then
+        return 0
+    end
+    local order = data.order
+    if type(order) ~= "table" then
+        return 0
+    end
+    return #order
+end
+
+local function hasCommitData(data)
+    return getCommitGroupCount(data) > 0
+end
 
 local function measureEntryWidth(text)
     local font = Theme.fonts.normal
@@ -39,20 +61,97 @@ local function measureEntryWidth(text)
     return font:getWidth(text)
 end
 
-local function loadFallbackCommits()
-    if love and love.filesystem and love.filesystem.getInfo then
-        if love.filesystem.getInfo(VersionLog.fallbackPath) then
-            local ok, contents = pcall(love.filesystem.read, VersionLog.fallbackPath)
-            if ok and contents then
-                local success, data = pcall(Json.decode, contents)
-                if success and type(data) == "table" then
-                    return data, nil
-                else
-                    return nil, "fallback_invalid"
+local function wrapText(font, text, width)
+    if not text or text == "" then
+        return {}
+    end
+    if width and width > 0 then
+        local wrapped = { font:getWrap(text, width) }
+        return wrapped[1] or { text }
+    end
+    return { text }
+end
+
+local function normalizeFallbackCommits(data)
+    if type(data) ~= "table" then
+        return nil, "fallback_invalid"
+    end
+
+    -- Already normalized data (grouped/order) can be returned directly.
+    if data.grouped and data.order then
+        return data, nil
+    end
+
+    local grouped = {}
+    local order = {}
+    local defaultKey = "Changelog"
+    grouped[defaultKey] = {}
+    table.insert(order, defaultKey)
+
+    local function collectBodyLines(value)
+        local lines = {}
+        if type(value) == "string" then
+            for line in value:gmatch("[^\r\n]+") do
+                if line:match("%S") then
+                    table.insert(lines, line)
                 end
-            else
-                return nil, "fallback_read_error"
             end
+        elseif type(value) == "table" then
+            for _, entry in ipairs(value) do
+                if type(entry) == "string" and entry:match("%S") then
+                    table.insert(lines, entry)
+                end
+            end
+        end
+        return lines
+    end
+
+    for index, entry in ipairs(data) do
+        if type(entry) == "table" and entry.subject then
+            local bodyLines = {}
+            if entry.details then
+                local lines = collectBodyLines(entry.details)
+                for _, line in ipairs(lines) do table.insert(bodyLines, line) end
+            end
+            if entry.body then
+                local lines = collectBodyLines(entry.body)
+                for _, line in ipairs(lines) do table.insert(bodyLines, line) end
+            end
+            if entry.notes then
+                local lines = collectBodyLines(entry.notes)
+                for _, line in ipairs(lines) do table.insert(bodyLines, line) end
+            end
+
+            local commit = {
+                hash = entry.hash or string.format("fallback_%d", index),
+                short = entry.short or entry.relative or string.format("#%d", index),
+                author = entry.author or "",
+                date = entry.date or entry.relative or "",
+                subject = entry.subject,
+                bodyLines = bodyLines,
+            }
+
+            table.insert(grouped[defaultKey], commit)
+        end
+    end
+
+    if #grouped[defaultKey] == 0 then
+        return nil, "fallback_invalid"
+    end
+
+    return { grouped = grouped, order = order }, nil
+end
+
+local function loadFallbackCommits()
+    local file = love and love.filesystem
+    if file and file.getInfo and file.getInfo(VersionLog.fallbackPath) then
+        local ok, contents = pcall(file.read, VersionLog.fallbackPath)
+        if ok and contents then
+            local success, data = pcall(Json.decode, contents)
+            if success then
+                return normalizeFallbackCommits(data)
+            end
+            return nil, "fallback_invalid"
         end
     end
     return nil, "fallback_missing"
@@ -89,7 +188,7 @@ local function getRepoDir()
 end
 
 local function buildGitCommand(limit)
-    local gitArgs = string.format("git --no-pager log -n %d --pretty=format:%%h%%x1f%%s%%x1f%%cr", limit)
+    local gitArgs = string.format("git --no-pager log -n %d --date=short --pretty=format:%%H%%x1f%%h%%x1f%%an%%x1f%%ad%%x1f%%s%%x1f%%b%%x1e", limit)
     local repoDir = getRepoDir()
     local isWindows = package.config and package.config:sub(1, 1) == "\\"
 
@@ -126,23 +225,50 @@ local function readGitCommits(limit)
         return {}, nil
     end
 
-    local commits = {}
-    for line in string.gmatch(output, "[^\r\n]+") do
-        local clean = line
-        local hash, subject, relative = clean:match("([^\31]+)\31([^\31]+)\31(.+)")
-        if not hash then
-            hash, subject, relative = clean:match("([^\t]+)\t([^\t]+)\t(.+)")
+    local grouped = {}
+    local order = {}
+    local function getVersionForSubject(subject)
+        if not subject then return "Unreleased" end
+        local tag = subject:match("^%s*v?(%d+%.%d+)")
+        if not tag then
+            if subject:lower():find("bump version" ) or subject:lower():find("release") then
+                tag = subject
+            end
         end
-        if hash and subject and relative then
-            commits[#commits + 1] = {
-                hash = hash,
-                subject = subject,
-                relative = relative,
-            }
+        return tag or "Unreleased"
+    end
+
+    for entry in (output .. "\30"):gmatch("(.-)\30") do
+        if entry and entry ~= "" then
+            local hash, shortHash, author, date, subject, body = entry:match("([^\31]*)\31([^\31]*)\31([^\31]*)\31([^\31]*)\31([^\31]*)\31(.*)")
+            if hash and subject then
+                body = body or ""
+                body = body:gsub("\r", "")
+                local bodyLines = {}
+                for line in (body .. "\n"):gmatch("(.-)\n") do
+                    if line:match("%S") then
+                        table.insert(bodyLines, line)
+                    end
+                end
+
+                local versionKey = getVersionForSubject(subject)
+                if not grouped[versionKey] then
+                    grouped[versionKey] = {}
+                    table.insert(order, 1, versionKey)
+                end
+                table.insert(grouped[versionKey], {
+                    hash = hash,
+                    short = shortHash or hash:sub(1, 7),
+                    author = author or "",
+                    date = date or "",
+                    subject = subject,
+                    bodyLines = bodyLines,
+                })
+            end
         end
     end
 
-    return commits, nil
+    return { grouped = grouped, order = order }, nil
 end
 
 function VersionLog.refresh(force)
@@ -158,24 +284,13 @@ function VersionLog.refresh(force)
     VersionLog.loading = true
     VersionLog.errorMessage = nil
 
-    local commits, err = readGitCommits(20)
-    if (not commits or #commits == 0) then
-        local fallback, fallbackErr = loadFallbackCommits()
-        if fallback then
-            commits = fallback
-            err = nil
-        else
-            commits = commits or {}
-            err = err or fallbackErr
-        end
-    end
-
-    if commits then
+    local commits, err = loadFallbackCommits()
+    if not hasCommitData(commits) then
+        VersionLog.commits = {}
+        VersionLog.errorMessage = err or "fallback_missing"
+    else
         VersionLog.commits = commits
         VersionLog.scrollY = 0
-    else
-        VersionLog.commits = {}
-        VersionLog.errorMessage = err or "unknown"
     end
 
     VersionLog.loading = false
@@ -241,7 +356,7 @@ function VersionLog.draw(x, y, w, h)
     local listInset = 12
     local listX = panelX + listInset
     local listY = panelY + listInset
-    local listW = panelW - listInset * 2
+    local listW = math.max(0, panelW - listInset * 2)
     local listH = panelH - listInset * 2
 
     if listW <= 0 or listH <= 0 then
@@ -249,30 +364,89 @@ function VersionLog.draw(x, y, w, h)
     end
 
     local totalContentHeight = VersionLog.layoutCache.totalHeight
-    if not totalContentHeight or VersionLog.layoutCache.width ~= listW or VersionLog.layoutCache.count ~= (VersionLog.commits and #VersionLog.commits or 0) then
+    local commitGroupCount = getCommitGroupCount(VersionLog.commits)
+    if not totalContentHeight or VersionLog.layoutCache.width ~= listW or VersionLog.layoutCache.count ~= commitGroupCount then
         VersionLog.layoutCache.width = listW
-        VersionLog.layoutCache.count = VersionLog.commits and #VersionLog.commits or 0
+        local commitData = VersionLog.commits
+        VersionLog.layoutCache.count = commitGroupCount
         VersionLog.layoutCache.entries = {}
         totalContentHeight = 0
-        if VersionLog.commits then
-            local font = Theme.fonts.normal
+        if commitData and commitData.order then
+            local font = Theme.fonts.small or love.graphics.getFont()
             local lineHeight = font:getHeight()
-            local availableWidth = listW - 24
             love.graphics.setFont(font)
-            for _, commit in ipairs(VersionLog.commits) do
-                local subject = commit.subject or ""
-                local wrapText, lineList = font:getWrap(subject, availableWidth)
-                lineList = lineList or {}
-                local lineCount = #lineList
-                if lineCount == 0 then lineCount = 1 end
-                local entryHeight = ENTRY_PADDING_Y * 2 + lineHeight * lineCount + lineHeight -- include relative line
-                totalContentHeight = totalContentHeight + entryHeight + ENTRY_SPACING
-                table.insert(VersionLog.layoutCache.entries, {
-                    lines = lineList,
-                    height = entryHeight,
-                    relative = commit.relative or "",
-                    subject = subject,
-                })
+            local reservedTrackSpace = SCROLL_TRACK_WIDTH + SCROLL_EXTRA_GAP
+            local textAreaWidth = math.max(0, listW - reservedTrackSpace)
+            local textColumnWidth = math.max(0, textAreaWidth - TEXT_LEFT_MARGIN - TEXT_RIGHT_PADDING)
+            local bodyColumnWidth = math.max(0, textColumnWidth - BULLET_INDENT)
+            for _, versionKey in ipairs(commitData.order) do
+                local commits = commitData.grouped[versionKey]
+                if commits then
+                    local versionHeader = string.format("Version %s", versionKey)
+                    local headerHeight = lineHeight + ENTRY_PADDING_Y * 2
+                    totalContentHeight = totalContentHeight + headerHeight + ENTRY_SPACING
+                    table.insert(VersionLog.layoutCache.entries, {
+                        kind = "version",
+                        text = versionHeader,
+                        height = headerHeight,
+                    })
+
+                    for _, commit in ipairs(commits) do
+                        local headerText = string.format("%s (%s)", commit.subject or "", commit.short or "")
+                        local headerLines = wrapText(font, headerText, textColumnWidth)
+                        if type(headerLines) ~= "table" then
+                            headerLines = { tostring(headerLines) }
+                        end
+                        if #headerLines == 0 then
+                            headerLines = { "" }
+                        end
+
+                        local metaLines = {}
+                        local metaText
+                        if commit.date or commit.author then
+                            metaText = string.format("%s • %s", commit.date or "", commit.author or "")
+                            metaLines = wrapText(font, metaText, textColumnWidth)
+                            if type(metaLines) ~= "table" then
+                                metaLines = { tostring(metaLines) }
+                            end
+                        end
+
+                        local bodyWraps = {}
+                        if commit.bodyLines and #commit.bodyLines > 0 then
+                            for _, line in ipairs(commit.bodyLines) do
+                                local wrapLines = wrapText(font, line, bodyColumnWidth)
+                                if type(wrapLines) ~= "table" then
+                                    wrapLines = { tostring(wrapLines) }
+                                end
+                                table.insert(bodyWraps, { lines = wrapLines })
+                            end
+                        end
+
+                        local commitHeaderHeight = #headerLines * lineHeight
+                        local metaHeight = #metaLines * lineHeight
+                        local bodyHeight = 0
+                        for _, wrap in ipairs(bodyWraps) do
+                            bodyHeight = bodyHeight + (#wrap.lines * lineHeight) + 2
+                        end
+
+                        local entryHeight = ENTRY_PADDING_Y * 2 + commitHeaderHeight + metaHeight
+                        if bodyHeight > 0 then
+                            entryHeight = entryHeight + bodyHeight + 6
+                        end
+
+                        totalContentHeight = totalContentHeight + entryHeight + ENTRY_SPACING
+                        table.insert(VersionLog.layoutCache.entries, {
+                            kind = "commit",
+                            commit = commit,
+                            headerLines = headerLines,
+                            metaLines = metaLines,
+                            bodyWraps = bodyWraps,
+                            height = entryHeight,
+                            textWidth = textColumnWidth,
+                            bodyWidth = bodyColumnWidth,
+                        })
+                    end
+                end
             end
             if totalContentHeight > 0 then
                 totalContentHeight = totalContentHeight - ENTRY_SPACING
@@ -296,7 +470,8 @@ function VersionLog.draw(x, y, w, h)
     clampScroll()
 
     love.graphics.setScissor(listX, listY, listW, listH)
-    love.graphics.setFont(Theme.fonts.normal)
+    local entryFont = Theme.fonts.small or love.graphics.getFont()
+    love.graphics.setFont(entryFont)
 
     if VersionLog.loading then
         love.graphics.setFont(Theme.fonts.small)
@@ -314,32 +489,64 @@ function VersionLog.draw(x, y, w, h)
         love.graphics.setFont(Theme.fonts.small)
         drawStatusMessage(listX, listY, listW - 16, Strings.getUI("version_log_error"))
         love.graphics.setFont(Theme.fonts.normal)
-    elseif not VersionLog.commits or #VersionLog.commits == 0 then
+    elseif not hasCommitData(VersionLog.commits) then
         love.graphics.setFont(Theme.fonts.small)
         drawStatusMessage(listX, listY, listW - 16, Strings.getUI("version_log_empty"))
         love.graphics.setFont(Theme.fonts.normal)
     else
-        local font = Theme.fonts.normal
+        local font = entryFont
         local lineHeight = font:getHeight()
         love.graphics.setFont(font)
         local rowY = listY - VersionLog.scrollY
-        local rightInset = VersionLog.scrollGeom.track and (VersionLog.scrollGeom.track.w + 8) or 0
-        -- Leave space for the scrollbar track if present
-        local panelWidth = math.max(0, listW - rightInset)
-        local textX = listX + 16
+        local trackWidth = (VersionLog.scrollGeom.track and VersionLog.scrollGeom.track.w) or SCROLL_TRACK_WIDTH
+        local reservedTrackSpace = trackWidth + SCROLL_EXTRA_GAP
+        local textAreaWidth = math.max(0, listW - reservedTrackSpace)
+        local textX = listX + TEXT_LEFT_MARGIN
 
         for _, entry in ipairs(VersionLog.layoutCache.entries) do
             local entryTop = rowY
             local entryBottom = rowY + entry.height
             if entryBottom >= listY - ENTRY_SPACING and entryTop <= listY + listH + ENTRY_SPACING then
-                Theme.setColor(Theme.colors.textSecondary)
-                love.graphics.print(entry.relative, textX, entryTop + ENTRY_PADDING_Y)
+                if entry.kind == "version" then
+                    Theme.setColor(Theme.colors.accentGold or Theme.colors.accent)
+                    love.graphics.print(entry.text, textX, entryTop + ENTRY_PADDING_Y)
+                elseif entry.kind == "commit" then
+                    local commit = entry.commit
+                    local cursorY = entryTop + ENTRY_PADDING_Y
+                    Theme.setColor(Theme.colors.accent)
+                    for _, line in ipairs(entry.headerLines) do
+                        love.graphics.print(line, textX, cursorY)
+                        cursorY = cursorY + lineHeight
+                    end
 
-                Theme.setColor(Theme.colors.text)
-                local subjectY = entryTop + ENTRY_PADDING_Y + lineHeight
-                for _, line in ipairs(entry.lines) do
-                    love.graphics.print(line, textX, subjectY)
-                    subjectY = subjectY + lineHeight
+                    if entry.metaLines and #entry.metaLines > 0 then
+                        Theme.setColor(Theme.colors.textSecondary)
+                        for _, line in ipairs(entry.metaLines) do
+                            love.graphics.print(line, textX, cursorY)
+                            cursorY = cursorY + lineHeight
+                        end
+                    end
+
+                    if entry.bodyWraps and #entry.bodyWraps > 0 then
+                        cursorY = cursorY + 4
+                        Theme.setColor(Theme.colors.text)
+                            local bulletIndent = BULLET_INDENT
+                        for _, wrap in ipairs(entry.bodyWraps) do
+                            for _, line in ipairs(wrap.lines) do
+                                love.graphics.print("•", textX, cursorY)
+                                love.graphics.print(line, textX + bulletIndent, cursorY)
+                                cursorY = cursorY + lineHeight
+                            end
+                            cursorY = cursorY + 2
+                        end
+                    end
+
+                    Theme.setColor(Theme.colors.border)
+                    love.graphics.setLineWidth(1)
+                    local ruleRight = textX + math.max(0, textAreaWidth - TEXT_RIGHT_PADDING)
+                    if ruleRight > textX then
+                        love.graphics.line(textX - 4, cursorY + 4, ruleRight, cursorY + 4)
+                    end
                 end
             end
             rowY = rowY + entry.height + ENTRY_SPACING

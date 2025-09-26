@@ -7,6 +7,7 @@ local Notifications = require("src.ui.notifications")
 local Window = require("src.ui.common.window")
 local Dropdown = require("src.ui.common.dropdown")
 local Strings = require("src.core.strings")
+local Util = require("src.core.util")
 
 local SettingsPanel = {}
 
@@ -16,6 +17,8 @@ SettingsPanel.auroraShader = nil
 
 local currentGraphicsSettings
 local currentAudioSettings
+local originalGraphicsSettings
+local originalAudioSettings
 local keymap
 local bindingAction
 local draggingSlider = nil
@@ -177,6 +180,53 @@ contentHeight = (yOffset - innerTop) + 20
 -- The scrollbar will handle showing content that extends beyond the panel
 end
 
+local function cloneSettings(src)
+    return Util.deepCopy(src or {})
+end
+
+local function refreshGraphicsDropdowns()
+    if vsyncDropdown then
+        vsyncDropdown:setSelectedIndex(currentGraphicsSettings and currentGraphicsSettings.vsync and 2 or 1)
+    end
+    if fpsLimitDropdown and currentGraphicsSettings then
+        local fpsToIndex = {
+            [0] = 1,
+            [30] = 2,
+            [60] = 3,
+            [120] = 4,
+            [144] = 5,
+            [240] = 6
+        }
+        local idx = fpsToIndex[currentGraphicsSettings.max_fps or 60] or 3
+        currentGraphicsSettings.max_fps_index = idx
+        fpsLimitDropdown:setSelectedIndex(idx)
+    end
+    if accentThemeDropdown and currentGraphicsSettings then
+        local accentThemes = {
+            Strings.getTheme("cyan_lavender"),
+            Strings.getTheme("blue_purple"),
+            Strings.getTheme("green_emerald"),
+            Strings.getTheme("red_orange"),
+            Strings.getTheme("monochrome")
+        }
+        local themeIndex = 1
+        for i, theme in ipairs(accentThemes) do
+            if theme == (currentGraphicsSettings.accent_theme or Strings.getTheme("cyan_lavender")) then
+                themeIndex = i
+                break
+            end
+        end
+        accentThemeDropdown:setSelectedIndex(themeIndex)
+    end
+end
+
+function SettingsPanel.refreshFromSettings()
+    currentGraphicsSettings = cloneSettings(Settings.getGraphicsSettings())
+    currentAudioSettings = cloneSettings(Settings.getAudioSettings())
+    refreshGraphicsDropdowns()
+    keymap = cloneSettings(Settings.getKeymap() or {})
+end
+
 function SettingsPanel.init()
     SettingsPanel.window = Window.new({
         title = Strings.getUI("settings_title"),
@@ -193,8 +243,9 @@ function SettingsPanel.init()
         end
     })
 
-    currentGraphicsSettings = Settings.getGraphicsSettings()
-    currentAudioSettings = Settings.getAudioSettings()
+    SettingsPanel.refreshFromSettings()
+    originalGraphicsSettings = cloneSettings(Settings.getGraphicsSettings())
+    originalAudioSettings = cloneSettings(Settings.getAudioSettings())
     -- Ensure helpers_enabled exists with default value
     if currentGraphicsSettings.helpers_enabled == nil then
         currentGraphicsSettings.helpers_enabled = true
@@ -237,7 +288,7 @@ function SettingsPanel.init()
         y = 60,
         options = vsyncTypes,
         selectedIndex = currentGraphicsSettings.vsync and 2 or 1,
-        onSelect = function(index, option)
+        onSelect = function(index)
             currentGraphicsSettings.vsync = (index == 2)
         end
     })
@@ -247,9 +298,18 @@ function SettingsPanel.init()
         x = valueX,
         y = 60 + itemHeight,
         options = fpsLimitTypes,
-        selectedIndex = 1,
-        onSelect = function(index, option)
-            currentGraphicsSettings.max_fps = (option == "Unlimited") and 0 or tonumber(option)
+        selectedIndex = currentGraphicsSettings.max_fps_index or 3,
+        onSelect = function(index)
+            currentGraphicsSettings.max_fps_index = index
+            local fpsMap = {
+                [1] = 0,
+                [2] = 30,
+                [3] = 60,
+                [4] = 120,
+                [5] = 144,
+                [6] = 240
+            }
+            currentGraphicsSettings.max_fps = fpsMap[index] or 60
         end
     })
 
@@ -279,6 +339,7 @@ function SettingsPanel.init()
             applyAccentTheme(option)
             Notifications.add(Strings.getNotification("accent_color_changed") .. " " .. option, "info")
             accentThemeLastChanged = love.timer.getTime()
+            refreshGraphicsDropdowns()
         end
     })
 end
@@ -344,7 +405,7 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     local btnHover = mx >= btnX and mx <= btnX + btnW and my + scrollY >= btnY and my + scrollY <= btnY + btnH
     -- Show full text without truncation
     Theme.drawStyledButton(btnX, btnY, btnW, btnH, "Select Reticle", btnHover, love.timer.getTime())
-    SettingsPanel._reticleButtonRect = { x = btnX, y = btnY, w = btnW, h = btnH }
+    SettingsPanel._reticleButtonRect = { x = btnX, y = btnY - scrollY, w = btnW, h = btnH }
     -- Preview next to button (same height as button)
     local previewSize = btnH
     local pvX, pvY = btnX + btnW + 10, btnY
@@ -366,11 +427,16 @@ function SettingsPanel.drawContent(window, x, y, w, h)
 
     -- Helpers toggle
     Theme.setColor(Theme.colors.text)
-    love.graphics.print("Show Helpers:", labelX, yOffset)
-    local toggleX, toggleY, toggleW, toggleH = valueX, yOffset - 2, 70, 24
+    love.graphics.setFont(Theme.fonts and Theme.fonts.xsmall or Theme.fonts.small or love.graphics.getFont())
+    love.graphics.print("Helpers", labelX, yOffset + 4)
+    local toggleX, toggleY, toggleW, toggleH = valueX, yOffset, 70, 24
     local enabled = currentGraphicsSettings.helpers_enabled ~= false
     local toggleHover = mx >= toggleX and mx <= toggleX + toggleW and my + scrollY >= toggleY and my + scrollY <= toggleY + toggleH
-    Theme.drawStyledButton(toggleX, toggleY, toggleW, toggleH, enabled and "On" or "Off", toggleHover, love.timer.getTime())
+    local toggleLabel = enabled and "On" or "Off"
+    Theme.drawStyledButton(toggleX, toggleY, toggleW, toggleH, "", toggleHover, love.timer.getTime())
+    Theme.setColor(Theme.colors.text)
+    love.graphics.setFont(Theme.fonts and Theme.fonts.xsmall or Theme.fonts.small or love.graphics.getFont())
+    love.graphics.printf(toggleLabel, toggleX, toggleY + 5, toggleW, "center")
     yOffset = yOffset + itemHeight + sectionSpacing
 
     -- === AUDIO SECTION ===
@@ -979,13 +1045,20 @@ function SettingsPanel.keypressed(key)
 end
 
 function SettingsPanel.toggle()
-    -- Initialize settings if not already done
-    if not currentGraphicsSettings then
+    local wasVisible = SettingsPanel.window and SettingsPanel.window.visible
+    if not SettingsPanel.window then
         SettingsPanel.init()
     end
 
     SettingsPanel.window:toggle()
     SettingsPanel.visible = SettingsPanel.window.visible
+
+    if SettingsPanel.visible then
+        SettingsPanel.refreshFromSettings()
+    else
+        Settings.applyGraphicsSettings(cloneSettings(originalGraphicsSettings))
+        Settings.applyAudioSettings(cloneSettings(originalAudioSettings))
+    end
 end
 
 function SettingsPanel.isBinding()

@@ -1,42 +1,30 @@
 [
   {
+    "version": "0.6.2",
     "subject": "Refactor Destruction and Spawning Systems for Player Death Handling",
-    "relative": "9 minutes ago"
+    "date": "2025-09-24",
+    "notes": [
+      "Ensure player death triggers destruction effects consistently",
+      "Improve spawning cleanup to avoid lingering projectiles"
+    ]
   },
   {
-    "subject": "Add AGENTS.md for repository guidelines and remove obsolete test scripts",
-    "relative": "32 minutes ago"
-  },
-  {
+    "version": "0.6.1",
     "subject": "Enhance turret configurations and player systems",
-    "relative": "37 minutes ago"
+    "date": "2025-09-21",
+    "body": [
+      "Added new turret loadouts for late-game encounters",
+      "Polished player ability cooldown handling"
+    ]
   },
   {
-    "subject": "Enhance configuration and gameplay mechanics",
-    "relative": "3 days ago"
-  },
-  {
-    "subject": "Refine engine trail effects and spawning mechanics",
-    "relative": "3 days ago"
-  },
-  {
-    "subject": "Enhance ship engine performance and visual effects",
-    "relative": "4 days ago"
-  },
-  {
-    "subject": "Update engine colors and enhance start screen button effects",
-    "relative": "4 days ago"
-  },
-  {
-    "subject": "Enhance escape menu and save slots functionality",
-    "relative": "4 days ago"
-  },
-  {
-    "subject": "Implement custom UI cursor and enhance reticle behavior",
-    "relative": "4 days ago"
-  },
-  {
+    "version": "0.6.0",
     "subject": "Refactor UI architecture and enhance input handling",
-    "relative": "4 days ago"
+    "date": "2025-09-18",
+    "details": [
+      "Improved start screen transitions and controller prompts",
+      "Updated escape menu with clearer save slot states"
+    ]
   }
 ]
+

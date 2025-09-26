@@ -79,10 +79,17 @@ function Player.new(x, y, shipId)
       end
   end
 
-  -- Seed starter cargo
-  if self.components and self.components.cargo then
-      self:addItem("basic_gun", 1)
-      self:addItem("shield_module_basic", 1)
+  local equipment = self.components and self.components.equipment
+  if equipment and equipment.grid then
+      local equippedTurret = self:equipModule(1, "basic_gun")
+      if not equippedTurret and self.components and self.components.cargo then
+          self:addItem("basic_gun", 1)
+      end
+
+      local equippedShield = self:equipModule(2, "shield_module_basic")
+      if not equippedShield and self.components and self.components.cargo then
+          self:addItem("shield_module_basic", 1)
+      end
   end
 
   -- Populate hotbar (empty by default until player equips modules)
