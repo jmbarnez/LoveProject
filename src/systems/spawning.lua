@@ -102,7 +102,7 @@ local function spawnEnemy(player, hub, world)
       okPlayer = (dxp*dxp + dyp*dyp) > (minP * minP)
     end
     local suppressDeathSpawn = world._suppressPlayerDeathSpawn
-    local playerEntity = getPlayer(world)
+    local playerEntity = player
     local safeFromPlayerDeath = true
     if suppressDeathSpawn and playerEntity and playerEntity.components and playerEntity.components.position then
       local px = playerEntity.components.position.x
