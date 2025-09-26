@@ -127,6 +127,10 @@ function DockedUI.isVisible()
   return DockedUI.visible
 end
 
+function DockedUI.isSearchActive()
+  return DockedUI.searchActive
+end
+
 -- Draw the docked window
 function DockedUI.draw(player)
     if not DockedUI.visible or not player or not player.docked then return end

@@ -45,6 +45,31 @@ local function getInventoryModule()
   return inv
 end
 
+local function isUiTextInputFocused()
+    if mainState.screen ~= "game" then
+        return false
+    end
+
+    local ui = mainState.UIManager
+    if not ui then
+        return false
+    end
+
+    if ui.isOpen and ui.isOpen("inventory") then
+        local Inventory = getInventoryModule()
+        if Inventory.isSearchInputActive and Inventory.isSearchInputActive() then
+            return true
+        end
+    end
+
+    local DockedUI = require("src.ui.docked")
+    if ui.isOpen and ui.isOpen("docked") and DockedUI.isSearchActive and DockedUI.isSearchActive() then
+        return true
+    end
+
+    return false
+end
+
 -- Input handling functions
 local function handleInput()
     if not gameState.camera or not gameState.camera.screenToWorld then
@@ -91,6 +116,10 @@ end
 function Input.keypressed(key)
     Log.debug("Input.keypressed", key)
     local keymap = Settings.getKeymap()
+
+    if isUiTextInputFocused() then
+        return
+    end
 
     if Map and Map.keypressed and Map.keypressed(key, gameState and gameState.world) then return end
 
@@ -221,11 +250,18 @@ function Input.love_keypressed(key)
       return
     end
 
+    local textInputFocused = isUiTextInputFocused()
+
     if key == "tab" then
-      mainState.UIManager.toggle("inventory")
-      return
+      if not textInputFocused then
+        mainState.UIManager.toggle("inventory")
+        return
+      end
     end
     if mainState.UIManager and mainState.UIManager.keypressed(key) then
+      return
+    end
+    if textInputFocused and isUiTextInputFocused() then
       return
     end
     Input.keypressed(key)

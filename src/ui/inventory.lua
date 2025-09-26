@@ -67,6 +67,10 @@ function Inventory.clearSearchFocus()
   setSearchActive(false)
 end
 
+function Inventory.isSearchInputActive()
+  return Inventory._searchInputActive
+end
+
 function Inventory.init()
     Inventory.window = Window.new({
         title = "Inventory",
