@@ -94,6 +94,7 @@ end
 -- Their logic will be handled by dedicated systems in the future.
 
 function Game.load(fromSave, saveSlot)
+  Log.setInfoEnabled(true)
   Content.load()
   HotbarSystem.load()
   NodeMarket.init()
@@ -194,7 +195,7 @@ function Game.load(fromSave, saveSlot)
     -- Start new game - create player at random spawn location
     local angle = math.random() * math.pi * 2
     -- Spawn within the station weapons-disable zone
-    local spawn_dist = (hub and (hub.shieldRadius or Constants.STATION.WEAPONS_DISABLE_DURATION * 200) or Constants.STATION.WEAPONS_DISABLE_DURATION * 200) - spawn_margin
+    local spawn_dist = (hub and hub:getWeaponDisableRadius() or Constants.STATION.WEAPONS_DISABLE_DURATION * 200) * 0.5
     local px = (hub and hub.components and hub.components.position and hub.components.position.x or Constants.SPAWNING.MARGIN) + math.cos(angle) * spawn_dist
     local py = (hub and hub.components and hub.components.position and hub.components.position.y or Constants.SPAWNING.MARGIN) + math.sin(angle) * spawn_dist
     -- Start player with basic combat drone
@@ -363,6 +364,22 @@ function Game.update(dt)
 
     -- Update state manager (handles auto-saving)
     StateManager.update(dt)
+
+    -- Docking proximity check
+    if player and hub and hub.components and hub.components.position then
+        local playerPos = player.components.position
+        local hubPos = hub.components.position
+        local distance = Util.distance(playerPos.x, playerPos.y, hubPos.x, hubPos.y)
+        
+        -- Use the station's base radius for docking.
+        local dockRadius = hub.radius or 100 -- Fallback, but should be defined on the station template.
+        
+        local canDockNow = distance <= dockRadius
+        
+        if canDockNow ~= player.canDock then
+            Events.emit(Events.GAME_EVENTS.CAN_DOCK, { canDock = canDockNow })
+        end
+    end
 
     -- Process queued events each frame
     Events.processQueue()

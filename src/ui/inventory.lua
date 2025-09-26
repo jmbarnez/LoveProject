@@ -468,8 +468,11 @@ function Inventory.mousepressed(x, y, button)
     if button == 1 then
         local item, index = getItemAtPosition(x, y, Inventory._slotRects)
         if item then
-            local def = Content.getItem(item.id) or Content.getTurret(item.id)
-            if def and (def.consumable or def.type == "consumable") then
+            local def = getItemDefinition(item)
+            if def and (def.module or item.turretData or def.type == "turret" or def.type == "shield") then
+                Inventory.drag = { from = 'inventory', id = item.id, turretData = item.turretData }
+                return true
+            elseif def and (def.consumable or def.type == "consumable") then
                 Inventory.useItem(player, item.id)
                 return true
             end

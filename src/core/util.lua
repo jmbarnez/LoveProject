@@ -236,4 +236,11 @@ function util.rectContains(x, y, rx, ry, rw, rh)
     return x >= rx and x <= rx + rw and y >= ry and y <= ry + rh
 end
 
+function util.unpack_color(color)
+    if type(color) == "table" then
+        return color or 1, color or 1, color or 1, color or 1
+    end
+    return 1, 1, 1, 1 -- Default to white if color is not a table
+end
+
 return util

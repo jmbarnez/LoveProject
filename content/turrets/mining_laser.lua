@@ -21,8 +21,8 @@ return {
       { type = "polygon", mode = "fill", color = {0.4, 0.4, 0.4, 1}, points = {14, 22, 16, 26, 18, 22} },
     }
   },
-  -- Subtle mining beam with minimal visual impact
-  tracer = { color = {1.0, 0.7, 0.2, 0.8}, width = 2.0, coreRadius = 2 },
+  -- Yellow mining beam
+  tracer = { color = {1.0, 1.0, 0.0, 0.8}, width = 2.0, coreRadius = 2 },
   impact = {
     asteroid = {
       spark = {1.0, 0.9, 0.5, 0.8},    -- Bright sparks for visible feedback

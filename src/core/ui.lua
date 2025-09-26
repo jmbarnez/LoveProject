@@ -73,7 +73,7 @@ function UI.drawHelpers(player, world, hub, camera)
         local screenY = (sy - camY) * camScale + sh * 0.5
 
         -- Only draw if on-screen and close enough
-        if screenX > 0 and screenX < sw and screenY > 0 and screenY < sh and distance < 500 then
+        if distance < 500 then
           local keymap = Settings.getKeymap()
           local text = nil
 
@@ -206,7 +206,7 @@ function UI.drawHelpers(player, world, hub, camera)
           or (gate.components.warp_gate and gate.components.warp_gate.interactionRange) or 500
 
         -- Only draw if on-screen and close enough
-        if screenX > 0 and screenX < sw and screenY > 0 and screenY < sh and distance <= range then
+        if distance <= range then
           local keymap = Settings.getKeymap()
           local dockKey = (keymap and keymap.dock or "space"):upper()
           local text = string.format("Press [%s] to Use Warp Gate", dockKey)
@@ -318,7 +318,7 @@ function UI.drawHelpers(player, world, hub, camera)
 
         local screenX = (bx - camX) * camScale + sw * 0.5
         local screenY = (by - camY) * camScale + sh * 0.5
-        if screenX > 0 and screenX < sw and screenY > 0 and screenY < sh and distance < 500 then
+        if distance < 500 then
           local text, canPerformAction
           -- Helper to find the hotbar key for the first turret of a given kind
           local function findKeyForTurretKind(kind)

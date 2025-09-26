@@ -498,6 +498,12 @@ function SettingsPanel.drawContent(window, x, y, w, h)
 
     love.graphics.pop() -- End of scrollable content translation
 
+    -- Disable scissor for UI elements below the scrollable area
+    love.graphics.setScissor()
+
+    -- Set scissor to full panel bounds for dropdowns and apply button
+    love.graphics.setScissor(x, y, w, h)
+
     -- Scrollbar (inside scissor, but not translated)
     local scrollbarX = x + w - 12
     local scrollbarY = innerTop

@@ -311,23 +311,20 @@ function PlayerSystem.update(dt, player, input, world, hub)
     player.lockProgress = 1
 
     -- Docking and weapon disable logic
-    local SpaceStationSystem = require("src.systems.hub")
-    if hub and hub.components and hub.components.position then
-        local inSpaceStation = SpaceStationSystem.isInside(hub, ppos.x, ppos.y)
-
-        if inSpaceStation and not player.wasInSpaceStation then
-            player.weaponsDisabled = true
-            Events.emit(Events.GAME_EVENTS.CAN_DOCK, { canDock = true, station = hub })
-        elseif not inSpaceStation and player.wasInSpaceStation then
-            player.weaponsDisabled = false
-            Events.emit(Events.GAME_EVENTS.CAN_DOCK, { canDock = false })
+    local stations = world:get_entities_with_components("station")
+    local inWeaponDisableZone = false
+    for _, station in ipairs(stations) do
+        if station.components and station.components.position then
+            local dx = ppos.x - station.components.position.x
+            local dy = ppos.y - station.components.position.y
+            local distSq = dx * dx + dy * dy
+            if distSq <= (station.weaponDisableRadius or 0) ^ 2 then
+                inWeaponDisableZone = true
+                break
+            end
         end
-        player.wasInSpaceStation = inSpaceStation
-    else
-        player.wasInSpaceStation = false
-        player.weaponsDisabled = false
-        Events.emit(Events.GAME_EVENTS.CAN_DOCK, { canDock = false })
     end
+    player.weaponsDisabled = inWeaponDisableZone
 
     -- Warp gate proximity detection
     local closestGate = WarpGateSystem.getClosestWarpGate(world, ppos.x, ppos.y, 1500)
@@ -383,13 +380,8 @@ function PlayerSystem.update(dt, player, input, world, hub)
                 local actionName = 'turret_slot_' .. tostring(gridData.slot)
                 local perSlotActive = (HotbarSystem and HotbarSystem.isActive and HotbarSystem.isActive(actionName)) or false
 
-                -- Allow utility turrets even in safe zones, but require canFire for weapons
-                local allow = false
-                if isUtility then
-                    allow = (not modalActive) and (perSlotActive or manualFireAll) and (not isMissile)
-                else
-                    allow = (not modalActive) and canFire and (perSlotActive or manualFireAll) and (not isMissile)
-                end
+                -- All turrets are considered weapons and disabled in weapon disable zones
+                local allow = (not modalActive) and canFire and (perSlotActive or manualFireAll) and (not isMissile)
 
                 -- Handle firing mode logic
                 local firing = false

@@ -47,17 +47,15 @@ local function drawSkillBar(x, y, w, h, progress, skillName, level, xp, xpToNext
     Theme.drawEVEBorder(x, y, w, h, 0, Theme.colors.border, 0)
 
     -- Text
-    local font = love.graphics.getFont()
+    local font = Theme.fonts.small
     local levelText = string.format("%s - Lvl %d", skillName, level)
-    local xpText = string.format("%d/%d XP", xp, xpToNext)
 
     Theme.setColor(Theme.colors.text)
     love.graphics.print(levelText, x + 8, y + 4)
 
-    Theme.setColor(Theme.colors.textSecondary)
-    local xpTextWidth = font:getWidth(xpText)
-    love.graphics.print(xpText, x + w - xpTextWidth - 8, y + 4 + font:getHeight())
-
+    -- Modern progress bar
+    local barY = y + h - 18
+    Theme.drawModernBar(x + 8, barY, w - 16, 10, progress, Theme.semantic.modernStatusXP)
 
     -- Progress percentage
     local percentValue = math.max(0, math.min(100, progress * 100))
@@ -70,10 +68,10 @@ end
 function SkillsPanel.init()
     SkillsPanel.window = Window.new({
         title = "Skills",
-        width = 300,
-        height = 250,
-        minWidth = 250,
-        minHeight = 200,
+        width = 900,
+        height = 750,
+        minWidth = 750,
+        minHeight = 600,
         useLoadPanelTheme = true,
         draggable = true,
         closable = true,
@@ -98,13 +96,17 @@ function SkillsPanel.drawContent(window, x, y, w, h)
     local skills = Skills.getAllSkills()
 
     -- Draw each skill
+    local numColumns = 3
+    local columnWidth = (w - pad * (numColumns + 1)) / numColumns
+    local barH = 40
     for i, skill in ipairs(skills) do
-        local skillY = cy + (i - 1) * 55
-        local barW = w - pad * 2
-        local barH = 40
+        local col = (i - 1) % numColumns
+        local row = math.floor((i - 1) / numColumns)
+        local skillX = cx + col * (columnWidth + pad)
+        local skillY = cy + row * (barH + 15)
 
         -- Progress bar
-        drawSkillBar(cx, skillY, barW, barH, skill.progress, skill.name, skill.level, skill.xp, skill.xpToNext)
+        drawSkillBar(skillX, skillY, columnWidth, barH, skill.progress, skill.name, skill.level, skill.xp, skill.xpToNext)
     end
 
     -- Total skills summary at bottom

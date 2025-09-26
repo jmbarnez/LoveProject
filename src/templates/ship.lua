@@ -222,6 +222,7 @@ end
 
 -- Ship update function
 function Ship:update(dt, player, shootCallback)
+  if self.weaponsDisabled then return end
   if self.updateMovement then
     self:updateMovement(dt)
   end
@@ -314,6 +315,17 @@ end
 function Ship:isAlive()
   local h = self.components and self.components.health
   return not self.dead and h and (h.hp or 0) > 0
+end
+
+function Ship:getTurretInSlot(slotNum)
+    if not self.components or not self.components.equipment or not self.components.equipment.grid then
+        return nil
+    end
+    local gridData = self.components.equipment.grid[slotNum]
+    if gridData and gridData.type == "turret" then
+        return gridData.module
+    end
+    return nil
 end
 
 return Ship

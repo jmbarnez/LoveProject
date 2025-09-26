@@ -323,7 +323,7 @@ function Player:unequipTurret(slotNum)
 end
 
 -- Unified equipment grid methods
-function Player:equipModule(slotNum, moduleId)
+function Player:equipModule(slotNum, moduleId, turretData)
     if not self.components or not self.components.equipment or not self.components.equipment.grid then
         return false
     end
@@ -366,6 +366,15 @@ function Player:equipModule(slotNum, moduleId)
         -- Use base id for non-procedural turrets
         actualModule.id = moduleId
         actualModule.baseId = moduleId
+        actualModule.slot = slotNum
+    elseif turretData then
+        -- It's a procedural turret being dragged from inventory
+        moduleType = "turret"
+        local baseId = turretData.baseId or turretData.id
+        actualModule = Turret.new(self, Util.copy(turretData))
+        -- Preserve unique instance id for inventory bookkeeping
+        actualModule.id = moduleId
+        actualModule.baseId = baseId
         actualModule.slot = slotNum
     elseif type(inventoryValue) == "table" and inventoryValue.damage then
         -- It's a procedural turret stored as full data in inventory

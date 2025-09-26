@@ -152,10 +152,73 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
 
             Effects.spawnImpact(impact_type, ex, ey, impact_radius, hx, hy, impact_angle, (bullet.components and bullet.components.bullet and bullet.components.bullet.impact), renderable.props.kind, target)
 
+            -- Handle chain lightning
+            local source = bullet.components and bullet.components.bullet and bullet.components.bullet.source
+            if source and source.components and source.components.equipment then
+                local turret = source:getTurretInSlot(bullet.components.bullet.slot)
+                if turret and turret.chainChance then
+                    handle_chain_lightning(turret, target, world)
+                end
+            end
+
             bullet.dead = true
             return
         end
         ::skip_target::
+    end
+end
+
+function handle_chain_lightning(turret, initial_target, world)
+    local chance = turret.chainChance or 0
+    if math.random() > chance then return end
+
+    local range = turret.chainRange or 300
+    local max_chains = turret.maxChains or 3
+    local damage_falloff = turret.chainDamageFalloff or 0.75
+
+    local chained_targets = { [initial_target] = true }
+    local current_target = initial_target
+    local current_damage = (turret.damage_range.min + turret.damage_range.max) / 2
+
+    for i = 1, max_chains do
+        local nearby_enemies = world:get_entities_in_radius(current_target.components.position.x, current_target.components.position.y, range, { "enemy" })
+        
+        local next_target = nil
+        for _, enemy in ipairs(nearby_enemies) do
+            if not chained_targets[enemy] then
+                next_target = enemy
+                break
+            end
+        end
+
+        if next_target then
+            local projectile = {
+                components = {
+                    bullet = {
+                        source = turret.owner,
+                        kind = "lightning_bolt",
+                        damage = current_damage * damage_falloff,
+                        slot = turret.slot
+                    },
+                    position = { x = current_target.components.position.x, y = current_target.components.position.y },
+                    velocity = { x = 0, y = 0 }, -- Bolts are instantaneous
+                    renderable = { props = { color = {0.5, 0.8, 1.0, 1.0} } },
+                    timed_life = { life = 0.1 }
+                },
+                dead = false
+            }
+            world:addEntity(projectile)
+            
+            -- Simulate instant hit
+            CollisionEffects.applyDamage(next_target, projectile.components.bullet.damage, turret.owner)
+            Effects.spawnImpact('hull', next_target.components.position.x, next_target.components.position.y, Radius.calculateEffectiveRadius(next_target), next_target.components.position.x, next_target.components.position.y, 0, nil, "lightning_bolt", next_target)
+
+            chained_targets[next_target] = true
+            current_target = next_target
+            current_damage = current_damage * damage_falloff
+        else
+            break -- No more targets in range
+        end
     end
 end
 

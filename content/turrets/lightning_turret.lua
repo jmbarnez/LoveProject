@@ -1,6 +1,6 @@
 return {
   id = "lightning_turret",
-  type = "gun",
+  type = "laser",
   name = "Lightning Turret",
   description = "A turret that shoots lightning.",
   price = 1000,
@@ -10,6 +10,10 @@ return {
       { type = "rectangle", mode = "fill", color = {0.7, 0.7, 0.7, 1}, x = 8, y = 12, w = 16, h = 8, rx = 1 },
     }
   },
+  tracer = { color = {0.5, 0.8, 1.0, 1.0}, width = 2.0, coreRadius = 1 },
+  chainChance = 0.5,
+  chainRange = 300,
+  maxChains = 3,
   spread = { minDeg = 0, maxDeg = 0, decay = 0 },
   projectile = "laser_beam",
   optimal = 1000, falloff = 200,

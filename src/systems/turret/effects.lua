@@ -75,9 +75,9 @@ function TurretEffects.renderBeam(turret, startX, startY, endX, endY, hitTarget)
 
     if not turret.tracer then return end
 
-    local color = {0, 0.5, 1, 1}
-    local width = 4
-    local coreRadius = 2
+    local color = turret.tracer.color or {0, 0.5, 1, 1}
+    local width = turret.tracer.width or 4
+    local coreRadius = turret.tracer.coreRadius or 2
 
     -- Draw beam core
     love.graphics.setColor(color[1], color[2], color[3], color[4])
@@ -86,7 +86,7 @@ function TurretEffects.renderBeam(turret, startX, startY, endX, endY, hitTarget)
 
     -- Draw beam core (brighter center)
     if coreRadius > 0 then
-        love.graphics.setColor(0.2, 0.7, 1.2, 0.9)
+        love.graphics.setColor(math.min(1, color[1] + 0.2), math.min(1, color[2] + 0.2), math.min(1, color[3] + 0.2), color[4] * 0.9)
         love.graphics.setLineWidth(coreRadius)
         love.graphics.line(startX, startY, endX, endY)
     end

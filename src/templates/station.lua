@@ -27,7 +27,8 @@ function Station.new(x, y, config)
   
         -- Store shield radius for zones (weapons disable, docking, amber ring)
         self.radius = ModelUtil.calculateModelWidth(config.visuals)
-        self.shieldRadius = self.radius / 2
+        self.weaponDisableRadius = self.radius * 1.5 -- Tighter ring for weapons
+        self.shieldRadius = self.radius * 5 -- Larger ring for spawn protection
 
         -- Special handling for beacon stations with custom no-spawn radius
         if config.id == "beacon_station" then
@@ -67,6 +68,10 @@ function Station.new(x, y, config)
     end
 
     return self
+end
+
+function Station:getWeaponDisableRadius()
+    return self.weaponDisableRadius or 0
 end
 
 return Station

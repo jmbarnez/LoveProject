@@ -398,7 +398,7 @@ function Ship:mousereleased(player, x, y, button)
           if drag.from == 'inventory' or (drag.from == nil and drag.id) then
             -- Only allow fitting while docked
             if player and player.docked then
-              player:equipModule(i, drag.id)
+              player:equipModule(i, drag.id, drag.turretData)
             end
             return true, false
           elseif drag.from == 'grid_slot' then

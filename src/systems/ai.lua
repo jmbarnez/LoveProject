@@ -219,7 +219,20 @@ local function handleHunting(entity, dt, player, spawnProjectile, world)
     local canShoot = false
 
     -- Check if enemy is in weapons disabled zone
-    local inWeaponsDisabledZone = isEnemyInWeaponsDisabledZone(entity, world)
+    local stations = world:get_entities_with_components("station")
+    local inWeaponsDisabledZone = false
+    for _, station in ipairs(stations) do
+        if station.components and station.components.position then
+            local dx = pos.x - station.components.position.x
+            local dy = pos.y - station.components.position.y
+            local distSq = dx * dx + dy * dy
+            if distSq <= (station.weaponDisableRadius or 0) ^ 2 then
+                inWeaponsDisabledZone = true
+                break
+            end
+        end
+    end
+    entity.weaponsDisabled = inWeaponsDisabledZone
 
     -- Safety check: make sure we have valid position data
     if pos and pos.x and pos.y and playerPos and not inWeaponsDisabledZone then

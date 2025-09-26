@@ -35,8 +35,8 @@ local function isPositionSafeFromStations(x, y, world, hub)
     local dx = x - hub.components.position.x
     local dy = y - hub.components.position.y
     local distanceSquared = dx * dx + dy * dy
-    local stationBuffer = (Config.SPAWN and Config.SPAWN.STATION_BUFFER) or 5000
-    local safeDistanceSquared = stationBuffer * stationBuffer
+    local safeDistance = hub.shieldRadius or (Config.SPAWN and Config.SPAWN.STATION_BUFFER) or 5000
+    local safeDistanceSquared = safeDistance * safeDistance
     
     if distanceSquared <= safeDistanceSquared then
       return false -- Too close to hub station
