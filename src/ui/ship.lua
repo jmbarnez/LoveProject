@@ -47,6 +47,7 @@ end
 
 -- Drag state for drag-and-drop equipping
 Ship.drag = nil -- { from = 'inventory'|'slot', id = string, slot = number }
+Ship.removeButtons = {}
 
 function Ship:updateDropdowns(player)
     local equipment = player.components and player.components.equipment
@@ -79,10 +80,6 @@ function Ship:updateDropdowns(player)
             table.insert(options, "Unequipped")
             actions[#options] = { kind = 'keep' }
         end
-
-        -- Always offer Unequip as an explicit choice
-        table.insert(options, "Unequip")
-        actions[#options] = { kind = 'unequip', slot = i }
 
         -- Populate from player's cargo (inventory) only
         if player.components and player.components.cargo then
@@ -140,6 +137,7 @@ function Ship:updateDropdowns(player)
             self.slotDropdowns[i]:setSelectedIndex(selectedIndex)
         end
         self.slotDropdowns[i]._actions = actions
+        self.removeButtons[i] = self.removeButtons[i] or {hover = false}
     end
 end
 
@@ -191,63 +189,120 @@ function Ship:draw(player, x, y, w, h)
 
   -- Equipment Grid Section with Stats on the left
   local gridSlots = (player.components and player.components.equipment and player.components.equipment.grid) or {}
-  
-  -- Layout: Stats on left, Grid on right - fill entire panel
-  local statsWidth = 200
-  local gridHeight = h - headerHeight - 40  -- Fill remaining height
-  
-  -- Main container background
+
+  local availableWidth = w - pad * 2
+  local statsWidth = math.min(240, math.floor(availableWidth * 0.4))
+  local spacing = 20
+  local gridWidth = availableWidth - statsWidth - spacing
+  if gridWidth < 220 then
+      gridWidth = 220
+      statsWidth = availableWidth - gridWidth - spacing
+  end
+
+  local gridHeight = h - headerHeight - 40
+
   Theme.drawGradientGlowRect(cx, cy, w - pad * 2, gridHeight, 6,
     Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
-  
-  -- Stats section (left side)
+
+  -- Stats section
   local statsX = cx + 8
-  local statsY = cy + 8
-  
-  -- Stats header
+  local statsY = cy + 12
+  local statsInnerWidth = statsWidth - 16
+
+  Theme.setColor(Theme.colors.bg2)
+  love.graphics.rectangle("fill", statsX, statsY, statsInnerWidth, gridHeight - 24, 4, 4)
+
+  local contentX = statsX + 12
+  local contentY = statsY + 12
+
   Theme.setColor(Theme.colors.textHighlight)
   love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
-  love.graphics.print("Ship Statistics", statsX, statsY)
-  
-  -- Stats content
+  love.graphics.print("Ship Stats", contentX, contentY)
+
+  contentY = contentY + 26
   love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+
   local hComp = player.components and player.components.health or {}
-  
-  local function stat(label, value, x, y, color)
-    Theme.setColor(Theme.colors.textSecondary)
-    love.graphics.print(label, x, y)
-    Theme.setColor(color or Theme.colors.text)
-    local valueStr = tostring(value or "-")
-    if type(value) == "number" and value >= 1000 then
-      valueStr = string.format("%.1fk", value / 1000)
-    end
-    love.graphics.print(valueStr, x + 80, y)
+  local statsList = {}
+  if hComp.maxHP and hComp.maxHP > 0 then
+      table.insert(statsList, { label = "Hull HP", value = hComp.maxHP, color = Theme.colors.statusHull })
   end
-  
-  -- Only show actually used stats
-  stat("Hull HP:", hComp.maxHP, statsX, statsY + 30, Theme.colors.statusHull)
-  stat("Shield HP:", hComp.maxShield, statsX, statsY + 50, Theme.colors.statusShield)
-  stat("Capacitor:", hComp.maxEnergy, statsX, statsY + 70, Theme.colors.statusCapacitor)
-  stat("Signature:", player.sig or "-", statsX, statsY + 90, Theme.colors.text)
-  stat("Cargo Hold:", player.cargoCapacity or "-", statsX, statsY + 110, Theme.colors.text)
-  
-  -- Grid section (right side)
-  local gridX = cx + statsWidth + 20
-  local gridY = cy + 8
-  
+  if hComp.maxShield and hComp.maxShield > 0 then
+      table.insert(statsList, { label = "Shield HP", value = hComp.maxShield, color = Theme.colors.statusShield })
+  end
+  if hComp.maxEnergy and hComp.maxEnergy > 0 then
+      table.insert(statsList, { label = "Capacitor", value = hComp.maxEnergy, color = Theme.colors.statusCapacitor })
+  end
+  if player.sig and player.sig > 0 then
+      table.insert(statsList, { label = "Signature", value = player.sig, color = Theme.colors.text })
+  end
+  if player.cargoCapacity and player.cargoCapacity > 0 then
+      table.insert(statsList, { label = "Cargo Hold", value = player.cargoCapacity, color = Theme.colors.text })
+  end
+
+  Theme.setColor(Theme.colors.textSecondary)
+  local lineHeight = 22
+  for _, statData in ipairs(statsList) do
+      Theme.setColor(Theme.colors.textSecondary)
+      love.graphics.print(statData.label .. ":", contentX, contentY)
+      Theme.setColor(statData.color or Theme.colors.text)
+      local valueStr = statData.value
+      if type(statData.value) == "number" and statData.value >= 1000 then
+          valueStr = string.format("%.1fk", statData.value / 1000)
+      end
+      love.graphics.print(tostring(valueStr), contentX + 110, contentY)
+      contentY = contentY + lineHeight
+  end
+
+  -- Grid section (fitting)
+  local gridX = statsX + statsWidth + spacing
+  local gridY = cy + 12
+  local gridPanelWidth = gridWidth - 16
+  Theme.setColor(Theme.colors.bg2)
+  love.graphics.rectangle("fill", gridX, gridY, gridPanelWidth, gridHeight - 24, 4, 4)
+
+  Theme.setColor(Theme.colors.textHighlight)
+  love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
+  love.graphics.print("Fitting Slots", gridX + 12, gridY + 12)
+
+  love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
   local mx, my = Viewport.getMousePosition()
-  local slotY = gridY
+  local slotY = gridY + 44
   for i, slotData in ipairs(gridSlots) do
       local dropdown = self.slotDropdowns[i]
       if dropdown then
-          -- Draw slot label
           Theme.setColor(Theme.colors.textSecondary)
           love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-          love.graphics.print("Slot " .. i .. ":", gridX - 50, slotY + 4)
+          love.graphics.print("Slot " .. i .. ":", gridX + 12, slotY + 4)
 
-          dropdown:setPosition(gridX, slotY)
+          local dropdownX = gridX + 70
+          dropdown:setPosition(dropdownX, slotY)
           dropdown:drawButtonOnly(mx, my)
-          slotY = slotY + dropdown.optionHeight + 10
+
+          local removeBtnSize = dropdown.optionHeight
+          local removeX = dropdownX + dropdown.width + 8
+          local removeY = slotY
+          local removeRect = {x = removeX, y = removeY, w = removeBtnSize, h = removeBtnSize}
+          local hover = pointInRect(mx, my, removeRect)
+          self.removeButtons[i].rect = removeRect
+          self.removeButtons[i].hover = hover
+
+          local bgColor = hover and Theme.colors.bg2 or Theme.colors.bg1
+          Theme.setColor(bgColor)
+          love.graphics.rectangle("fill", removeX, removeY, removeBtnSize, removeBtnSize, 3, 3)
+
+          Theme.setColor(Theme.colors.border)
+          love.graphics.setLineWidth(1)
+          love.graphics.rectangle("line", removeX + 0.5, removeY + 0.5, removeBtnSize - 1, removeBtnSize - 1, 3, 3)
+
+          Theme.setColor(0, 0, 0, 1)
+          love.graphics.setLineWidth(2)
+          love.graphics.line(removeX + 4, removeY + 4, removeX + removeBtnSize - 4, removeY + removeBtnSize - 4)
+          love.graphics.line(removeX + 4, removeY + removeBtnSize - 4, removeX + removeBtnSize - 4, removeY + 4)
+
+          love.graphics.setLineWidth(1)
+
+          slotY = slotY + dropdown.optionHeight + 12
       end
   end
 end
@@ -263,6 +318,21 @@ end
 
 function Ship:mousepressed(player, x, y, button)
     if button == 1 then
+        if player and player.components and player.components.equipment then
+            local grid = player.components.equipment.grid
+            for i, btn in ipairs(self.removeButtons) do
+                if btn.rect and pointInRect(x, y, btn.rect) then
+                    if grid and grid[i] and grid[i].module then
+                        player:unequipModule(i)
+                        self:updateDropdowns(player)
+                        if InventoryUI and InventoryUI.refresh then
+                            InventoryUI.refresh()
+                        end
+                        return true, false
+                    end
+                end
+            end
+        end
         for i, dropdown in ipairs(self.slotDropdowns) do
             if dropdown:mousepressed(x, y, button) then
                 return true, false
