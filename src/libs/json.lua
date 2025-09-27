@@ -6,7 +6,9 @@
 local json = {}
 
 -- Encode Lua table to JSON string
-function json.encode(obj)
+function json.encode(obj, depth)
+  depth = depth or 0
+  if depth > 100 then return "null" end -- Prevent infinite recursion
     local objType = type(obj)
     
     if objType == "nil" then
@@ -34,19 +36,24 @@ function json.encode(obj)
             -- Encode as array
             local result = {}
             for i = 1, maxIndex do
-                result[i] = json.encode(obj[i])
+                result[i] = json.encode(obj[i], depth + 1)
             end
             return "[" .. table.concat(result, ",") .. "]"
         else
             -- Encode as object
             local result = {}
             for k, v in pairs(obj) do
-                table.insert(result, json.encode(tostring(k)) .. ":" .. json.encode(v))
+                table.insert(result, json.encode(tostring(k), depth + 1) .. ":" .. json.encode(v, depth + 1))
             end
             return "{" .. table.concat(result, ",") .. "}"
         end
     else
-        error("Cannot encode type: " .. objType)
+        -- Handle types that can't be serialized
+        if objType == "userdata" or objType == "function" or objType == "thread" or objType == "cdata" then
+            return "null"
+        else
+            error("Cannot encode type: " .. objType)
+        end
     end
 end
 

@@ -38,7 +38,7 @@ return {
   damage_range = { min = 3, max = 5 },
   cycle = 6.0, capCost = 8,
   spread = { minDeg = 1.2, maxDeg = 3.5, decay = 300 }, -- Less accurate initially
-  -- Homing properties
+  -- Homing properties (passed to projectiles when locked on)
   homingStrength = 0.8, -- Strong homing capability
   missileTurnRate = 4.5, -- How fast the missile can change direction
   maxRange = 3000, -- Missiles explode after traveling 3000 units
@@ -51,5 +51,6 @@ return {
   heatEnergyMult = 1.4, -- Energy cost increase when hot
 
   -- Firing mode: "manual" or "automatic"
-  fireMode = "manual" -- Missile launchers should be manually controlled
+  fireMode = "manual", -- Missile launchers should be manually controlled
+  lockOnDuration = 2.0 -- 2 seconds to achieve lock-on
 }

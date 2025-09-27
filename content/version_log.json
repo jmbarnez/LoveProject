@@ -1,44 +1,66 @@
 [
   {
-    "subject": "Introduce ship fitting UI and quest log tracking",
+    "version": "0.31",
+    "date": "2025-09-27",
+    "subject": "Bug Fixes and UI Polish",
+    "notes": [
+      "Fixed hotbar button enablement after module removal and re-equipment",
+      "Corrected ship window button coordinate system for proper click detection",
+      "Removed fake Signature and Cargo Hold statistics from ship UI",
+      "Enhanced missile lock-on system with target prediction and homing",
+      "Improved turret module definitions with proper type declarations",
+      "Added robust JSON encoding with recursion protection",
+      "Enhanced tooltip styling with better spacing and width",
+      "Fixed hotbar population logic and slot assignment",
+      "Added lock-on duration parameter for missile turrets",
+      "Improved projectile homing with target velocity prediction"
+    ]
+  },
+  {
+    "version": "0.3.0",
     "date": "2025-09-26",
+    "subject": "Ship UI Enhancement and Polish",
     "notes": [
       "Added ship fitting window with dropdown loadouts and layered UI focus",
+      "Implemented equipment removal functionality in ship UI",
       "Seeded starting equipment to keep player modules consistent",
+      "Restyled turret icons with sci-fi silhouettes for better visual clarity",
+      "Enhanced input handling to prevent UI search leakage",
+      "Added MCP server configuration and history management",
       "Tracked active quests with start/complete helpers for UI syncing",
-      "Polished in-game version log layout and spacing"
+      "Polished in-game version log layout and spacing",
+      "Refactored player equipment handling and entity management",
+      "Improved destruction and spawning systems for player death scenarios"
     ]
   },
   {
-    "subject": "Stabilize 0.3 launch build",
-    "date": "2025-09-26",
+    "version": "0.2.0",
+    "date": "2025-09-23",
+    "subject": "Core Gameplay and UI Foundation",
     "notes": [
-      "Bundled fallback changelog for launcher",
-      "Simplified version log presentation"
+      "Implemented comprehensive UI sound management with button interaction effects",
+      "Added debug panel integration and extensive UI improvements",
+      "Introduced new items, sound effects, and refined turret/ship systems",
+      "Enhanced UI components with advanced features and common window system",
+      "Refactored UI architecture with improved input handling and custom cursors",
+      "Enhanced escape menu and save slots functionality",
+      "Updated engine colors and start screen button effects",
+      "Improved ship engine performance and visual trail effects",
+      "Enhanced configuration and core gameplay mechanics",
+      "Added repository guidelines documentation"
     ]
   },
   {
-    "subject": "Refactor Destruction and Spawning Systems",
-    "date": "2025-09-24",
+    "version": "0.1.0",
+    "date": "2025-09-15",
+    "subject": "Project Foundation",
     "notes": [
-      "Ensured player death triggers destruction effects consistently",
-      "Improved spawning cleanup to avoid lingering projectiles"
-    ]
-  },
-  {
-    "subject": "Enhance turret configurations and player systems",
-    "date": "2025-09-21",
-    "body": [
-      "Added new turret loadouts for late-game encounters",
-      "Polished player ability cooldown handling"
-    ]
-  },
-  {
-    "subject": "Refactor UI architecture and enhance input handling",
-    "date": "2025-09-18",
-    "details": [
-      "Improved start screen transitions and controller prompts",
-      "Updated escape menu with clearer save slot states"
+      "Initial project setup with core systems",
+      "Removed unnecessary files and cleaned up repository",
+      "Implemented MCP server configuration",
+      "Added history management system",
+      "Enhanced node market functionality",
+      "Established foundation for UI sound management"
     ]
   }
 ]

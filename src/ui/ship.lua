@@ -191,7 +191,7 @@ function Ship:new()
     o.hotbarButtons = {}
     o.window = Window.new({
         title = "Ship Fitting",
-        width = 600,
+        width = 700,
         height = 400,
         useLoadPanelTheme = true,
         draggable = true,
@@ -301,14 +301,12 @@ function Ship:updateDropdowns(player)
             end
         end
 
-        -- First option: keep current module when one is fitted, otherwise allow unequip
+        -- First option: show current module when one is fitted, otherwise allow unequip
         if fittedName then
-            table.insert(options, string.format('Keep %s', fittedName))
+            table.insert(options, fittedName)
             actions[#options] = { kind = 'keep' }
-            table.insert(options, 'Remove Module')
-            actions[#options] = { kind = 'unequip' }
         else
-            table.insert(options, 'Unequipped')
+            table.insert(options, 'None')
             actions[#options] = { kind = 'keep' }
         end
 
@@ -367,13 +365,15 @@ function Ship:updateDropdowns(player)
             if InventoryUI and InventoryUI.refresh then
                 InventoryUI.refresh()
             end
+            -- Update button states after equipping/unequipping
+            self:updateDropdowns(player)
         end
 
         if not self.slotDropdowns[i] then
             self.slotDropdowns[i] = Dropdown.new({
                 options = options,
                 selectedIndex = selectedIndex,
-                width = 180,
+                width = 200,
                 optionHeight = 24,
                 onSelect = handleSelection
             })
@@ -388,7 +388,7 @@ function Ship:updateDropdowns(player)
     self.hotbarButtons[i] = self.hotbarButtons[i] or {}
     local hotbarValue = slotData and slotData.hotbarSlot or 0
     self.hotbarButtons[i].value = hotbarValue or 0
-    self.hotbarButtons[i].enabled = slotData and slotData.type == "turret"
+    self.hotbarButtons[i].enabled = slotData and slotData.module -- Enable for any module with content
     self.hotbarButtons[i].rect = nil
     end
 end
@@ -448,8 +448,8 @@ function Ship:draw(player, x, y, w, h)
   local statsWidth = math.min(240, math.floor(availableWidth * 0.4))
   local spacing = 20
   local gridWidth = availableWidth - statsWidth - spacing
-  if gridWidth < 220 then
-      gridWidth = 220
+  if gridWidth < 320 then
+      gridWidth = 320
       statsWidth = availableWidth - gridWidth - spacing
   end
 
@@ -487,12 +487,6 @@ function Ship:draw(player, x, y, w, h)
   if hComp.maxEnergy and hComp.maxEnergy > 0 then
       table.insert(statsList, { label = "Capacitor", value = hComp.maxEnergy, color = Theme.colors.statusCapacitor })
   end
-  if player.sig and player.sig > 0 then
-      table.insert(statsList, { label = "Signature", value = player.sig, color = Theme.colors.text })
-  end
-  if player.cargoCapacity and player.cargoCapacity > 0 then
-      table.insert(statsList, { label = "Cargo Hold", value = player.cargoCapacity, color = Theme.colors.text })
-  end
 
   Theme.setColor(Theme.colors.textSecondary)
   local lineHeight = 22
@@ -518,9 +512,6 @@ function Ship:draw(player, x, y, w, h)
   Theme.setColor(Theme.colors.bg2)
   love.graphics.rectangle("fill", gridX, gridY, hotbarPreviewWidth, hotbarPreviewHeight, 4, 4)
 
-  Theme.setColor(Theme.colors.textHighlight)
-  love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-  love.graphics.print("Hotbar", gridX + 12, gridY + 8)
 
   local slotSize = 40
   local slotGap = 14
@@ -566,9 +557,6 @@ function Ship:draw(player, x, y, w, h)
   end
 
   local infoY = gridY + hotbarPreviewHeight + 6
-  Theme.setColor(Theme.colors.textSecondary)
-  love.graphics.setFont(Theme.fonts and Theme.fonts.tiny or love.graphics.getFont())
-  love.graphics.print("Cycle buttons below pick the hotbar slot for each turret.", gridX, infoY)
 
   gridY = infoY + 18
   local gridPanelWidth = gridWidth - 16
@@ -594,62 +582,66 @@ function Ship:draw(player, x, y, w, h)
           dropdown:drawButtonOnly(mx, my)
 
           local hotbarButton = self.hotbarButtons[i]
-          local hotbarWidth = 70
+          local hotbarWidth = 80  -- Increased from 70
           local hotbarX = dropdownX + dropdown.width + 8
           local hotbarY = slotY
           local hotbarRect = { x = hotbarX, y = hotbarY, w = hotbarWidth, h = dropdown.optionHeight }
           local hotbarHover = pointInRect(mx, my, hotbarRect)
-          hotbarButton.rect = hotbarRect
+          -- Store rect in absolute coordinates for consistency with other UI elements
+          hotbarButton.rect = { x = hotbarX, y = hotbarY, w = hotbarWidth, h = dropdown.optionHeight }
           hotbarButton.hover = hotbarHover
 
-          local hotbarLabel = "Auto"
-          local hbValue = hotbarButton.value or 0
-          if hbValue > 0 then
-              local keyLabel = formatHotbarKeyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(hbValue))
-              if keyLabel == "Unbound" then
-                  hotbarLabel = string.format("Slot %d", hbValue)
-              else
-                  hotbarLabel = string.format("Slot %d (%s)", hbValue, keyLabel)
-              end
+
+
+          -- Add remove button only if there's a module
+          if slotData and slotData.module then
+            local removeBtnSize = dropdown.optionHeight
+            local removeX = hotbarX + hotbarWidth + 8
+            local removeY = slotY
+            local removeRect = {x = removeX, y = removeY, w = removeBtnSize, h = removeBtnSize}
+            local removeHover = pointInRect(mx, my, removeRect)
+            -- Store rect in absolute coordinates for consistency with other UI elements
+            self.removeButtons[i].rect = {x = removeX, y = removeY, w = removeBtnSize, h = removeBtnSize}
+            self.removeButtons[i].hover = removeHover
+
+            hotbarButton.removeRect = {x = removeX, y = removeY, w = removeBtnSize, h = removeBtnSize}
+            hotbarButton.removeHover = removeHover
+
+            local hotbarLabel = "Auto"
+            local hbValue = hotbarButton.value or 0
+            if hbValue > 0 then
+                local keyLabel = formatHotbarKeyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(hbValue))
+                if keyLabel == "Unbound" then
+                    hotbarLabel = string.format("Slot %d", hbValue)
+                else
+                    hotbarLabel = string.format("Slot %d (%s)", hbValue, keyLabel)
+                end
+            end
+
+            Theme.setColor(hotbarButton.enabled and (hotbarHover and Theme.colors.bg3 or Theme.colors.bg2) or Theme.colors.bg1)
+            love.graphics.rectangle("fill", hotbarX, hotbarY, hotbarWidth, dropdown.optionHeight, 3, 3)
+            Theme.setColor(Theme.colors.border)
+            love.graphics.setLineWidth(1)
+            love.graphics.rectangle("line", hotbarX + 0.5, hotbarY + 0.5, hotbarWidth - 1, dropdown.optionHeight - 1, 3, 3)
+            Theme.setColor(hotbarButton.enabled and Theme.colors.text or Theme.colors.textDisabled)
+            local oldFont = love.graphics.getFont()
+            if Theme.fonts and Theme.fonts.tiny then
+                love.graphics.setFont(Theme.fonts.tiny)
+            elseif Theme.fonts and Theme.fonts.small then
+                love.graphics.setFont(Theme.fonts.small)
+            end
+            love.graphics.printf(hotbarLabel, hotbarX + 4, hotbarY + dropdown.optionHeight * 0.5 - love.graphics.getFont():getHeight() * 0.5, hotbarWidth - 8, "center")
+            if oldFont then love.graphics.setFont(oldFont) end
+
+            -- Draw remove button
+            Theme.setColor(removeHover and Theme.colors.danger or Theme.colors.bg1)
+            love.graphics.rectangle("fill", removeX, removeY, removeBtnSize, removeBtnSize, 3, 3)
+            Theme.setColor(Theme.colors.border)
+            love.graphics.setLineWidth(1)
+            love.graphics.rectangle("line", removeX + 0.5, removeY + 0.5, removeBtnSize - 1, removeBtnSize - 1, 3, 3)
+            Theme.setColor(Theme.colors.text)
+            love.graphics.printf("×", removeX + 4, removeY + removeBtnSize * 0.5 - love.graphics.getFont():getHeight() * 0.5, removeBtnSize - 8, "center")
           end
-
-          Theme.setColor(hotbarButton.enabled and (hotbarHover and Theme.colors.bg3 or Theme.colors.bg2) or Theme.colors.bg1)
-          love.graphics.rectangle("fill", hotbarX, hotbarY, hotbarWidth, dropdown.optionHeight, 3, 3)
-          Theme.setColor(Theme.colors.border)
-          love.graphics.setLineWidth(1)
-          love.graphics.rectangle("line", hotbarX + 0.5, hotbarY + 0.5, hotbarWidth - 1, dropdown.optionHeight - 1, 3, 3)
-          Theme.setColor(hotbarButton.enabled and Theme.colors.text or Theme.colors.textDisabled)
-          local oldFont = love.graphics.getFont()
-          if Theme.fonts and Theme.fonts.tiny then
-              love.graphics.setFont(Theme.fonts.tiny)
-          elseif Theme.fonts and Theme.fonts.small then
-              love.graphics.setFont(Theme.fonts.small)
-          end
-          love.graphics.printf(hotbarLabel, hotbarX + 4, hotbarY + dropdown.optionHeight * 0.5 - love.graphics.getFont():getHeight() * 0.5, hotbarWidth - 8, "center")
-          if oldFont then love.graphics.setFont(oldFont) end
-
-          local removeBtnSize = dropdown.optionHeight
-          local removeX = hotbarX + hotbarWidth + 8
-          local removeY = slotY
-          local removeRect = {x = removeX, y = removeY, w = removeBtnSize, h = removeBtnSize}
-          local hover = pointInRect(mx, my, removeRect)
-          self.removeButtons[i].rect = removeRect
-          self.removeButtons[i].hover = hover
-
-          local bgColor = hover and Theme.colors.bg2 or Theme.colors.bg1
-          Theme.setColor(bgColor)
-          love.graphics.rectangle("fill", removeX, removeY, removeBtnSize, removeBtnSize, 3, 3)
-
-          Theme.setColor(Theme.colors.border)
-          love.graphics.setLineWidth(1)
-          love.graphics.rectangle("line", removeX + 0.5, removeY + 0.5, removeBtnSize - 1, removeBtnSize - 1, 3, 3)
-
-          Theme.setColor(0, 0, 0, 1)
-          love.graphics.setLineWidth(2)
-          love.graphics.line(removeX + 4, removeY + 4, removeX + removeBtnSize - 4, removeY + removeBtnSize - 4)
-          love.graphics.line(removeX + 4, removeY + removeBtnSize - 4, removeX + removeBtnSize - 4, removeY + 4)
-
-          love.graphics.setLineWidth(1)
 
           slotY = slotY + dropdown.optionHeight + 12
       end
@@ -675,6 +667,7 @@ function Ship:mousepressed(playerArg, xArg, yArg, buttonArg)
         return false
     end
 
+
     local player, x, y, button = normalizePressArgs(playerArg, xArg, yArg, buttonArg)
     if not x or not y or not button then
         return false
@@ -682,6 +675,11 @@ function Ship:mousepressed(playerArg, xArg, yArg, buttonArg)
 
     local content = instance.window:getContentBounds()
     local insideContent = content and pointInRectSimple(x, y, { x = content.x, y = content.y, w = content.w, h = content.h })
+
+    -- Transform mouse coordinates to be relative to window content area
+    local contentX = x - (content and content.x or 0)
+    local contentY = y - (content and content.y or 0)
+
 
     -- Prioritize dropdown interaction when inside content area
     if insideContent and instance.slotDropdowns then
@@ -710,44 +708,74 @@ function Ship:mousepressed(playerArg, xArg, yArg, buttonArg)
             local rect = hbButton and hbButton.rect
             if hbButton and hbButton.enabled and rect and pointInRect(x, y, rect) then
                 local playerModule = player.components and player.components.equipment and player.components.equipment.grid and player.components.equipment.grid[index]
-                if playerModule and playerModule.module and playerModule.type == "turret" then
-                    hbButton.value = (hbButton.value or 0) + 1
+                if playerModule and playerModule.module then -- Handle any module type
+                    -- Cycle to next available hotbar slot, skipping occupied ones
+                    local currentValue = hbButton.value or 0
                     local totalSlots = #HotbarSystem.slots
-                    if hbButton.value > totalSlots then
-                        hbButton.value = 0
+
+                    local attempts = 0
+                    local foundSlot = false
+                    local newValue = currentValue
+
+                    while attempts < totalSlots + 1 and not foundSlot do
+                        newValue = newValue + 1
+                        if newValue > totalSlots then
+                            newValue = 0
+                        end
+
+                        -- Check if this slot is available (not occupied by another module)
+                        local slotOccupied = false
+                        if newValue > 0 and player.components and player.components.equipment and player.components.equipment.grid then
+                            for j, gridData in ipairs(player.components.equipment.grid) do
+                                if gridData.hotbarSlot == newValue and j ~= index and gridData.module then
+                                    slotOccupied = true
+                                    break
+                                end
+                            end
+                        end
+
+                        if newValue == 0 or not slotOccupied then
+                            foundSlot = true
+                        end
+
+                        attempts = attempts + 1
                     end
 
-                    if hbButton.value == 0 then
-                        playerModule.hotbarSlot = nil
-                    else
-                        playerModule.hotbarSlot = hbButton.value
-                    end
+                    if foundSlot then
+                        hbButton.value = newValue
 
-                    local keyName = nil
-                    if hbButton.value == 0 then
-                        keyName = "Auto"
-                    else
-                        keyName = HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(hbButton.value) or ("hotbar_" .. tostring(hbButton.value))
-                    end
+                        if hbButton.value == 0 then
+                            playerModule.hotbarSlot = nil
+                        else
+                            playerModule.hotbarSlot = hbButton.value
+                        end
 
-                    if Notifications and Notifications.add then
-                        Notifications.add(string.format("Slot %d bound to %s", index, keyName), "info")
-                    end
+                        local keyName = nil
+                        if hbButton.value == 0 then
+                            keyName = "Auto"
+                        else
+                            keyName = HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(hbButton.value) or ("hotbar_" .. tostring(hbButton.value))
+                        end
 
-                    local Hotbar = HotbarSystem
-                    if Hotbar and Hotbar.populateFromPlayer then
-                        Hotbar.populateFromPlayer(player, nil, index)
-                    end
+                        if Notifications and Notifications.add then
+                            Notifications.add(string.format("Slot %d bound to %s", index, keyName), "info")
+                        end
 
-                    if InventoryUI and InventoryUI.refresh then
-                        InventoryUI.refresh()
+                        local Hotbar = HotbarSystem
+                        if Hotbar and Hotbar.populateFromPlayer then
+                            Hotbar.populateFromPlayer(player, nil, index)
+                        end
+
+                        if InventoryUI and InventoryUI.refresh then
+                            InventoryUI.refresh()
+                        end
+                        local instance = Ship.ensure()
+                        if instance and instance.updateDropdowns then
+                            instance:updateDropdowns(player)
+                        end
                     end
-                    local instance = Ship.ensure()
-                    if instance and instance.updateDropdowns then
-                        instance:updateDropdowns(player)
-                    end
+                    return true, false
                 end
-                return true, false
             end
         end
     end
@@ -761,6 +789,12 @@ function Ship:mousepressed(playerArg, xArg, yArg, buttonArg)
                     instance:updateDropdowns(player)
                     if InventoryUI and InventoryUI.refresh then
                         InventoryUI.refresh()
+                    end
+
+                    -- Update hotbar after unequipping
+                    local Hotbar = HotbarSystem
+                    if Hotbar and Hotbar.populateFromPlayer then
+                        Hotbar.populateFromPlayer(player, nil, index)
                     end
                 end
                 return true, false

@@ -4,6 +4,7 @@ return {
   name = "Boss Cone Blaster",
   description = "Fires a 4-shot cone spray of kinetic slugs.",
   price = 0,
+  module = { type = "turret" },
   icon = {
     size = 32,
     shapes = {

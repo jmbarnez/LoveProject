@@ -74,6 +74,17 @@ function Hotbar.populateFromPlayer(player, newModuleId, slotNum)
         return
     end
 
+    -- Ensure slots are initialized
+    if not Hotbar.slots then
+        Hotbar.slots = {
+            { item = nil },
+            { item = nil },
+            { item = nil },
+            { item = nil },
+            { item = nil },
+        }
+    end
+
     local previous = {}
     for i = 1, #Hotbar.slots do
         previous[i] = Hotbar.slots[i].item
@@ -110,15 +121,7 @@ function Hotbar.populateFromPlayer(player, newModuleId, slotNum)
         return false
     end
 
-    for i = 1, #Hotbar.slots do
-        local item = previous[i]
-        if not forcedAssignment[i] and item and seenTurrets[item] then
-            if Hotbar.slots[i].item == nil then
-                Hotbar.slots[i].item = item
-            end
-        end
-    end
-
+    -- Place any remaining turrets that haven't been assigned yet
     for key in pairs(seenTurrets) do
         local exists = false
         for i = 1, #Hotbar.slots do
@@ -132,7 +135,7 @@ function Hotbar.populateFromPlayer(player, newModuleId, slotNum)
         end
     end
 
-    -- Persist the changes
+    -- Normalize to remove any duplicates
     Hotbar.normalizeSlots()
     if Hotbar.save then Hotbar.save() end
 end
@@ -162,9 +165,9 @@ function Hotbar.keypressed(key, player)
         if key == bound then
             local item = slot.item
             -- No fallback behavior - only process if there's an item in the slot
-            if type(item) == 'string' and item:match('^turret_slot_%d+$') then
+            if type(item) == 'string' and (item:match('^turret_slot_%d+$') or item:match('^module_slot_%d+$')) then
                 -- Handle turret firing based on fireMode
-                local idx = tonumber(item:match('^turret_slot_(%d+)$'))
+                local idx = tonumber(item:match('^turret_slot_(%d+)$') or item:match('^module_slot_(%d+)$'))
                 if idx then
                     -- Get the turret to check its fireMode
                     local Turret = require("src.systems.turret.core")
@@ -195,8 +198,8 @@ function Hotbar.keyreleased(key, player)
         local bound = Hotbar.getSlotKey(i)
         if key == bound then
             local item = slot.item
-            if type(item) == 'string' and item:match('^turret_slot_%d+$') then
-                local idx = tonumber(item:match('^turret_slot_(%d+)$'))
+            if type(item) == 'string' and (item:match('^turret_slot_%d+$') or item:match('^module_slot_%d+$')) then
+                local idx = tonumber(item:match('^turret_slot_(%d+)$') or item:match('^module_slot_(%d+)$'))
                 if idx then
                     -- Get the turret to check its fireMode
                     local Turret = require("src.systems.turret.core")

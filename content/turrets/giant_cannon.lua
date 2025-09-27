@@ -4,6 +4,7 @@ return {
   name = "Giant Cannon",
   description = "Fires a massive singular projectile with devastating damage.",
   price = 2000,
+  module = { type = "turret" },
   icon = {
     size = 32,
     shapes = {

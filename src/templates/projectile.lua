@@ -61,7 +61,35 @@ local function createProjectilePhysics(entity, args)
                 local newAngle = curAngle + diff
                 cvx, cvy = math.cos(newAngle) * speed, math.sin(newAngle) * speed
             end
-        -- Homing guidance for missiles (removed - no turning stats)
+        -- Homing guidance for missiles
+        elseif args.target and not args.target.dead and args.homingStrength and args.homingStrength > 0 then
+            local tx = (args.target.components and args.target.components.position and args.target.components.position.x) or nil
+            local ty = (args.target.components and args.target.components.position and args.target.components.position.y) or nil
+            if tx and ty and pos and pos.x and pos.y then
+                -- Get target velocity for prediction
+                local tvx = (args.target.components and args.target.components.velocity and args.target.components.velocity.x)
+                    or (args.target.components and args.target.components.physics and args.target.components.physics.body and args.target.components.physics.body.vx)
+                    or 0
+                local tvy = (args.target.components and args.target.components.velocity and args.target.components.velocity.y)
+                    or (args.target.components and args.target.components.physics and args.target.components.physics.body and args.target.components.physics.body.vy)
+                    or 0
+
+                -- Calculate intercept point accounting for target movement
+                local dx, dy = tx - pos.x, ty - pos.y
+                local dist = math.max(1, math.sqrt(dx*dx + dy*dy))
+                local tLead = dist / speed
+                local px, py = tx + tvx * tLead, ty + tvy * tLead
+
+                -- Steer toward intercept point with missile turn rate
+                local ddx, ddy = px - pos.x, py - pos.y
+                local desiredAngle = math.atan2(ddy, ddx)
+                local curAngle = math.atan2(cvy, cvx)
+                local diff = (desiredAngle - curAngle + math.pi) % (2*math.pi) - math.pi
+                local maxTurn = (args.missileTurnRate or 4.5) * dt
+                if diff > maxTurn then diff = maxTurn elseif diff < -maxTurn then diff = -maxTurn end
+                local newAngle = curAngle + diff
+                cvx, cvy = math.cos(newAngle) * speed, math.sin(newAngle) * speed
+            end
         end
 
         entity.components.velocity.x = cvx

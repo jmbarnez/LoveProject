@@ -5,6 +5,39 @@ local Util = require("src.core.util")
 
 local Tooltip = {}
 
+-- Helper function to wrap text to fit within a given width
+local function wrapText(text, font, maxWidth)
+  if not text or text == "" then return {} end
+
+  local words = {}
+  for word in text:gmatch("%S+") do
+    table.insert(words, word)
+  end
+
+  local lines = {}
+  local currentLine = ""
+
+  for i, word in ipairs(words) do
+    local testLine = currentLine .. (currentLine == "" and "" or " ") .. word
+    local testWidth = font:getWidth(testLine)
+
+    if testWidth <= maxWidth then
+      currentLine = testLine
+    else
+      if currentLine ~= "" then
+        table.insert(lines, currentLine)
+      end
+      currentLine = word
+    end
+  end
+
+  if currentLine ~= "" then
+    table.insert(lines, currentLine)
+  end
+
+  return lines
+end
+
 -- Draw a unified tooltip for any item, module, or turret
 function Tooltip.drawItemTooltip(item, x, y)
   if not item then return end
@@ -29,6 +62,8 @@ function Tooltip.drawItemTooltip(item, x, y)
   -- Get item stats if available
   local stats = {}
   local fullItemDef = nil
+  local description = ""
+  local flavor = ""
 
   -- Try to find the complete item definition from Content
   if item.id then
@@ -36,12 +71,22 @@ function Tooltip.drawItemTooltip(item, x, y)
     if item.baseId then
       -- This is a procedural turret, use the item data directly
       fullItemDef = item
+      description = item.description or ""
+      flavor = item.flavor or ""
     else
       fullItemDef = Content.getItem(item.id) or Content.getTurret(item.id)
+      if fullItemDef then
+        description = fullItemDef.description or ""
+        flavor = fullItemDef.flavor or ""
+      end
     end
   else
     -- Fallback to item.data if it's a nested structure (like from shop items)
     fullItemDef = item.data or item
+    if fullItemDef then
+      description = fullItemDef.description or ""
+      flavor = fullItemDef.flavor or ""
+    end
   end
 
   if fullItemDef then
@@ -60,7 +105,15 @@ function Tooltip.drawItemTooltip(item, x, y)
     if fullItemDef.energyCapacity then stats[#stats + 1] = {name = "Energy", value = fullItemDef.energyCapacity} end
     if fullItemDef.heatMax then stats[#stats + 1] = {name = "Heat Capacity", value = fullItemDef.heatMax} end
     if fullItemDef.heatPerShot then stats[#stats + 1] = {name = "Heat per Shot", value = fullItemDef.heatPerShot} end
-    
+
+    -- Add item properties
+    if fullItemDef.rarity then stats[#stats + 1] = {name = "Rarity", value = fullItemDef.rarity} end
+    if fullItemDef.tier then stats[#stats + 1] = {name = "Tier", value = fullItemDef.tier} end
+    if fullItemDef.value then stats[#stats + 1] = {name = "Value", value = fullItemDef.value} end
+    if fullItemDef.mass then stats[#stats + 1] = {name = "Mass", value = string.format("%.1f", fullItemDef.mass)} end
+    if fullItemDef.volume then stats[#stats + 1] = {name = "Volume", value = string.format("%.1f", fullItemDef.volume)} end
+    if fullItemDef.stack then stats[#stats + 1] = {name = "Stack Size", value = fullItemDef.stack} end
+
     -- Module-specific stats (from drawModuleTooltip)
     if fullItemDef.module and fullItemDef.module.shield_hp then
       stats[#stats+1] = { name = "Shield HP", value = fullItemDef.module.shield_hp }
@@ -92,9 +145,27 @@ function Tooltip.drawItemTooltip(item, x, y)
   local nameH = nameFont:getHeight()
   local statH = statFont:getHeight()
   local h = padding * 2 + nameH + tooltipConfig.nameLineSpacing
+
+  -- Add description lines if present
+  local descriptionLines = {}
+  if description and description ~= "" then
+    descriptionLines = wrapText(description, statFont, maxWidth - padding * 2)
+    h = h + (#descriptionLines * statH) + tooltipConfig.statLineSpacing
+  end
+
+  -- Add flavor text lines if present
+  local flavorLines = {}
+  if flavor and flavor ~= "" then
+    flavorLines = wrapText(flavor, statFont, maxWidth - padding * 2)
+    h = h + (#flavorLines * statH) + tooltipConfig.statLineSpacing
+  end
+
+  -- Add stats section
   if #stats > 0 then
     h = h + (#stats * (statH + tooltipConfig.statLineSpacing)) + tooltipConfig.modifierHeaderSpacing
   end
+
+  -- Add modifiers section
   if #modifiers > 0 then
     h = h + (#modifiers * (statH + tooltipConfig.statLineSpacing)) + tooltipConfig.modifierHeaderSpacing  -- Extra space for modifier header
   end
@@ -102,6 +173,16 @@ function Tooltip.drawItemTooltip(item, x, y)
   -- Calculate width based on content
   local nameW = nameFont:getWidth(name)
   local w = nameW + padding * 2
+
+  -- Check description and flavor text widths
+  for _, line in ipairs(descriptionLines) do
+    local lineW = statFont:getWidth(line)
+    w = math.max(w, lineW + padding * 2)
+  end
+  for _, line in ipairs(flavorLines) do
+    local lineW = statFont:getWidth(line)
+    w = math.max(w, lineW + padding * 2)
+  end
 
   -- Check stat widths too
   for _, stat in ipairs(stats) do
@@ -166,6 +247,28 @@ function Tooltip.drawItemTooltip(item, x, y)
   Theme.setColor(Theme.colors.textHighlight)
   love.graphics.print(name, tx + padding, currentY)
   currentY = currentY + nameH + tooltipConfig.nameLineSpacing
+
+  -- Item description
+  if #descriptionLines > 0 then
+    love.graphics.setFont(statFont)
+    Theme.setColor(Theme.colors.text)
+    for _, line in ipairs(descriptionLines) do
+      love.graphics.print(line, tx + padding, currentY)
+      currentY = currentY + statH + 2
+    end
+    currentY = currentY + tooltipConfig.statLineSpacing
+  end
+
+  -- Item flavor text (in italics/secondary color)
+  if #flavorLines > 0 then
+    love.graphics.setFont(statFont)
+    Theme.setColor(Theme.colors.textSecondary)
+    for _, line in ipairs(flavorLines) do
+      love.graphics.print(line, tx + padding, currentY)
+      currentY = currentY + statH + 2
+    end
+    currentY = currentY + tooltipConfig.statLineSpacing
+  end
 
   -- Item stats
   if #stats > 0 then

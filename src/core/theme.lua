@@ -943,13 +943,13 @@ Theme.components = {
 
   -- Tooltip configuration
   tooltip = {
-    maxWidth = 500,           -- Maximum tooltip width in pixels
-    minWidth = 150,           -- Minimum tooltip width for readability
-    padding = 8,              -- Padding around tooltip content
-    screenMarginRatio = 0.8,  -- Maximum ratio of screen width to use
-    nameLineSpacing = 8,      -- Extra spacing after item name
-    statLineSpacing = 2,      -- Spacing between stat lines
-    modifierHeaderSpacing = 8, -- Extra space before modifier section
+    maxWidth = 350,           -- Wider tooltips to show more content
+    minWidth = 200,           -- Minimum width for readability
+    padding = 12,             -- Comfortable padding around text
+    screenMarginRatio = 0.8,  -- Use more screen space for tooltips
+    nameLineSpacing = 6,      -- Better spacing after item name
+    statLineSpacing = 4,      -- Better spacing between stats
+    modifierHeaderSpacing = 6, -- Better space before modifier section
   },
 }
 

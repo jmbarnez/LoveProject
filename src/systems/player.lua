@@ -75,7 +75,9 @@ function PlayerSystem.update(dt, player, input, world, hub)
     player.thrusterState.brake = 0        -- Space key braking
     player.thrusterState.isThrusting = false  -- Overall thrusting state
     
-    if not body then return end
+    if not body then
+        return
+    end
     -- Block gameplay controls when a modal UI is active (e.g., escape menu)
     local UIManager = require("src.core.ui_manager")
     local modalActive = UIManager and UIManager.isModalActive and UIManager.isModalActive() or false
@@ -392,13 +394,69 @@ function PlayerSystem.update(dt, player, input, world, hub)
                 t.autoFire = autoFire
             end
 
+            -- For missiles, we need to find the best target for lock-on detection
+            local targetForLockOn = nil
+            if isMissile then
+                -- Find the closest enemy the player is aiming at
+                targetForLockOn = PlayerSystem.findBestTargetForLockOn(t, world)
+            end
+
             -- Call update with firing state (for manual mode)
             t.firing = firing
-            t:update(dt, nil, not allow, world)
+            t:update(dt, targetForLockOn, not allow, world)
+        end
+    end
+end
+
+-- Find the best target for missile lock-on based on player aim direction
+function PlayerSystem.findBestTargetForLockOn(turret, world)
+    if not turret.owner or not turret.owner.components or not turret.owner.components.position then
+        return nil
+    end
+
+    local ownerPos = turret.owner.components.position
+    local playerAngle = ownerPos.angle or 0
+
+    -- Get all potential targets (enemies)
+    local candidates = world:get_entities_with_components("collidable")
+    local bestTarget = nil
+    local bestScore = 0
+
+    for _, entity in ipairs(candidates) do
+        if entity.isEnemy and entity.components and entity.components.position and not entity.dead then
+            local targetPos = entity.components.position
+
+            -- Calculate angle to this target
+            local dx = targetPos.x - ownerPos.x
+            local dy = targetPos.y - ownerPos.y
+            local targetAngle = math.atan2(dy, dx)
+
+            -- Calculate angle difference
+            local angleDiff = math.abs(targetAngle - playerAngle)
+            -- Normalize to [0, π]
+            if angleDiff > math.pi then
+                angleDiff = 2 * math.pi - angleDiff
+            end
+
+            -- Only consider targets within lock-on tolerance
+            local lockOnTolerance = math.pi / 6 -- 30 degrees
+            if angleDiff <= lockOnTolerance then
+                -- Score based on proximity and angle alignment
+                local distance = math.sqrt(dx * dx + dy * dy)
+                local angleScore = 1 - (angleDiff / lockOnTolerance) -- Closer to aim direction = higher score
+                local distanceScore = 1000 / (1 + distance) -- Closer = higher score
+
+                local totalScore = angleScore * distanceScore
+
+                if totalScore > bestScore then
+                    bestScore = totalScore
+                    bestTarget = entity
+                end
+            end
         end
     end
 
-    
+    return bestTarget
 end
 
 return PlayerSystem

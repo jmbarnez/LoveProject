@@ -86,8 +86,17 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
     local projSpeed = turret.projectileSpeed or 800
 
     local missileTarget = nil
-    if target and target.components and target.components.position then
-        missileTarget = target
+    local isHoming = false
+
+    -- Check if we have a locked-on target
+    if turret.isLockedOn and turret.lockOnTarget then
+        missileTarget = turret.lockOnTarget
+        isHoming = true
+        local dx = turret.lockOnTarget.components.position.x - turret.owner.components.position.x
+        local dy = turret.lockOnTarget.components.position.y - turret.owner.components.position.y
+        angle = math.atan2(dy, dx)
+    elseif target and target.components and target.components.position then
+        -- Use provided target if no lock-on, but fire straight ahead (non-homing)
         local dx = target.components.position.x - turret.owner.components.position.x
         local dy = target.components.position.y - turret.owner.components.position.y
         angle = math.atan2(dy, dx)
@@ -115,7 +124,9 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
                     max = turret.damage_range.max
                 } or {min = 2, max = 4},
                 target = missileTarget,
-                homing = true
+                homing = isHoming,
+                homingStrength = isHoming and (turret.homingStrength or 0.8) or 0,
+                missileTurnRate = isHoming and (turret.missileTurnRate or 4.5) or 0
             })
         end
 
@@ -127,6 +138,9 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         -- Add heat and play effects
         HeatManager.addHeat(turret, turret.heatPerShot or 15)
         TurretEffects.playFiringSound(turret)
+
+        -- Reset lock-on after firing
+        turret:resetLockOn()
     end
 end
 

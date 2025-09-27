@@ -34,13 +34,13 @@ local REFRESH_INTERVAL = 60
 local ENTRY_PADDING_Y = 16
 local ENTRY_SPACING = 24
 local BODY_PARAGRAPH_SPACING = 10
+local BULLET_LINE_SPACING = 6
 local TEXT_LEFT_MARGIN = 16
 local TEXT_RIGHT_PADDING = 12
 local BULLET_INDENT = 12
 local SCROLL_TRACK_WIDTH = 8
 local SCROLL_EXTRA_GAP = 8
 local PATH_SEPARATOR = package.config and package.config:sub(1, 1) or "/"
-local DISPLAY_VERSION_HEADER = "Version 0.3"
 
 local function getCommitGroupCount(data)
     if type(data) ~= "table" then
@@ -124,7 +124,7 @@ local function normalizeFallbackCommits(data)
                 for _, line in ipairs(lines) do table.insert(bodyLines, line) end
             end
 
-            local versionKey = DISPLAY_VERSION_HEADER
+            local versionKey = entry.version or "Unreleased"
             if not grouped[versionKey] then
                 grouped[versionKey] = {}
                 table.insert(order, versionKey)
@@ -565,7 +565,7 @@ function VersionLog.draw(x, y, w, h)
                                 for _, line in ipairs(wrapLines) do
                                     love.graphics.print("•", textX, cursorY)
                                     love.graphics.print(line, textX + bulletIndent, cursorY)
-                                    cursorY = cursorY + lineHeight
+                                    cursorY = cursorY + lineHeight + BULLET_LINE_SPACING
                                 end
                             end
                             if paragraphIndex < #entry.bodyWraps then

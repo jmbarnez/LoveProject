@@ -135,6 +135,9 @@ function Reticle.draw(player)
   -- Preserve user's exact color choice - don't blend with theme colors
   local color = Theme.pulseColor(base, base, t, 1.0)
 
+  -- Check for missile lock-on status
+  local missileLockedOn = Reticle.checkMissileLockOn(player)
+
   love.graphics.push()
   -- Reticle draws in screen-space; make it crisp
   love.graphics.translate(mx, my)
@@ -146,10 +149,66 @@ function Reticle.draw(player)
   Theme.setColor(Theme.withAlpha(color, 0.95))
   Reticle.drawPreset(style, scale, color)
 
+  -- Draw lock-on indicator if missile is locked on
+  if missileLockedOn then
+    Reticle.drawLockOnIndicator(scale)
+  end
+
   -- Do not alter reticle when shield ability is active (no arc/ring).
   -- No specific loot container targeting; item_pickup handled by pickups system
 
   love.graphics.pop()
+end
+
+-- Check if any missile turret is currently locked on
+function Reticle.checkMissileLockOn(player)
+  if not player or not player.components or not player.components.equipment then
+    return false
+  end
+
+  -- Check all turrets in the equipment grid
+  for _, gridData in ipairs(player.components.equipment.grid) do
+    if gridData.type == "turret" and gridData.module then
+      local turret = gridData.module
+      if turret.kind == "missile" and turret.isLockedOn then
+        return true
+      end
+    end
+  end
+
+  return false
+end
+
+-- Draw lock-on indicator around the reticle
+function Reticle.drawLockOnIndicator(scale)
+  local t = love.timer.getTime()
+  local pulseAlpha = 0.5 + 0.5 * math.sin(t * 4) -- Pulsing effect
+
+  -- Draw a pulsing ring around the reticle to indicate lock-on
+  local ringRadius = (12 + 2 * math.sin(t * 3)) * scale -- Slightly pulsing ring
+  Theme.setColor(Theme.colors.success[1], Theme.colors.success[2], Theme.colors.success[3], pulseAlpha)
+  love.graphics.setLineWidth(2 * scale)
+  love.graphics.circle('line', 0, 0, ringRadius)
+
+  -- Draw corner brackets to indicate lock-on
+  local bracketSize = 8 * scale
+  local bracketOffset = 6 * scale
+
+  -- Top-left bracket
+  love.graphics.line(-bracketOffset, -bracketOffset, -bracketOffset + bracketSize, -bracketOffset)
+  love.graphics.line(-bracketOffset, -bracketOffset, -bracketOffset, -bracketOffset + bracketSize)
+
+  -- Top-right bracket
+  love.graphics.line(bracketOffset, -bracketOffset, bracketOffset - bracketSize, -bracketOffset)
+  love.graphics.line(bracketOffset, -bracketOffset, bracketOffset, -bracketOffset + bracketSize)
+
+  -- Bottom-left bracket
+  love.graphics.line(-bracketOffset, bracketOffset, -bracketOffset + bracketSize, bracketOffset)
+  love.graphics.line(-bracketOffset, bracketOffset, -bracketOffset, bracketOffset - bracketSize)
+
+  -- Bottom-right bracket
+  love.graphics.line(bracketOffset, bracketOffset, bracketOffset - bracketSize, bracketOffset)
+  love.graphics.line(bracketOffset, bracketOffset, bracketOffset, bracketOffset - bracketSize)
 end
 
 return Reticle

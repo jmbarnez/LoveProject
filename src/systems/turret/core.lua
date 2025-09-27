@@ -82,6 +82,12 @@ function Turret.new(owner, params)
     self.fireMode = params.fireMode or "manual"
     self.autoFire = false -- For automatic mode, tracks toggle state
 
+    -- Lock-on system for missiles
+    self.lockOnTarget = nil -- Current target being locked onto
+    self.lockOnStartTime = 0 -- When lock-on started
+    self.lockOnDuration = params.lockOnDuration or 2.0 -- How long to hold aim for lock-on (seconds)
+    self.isLockedOn = false -- Whether lock-on has been achieved
+
     -- Set default tracer colors if not specified
     if (self.kind == 'gun' or self.kind == 'projectile' or not self.kind) and not self.tracer.color then
         self.tracer.color = {0.35, 0.70, 1.00, 1.0}
@@ -114,11 +120,18 @@ function Turret:update(dt, target, locked, world)
         self.cooldown = math.max(0, self.cooldown - dt)
     end
 
+    -- Update lock-on system for missiles
+    if self.kind == "missile" then
+        Turret.updateLockOn(self, dt, target, world)
+    end
+
     -- Check if we can fire
     if locked then
         self.firing = false
         self.currentTarget = nil
         self.beamActive = false
+        -- Reset lock-on when turret is locked
+        self:resetLockOn()
         return
     end
 
@@ -242,6 +255,60 @@ function Turret.getTurretBySlot(player, slot)
     end
 
     return nil
+end
+
+-- Reset lock-on state
+function Turret:resetLockOn()
+    self.lockOnTarget = nil
+    self.lockOnStartTime = 0
+    self.isLockedOn = false
+end
+
+-- Update lock-on system
+function Turret.updateLockOn(turret, dt, target, world)
+    -- If no target provided, reset lock-on
+    if not target or not target.components or not target.components.position then
+        turret:resetLockOn()
+        return
+    end
+
+    -- Check if we're still aiming at the same target
+    local ownerPos = turret.owner.components.position
+    local targetPos = target.components.position
+
+    -- Calculate angle to target
+    local dx = targetPos.x - ownerPos.x
+    local dy = targetPos.y - ownerPos.y
+    local targetAngle = math.atan2(dy, dx)
+
+    -- Check if player cursor is roughly aligned with target (within tolerance)
+    local playerAngle = ownerPos.angle or 0
+    local angleDiff = math.abs(targetAngle - playerAngle)
+    -- Normalize to [0, π]
+    if angleDiff > math.pi then
+        angleDiff = 2 * math.pi - angleDiff
+    end
+
+    local lockOnTolerance = math.pi / 6 -- 30 degrees tolerance
+
+    if angleDiff <= lockOnTolerance then
+        -- We're aiming at the target, start/update lock-on
+        if not turret.lockOnTarget or turret.lockOnTarget ~= target then
+            -- New target, start lock-on timer
+            turret.lockOnTarget = target
+            turret.lockOnStartTime = love.timer.getTime()
+            turret.isLockedOn = false
+        else
+            -- Same target, check if lock-on duration has been met
+            local currentTime = love.timer.getTime()
+            if currentTime - turret.lockOnStartTime >= turret.lockOnDuration then
+                turret.isLockedOn = true
+            end
+        end
+    else
+        -- Not aiming at target, reset lock-on
+        turret:resetLockOn()
+    end
 end
 
 return Turret
