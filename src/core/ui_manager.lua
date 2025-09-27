@@ -409,7 +409,10 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
       local window = shipUI and shipUI.window
       if window then
         window.visible = Ship.visible
-        window:draw()
+          window:draw()
+          if Ship.visible and shipUI.drawDropdownOptions then
+            shipUI:drawDropdownOptions()
+          end
       end
       elseif component == "skills" then
         SkillsPanel.draw()

@@ -76,6 +76,8 @@ function Hotbar.draw(player)
   local x = math.floor((sw - w) * 0.5)
   local y = sh - size - 42
 
+  local mx, my = Viewport.getMousePosition()
+
   for i, slot in ipairs(HotbarSystem.slots) do
     local rx = x + (i - 1) * (size + gap)
     local ry = y
@@ -259,13 +261,20 @@ function Hotbar.draw(player)
     elseif slot.item == 'boost' and (HotbarSystem.isActive and HotbarSystem.isActive('boost')) then
       borderColor = Theme.colors.warning
     end
-    Theme.drawEVEBorder(rx, ry, size, size, 8, borderColor, 6)
+    local isHover = pointInRect(mx, my, { x = rx, y = ry, w = size, h = size })
+    local topColor = borderColor
+    if isHover then
+      topColor = Theme.colors.accent
+      Theme.drawGradientGlowRect(rx - 2, ry - 2, size + 4, size + 4, 6,
+        Theme.colors.bg2, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak * 0.6)
+    end
+    Theme.drawEVEBorder(rx, ry, size, size, 8, topColor, 6)
 
     local label = keyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(i) or slot.key)
     local oldFont = love.graphics.getFont()
     if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
     Theme.setColor(Theme.withAlpha(Theme.colors.text, 0.95))
-    love.graphics.printf(label, rx, ry + size - 12, size, 'center')
+    love.graphics.printf(label, rx, ry - 16, size, 'center')
     if Theme.fonts and Theme.fonts.small and oldFont then love.graphics.setFont(oldFont) end
   end
 

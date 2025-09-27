@@ -96,10 +96,10 @@ local function spawnEnemy(player, hub, world)
     local okNoSpawnZones = not isPositionInNoSpawnZone(x, y)
     
     local okPlayer = true
+    local minPlayerDist = (Config.SPAWN and Config.SPAWN.MIN_PLAYER_DIST) or 450  -- Reduced from 600 for closer spawns
     if player then
       local dxp, dyp = x - player.components.position.x, y - player.components.position.y
-      local minP = (Config.SPAWN and Config.SPAWN.MIN_PLAYER_DIST) or 450  -- Reduced from 600 for closer spawns
-      okPlayer = (dxp*dxp + dyp*dyp) > (minP * minP)
+      okPlayer = (dxp*dxp + dyp*dyp) > (minPlayerDist * minPlayerDist)
     end
     local suppressDeathSpawn = world._suppressPlayerDeathSpawn
     local playerEntity = player
@@ -110,7 +110,7 @@ local function spawnEnemy(player, hub, world)
       local dx = x - px
       local dy = y - py
       local distSq = dx * dx + dy * dy
-      safeFromPlayerDeath = distSq >= (minP * minP)
+      safeFromPlayerDeath = distSq >= (minPlayerDist * minPlayerDist)
     end
 
   until (okStations and okPlayer and okNoSpawnZones and safeFromPlayerDeath) or attempts > 200

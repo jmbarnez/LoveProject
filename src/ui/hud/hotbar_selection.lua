@@ -141,6 +141,7 @@ function HotbarSelection.mousepressed(x, y, button)
             end
 
             HotbarSystem.slots[HotbarSelection.slot].item = item
+            if HotbarSystem.save then HotbarSystem.save() end
 
             -- If moved to a different hotbar slot with different hotkey, deactivate turret state
             if oldSlotIndex and oldSlotIndex ~= HotbarSelection.slot and
@@ -154,8 +155,6 @@ function HotbarSelection.mousepressed(x, y, button)
                 end
             end
 
-            -- Persist new hotbar layout
-            if HotbarSystem.save then HotbarSystem.save() end
             HotbarSelection.hide()
             return true
         end

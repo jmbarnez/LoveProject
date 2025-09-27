@@ -69,22 +69,66 @@ function Hotbar.draw()
 end
 
 -- Populate hotbar from player's equipped turrets in the grid
-function Hotbar.populateFromPlayer(player)
+function Hotbar.populateFromPlayer(player, newModuleId, slotNum)
     if not player or not player.components or not player.components.equipment or not player.components.equipment.grid then
         return
     end
 
-    -- Clear all hotbar slots first
+    local previous = {}
     for i = 1, #Hotbar.slots do
+        previous[i] = Hotbar.slots[i].item
         Hotbar.slots[i].item = nil
     end
 
-    -- Find turrets in the grid and assign them to hotbar slots
-    local nextHotbar = 1
-    for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "turret" and gridData.module and nextHotbar <= #Hotbar.slots then
-            Hotbar.slots[nextHotbar].item = "turret_slot_" .. tostring(gridData.slot)
-            nextHotbar = nextHotbar + 1
+    local forcedAssignment = {}
+    local seenTurrets = {}
+
+    if player.components and player.components.equipment and player.components.equipment.grid then
+        for _, gridData in ipairs(player.components.equipment.grid) do
+            if gridData.type == "turret" and gridData.module then
+                local key = "turret_slot_" .. tostring(gridData.slot)
+                seenTurrets[key] = true
+                local preferred = tonumber(gridData.hotbarSlot)
+                if preferred and preferred >= 1 and preferred <= #Hotbar.slots then
+                    if not forcedAssignment[preferred] then
+                        forcedAssignment[preferred] = key
+                        Hotbar.slots[preferred].item = key
+                    end
+                end
+            end
+        end
+    end
+
+    local function place(itemKey)
+        if not itemKey then return false end
+        for i = 1, #Hotbar.slots do
+            if Hotbar.slots[i].item == nil then
+                Hotbar.slots[i].item = itemKey
+                return true
+            end
+        end
+        return false
+    end
+
+    for i = 1, #Hotbar.slots do
+        local item = previous[i]
+        if not forcedAssignment[i] and item and seenTurrets[item] then
+            if Hotbar.slots[i].item == nil then
+                Hotbar.slots[i].item = item
+            end
+        end
+    end
+
+    for key in pairs(seenTurrets) do
+        local exists = false
+        for i = 1, #Hotbar.slots do
+            if Hotbar.slots[i].item == key then
+                exists = true
+                break
+            end
+        end
+        if not exists then
+            place(key)
         end
     end
 

@@ -1,5 +1,15 @@
 [
   {
+    "subject": "Introduce ship fitting UI and quest log tracking",
+    "date": "2025-09-26",
+    "notes": [
+      "Added ship fitting window with dropdown loadouts and layered UI focus",
+      "Seeded starting equipment to keep player modules consistent",
+      "Tracked active quests with start/complete helpers for UI syncing",
+      "Polished in-game version log layout and spacing"
+    ]
+  },
+  {
     "subject": "Stabilize 0.3 launch build",
     "date": "2025-09-26",
     "notes": [

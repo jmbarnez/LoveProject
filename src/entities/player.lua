@@ -392,7 +392,7 @@ function Player:equipModule(slotNum, moduleId, turretData)
             if moduleType == "shield" then
                 self:updateShieldHP()
             elseif moduleType == "turret" then
-                self:updateHotbar()
+                self:updateHotbar(moduleId, slotNum)
             end
             return true
         end
@@ -443,7 +443,7 @@ function Player:unequipModule(slotNum)
             if moduleType == "shield" then
                 self:updateShieldHP()
             elseif moduleType == "turret" then
-                self:updateHotbar()
+                self:updateHotbar(nil, slotNum)
             end
             return true
         end
@@ -488,11 +488,11 @@ function Player:getShieldRegen()
     return totalShieldRegen
 end
 
-function Player:updateHotbar()
+function Player:updateHotbar(newModuleId, slotNum)
     -- Update hotbar with turrets from grid
     local Hotbar = require("src.systems.hotbar")
     if Hotbar.populateFromPlayer then
-        Hotbar.populateFromPlayer(self)
+        Hotbar.populateFromPlayer(self, newModuleId, slotNum)
     end
 end
 

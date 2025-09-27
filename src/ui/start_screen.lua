@@ -116,8 +116,8 @@ function Start.new()
   self.versionButton = { x = 0, y = 0, w = 260, h = 40 }
   self.versionWindow = Window.new({
     title = Strings.getUI("version_log_title"),
-    width = 640,
-    height = 540,
+    width = 760,
+    height = 620,
     visible = false,
     closable = true,
     draggable = true,
