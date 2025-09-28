@@ -449,7 +449,7 @@ function Game.draw()
     -- Selection box removed (manual combat)
 
     -- UI overlay (windows/menus) via UIManager
-    QuestLogHUD:draw(player)
+    QuestLogHUD.draw(player)
     UIManager.draw(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, bounty)
 
     -- UI particles and flashes (top-most)

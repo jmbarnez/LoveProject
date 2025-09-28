@@ -20,7 +20,9 @@ local function getOverlayOrigin()
   local minimapX, minimapY, minimapW, minimapH, scale = getMinimapLayout()
   local timeFont = (Theme.fonts and Theme.fonts.xsmall) or love.graphics.getFont()
   local timeHeight = timeFont and timeFont:getHeight() or 0
-  local belowTime = minimapY + minimapH + math.floor(8 * scale) + timeHeight + 2
+  -- Account for time display with background padding (matches minimap.lua line 219)
+  local timeDisplayHeight = timeHeight + 6 -- textHeight + 4 (top/bottom padding) + 2 (y offset)
+  local belowTime = minimapY + minimapH + math.floor(8 * scale) + timeDisplayHeight
   local gap = math.max(8, math.floor(12 * scale))
   local originY = belowTime + gap
   return minimapX, originY, minimapW, scale
@@ -131,6 +133,7 @@ function QuestLogHUD.draw(player)
 
   local headerPadding = math.max(8, math.floor(12 * scale))
   local headerHeight = math.max(math.floor(32 * scale), fonts.header:getHeight() + headerPadding * 2)
+
 
   Theme.drawGradientGlowRect(overlayX, overlayY, overlayWidth, headerHeight, 6,
     Theme.colors.bg1, Theme.colors.bg0, Theme.colors.accent, Theme.effects.glowWeak * 0.18)

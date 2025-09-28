@@ -184,7 +184,7 @@ local function normalizePressArgs(playerArg, xArg, yArg, buttonArg)
     end
 
     if type(player) ~= "table" or not player.components then
-        player = PlayerRef.get()
+        -- player = PlayerRef.get() -- This was the bug, it was overwriting the player
     end
 
     return player, x, y, button
@@ -202,7 +202,7 @@ local function normalizeMoveArgs(playerArg, xArg, yArg, dxArg, dyArg)
     end
 
     if type(player) ~= "table" or not player.components then
-        player = PlayerRef.get()
+        -- player = PlayerRef.get() -- This was the bug, it was overwriting the player
     end
 
     return player, x, y, dx, dy
