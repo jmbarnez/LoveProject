@@ -683,7 +683,7 @@ function UIManager.mousepressed(x, y, button)
       component,
       "mousepressed",
       { x, y, button, UIManager._player },
-      { x, y, button }
+      { x, y, button, UIManager._player }
     )
 
     if source == "fallback" and shouldClose then
@@ -714,7 +714,7 @@ function UIManager.mousereleased(x, y, button)
         component,
         "mousereleased",
         { x, y, button, UIManager._player },
-        { x, y, button }
+        { x, y, button, UIManager._player }
       )
     end
   end
@@ -746,7 +746,7 @@ function UIManager.mousemoved(x, y, dx, dy)
       component,
       "mousemoved",
       { x, y, dx, dy, UIManager._player },
-      { x, y, dx, dy }
+      { x, y, dx, dy, UIManager._player }
     )
 
     if handled then
@@ -813,7 +813,7 @@ function UIManager.keypressed(key, scancode, isrepeat)
 
     -- If docked UI is open, let it handle escape key (it will close/undock)
     if UIManager.state.docked.open then
-      local handled, shouldClose = DockedUI.keypressed(key)
+      local handled, shouldClose = DockedUI.keypressed(key, nil, nil, DockedUI.player or UIManager._player)
       if shouldClose then
         -- Trigger undocking via player
         local player = DockedUI.player
@@ -867,7 +867,7 @@ function UIManager.keypressed(key, scancode, isrepeat)
         elseif component == "bounty" and Bounty.keypressed then
           handled = Bounty.keypressed(key, scancode, isrepeat)
         elseif component == "docked" and DockedUI.keypressed then
-          handled = DockedUI.keypressed(key)
+          handled = DockedUI.keypressed(key, scancode, isrepeat, UIManager._player)
         elseif component == "map" and Map.keypressed then
           handled = Map.keypressed(key, world)
         elseif component == "warp" and warpInstance.keypressed then

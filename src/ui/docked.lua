@@ -384,9 +384,14 @@ function DockedUI.sellItem(item, player, quantity)
 end
 
 -- Handle mouse press
-function DockedUI.mousepressed(x, y, button)
+function DockedUI.mousepressed(x, y, button, player)
     if not DockedUI.visible then return false, false end
     if not DockedUI.window then return false, false end
+
+    if player then
+        DockedUI.player = player
+    end
+    local currentPlayer = DockedUI.player
 
     if DockedUI.window:mousepressed(x, y, button) then
         return true, false
@@ -404,14 +409,14 @@ function DockedUI.mousepressed(x, y, button)
                 end
                 if menu._buttonRect and x >= menu._buttonRect.x and x <= menu._buttonRect.x + menu._buttonRect.w and y >= menu._buttonRect.y and y <= menu._buttonRect.y + menu._buttonRect.h then
                     local qty = tonumber(menu.quantity) or 0
-                    if qty > 0 and DockedUI.player then
+                    if qty > 0 and currentPlayer then
                         if menu.type == "buy" then
                             local cost = (menu.item.price or 0) * qty
-                            if DockedUI.player:getGC() >= cost then
-                                DockedUI.purchaseItem(menu.item, DockedUI.player, qty)
+                            if currentPlayer:getGC() >= cost then
+                                DockedUI.purchaseItem(menu.item, currentPlayer, qty)
                             end
                         elseif menu.type == "sell" then
-                            if DockedUI.sellItem(menu.item, DockedUI.player, qty) then
+                            if DockedUI.sellItem(menu.item, currentPlayer, qty) then
                                 -- sale handled inside
                             end
                         end
@@ -434,7 +439,7 @@ function DockedUI.mousepressed(x, y, button)
             if x >= tab.x and x <= tab.x + tab.w and y >= tab.y and y <= tab.y + tab.h then
                 DockedUI.activeTab = tab.name
                 if tab.name == "Ship" and DockedUI.equipment then
-                    DockedUI.equipment:updateDropdowns(DockedUI.player)
+                    DockedUI.equipment:updateDropdowns(currentPlayer)
                 end
                 return true, false
             end
@@ -505,20 +510,25 @@ function DockedUI.mousepressed(x, y, button)
             end
         end
     elseif DockedUI.activeTab == "Quests" and DockedUI.quests then
-        return DockedUI.quests:mousepressed(DockedUI.player, x, y, button)
+        return DockedUI.quests:mousepressed(currentPlayer, x, y, button)
     elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
-        return DockedUI.nodes:mousepressed(DockedUI.player, x, y, button)
+        return DockedUI.nodes:mousepressed(currentPlayer, x, y, button)
     elseif DockedUI.activeTab == "Ship" and DockedUI.equipment then
-        return DockedUI.equipment:mousepressed(DockedUI.player, x, y, button)
+        return DockedUI.equipment:mousepressed(currentPlayer, x, y, button)
     end
 
     return false, false
 end
 
 -- Handle mouse release
-function DockedUI.mousereleased(x, y, button)
+function DockedUI.mousereleased(x, y, button, player)
     if not DockedUI.visible then return false, false end
     if not DockedUI.window then return false, false end
+
+    if player then
+        DockedUI.player = player
+    end
+    local currentPlayer = DockedUI.player
 
     if DockedUI.window:mousereleased(x, y, button) then
         return true, false
@@ -532,20 +542,25 @@ function DockedUI.mousereleased(x, y, button)
 
     -- Delegate to active tab
     if DockedUI.activeTab == "Quests" and DockedUI.quests then
-        return DockedUI.quests:mousereleased(DockedUI.player, x, y, button)
+        return DockedUI.quests:mousereleased(currentPlayer, x, y, button)
     elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
-        return DockedUI.nodes:mousereleased(DockedUI.player, x, y, button)
+        return DockedUI.nodes:mousereleased(currentPlayer, x, y, button)
     elseif DockedUI.activeTab == "Ship" and DockedUI.equipment then
-        return DockedUI.equipment:mousereleased(DockedUI.player, x, y, button)
+        return DockedUI.equipment:mousereleased(currentPlayer, x, y, button)
     end
 
     return false, false
 end
 
 -- Handle mouse movement
-function DockedUI.mousemoved(x, y, dx, dy)
+function DockedUI.mousemoved(x, y, dx, dy, player)
     if not DockedUI.visible then return false, false end
     if not DockedUI.window then return false, false end
+
+    if player then
+        DockedUI.player = player
+    end
+    local currentPlayer = DockedUI.player
 
     if DockedUI.window:mousemoved(x, y, dx, dy) then
         return true, false
@@ -562,19 +577,22 @@ function DockedUI.mousemoved(x, y, dx, dy)
 
     -- Delegate to active tab
     if DockedUI.activeTab == "Quests" and DockedUI.quests then
-        return DockedUI.quests:mousemoved(DockedUI.player, x, y, dx, dy)
+        return DockedUI.quests:mousemoved(currentPlayer, x, y, dx, dy)
     elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
-        return DockedUI.nodes:mousemoved(DockedUI.player, x, y, dx, dy)
+        return DockedUI.nodes:mousemoved(currentPlayer, x, y, dx, dy)
     elseif DockedUI.activeTab == "Ship" and DockedUI.equipment then
-        return DockedUI.equipment:mousemoved(DockedUI.player, x, y, dx, dy)
+        return DockedUI.equipment:mousemoved(currentPlayer, x, y, dx, dy)
     end
 
     return false, false
 end
 
 -- Handle mouse wheel
-function DockedUI.wheelmoved(dx, dy)
+function DockedUI.wheelmoved(dx, dy, player)
   if not DockedUI.visible then return false end
+  if player then
+    DockedUI.player = player
+  end
   -- Nodes tab: forward to nodes panel for chart zoom
   if DockedUI.activeTab == "Nodes" and DockedUI.nodes and DockedUI.nodes.wheelmoved then
     return DockedUI.nodes:wheelmoved(DockedUI.player, dx, dy)
@@ -589,8 +607,13 @@ function DockedUI.wheelmoved(dx, dy)
 end
 
 -- Handle key press
-function DockedUI.keypressed(key)
+function DockedUI.keypressed(key, scancode, isrepeat, player)
   if not DockedUI.visible then return false end
+
+  if player then
+    DockedUI.player = player
+  end
+  local currentPlayer = DockedUI.player
 
   if DockedUI.searchActive then
     if key == "backspace" then
@@ -612,15 +635,15 @@ function DockedUI.keypressed(key)
         return true
       elseif key == "return" or key == "kpenter" then
         local qty = tonumber(menu.quantity) or 0
-        if qty > 0 and DockedUI.player then
+        if qty > 0 and currentPlayer then
           if menu.type == "buy" then
             local cost = (menu.item.price or 0) * qty
-            if DockedUI.player:getGC() >= cost then
-              DockedUI.purchaseItem(menu.item, DockedUI.player, qty)
+            if currentPlayer:getGC() >= cost then
+              DockedUI.purchaseItem(menu.item, currentPlayer, qty)
             end
           elseif menu.type == "sell" then
-            if DockedUI.player then
-              if DockedUI.sellItem(menu.item, DockedUI.player, qty) then
+            if currentPlayer then
+              if DockedUI.sellItem(menu.item, currentPlayer, qty) then
                 -- sale handled inside
               end
             end
@@ -636,15 +659,15 @@ function DockedUI.keypressed(key)
       -- Navigation mode
       if key == "return" or key == "kpenter" then
         local qty = tonumber(menu.quantity) or 0
-        if qty > 0 and DockedUI.player then
+        if qty > 0 and currentPlayer then
           if menu.type == "buy" then
             local cost = (menu.item.price or 0) * qty
-            if DockedUI.player:getGC() >= cost then
-              DockedUI.purchaseItem(menu.item, DockedUI.player, qty)
+            if currentPlayer:getGC() >= cost then
+              DockedUI.purchaseItem(menu.item, currentPlayer, qty)
             end
           elseif menu.type == "sell" then
-            if DockedUI.player then
-              if DockedUI.sellItem(menu.item, DockedUI.player, qty) then
+            if currentPlayer then
+              if DockedUI.sellItem(menu.item, currentPlayer, qty) then
                 -- sale handled inside
               end
             end
@@ -672,8 +695,12 @@ function DockedUI.keypressed(key)
   return true, false
 end
 
-function DockedUI.textinput(text)
+function DockedUI.textinput(text, player)
   if not DockedUI.visible then return false end
+
+  if player then
+    DockedUI.player = player
+  end
 
   if DockedUI.searchActive then
     DockedUI.searchText = DockedUI.searchText .. text
