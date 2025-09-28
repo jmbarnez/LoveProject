@@ -7,7 +7,6 @@ local Viewport = require("src.core.viewport")
 local SettingsPanel = require("src.ui.settings_panel")
 local Settings = require("src.core.settings")
 local Sound = require("src.core.sound")
-local Effects = require("src.systems.effects")
 local DebugPanel = require("src.ui.debug_panel")
 local Constants = require("src.core.constants")
 
@@ -15,28 +14,31 @@ local UIManager
 local screen = "start"
 local startScreen
 
-local minFrameTime = 1/Constants.TIMING.FPS_60
+local minFrameTime = 1 / Constants.TIMING.FPS_60
 local lastFrameTime = 0
+
+local function configureInput()
+    Input.init_love_callbacks({
+        screen = screen,
+        startScreen = startScreen,
+        UIManager = UIManager,
+        setScreen = love.setScreen,
+    })
+end
 
 love = love or {}
 function love.setScreen(newScreen)
-  screen = newScreen
-  if newScreen == "start" then
-    startScreen = Start.new()
-    love.mouse.setVisible(true)
-    Sound.playMusic("adrift")
-  elseif newScreen == "game" then
-    if not UIManager then
-      UIManager = require("src.core.ui_manager")
+    screen = newScreen
+
+    if newScreen == "start" then
+        startScreen = Start.new()
+        love.mouse.setVisible(true)
+        Sound.playMusic("adrift")
+    elseif newScreen == "game" and not UIManager then
+        UIManager = require("src.core.ui_manager")
     end
-  end
-  -- Update the input module with the new state
-  Input.init_love_callbacks({
-    screen = screen,
-    startScreen = startScreen,
-    UIManager = UIManager,
-    setScreen = love.setScreen
-  })
+
+    configureInput()
 end
 
 function updateFPSLimit()
@@ -44,63 +46,78 @@ function updateFPSLimit()
   minFrameTime = (graphicsSettings.max_fps and graphicsSettings.max_fps > 0) and (1 / graphicsSettings.max_fps) or 0
 end
 
+local function applyWindowMode(graphicsSettings)
+    local ok, err = pcall(function()
+        love.window.setMode(
+            graphicsSettings.resolution.width,
+            graphicsSettings.resolution.height,
+            {
+                fullscreen = graphicsSettings.fullscreen,
+                fullscreentype = graphicsSettings.fullscreen_type,
+                borderless = graphicsSettings.borderless,
+                vsync = graphicsSettings.vsync,
+                resizable = true,
+                minwidth = Constants.RESOLUTION.MIN_WINDOW_WIDTH_1024PX,
+                minheight = Constants.RESOLUTION.MIN_WINDOW_HEIGHT_1024PX,
+            }
+        )
+    end)
+
+    if not ok then
+        local Log = require("src.core.log")
+        Log.warn("Failed to apply window mode: " .. tostring(err))
+    end
+end
+
 function love.applyGraphicsSettings()
     local graphicsSettings = Settings.getGraphicsSettings()
-    love.window.setMode(
-        graphicsSettings.resolution.width,
-        graphicsSettings.resolution.height,
-        {
-            fullscreen = graphicsSettings.fullscreen,
-            fullscreentype = graphicsSettings.fullscreen_type,
-            borderless = graphicsSettings.borderless,
-            vsync = graphicsSettings.vsync,
-            resizable = true,
-            minwidth = Constants.RESOLUTION.MIN_WINDOW_WIDTH_1024PX,
-            minheight = Constants.RESOLUTION.MIN_WINDOW_HEIGHT_1024PX
-        }
-    )
+    applyWindowMode(graphicsSettings)
     Viewport.init(graphicsSettings.resolution.width, graphicsSettings.resolution.height)
     updateFPSLimit()
 end
 
-function love.load()
-  math.randomseed(os.time())
-  Settings.load()
-  Sound.applySettings()
-  
-  local Log = require("src.core.log")
-  Log.setLevel("warn")
-  Log.setDebugWhitelist(nil)
-  Log.setInfoEnabled(false)
-
-  -- Ensure input module has the latest settings after logging is configured
-  local SettingsModule = require("src.core.settings")
-  local km = SettingsModule.getKeymap() or {}
-  local defaults = { hotbar_3 = "q", hotbar_4 = "e", hotbar_5 = "r" }
-  for k, dv in pairs(defaults) do
-    if km[k] ~= dv then
-      SettingsModule.setKeyBinding(k, dv)
-      km[k] = dv
+local function seedRandom()
+    if love.math and love.timer then
+        local seed = love.timer.getTime() * 1000
+        love.math.setRandomSeed(seed)
+        love.math.random()
+        love.math.random()
+    else
+        math.randomseed(os.time())
     end
-  end
-  
-  love.applyGraphicsSettings()
+end
 
-  love.mouse.setRelativeMode(false)
-  local Theme = require("src.core.theme")
-  Theme.init()
-  Theme.loadFonts()
-  SettingsPanel.init()
-  startScreen = Start.new()
-  Sound.playMusic("adrift")
+function love.load()
+    seedRandom()
+    Settings.load()
+    Sound.applySettings()
 
-  -- Initialize the input module with the main state
-  Input.init_love_callbacks({
-    screen = screen,
-    startScreen = startScreen,
-    UIManager = UIManager,
-    setScreen = love.setScreen
-  })
+    local Log = require("src.core.log")
+    Log.setLevel("warn")
+    Log.setDebugWhitelist(nil)
+    Log.setInfoEnabled(false)
+
+    local SettingsModule = require("src.core.settings")
+    local km = SettingsModule.getKeymap() or {}
+    local defaults = { hotbar_3 = "q", hotbar_4 = "e", hotbar_5 = "r" }
+    for key, defaultBinding in pairs(defaults) do
+        if km[key] ~= defaultBinding then
+            SettingsModule.setKeyBinding(key, defaultBinding)
+            km[key] = defaultBinding
+        end
+    end
+
+    love.applyGraphicsSettings()
+
+    love.mouse.setRelativeMode(false)
+    local Theme = require("src.core.theme")
+    Theme.init()
+    Theme.loadFonts()
+    SettingsPanel.init()
+    startScreen = Start.new()
+    Sound.playMusic("adrift")
+
+    configureInput()
 end
 
 function love.resize(w, h)
