@@ -452,6 +452,18 @@ function DockedUI.mousepressed(x, y, button)
             end
         end
         if button == 1 then
+            if DockedUI.activeShopTab == "Buyback" and DockedUI._buybackButtons then
+                for _, btn in ipairs(DockedUI._buybackButtons) do
+                    if x >= btn.x and x <= btn.x + btn.w and y >= btn.y and y <= btn.y + btn.h then
+                        if DockedUI.player:getGC() >= btn.item.price then
+                            DockedUI.purchaseItem(btn.item, DockedUI.player, 1)
+                            table.remove(DockedUI.buybackItems, btn.index)
+                            return true, false
+                        end
+                    end
+                end
+            end
+
             -- Handle category dropdown clicks
             if DockedUI.activeShopTab == "Buy" then
                 if DockedUI.categoryDropdown:mousepressed(x, y, button) then
@@ -464,8 +476,8 @@ function DockedUI.mousepressed(x, y, button)
                     if x >= itemUI.x and x <= itemUI.x + itemUI.w and y >= itemUI.y and y <= itemUI.y + itemUI.h then
                         DockedUI.contextMenu = {
                             visible = true,
-                            x = x,
-                            y = y,
+                            x = x + 10,
+                            y = y + 10,
                             item = itemUI.item,
                             quantity = "1",
                             type = "buy"
@@ -480,8 +492,8 @@ function DockedUI.mousepressed(x, y, button)
                     if x >= itemUI.x and x <= itemUI.x + itemUI.w and y >= itemUI.y and y <= itemUI.y + itemUI.h then
                         DockedUI.contextMenu = {
                             visible = true,
-                            x = x,
-                            y = y,
+                            x = x + 10,
+                            y = y + 10,
                             item = itemUI.item,
                             quantity = "1",
                             type = "sell"

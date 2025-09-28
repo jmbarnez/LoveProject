@@ -7,6 +7,37 @@ local IconSystem = require("src.core.icon_system")
 
 local Shop = {}
 
+local function buildPlayerInventory(player)
+  local items = {}
+  if not player or not player.components or not player.components.cargo then
+    return items
+  end
+
+  player.components.cargo:iterate(function(slot, entry)
+    local def = entry.meta or Content.getItem(entry.id) or Content.getTurret(entry.id)
+    if def then
+      def.icon = def.icon or IconSystem.getIcon(def)
+    end
+    table.insert(items, {
+      id = entry.id,
+      qty = entry.qty,
+      meta = entry.meta,
+      slot = slot,
+      def = def
+    })
+  end)
+
+  table.sort(items, function(a, b)
+    local defA = a.meta or Content.getItem(a.id) or Content.getTurret(a.id)
+    local defB = b.meta or Content.getItem(b.id) or Content.getTurret(b.id)
+    local nameA = (defA and defA.name) or a.id
+    local nameB = (defB and defB.name) or b.id
+    return nameA < nameB
+  end)
+
+  return items
+end
+
 function Shop.drawBuybackItems(DockedUI, x, y, w, h, player)
   if not player then return end
   local items = DockedUI.buybackItems or {}
@@ -250,37 +281,6 @@ function Shop.drawShopItems(DockedUI, x, y, w, h, player)
   else
     DockedUI._shopScrollBar = nil
   end
-end
-
-local function buildPlayerInventory(player)
-  local items = {}
-  if not player or not player.components or not player.components.cargo then
-    return items
-  end
-
-  player.components.cargo:iterate(function(slot, entry)
-    local def = entry.meta or Content.getItem(entry.id) or Content.getTurret(entry.id)
-    if def then
-      def.icon = def.icon or IconSystem.getIcon(def)
-    end
-    table.insert(items, {
-      id = entry.id,
-      qty = entry.qty,
-      meta = entry.meta,
-      slot = slot,
-      def = def
-    })
-  end)
-
-  table.sort(items, function(a, b)
-    local defA = a.meta or Content.getItem(a.id) or Content.getTurret(a.id)
-    local defB = b.meta or Content.getItem(b.id) or Content.getTurret(b.id)
-    local nameA = (defA and defA.name) or a.id
-    local nameB = (defB and defB.name) or b.id
-    return nameA < nameB
-  end)
-
-  return items
 end
 
 return Shop
