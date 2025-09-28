@@ -16,6 +16,7 @@ function HeatManager.initializeHeat(turret, params)
     turret.heatLastAddTime = nil
     turret.heatBuildElapsed = 0
     turret._heatSimulatedTime = 0
+
 end
 
 function HeatManager.updateHeat(turret, dt, locked)
@@ -56,6 +57,7 @@ function HeatManager.updateHeat(turret, dt, locked)
         local cooldownRate = turret.cooldownRate
 
         -- When overheated, drain the bar across the measured cooldown duration
+
         if turret.overheated then
             local cooldownWindow = turret.forcedOverheatCooldown or turret.overheatCooldown
             if cooldownWindow and cooldownWindow > 0 then
@@ -63,10 +65,9 @@ function HeatManager.updateHeat(turret, dt, locked)
             end
 
             if turret.overheated and turret.overheatCooldown and turret.overheatCooldown > 0 then
-                local forcedRate = turret.maxHeat / turret.overheatCooldown
-                if forcedRate > cooldownRate then
-                    cooldownRate = forcedRate
-                end
+            local forcedRate = turret.maxHeat / turret.overheatCooldown
+            if forcedRate > cooldownRate then
+                cooldownRate = forcedRate
             end
         end
 
