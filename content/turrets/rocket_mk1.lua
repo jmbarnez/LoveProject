@@ -46,7 +46,7 @@ return {
   maxHeat = 60, -- Lower heat capacity due to slower cycle
   heatPerShot = 15, -- Moderate heat per shot
   cooldownRate = 12, -- Heat dissipation rate
-  overheatDuration = 5.0, -- Longer disable time due to complex systems
+  overheatCooldown = 5.0, -- Fixed cooldown window after overheating
   heatCycleMult = 0.6, -- Slower firing when hot
   heatEnergyMult = 1.4, -- Energy cost increase when hot
 

@@ -41,7 +41,7 @@ return {
   maxHeat = 150,
   heatPerShot = 20,
   cooldownRate = 20,
-  overheatDuration = 3.0,
+  overheatCooldown = 5.0,
   heatCycleMult = 0.8,
   heatEnergyMult = 1.5,
 

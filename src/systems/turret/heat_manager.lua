@@ -1,5 +1,3 @@
-local Config = require("src.content.config")
-
 local HeatManager = {}
 
 function HeatManager.initializeHeat(turret, params)
@@ -12,17 +10,44 @@ function HeatManager.initializeHeat(turret, params)
     turret.currentHeat = 15 -- Start with some heat for testing visibility
     turret.overheated = false
     turret.overheatStartTime = 0
-    turret.overheatDuration = params.overheatDuration or 3.0
+    turret.overheatCooldown = params.overheatCooldown or params.overheatDuration or 3.0
+    turret.forcedOverheatCooldown = nil
+    turret.heatBuildStartTime = nil
+    turret.heatLastAddTime = nil
+    turret.heatBuildElapsed = 0
+    turret._heatSimulatedTime = 0
 end
 
 function HeatManager.updateHeat(turret, dt, locked)
     if not turret.maxHeat or turret.maxHeat <= 0 then return end
 
+    local now
+    if love.timer and love.timer.getTime then
+        now = love.timer.getTime()
+    else
+        turret._heatSimulatedTime = (turret._heatSimulatedTime or 0) + dt
+        now = turret._heatSimulatedTime
+    end
+
     -- If the turret overheats, force it into a cooldown phase until the heat bar is empty
     if turret.currentHeat >= turret.maxHeat and not turret.overheated then
+        -- Capture the final frame between the last heat event and the overheat trigger
+        if turret.heatLastAddTime then
+            turret.heatBuildElapsed = turret.heatBuildElapsed + math.max(0, now - turret.heatLastAddTime)
+        end
+
+        local measuredCooldown = turret.heatBuildElapsed or 0
+        if measuredCooldown <= 0 then
+            measuredCooldown = turret.overheatCooldown or 0
+        end
+
         turret.overheated = true
-        turret.overheatStartTime = love.timer and love.timer.getTime() or 0
+        turret.overheatStartTime = now
         turret.currentHeat = turret.maxHeat
+        turret.forcedOverheatCooldown = measuredCooldown
+        turret.heatBuildStartTime = nil
+        turret.heatLastAddTime = nil
+        turret.heatBuildElapsed = 0
         -- Optional: play overheat sound effect
     end
 
@@ -30,12 +55,24 @@ function HeatManager.updateHeat(turret, dt, locked)
     if locked or not turret.firing or turret.overheated then
         local cooldownRate = turret.cooldownRate
 
-        -- When overheated, guarantee the bar drains within the configured overheat duration
-        if turret.overheated and turret.overheatDuration and turret.overheatDuration > 0 then
-            local forcedRate = turret.maxHeat / turret.overheatDuration
-            if forcedRate > cooldownRate then
-                cooldownRate = forcedRate
+        -- When overheated, drain the bar across the measured cooldown duration
+        if turret.overheated then
+            local cooldownWindow = turret.forcedOverheatCooldown or turret.overheatCooldown
+            if cooldownWindow and cooldownWindow > 0 then
+                cooldownRate = turret.maxHeat / cooldownWindow
             end
+        end
+
+        -- Track elapsed time while the heat bar is active but not yet empty
+        if not turret.overheated and turret.currentHeat > 0 and turret.heatLastAddTime then
+            turret.heatBuildElapsed = turret.heatBuildElapsed + math.max(0, now - turret.heatLastAddTime)
+            turret.heatLastAddTime = now
+        end
+
+        if not turret.overheated and turret.currentHeat <= 0 then
+            turret.heatBuildStartTime = nil
+            turret.heatLastAddTime = nil
+            turret.heatBuildElapsed = 0
         end
 
         turret.currentHeat = math.max(0, turret.currentHeat - cooldownRate * dt)
@@ -44,12 +81,37 @@ function HeatManager.updateHeat(turret, dt, locked)
         if turret.overheated and turret.currentHeat <= 0 then
             turret.overheated = false
             turret.currentHeat = 0
+            turret.forcedOverheatCooldown = nil
+            turret.heatBuildStartTime = nil
+            turret.heatLastAddTime = nil
+            turret.heatBuildElapsed = 0
         end
     end
 end
 
 function HeatManager.addHeat(turret, amount)
     if not turret.maxHeat or turret.maxHeat <= 0 then return end
+    if turret.overheated then return end
+
+    local now
+    if love.timer and love.timer.getTime then
+        now = love.timer.getTime()
+    else
+        turret._heatSimulatedTime = turret._heatSimulatedTime or 0
+        now = turret._heatSimulatedTime
+    end
+
+    if not turret.heatBuildStartTime then
+        turret.heatBuildStartTime = now
+        turret.heatLastAddTime = now
+        turret.heatBuildElapsed = 0
+    else
+        if turret.heatLastAddTime then
+            turret.heatBuildElapsed = turret.heatBuildElapsed + math.max(0, now - turret.heatLastAddTime)
+        end
+        turret.heatLastAddTime = now
+    end
+
     turret.currentHeat = math.min(turret.maxHeat, turret.currentHeat + amount)
 end
 

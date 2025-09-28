@@ -45,7 +45,7 @@ return {
   maxHeat = 15.0, -- Higher max heat for sustained use
   heatPerShot = 3.0, -- Heat per pulse
   cooldownRate = 8.0, -- Fast cooling between pulses
-  overheatDuration = 2.0, -- Quick recovery from overheat
+  overheatCooldown = 5.0, -- Fixed cooldown window after overheating
 
   -- Firing mode: "manual" or "automatic"
   fireMode = "manual" -- Salvaging lasers should be manually controlled

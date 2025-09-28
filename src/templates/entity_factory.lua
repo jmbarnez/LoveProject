@@ -160,17 +160,23 @@ function EntityFactory.createEnemy(shipId, x, y)
         if shipId == 'boss_drone' then
             enemy.isBoss = true
         end
-        -- Make enemy drones a bit larger than base, but smaller than before
+        -- Make enemy drones a bit larger than base (boss drones scale up further)
         local rend = enemy.components.renderable
         if rend and rend.props and rend.props.visuals then
             local visuals = rend.props.visuals
-            visuals.size = (visuals.size or 1.0) * 1.5
+            local baseSize = visuals.size or 1.0
+            local sizeMultiplier = shipId == 'boss_drone' and 5.0 or 1.5
+            visuals.size = baseSize * sizeMultiplier
         end
         if enemy.components.collidable then
-            enemy.components.collidable.radius = (enemy.components.collidable.radius or 10) * 1.5
+            local baseRadius = enemy.components.collidable.radius or 10
+            local radiusMultiplier = shipId == 'boss_drone' and 5.0 or 1.5
+            enemy.components.collidable.radius = baseRadius * radiusMultiplier
         end
         if enemy.components.physics and enemy.components.physics.body then
-            enemy.components.physics.body.radius = (enemy.components.physics.body.radius or 10) * 1.5
+            local baseBodyRadius = enemy.components.physics.body.radius or 10
+            local bodyMultiplier = shipId == 'boss_drone' and 5.0 or 1.5
+            enemy.components.physics.body.radius = baseBodyRadius * bodyMultiplier
         end
         -- Clear any cached shield radius so it recomputes using new visuals size
         enemy.shieldRadius = nil
