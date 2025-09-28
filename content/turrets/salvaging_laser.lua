@@ -33,18 +33,18 @@ return {
   impact = {
     wreckage = { spark = {0.3, 1.0, 0.3, 0.8}, ring = {0.2, 0.8, 0.2, 0.6} },
   },
-  -- Pulsed salvaging beam, 3 second cycles
+  -- Continuous salvaging beam, tuned for gentle stripping of wreckage
   optimal = 850, falloff = 250,
   damageMin = 1, damageMax = 2, -- Salvaging damage per pulse
-  cycle = 3.0, -- 3 second cycles for pulsing behavior
-  capCost = 20, -- Energy cost per pulse
+  cycle = 3.0, -- Seconds required to apply salvagePower worth of extraction
+  capCost = 20, -- Energy cost budget per cycle window
   spread = { minDeg = 0.05, maxDeg = 0.1, decay = 1000 }, -- Very precise for salvaging
-  salvagePower = 1, -- Salvaging damage per pulse
-  beamDuration = 0.3, -- Visible beam duration per pulse
-  -- Heat management for pulsed beam
+  salvagePower = 1, -- Total salvage progress applied across each cycle window
+  beamDuration = 0.3, -- Legacy rendering hint for beam visuals
+  -- Heat management for continuous beam
   maxHeat = 15.0, -- Higher max heat for sustained use
-  heatPerShot = 3.0, -- Heat per pulse
-  cooldownRate = 8.0, -- Fast cooling between pulses
+  heatPerShot = 3.0, -- Heat generated across each cycle window
+  cooldownRate = 8.0, -- Fast cooling between pulses/pauses
   overheatCooldown = 5.0, -- Fixed cooldown window after overheating
 
   -- Firing mode: "manual" or "automatic"

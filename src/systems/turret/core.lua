@@ -186,8 +186,16 @@ function Turret:update(dt, target, locked, world)
             UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
         end
 
-        -- Set cooldown for next shot
-        self.cooldown = effectiveCycle
+        local overrideCooldown = self.cooldownOverride
+        self.cooldownOverride = nil
+
+        if overrideCooldown ~= nil then
+            self.cooldown = overrideCooldown
+        else
+            -- Set cooldown for next shot
+            self.cooldown = effectiveCycle
+        end
+
         Log.debug("Turret:update - Cooldown set to: " .. tostring(self.cooldown) .. " for turret: " .. tostring(self.id))
     end
 
