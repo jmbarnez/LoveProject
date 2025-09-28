@@ -119,6 +119,20 @@ function ActionMap.iterate()
     return ipairs(registeredActions)
 end
 
+
+local function resolveUIManager(ctx)
+    if ctx and ctx.UIManager then
+        return ctx.UIManager
+    end
+
+    local loaded = package.loaded["src.core.ui_manager"]
+    if type(loaded) == "table" then
+        return loaded
+    end
+
+    return nil
+end
+
 local function toggleAction(name, bindingAction, component)
     ActionMap.registerAction({
         name = name,
@@ -127,6 +141,11 @@ local function toggleAction(name, bindingAction, component)
             return ActionMap.bindingKeys(bindingAction)
         end,
         enabled = function(ctx)
+            local ui = resolveUIManager(ctx)
+            return ui ~= nil and ui.toggle ~= nil
+        end,
+        callback = function(ctx)
+            local ui = resolveUIManager(ctx)
             local ui = (ctx and ctx.UIManager) or UIManager
             return ui ~= nil and ui.toggle ~= nil
         end,
