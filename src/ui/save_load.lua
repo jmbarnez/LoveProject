@@ -3,6 +3,12 @@ local SaveSlots = require("src.ui.save_slots")
 
 local SaveLoad = {}
 
+local function point_in_rect(px, py, rect)
+    if not rect then return false end
+    return px >= rect.x and px <= rect.x + rect.w and
+        py >= rect.y and py <= rect.y + rect.h
+end
+
 function SaveLoad:new(options)
     local o = {}
     setmetatable(o, self)
@@ -35,25 +41,65 @@ function SaveLoad:new(options)
 end
 
 function SaveLoad:mousepressed(mx, my, button)
-    return self.saveSlots:mousepressed(mx, my, button)
+    if not self.window or not self.window.visible then
+        return false
+    end
+
+    if self.window:mousepressed(mx, my, button) then
+        return true
+    end
+
+    local content = self.window:getContentBounds()
+    if point_in_rect(mx, my, content) then
+        return self.saveSlots:mousepressed(mx, my, button)
+    end
+
+    return false
 end
 
 function SaveLoad:textinput(text)
+    if not self.window or not self.window.visible then
+        return false
+    end
+
     return self.saveSlots:textinput(text)
 end
 
 function SaveLoad:keypressed(key)
+    if not self.window or not self.window.visible then
+        return false
+    end
+
     if self.saveSlots:keypressed(key) then
         return true
     end
 
     if key == "escape" then
-        if self.onClose then
+        if self.window then
+            self.window:hide()
+            return true
+        elseif self.onClose then
             self.onClose()
             return true
         end
     end
     return false
+end
+
+function SaveLoad:mousereleased(mx, my, button)
+    if not self.window or not self.window.visible then
+        return false
+    end
+
+    return self.window:mousereleased(mx, my, button)
+end
+
+function SaveLoad:mousemoved(mx, my, dx, dy)
+    if not self.window or not self.window.visible then
+        return false
+    end
+
+    return self.window:mousemoved(mx, my, dx, dy)
 end
 
 return SaveLoad
