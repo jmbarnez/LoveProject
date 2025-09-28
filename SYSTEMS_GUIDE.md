@@ -366,6 +366,23 @@ end)
 - Connection management
 - State reconciliation
 
+### 5. Action Map (`src/core/action_map.lua`)
+
+**Purpose**: Centralizes keyboard shortcuts and contextual actions so gameplay and UI teams can add behaviors without editing the low-level input loop.
+
+**Key Concepts**:
+- **Action Descriptors**: Each action is registered through `ActionMap.registerAction` with a descriptor that defines a `name`, how to read bound keys (`getKeys`), an optional `enabled` predicate, and the `callback` that performs the work.
+- **Settings Integration**: Use `Settings.getBinding("action_name")` or `ActionMap.bindingKeys("action_name")` to resolve default/user-assigned keys. `Settings.setKeyBinding` updates the stored binding, and `Settings.getKeymap()` still returns the flattened table for legacy UI.
+- **Execution Context**: `src/core/input.lua` constructs a context containing the active `player`, `world`, `UIManager`, `Events`, `notifications`, `util`, and injected services (e.g., `repairSystem`). `ActionMap.dispatch` passes this context into callbacks so they can call high-level facades instead of requiring UI modules directly.
+
+**Registering a New Action**:
+1. **Declare a Binding** – Add a default entry in `Settings` (e.g., `settings.keymap.new_action = { primary = "k" }`). Expose it through `Settings.getBinding` if other systems need to inspect it.
+2. **Register the Descriptor** – Extend `src/core/action_map.lua` (or require it from a feature module) and call `ActionMap.registerAction({ name = "new_action", getKeys = function() return ActionMap.bindingKeys("new_action") end, callback = function(ctx) ... end })`.
+3. **Use Facades** – Inside the callback, prefer `ctx.UIManager`, `ctx.Events`, or other injected services. If you need additional data, modify `Input.keypressed` to pass it through the context rather than requiring new modules inside the action.
+4. **Prioritize & Guard** – Set `priority` when multiple actions share keys and add an `enabled` predicate to short-circuit actions when the relevant context is missing.
+
+This structure allows teams to introduce new shortcuts or interaction contexts by working in the action map, keeping `input.lua` focused on wiring and state handoff.
+
 ## System Interactions
 
 ### Update Flow
