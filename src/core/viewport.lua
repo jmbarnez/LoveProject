@@ -1,77 +1,85 @@
 local Viewport = {}
 
 local Log = require("src.core.log")
+local Constants = require("src.core.constants")
+local Settings = require("src.core.settings")
+local Theme = require("src.core.theme")
 
 -- Default virtual resolution (16:9)
-local vw, vh = 1920, 1080
-local winW, winH = 1920, 1080
+local vw, vh = Constants.RESOLUTION.DEFAULT_WIDTH, Constants.RESOLUTION.DEFAULT_HEIGHT
+local winW, winH = Constants.RESOLUTION.DEFAULT_WIDTH, Constants.RESOLUTION.DEFAULT_HEIGHT
 local scale = 1
 local ox, oy = 0, 0
 local canvas
 
+local function ensureCanvas()
+    if not canvas or canvas:getWidth() ~= vw or canvas:getHeight() ~= vh then
+        canvas = love.graphics.newCanvas(vw, vh)
+        canvas:setFilter("nearest", "nearest", 1)
+    end
+end
+
 function Viewport.init(virtualW, virtualH)
-  vw, vh = virtualW or vw, virtualH or vh
-  -- Create the render target once
-  if not canvas or canvas:getWidth() ~= vw or canvas:getHeight() ~= vh then
-    canvas = love.graphics.newCanvas(vw, vh)
-    -- Use nearest neighbor filtering for crisp UI and text
-    canvas:setFilter('nearest', 'nearest', 1)
-  end
-  Viewport.resize(love.graphics.getWidth(), love.graphics.getHeight())
+    vw = virtualW or vw or Constants.RESOLUTION.DEFAULT_WIDTH
+    vh = virtualH or vh or Constants.RESOLUTION.DEFAULT_HEIGHT
+    ensureCanvas()
+    Viewport.resize(love.graphics.getWidth(), love.graphics.getHeight())
 end
 
 function Viewport.resize(w, h)
-  -- Handle invalid dimensions gracefully
-  if not w or not h or w <= 0 or h <= 0 then
-    if Log and Log.warn then
-      Log.warn("Invalid viewport dimensions: " .. tostring(w) .. "x" .. tostring(h))
+    -- Handle invalid dimensions gracefully
+    if not w or not h or w <= 0 or h <= 0 then
+        if Log and Log.warn then
+            Log.warn("Invalid viewport dimensions: " .. tostring(w) .. "x" .. tostring(h))
+        end
+        return
     end
-    return
-  end
 
-  winW, winH = w, h
+    winW, winH = w, h
 
-  -- Ensure virtual dimensions are valid
-  if not vw or not vh or vw <= 0 or vh <= 0 then
-    vw, vh = 1920, 1080 -- Reset to defaults if corrupted
-  end
-
-  -- Calculate viewport scale without UI scale affecting it
-  local sx = w / vw
-  local sy = h / vh
-  scale = math.min(sx, sy)
-
-  -- Ensure scale is valid
-  if scale <= 0 or scale == math.huge then
-    scale = 1
-  end
-
-  local sw = math.floor(vw * scale + 0.5)
-  local sh = math.floor(vh * scale + 0.5)
-  ox = math.floor((w - sw) / 2)
-  oy = math.floor((h - sh) / 2)
-
-  -- Ensure offsets are valid
-  if ox ~= ox or oy ~= oy then -- Check for NaN
-    ox, oy = 0, 0
-  end
-
-  -- Reload fonts to ensure they're the right size for the new resolution
-  local success, err = pcall(function()
-    if Theme and Theme.loadFonts then
-      Theme.loadFonts()
+    -- Ensure virtual dimensions are valid
+    if not vw or not vh or vw <= 0 or vh <= 0 then
+        vw = Constants.RESOLUTION.DEFAULT_WIDTH
+        vh = Constants.RESOLUTION.DEFAULT_HEIGHT
     end
-  end)
-  if not success and Log and Log.warn then
-    Log.warn("Failed to reload fonts on resize: " .. tostring(err))
-  end
+
+    -- Calculate viewport scale without UI scale affecting it
+    local sx = w / vw
+    local sy = h / vh
+    scale = math.min(sx, sy)
+
+    -- Ensure scale is valid
+    if scale <= 0 or scale == math.huge then
+        scale = 1
+    end
+
+    local sw = math.floor(vw * scale + 0.5)
+    local sh = math.floor(vh * scale + 0.5)
+    ox = math.floor((w - sw) / 2)
+    oy = math.floor((h - sh) / 2)
+
+    -- Ensure offsets are valid
+    if ox ~= ox or oy ~= oy then -- Check for NaN
+        ox, oy = 0, 0
+    end
+
+    -- Reload fonts to ensure they're the right size for the new resolution
+    local success, err = pcall(function()
+        if Theme and Theme.loadFonts then
+            Theme.loadFonts()
+        end
+    end)
+    if not success and Log and Log.warn then
+        Log.warn("Failed to reload fonts on resize: " .. tostring(err))
+    end
 end
 
 function Viewport.begin()
-  love.graphics.push('all')
-  -- Enable stencil writes while rendering to the virtual canvas
-  love.graphics.setCanvas({ canvas, stencil = true })
-  -- Do not clear here; let game decide its clear color
+    ensureCanvas()
+    love.graphics.push('all')
+    -- Enable stencil writes while rendering to the virtual canvas
+    love.graphics.setCanvas({ canvas, stencil = true })
+    -- Do not clear here; let game decide its clear color
 end
 
 function Viewport.finish()
@@ -144,20 +152,18 @@ end
 
 function Viewport.getDimensions()
   -- Use default values if variables are nil (defensive programming)
-  local currentVw = vw or 1920
-  local currentVh = vh or 1080
+  local currentVw = vw or Constants.RESOLUTION.DEFAULT_WIDTH
+  local currentVh = vh or Constants.RESOLUTION.DEFAULT_HEIGHT
   return currentVw, currentVh
 end
 
 function Viewport.getUIScale()
-  local settings = require("src.core.settings")
-  local graphicsSettings = settings.getGraphicsSettings()
+  local graphicsSettings = Settings.getGraphicsSettings()
   return graphicsSettings.ui_scale or 1.0
 end
 
 function Viewport.getFontScale()
-  local settings = require("src.core.settings")
-  local graphicsSettings = settings.getGraphicsSettings()
+  local graphicsSettings = Settings.getGraphicsSettings()
   return graphicsSettings.font_scale or 1.0
 end
 
