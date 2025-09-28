@@ -220,7 +220,8 @@ function Input.love_mousepressed(x, y, button)
       mainState.setScreen("game")
       return
     elseif start == "loadGame" then
-      local selectedSlot = mainState.startScreen.loadSlotsUI and mainState.startScreen.loadSlotsUI.selectedSlot
+      local loadSlotsUI = mainState.startScreen.loadSlotsUI
+      local selectedSlot = loadSlotsUI and loadSlotsUI.getSelectedSlotIndex and loadSlotsUI:getSelectedSlotIndex()
       -- Load game from save (Game.load will handle save loading)
       Game.load(true, selectedSlot)
       mainState.UIManager = require("src.core.ui_manager")

@@ -12,8 +12,15 @@ local EscapeMenu = {
     exitButtonDown = false,
     settingsButtonDown = false,
     saveButtonDown = false,
-    saveLoadPanel = nil
+    saveLoadPanel = nil,
+    saveLoadPanelZ = nil,
+    _floatingWindowZ = 180
 }
+
+local function nextFloatingZ()
+    EscapeMenu._floatingWindowZ = (EscapeMenu._floatingWindowZ or 180) + 1
+    return EscapeMenu._floatingWindowZ
+end
 
 local function pointIn(px, py, rx, ry, rw, rh)
     if type(px) ~= "number" or type(py) ~= "number" or type(rx) ~= "number" or type(ry) ~= "number" or type(rw) ~= "number" or type(rh) ~= "number" then
@@ -77,6 +84,12 @@ end
 
 function EscapeMenu.hide()
     EscapeMenu.visible = false
+
+    if EscapeMenu.saveLoadPanel then
+        Registry.unregister("save_load_panel")
+        EscapeMenu.saveLoadPanel = nil
+        EscapeMenu.saveLoadPanelZ = nil
+    end
 
     -- Game continues running when escape menu is closed
 end
@@ -225,29 +238,34 @@ function EscapeMenu.mousereleased(x, y, button)
         if EscapeMenu.saveButtonDown then
             EscapeMenu.saveButtonDown = false
             if pointIn(x, y, buttonX, saveButtonY, buttonW, buttonH) then
-                if EscapeMenu.saveLoadPanel then return true, false end
+                if EscapeMenu.saveLoadPanel then
+                    return true, false
+                end
 
-                 EscapeMenu.saveLoadPanel = SaveLoad:new({
-                     onClose = function()
-                         Registry.unregister("save_load_panel")
-                         EscapeMenu.saveLoadPanel = nil
-                     end
-                 })
-                 
-                 -- Make the window visible and ensure it's centered
-                 if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.window then
-                     -- Center the window on screen
-                     local sw, sh = Viewport.getDimensions()
-                     EscapeMenu.saveLoadPanel.window.x = math.floor((sw - EscapeMenu.saveLoadPanel.window.width) * 0.5)
-                     EscapeMenu.saveLoadPanel.window.y = math.floor((sh - EscapeMenu.saveLoadPanel.window.height) * 0.5)
-                     EscapeMenu.saveLoadPanel.window:show()
-                 end
+                EscapeMenu.saveLoadPanel = SaveLoad:new({
+                    onClose = function()
+                        Registry.unregister("save_load_panel")
+                        EscapeMenu.saveLoadPanel = nil
+                        EscapeMenu.saveLoadPanelZ = nil
+                    end
+                })
+
+                EscapeMenu.saveLoadPanelZ = nextFloatingZ()
+
+                -- Make the window visible and ensure it's centered
+                if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.window then
+                    local sw, sh = Viewport.getDimensions()
+                    EscapeMenu.saveLoadPanel.window.x = math.floor((sw - EscapeMenu.saveLoadPanel.window.width) * 0.5)
+                    EscapeMenu.saveLoadPanel.window.y = math.floor((sh - EscapeMenu.saveLoadPanel.window.height) * 0.5)
+                    EscapeMenu.saveLoadPanel.window:show()
+                end
 
                 local saveLoadComponent = {
                     id = "save_load_panel",
-                    zIndex = 115,
                     isVisible = function() return EscapeMenu.saveLoadPanel ~= nil end,
-                    getZ = function() return 115 end,
+                    getZ = function()
+                        return EscapeMenu.saveLoadPanelZ or 0
+                    end,
                     getRect = function()
                         if EscapeMenu.saveLoadPanel then
                             local w = EscapeMenu.saveLoadPanel.window
@@ -261,13 +279,31 @@ function EscapeMenu.mousereleased(x, y, button)
                         end
                     end,
                     mousepressed = function(x, y, button)
-                        if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.window:mousepressed(x, y, button) then
-                            if not EscapeMenu.saveLoadPanel.window.visible then
-                                -- Window was closed, unregister
+                        if not EscapeMenu.saveLoadPanel then
+                            return false
+                        end
+
+                        local window = EscapeMenu.saveLoadPanel.window
+                        if window and window:mousepressed(x, y, button) then
+                            if window.visible then
+                                EscapeMenu.saveLoadPanelZ = nextFloatingZ()
+                            else
                                 Registry.unregister("save_load_panel")
                                 EscapeMenu.saveLoadPanel = nil
+                                EscapeMenu.saveLoadPanelZ = nil
                             end
                             return true
+                        end
+
+                        if window then
+                            local content = window.getContentBounds and window:getContentBounds()
+                            if content and pointIn(x, y, content.x, content.y, content.w, content.h) then
+                                local result = EscapeMenu.saveLoadPanel:mousepressed(x, y, button)
+                                if result then
+                                    EscapeMenu.saveLoadPanelZ = nextFloatingZ()
+                                    return true
+                                end
+                            end
                         end
                         return false
                     end,

@@ -1,5 +1,3 @@
-local Theme = require("src.core.theme")
-local StateManager = require("src.managers.state_manager")
 local Window = require("src.ui.common.window")
 local SaveSlots = require("src.ui.save_slots")
 
@@ -15,10 +13,15 @@ function SaveLoad:new(options)
         onClose = o.onClose
     })
 
+    local preferredW, preferredH = o.saveSlots:getPreferredSize()
+    -- Add padding so the window chrome does not clip the content area
+    local windowW = math.max(420, preferredW + 40)
+    local windowH = math.max(540, preferredH + 60)
+
     o.window = Window.new({
         title = "Save & Load Game",
-        width = 400,
-        height = 500,
+        width = windowW,
+        height = windowH,
         useLoadPanelTheme = true,
         closable = true,
         onClose = function()
@@ -31,7 +34,7 @@ function SaveLoad:new(options)
     return o
 end
 
-function SaveLoad:mousepressed(player, mx, my, button, w, h)
+function SaveLoad:mousepressed(mx, my, button)
     return self.saveSlots:mousepressed(mx, my, button)
 end
 
