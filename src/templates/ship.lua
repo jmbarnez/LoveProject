@@ -172,14 +172,34 @@ function Ship.new(x, y, angle, friendly, shipConfig)
 
   -- Equipment grid setup
   local gridSize = shipConfig.equipmentSlots or 9
+  local layoutBySlot = {}
+  if type(shipConfig.equipmentLayout) == "table" then
+    for _, slotDef in ipairs(shipConfig.equipmentLayout) do
+      local idx = tonumber(slotDef.slot or slotDef.index)
+      if idx then
+        layoutBySlot[idx] = slotDef
+      end
+    end
+  end
+
   for i = 1, gridSize do
+    local slotDef = layoutBySlot[i]
+    local baseType = slotDef and slotDef.type or nil
     table.insert(self.components.equipment.grid, {
       id = nil,
       module = nil,
       enabled = false,
       slot = i,
-      type = nil  -- Will be set when module is equipped
+      type = baseType,
+      baseType = baseType,
+      label = slotDef and slotDef.label or nil,
+      icon = slotDef and slotDef.icon or nil,
+      meta = slotDef and slotDef.meta or nil
     })
+  end
+
+  if type(shipConfig.equipmentLayout) == "table" then
+    self.components.equipment.layout = shipConfig.equipmentLayout
   end
 
   -- Note: Default turret equipping removed temporarily to avoid initialization issues

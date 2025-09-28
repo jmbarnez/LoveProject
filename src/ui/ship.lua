@@ -11,6 +11,16 @@ local function pointInRect(px, py, rect)
   return px >= rect.x and px < rect.x + rect.w and py >= rect.y and py < rect.y + rect.h
 end
 
+local function clamp(value, minValue, maxValue)
+    if value < minValue then
+        return minValue
+    end
+    if value > maxValue then
+        return maxValue
+    end
+    return value
+end
+
 -- Debug function to check loaded turrets
 function Ship.debugTurrets()
   -- No-op in production; left for potential future debugging hooks
@@ -48,6 +58,22 @@ local function resolveModuleDisplayName(entry)
         return module.proceduralName or module.name or entry.id
     end
     return entry.id
+end
+
+local function resolveSlotType(slotData)
+    if not slotData then return nil end
+    return slotData.baseType or slotData.type
+end
+
+local function resolveSlotHeaderLabel(slotType)
+    if slotType == "turret" then
+        return "Turret Slots"
+    elseif slotType == "shield" then
+        return "Shield Slots"
+    elseif slotType == "utility" then
+        return "Utility Slots"
+    end
+    return "Module Slots"
 end
 
 local function buildHotbarPreview(player, gridOverride)
@@ -191,8 +217,9 @@ function Ship:new()
     o.hotbarButtons = {}
     o.window = Window.new({
         title = "Ship Fitting",
-        width = 700,
-        height = 400,
+        width = 1280,
+        height = 800,
+        resizable = true,
         useLoadPanelTheme = true,
         draggable = true,
         closable = true,
@@ -204,6 +231,10 @@ function Ship:new()
             Ship.visible = false
         end
     })
+    o.statsScroll = 0
+    o.slotScroll = 0
+    o.statsViewRect = nil
+    o.slotViewRect = nil
     Ship.window = o.window
     Ship._instance = Ship._instance or o
     return o
@@ -224,6 +255,8 @@ end
 
 function Ship.show()
   local instance = Ship.ensure()
+  instance.statsScroll = 0
+  instance.slotScroll = 0
   Ship.visible = true
   if instance.window then
     if not instance.window.visible then
@@ -320,13 +353,18 @@ function Ship:updateDropdowns(player)
                     local def = itemDef or turretDef
                     if def then
                         local allowed = false
-                        if slotData and slotData.type == "turret" then
+                        local slotType = resolveSlotType(slotData)
+                        if slotType == "turret" then
                             allowed = turretDef ~= nil
-                        elseif slotData and slotData.type then
-                            if itemDef and itemDef.module and itemDef.module.type == slotData.type then
+                        elseif slotType == "shield" then
+                            if itemDef and itemDef.module and itemDef.module.type == "shield" then
+                                allowed = true
+                            elseif turretDef and turretDef.module and turretDef.module.type == "shield" then
                                 allowed = true
                             end
                         else
+                            -- For any slot (including those with different module types equipped),
+                            -- show all items that have modules or are turrets
                             if itemDef and itemDef.module then
                                 allowed = true
                             elseif turretDef and turretDef.module then
@@ -385,268 +423,377 @@ function Ship:updateDropdowns(player)
         end
         self.slotDropdowns[i]._actions = actions
         self.removeButtons[i] = self.removeButtons[i] or {hover = false}
-    self.hotbarButtons[i] = self.hotbarButtons[i] or {}
-    local hotbarValue = slotData and slotData.hotbarSlot or 0
-    self.hotbarButtons[i].value = hotbarValue or 0
-    self.hotbarButtons[i].enabled = slotData and slotData.module -- Enable for any module with content
-    self.hotbarButtons[i].rect = nil
+        self.hotbarButtons[i] = self.hotbarButtons[i] or {}
+        local hotbarValue = slotData and slotData.hotbarSlot or 0
+        self.hotbarButtons[i].value = hotbarValue or 0
+        local baseSlotType = resolveSlotType(slotData)
+        self.hotbarButtons[i].enabled = baseSlotType == "turret" and slotData and slotData.module
+        self.hotbarButtons[i].rect = nil
     end
 end
 
 function Ship:draw(player, x, y, w, h)
-  player = player or PlayerRef.get()
-  if not player then return end
-  -- Safety checks for parameters
-  if not x or not y or not w or not h then
-    return
-  end
-  
-  -- Ship Header Section
-  local pad = (Theme.ui and Theme.ui.contentPadding) or 16
-  local cx, cy = x + pad, y + pad
-  local headerHeight = 60
-  
-  -- Ship visual/icon area
-  Theme.drawGradientGlowRect(cx, cy, w - pad * 2, headerHeight, 6,
-    Theme.colors.bg2, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak)
-  
-  local iconSize = 48
-  local iconX, iconY = cx + 8, cy + 6
-  
-  -- Ship icon placeholder (could be actual ship sprite in future)
-  Theme.setColor(Theme.colors.accent)
-  love.graphics.circle("line", iconX + iconSize/2, iconY + iconSize/2, iconSize/2 - 2)
-  Theme.setColor(Theme.colors.textSecondary)
-  love.graphics.printf("SHIP", iconX, iconY + iconSize/2 - 6, iconSize, "center")
-  
-  -- Ship info
-  local infoX = iconX + iconSize + 12
-  Theme.setColor(Theme.colors.textHighlight)
-  local font = Theme.fonts and Theme.fonts.medium or love.graphics.getFont()
-  love.graphics.setFont(font)
-  local shipName = player.name or (player.ship and player.ship.name) or "Unknown Ship"
-  love.graphics.print(shipName, infoX, iconY + 2)
-  
-  Theme.setColor(Theme.colors.text)
-  local smallFont = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
-  love.graphics.setFont(smallFont)
-  local shipClass = player.class or (player.ship and player.ship.class) or "Unknown Class"
-  love.graphics.print("Class: " .. shipClass, infoX, iconY + 22)
-  
-  -- Status indicator
-  local statusColor = player.docked and Theme.colors.success or Theme.colors.warning
-  local statusText = player.docked and "DOCKED - Fitting Available" or "UNDOCKED - Fitting Locked"
-  Theme.setColor(statusColor)
-  love.graphics.print(statusText, infoX, iconY + 36)
-  
-  cy = cy + headerHeight + 20
+    player = player or PlayerRef.get()
+    if not player then
+        return
+    end
 
-  -- Equipment Grid Section with Stats on the left
-  local gridSlots = (player.components and player.components.equipment and player.components.equipment.grid) or {}
+    if not x or not y or not w or not h then
+        return
+    end
 
-  local availableWidth = w - pad * 2
-  local statsWidth = math.min(240, math.floor(availableWidth * 0.4))
-  local spacing = 20
-  local gridWidth = availableWidth - statsWidth - spacing
-  if gridWidth < 320 then
-      gridWidth = 320
-      statsWidth = availableWidth - gridWidth - spacing
-  end
+    local pad = (Theme.ui and Theme.ui.contentPadding) or 16
+    local cx, cy = x + pad, y + pad
+    local headerHeight = 60
 
-  local gridHeight = h - headerHeight - 40
+    Theme.drawGradientGlowRect(cx, cy, w - pad * 2, headerHeight, 6,
+        Theme.colors.bg2, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak)
 
-  Theme.drawGradientGlowRect(cx, cy, w - pad * 2, gridHeight, 6,
-    Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
+    local iconSize = 48
+    local iconX, iconY = cx + 8, cy + 6
 
-  -- Stats section
-  local statsX = cx + 8
-  local statsY = cy + 12
-  local statsInnerWidth = statsWidth - 16
+    Theme.setColor(Theme.colors.accent)
+    love.graphics.circle("line", iconX + iconSize / 2, iconY + iconSize / 2, iconSize / 2 - 2)
+    Theme.setColor(Theme.colors.textSecondary)
+    love.graphics.printf("SHIP", iconX, iconY + iconSize / 2 - 6, iconSize, "center")
 
-  Theme.setColor(Theme.colors.bg2)
-  love.graphics.rectangle("fill", statsX, statsY, statsInnerWidth, gridHeight - 24, 4, 4)
+    local infoX = iconX + iconSize + 12
+    Theme.setColor(Theme.colors.textHighlight)
+    love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
+    local shipName = player.name or (player.ship and player.ship.name) or "Unknown Ship"
+    love.graphics.print(shipName, infoX, iconY + 2)
 
-  local contentX = statsX + 12
-  local contentY = statsY + 12
+    Theme.setColor(Theme.colors.text)
+    local smallFont = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
+    love.graphics.setFont(smallFont)
+    local shipClass = player.class or (player.ship and player.ship.class) or "Unknown Class"
+    love.graphics.print("Class: " .. shipClass, infoX, iconY + 22)
 
-  Theme.setColor(Theme.colors.textHighlight)
-  love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
-  love.graphics.print("Ship Stats", contentX, contentY)
+    local statusColor = player.docked and Theme.colors.success or Theme.colors.warning
+    local statusText = player.docked and "DOCKED - Fitting Available" or "UNDOCKED - Fitting Locked"
+    Theme.setColor(statusColor)
+    love.graphics.print(statusText, infoX, iconY + 36)
 
-  contentY = contentY + 26
-  love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+    cy = cy + headerHeight + 20
 
-  local hComp = player.components and player.components.health or {}
-  local statsList = {}
-  if hComp.maxHP and hComp.maxHP > 0 then
-      table.insert(statsList, { label = "Hull HP", value = hComp.maxHP, color = Theme.colors.statusHull })
-  end
-  if hComp.maxShield and hComp.maxShield > 0 then
-      table.insert(statsList, { label = "Shield HP", value = hComp.maxShield, color = Theme.colors.statusShield })
-  end
-  if hComp.maxEnergy and hComp.maxEnergy > 0 then
-      table.insert(statsList, { label = "Capacitor", value = hComp.maxEnergy, color = Theme.colors.statusCapacitor })
-  end
+    local gridSlots = (player.components and player.components.equipment and player.components.equipment.grid) or {}
+    local availableWidth = w - pad * 2
+    local statsWidth = math.min(320, math.floor(availableWidth * 0.4))
+    local spacing = 24
+    local gridWidth = availableWidth - statsWidth - spacing
+    if gridWidth < 480 then
+        gridWidth = 480
+        statsWidth = availableWidth - gridWidth - spacing
+    end
 
-  Theme.setColor(Theme.colors.textSecondary)
-  local lineHeight = 22
-  for _, statData in ipairs(statsList) do
-      Theme.setColor(Theme.colors.textSecondary)
-      love.graphics.print(statData.label .. ":", contentX, contentY)
-      Theme.setColor(statData.color or Theme.colors.text)
-      local valueStr = statData.value
-      if type(statData.value) == "number" and statData.value >= 1000 then
-          valueStr = string.format("%.1fk", statData.value / 1000)
-      end
-      love.graphics.print(tostring(valueStr), contentX + 110, contentY)
-      contentY = contentY + lineHeight
-  end
+    local gridHeight = h - headerHeight - 40
 
-  -- Grid section (fitting)
-  local gridX = statsX + statsWidth + spacing
-  local gridY = cy + 12
+    Theme.drawGradientGlowRect(cx, cy, w - pad * 2, gridHeight, 6,
+        Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
 
-  -- Hotbar preview block
-  local hotbarPreviewHeight = 70
-  local hotbarPreviewWidth = math.max(280, gridWidth - 16)
-  Theme.setColor(Theme.colors.bg2)
-  love.graphics.rectangle("fill", gridX, gridY, hotbarPreviewWidth, hotbarPreviewHeight, 4, 4)
+    local statsX = cx + 8
+    local statsY = cy + 12
+    local statsInnerWidth = statsWidth - 16
+    local statsViewHeight = gridHeight - 24
 
+    Theme.setColor(Theme.colors.bg2)
+    love.graphics.rectangle("fill", statsX, statsY, statsInnerWidth, statsViewHeight, 4, 4)
 
-  local slotSize = 40
-  local slotGap = 14
-  local slotsY = gridY + 28
-  local slotsX = gridX + 12
-  local hotbarPreview = buildHotbarPreview(player)
-  for slotIndex = 1, #HotbarSystem.slots do
-      local slot = HotbarSystem.slots[slotIndex]
-      local sx = slotsX + (slotIndex - 1) * (slotSize + slotGap)
-      Theme.setColor(Theme.colors.bg1)
-      love.graphics.rectangle("fill", sx, slotsY, slotSize, slotSize, 4, 4)
-      Theme.setColor(Theme.colors.border)
-      love.graphics.rectangle("line", sx, slotsY, slotSize, slotSize, 4, 4)
+    local hComp = player.components and player.components.health or {}
+    local statsList = {}
+    if hComp.maxHP and hComp.maxHP > 0 then
+        table.insert(statsList, { label = "Hull HP", value = hComp.maxHP, color = Theme.colors.statusHull })
+    end
+    if hComp.maxShield and hComp.maxShield > 0 then
+        table.insert(statsList, { label = "Shield HP", value = hComp.maxShield, color = Theme.colors.statusShield })
+    end
+    if hComp.maxEnergy and hComp.maxEnergy > 0 then
+        table.insert(statsList, { label = "Capacitor", value = hComp.maxEnergy, color = Theme.colors.statusCapacitor })
+    end
 
-      local keyLabel = formatHotbarKeyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(slotIndex))
-      Theme.setColor(Theme.colors.textSecondary)
-      love.graphics.setFont(Theme.fonts and Theme.fonts.tiny or love.graphics.getFont())
-      love.graphics.printf(keyLabel, sx, slotsY - 16, slotSize, "center")
+    local lineHeight = 22
+    local statsContentHeight = 26 + (#statsList * lineHeight) + 16
+    local statsClipX, statsClipY, statsClipW, statsClipH = statsX, statsY, statsInnerWidth, statsViewHeight
+    local statsViewInnerHeight = math.max(0, statsClipH - 24)
+    local statsMinScroll = math.min(0, statsViewInnerHeight - statsContentHeight)
+    self.statsScroll = clamp(self.statsScroll or 0, statsMinScroll, 0)
+    local statsScroll = self.statsScroll
 
-      local previewEntry = hotbarPreview[slotIndex]
-      if previewEntry and previewEntry.item then
-          local entryLabel = previewEntry.label or previewEntry.item
-          if entryLabel then
-              if previewEntry.origin == "preferred" then
-                  Theme.setColor(Theme.colors.textHighlight)
-              elseif previewEntry.origin == "auto" then
-                  Theme.setColor(Theme.colors.text)
-              else
-                  Theme.setColor(Theme.colors.textSecondary)
-              end
-          end
+    love.graphics.setScissor(statsClipX, statsClipY, statsClipW, statsClipH)
+    love.graphics.push()
+    love.graphics.translate(0, statsScroll)
 
-          if previewEntry.gridIndex and player.components and player.components.equipment and player.components.equipment.grid[previewEntry.gridIndex] then
-              local gridEntry = player.components.equipment.grid[previewEntry.gridIndex]
-              Theme.setColor(Theme.colors.text)
-              local iconSize = slotSize - 6
-              HotbarUI.drawTurretIcon(gridEntry.module or resolveModuleDisplayName(gridEntry), sx + 3, slotsY + 3, iconSize)
-          elseif entryLabel then
-              Theme.setColor(Theme.colors.text)
-              love.graphics.printf(entryLabel, sx - 30, slotsY + slotSize * 0.5 - 6, slotSize + 60, "center")
-          end
-      end
-  end
+    local contentX = statsX + 12
+    local contentY = statsY + 12
 
-  local infoY = gridY + hotbarPreviewHeight + 6
+    Theme.setColor(Theme.colors.textHighlight)
+    love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
+    love.graphics.print("Ship Stats", contentX, contentY)
 
-  gridY = infoY + 18
-  local gridPanelWidth = gridWidth - 16
-  Theme.setColor(Theme.colors.bg2)
-  love.graphics.rectangle("fill", gridX, gridY, gridPanelWidth, gridHeight - (gridY - (cy + 12)) - 24, 4, 4)
+    contentY = contentY + 26
+    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
 
-  Theme.setColor(Theme.colors.textHighlight)
-  love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
-  love.graphics.print("Fitting Slots", gridX + 12, gridY + 12)
+    for _, statData in ipairs(statsList) do
+        Theme.setColor(Theme.colors.textSecondary)
+        love.graphics.print(statData.label .. ":", contentX, contentY)
+        Theme.setColor(statData.color or Theme.colors.text)
+        local valueStr = statData.value
+        if type(statData.value) == "number" and statData.value >= 1000 then
+            valueStr = string.format("%.1fk", statData.value / 1000)
+        end
+        love.graphics.print(tostring(valueStr), contentX + 110, contentY)
+        contentY = contentY + lineHeight
+    end
 
-  love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-  local mx, my = Viewport.getMousePosition()
-  local slotY = gridY + 44
-  for i, slotData in ipairs(gridSlots) do
-      local dropdown = self.slotDropdowns[i]
-      if dropdown then
-          Theme.setColor(Theme.colors.textSecondary)
-          love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-          love.graphics.print("Slot " .. i .. ":", gridX + 12, slotY + 4)
+    love.graphics.pop()
+    love.graphics.setScissor()
+    self.statsViewRect = {
+        x = statsClipX,
+        y = statsClipY,
+        w = statsClipW,
+        h = statsClipH,
+        minScroll = statsMinScroll
+    }
 
-          local dropdownX = gridX + 70
-          dropdown:setPosition(dropdownX, slotY)
-          dropdown:drawButtonOnly(mx, my)
+    local gridX = statsX + statsWidth + spacing
+    local gridY = cy + 12
 
-          local hotbarButton = self.hotbarButtons[i]
-          local hotbarWidth = 80  -- Increased from 70
-          local hotbarX = dropdownX + dropdown.width + 8
-          local hotbarY = slotY
-          local hotbarRect = { x = hotbarX, y = hotbarY, w = hotbarWidth, h = dropdown.optionHeight }
-          local hotbarHover = pointInRect(mx, my, hotbarRect)
-          -- Store rect in absolute coordinates for consistency with other UI elements
-          hotbarButton.rect = { x = hotbarX, y = hotbarY, w = hotbarWidth, h = dropdown.optionHeight }
-          hotbarButton.hover = hotbarHover
+    local hotbarPreviewHeight = 80
+    local hotbarPreviewWidth = gridWidth - 16
+    Theme.setColor(Theme.colors.bg2)
+    love.graphics.rectangle("fill", gridX, gridY, hotbarPreviewWidth, hotbarPreviewHeight, 4, 4)
 
+    local slotSize = 40
+    local slotGap = 14
+    local slotsY = gridY + 32
+    local slotsX = gridX + 12
+    local hotbarPreview = buildHotbarPreview(player)
+    for slotIndex = 1, #HotbarSystem.slots do
+        local sx = slotsX + (slotIndex - 1) * (slotSize + slotGap)
+        Theme.setColor(Theme.colors.bg1)
+        love.graphics.rectangle("fill", sx, slotsY, slotSize, slotSize, 4, 4)
+        Theme.setColor(Theme.colors.border)
+        love.graphics.rectangle("line", sx, slotsY, slotSize, slotSize, 4, 4)
 
+        local keyLabel = formatHotbarKeyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(slotIndex))
+        Theme.setColor(Theme.colors.textSecondary)
+        love.graphics.setFont(Theme.fonts and Theme.fonts.tiny or love.graphics.getFont())
+        love.graphics.printf(keyLabel, sx, slotsY - 18, slotSize, "center")
 
-          -- Add remove button only if there's a module
-          if slotData and slotData.module then
-            local removeBtnSize = dropdown.optionHeight
-            local removeX = hotbarX + hotbarWidth + 8
-            local removeY = slotY
-            local removeRect = {x = removeX, y = removeY, w = removeBtnSize, h = removeBtnSize}
-            local removeHover = pointInRect(mx, my, removeRect)
-            -- Store rect in absolute coordinates for consistency with other UI elements
-            self.removeButtons[i].rect = {x = removeX, y = removeY, w = removeBtnSize, h = removeBtnSize}
-            self.removeButtons[i].hover = removeHover
+        local previewEntry = hotbarPreview[slotIndex]
+        if previewEntry and previewEntry.item then
+            local entryLabel = previewEntry.label or previewEntry.item
+            if previewEntry.origin == "preferred" then
+                Theme.setColor(Theme.colors.textHighlight)
+            elseif previewEntry.origin == "auto" then
+                Theme.setColor(Theme.colors.text)
+            else
+                Theme.setColor(Theme.colors.textSecondary)
+            end
 
-            hotbarButton.removeRect = {x = removeX, y = removeY, w = removeBtnSize, h = removeBtnSize}
-            hotbarButton.removeHover = removeHover
+            if previewEntry.gridIndex and player.components and player.components.equipment and player.components.equipment.grid[previewEntry.gridIndex] then
+                local gridEntry = player.components.equipment.grid[previewEntry.gridIndex]
+                Theme.setColor(Theme.colors.text)
+                local iconSize = slotSize - 6
+                HotbarUI.drawTurretIcon(gridEntry.module or resolveModuleDisplayName(gridEntry), sx + 3, slotsY + 3, iconSize)
+            elseif entryLabel then
+                love.graphics.printf(entryLabel, sx - 30, slotsY + slotSize * 0.5 - 6, slotSize + 60, "center")
+            end
+        end
+    end
 
-            local hotbarLabel = "Auto"
-            local hbValue = hotbarButton.value or 0
-            if hbValue > 0 then
-                local keyLabel = formatHotbarKeyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(hbValue))
-                if keyLabel == "Unbound" then
-                    hotbarLabel = string.format("Slot %d", hbValue)
-                else
-                    hotbarLabel = string.format("Slot %d (%s)", hbValue, keyLabel)
+    local infoY = gridY + hotbarPreviewHeight + 8
+    gridY = infoY + 20
+    local gridPanelWidth = gridWidth - 16
+    local slotPanelHeight = gridHeight - (gridY - (cy + 12)) - 24
+    Theme.setColor(Theme.colors.bg2)
+    love.graphics.rectangle("fill", gridX, gridY, gridPanelWidth, slotPanelHeight, 4, 4)
+
+    Theme.setColor(Theme.colors.textHighlight)
+    love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
+    love.graphics.print("Fitting Slots", gridX + 12, gridY + 12)
+
+    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+    local labelFont = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
+    local labelHeights = {}
+    local slotClipX = gridX + 4
+    local slotClipY = gridY + 40
+    local slotClipW = gridPanelWidth - 8
+    local slotClipH = math.max(40, slotPanelHeight - 40)
+    local maxLabelWidthAvailable = math.max(1, slotClipW - 24)
+
+    local slotBaseY = gridY + 44
+    local slotCursor = slotBaseY
+    local lastSlotType = nil
+    local rowSpacing = 20
+    for i, slotData in ipairs(gridSlots) do
+        local slotType = resolveSlotType(slotData) or "module"
+        if lastSlotType ~= slotType then
+            slotCursor = slotCursor + 30
+            lastSlotType = slotType
+        end
+        local dropdown = self.slotDropdowns[i]
+        local optionHeight = (dropdown and dropdown.optionHeight) or 24
+        local labelText = ((slotData and slotData.label) or ("Slot " .. i)) .. ":"
+        local labelWidth = labelFont:getWidth(labelText)
+        local lineCount = math.max(1, math.ceil(labelWidth / maxLabelWidthAvailable))
+        local labelHeight = lineCount * labelFont:getHeight()
+        labelHeights[i] = labelHeight
+        local extraHotbarHeight = (slotType == "turret") and (optionHeight + 20) or 0
+        slotCursor = slotCursor + labelHeight + optionHeight + extraHotbarHeight + rowSpacing
+    end
+    local slotContentHeight = slotCursor - slotBaseY + 16
+    local slotViewInnerHeight = math.max(0, slotClipH - 16)
+    local slotMinScroll = math.min(0, slotViewInnerHeight - slotContentHeight)
+    self.slotScroll = clamp(self.slotScroll or 0, slotMinScroll, 0)
+    local slotScroll = self.slotScroll
+
+    love.graphics.setScissor(slotClipX, slotClipY, slotClipW, slotClipH)
+    local slotY = slotBaseY
+    local currentSlotHeader = nil
+    local mx, my = Viewport.getMousePosition()
+
+    for i, slotData in ipairs(gridSlots) do
+        local slotType = resolveSlotType(slotData) or "module"
+        if currentSlotHeader ~= slotType then
+            Theme.setColor(Theme.colors.textHighlight)
+            love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
+            love.graphics.print(resolveSlotHeaderLabel(slotType), gridX + 12, slotY + slotScroll)
+            slotY = slotY + 30
+            currentSlotHeader = slotType
+        end
+
+        local dropdown = self.slotDropdowns[i]
+        if dropdown then
+            local drawY = slotY + slotScroll
+            local labelHeight = labelHeights[i] or labelFont:getHeight()
+            local extraHotbarHeight = (slotType == "turret") and (dropdown.optionHeight + 20) or 0
+            local rowRectX = slotClipX + 2
+            local rowRectY = drawY - 6
+            local rowRectW = slotClipW - 4
+            local rowRectH = math.max(36, labelHeight + dropdown.optionHeight + extraHotbarHeight + 16)
+
+            local rowHover = mx and my and pointInRect(mx, my, { x = rowRectX, y = rowRectY, w = rowRectW, h = rowRectH })
+            Theme.setColor(rowHover and Theme.withAlpha(Theme.colors.hover, 0.85) or Theme.withAlpha(Theme.colors.bg3, 0.55))
+            love.graphics.rectangle("fill", rowRectX, rowRectY, rowRectW, rowRectH, 6, 6)
+
+            Theme.setColor(Theme.withAlpha(Theme.colors.border, rowHover and 0.45 or 0.28))
+            love.graphics.setLineWidth(1)
+            love.graphics.rectangle("line", rowRectX + 0.5, rowRectY + 0.5, rowRectW - 1, rowRectH - 1, 6, 6)
+
+            Theme.setColor(Theme.withAlpha(Theme.colors.accent, rowHover and 0.8 or 0.45))
+            love.graphics.rectangle("fill", gridX + 8, rowRectY + 6, 2, rowRectH - 12, 2, 2)
+
+            Theme.setColor(Theme.colors.textSecondary)
+            love.graphics.setFont(labelFont)
+            local labelText = ((slotData and slotData.label) or ("Slot " .. i)) .. ":"
+            love.graphics.printf(labelText, gridX + 12, drawY, slotClipW - 24, "left")
+
+            local availableWidth = slotClipW - 24
+            local controlsY = drawY + labelHeight + 6
+
+            dropdown:setPosition(gridX + 12, controlsY)
+            dropdown.width = math.min(availableWidth, 340)
+            dropdown:drawButtonOnly(mx, my)
+
+            local hotbarButton = self.hotbarButtons[i]
+            if slotType == "turret" then
+                local hotbarY = controlsY + dropdown.optionHeight + 6
+                local hotbarWidth = availableWidth - dropdown.optionHeight - 8
+                if hotbarWidth < 72 then
+                    hotbarWidth = math.max(56, hotbarWidth)
                 end
+                local hotbarRect = { x = gridX + 12, y = hotbarY, w = hotbarWidth, h = dropdown.optionHeight }
+                local removeRect = { x = hotbarRect.x + hotbarRect.w + 8, y = hotbarRect.y, w = dropdown.optionHeight, h = dropdown.optionHeight }
+                if removeRect.x + removeRect.w > gridX + 12 + availableWidth then
+                    local overflow = (removeRect.x + removeRect.w) - (gridX + 12 + availableWidth)
+                    hotbarRect.w = math.max(56, hotbarRect.w - overflow)
+                    removeRect.x = hotbarRect.x + hotbarRect.w + 8
+                end
+                local hotbarHover = pointInRect(mx, my, hotbarRect)
+
+                hotbarButton.rect = hotbarRect
+                hotbarButton.hover = hotbarHover
+                hotbarButton.enabled = slotData and slotData.module
+
+                local hotbarLabel = "Auto Assign"
+                local hbValue = hotbarButton.value or 0
+                if slotData and slotData.module then
+                    if hbValue > 0 then
+                        local keyLabel = formatHotbarKeyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(hbValue))
+                        if keyLabel == "Unbound" then
+                            hotbarLabel = string.format("Slot %d", hbValue)
+                        else
+                            hotbarLabel = string.format("Slot %d (%s)", hbValue, keyLabel)
+                        end
+                    else
+                        hotbarLabel = "Auto Assign"
+                    end
+                else
+                    hotbarLabel = "No turret"
+                end
+
+                Theme.setColor(hotbarButton.enabled and (hotbarHover and Theme.colors.bg3 or Theme.colors.bg2) or Theme.colors.bg1)
+                love.graphics.rectangle("fill", hotbarRect.x, hotbarRect.y, hotbarRect.w, hotbarRect.h, 4, 4)
+                Theme.setColor(Theme.colors.border)
+                love.graphics.rectangle("line", hotbarRect.x + 0.5, hotbarRect.y + 0.5, hotbarRect.w - 1, hotbarRect.h - 1, 4, 4)
+                Theme.setColor(hotbarButton.enabled and Theme.colors.text or Theme.colors.textDisabled)
+                local oldFont = love.graphics.getFont()
+                if Theme.fonts and Theme.fonts.tiny then
+                    love.graphics.setFont(Theme.fonts.tiny)
+                elseif Theme.fonts and Theme.fonts.small then
+                    love.graphics.setFont(Theme.fonts.small)
+                end
+                love.graphics.printf(hotbarLabel, hotbarRect.x + 6, hotbarRect.y + (hotbarRect.h - love.graphics.getFont():getHeight()) * 0.5, hotbarRect.w - 12, "center")
+                if oldFont then love.graphics.setFont(oldFont) end
+
+                if slotData and slotData.module then
+                    local removeHover = pointInRect(mx, my, removeRect)
+
+                    self.removeButtons[i].rect = removeRect
+                    self.removeButtons[i].hover = removeHover
+                    hotbarButton.removeRect = removeRect
+                    hotbarButton.removeHover = removeHover
+
+                    Theme.setColor(removeHover and Theme.colors.danger or Theme.colors.bg1)
+                    love.graphics.rectangle("fill", removeRect.x, removeRect.y, removeRect.w, removeRect.h, 4, 4)
+                    Theme.setColor(Theme.colors.border)
+                    love.graphics.rectangle("line", removeRect.x + 0.5, removeRect.y + 0.5, removeRect.w - 1, removeRect.h - 1, 4, 4)
+                    Theme.setColor(Theme.colors.text)
+                    love.graphics.printf("x", removeRect.x, removeRect.y + (removeRect.h - love.graphics.getFont():getHeight()) * 0.5, removeRect.w, "center")
+                else
+                    hotbarButton.removeRect = nil
+                    hotbarButton.removeHover = nil
+                    self.removeButtons[i].rect = nil
+                    self.removeButtons[i].hover = false
+                end
+            else
+                hotbarButton.enabled = false
+                hotbarButton.rect = nil
+                hotbarButton.removeRect = nil
+                hotbarButton.removeHover = nil
+                self.removeButtons[i].rect = nil
+                self.removeButtons[i].hover = false
+
+                Theme.setColor(Theme.colors.textTertiary)
+                love.graphics.setFont(labelFont)
+                love.graphics.printf("Passive Module", gridX + 12, controlsY + dropdown.optionHeight + 4, slotClipW - 24, "left")
             end
 
-            Theme.setColor(hotbarButton.enabled and (hotbarHover and Theme.colors.bg3 or Theme.colors.bg2) or Theme.colors.bg1)
-            love.graphics.rectangle("fill", hotbarX, hotbarY, hotbarWidth, dropdown.optionHeight, 3, 3)
-            Theme.setColor(Theme.colors.border)
-            love.graphics.setLineWidth(1)
-            love.graphics.rectangle("line", hotbarX + 0.5, hotbarY + 0.5, hotbarWidth - 1, dropdown.optionHeight - 1, 3, 3)
-            Theme.setColor(hotbarButton.enabled and Theme.colors.text or Theme.colors.textDisabled)
-            local oldFont = love.graphics.getFont()
-            if Theme.fonts and Theme.fonts.tiny then
-                love.graphics.setFont(Theme.fonts.tiny)
-            elseif Theme.fonts and Theme.fonts.small then
-                love.graphics.setFont(Theme.fonts.small)
-            end
-            love.graphics.printf(hotbarLabel, hotbarX + 4, hotbarY + dropdown.optionHeight * 0.5 - love.graphics.getFont():getHeight() * 0.5, hotbarWidth - 8, "center")
-            if oldFont then love.graphics.setFont(oldFont) end
+            slotY = slotY + labelHeight + dropdown.optionHeight + extraHotbarHeight + rowSpacing
+        end
+    end
 
-            -- Draw remove button
-            Theme.setColor(removeHover and Theme.colors.danger or Theme.colors.bg1)
-            love.graphics.rectangle("fill", removeX, removeY, removeBtnSize, removeBtnSize, 3, 3)
-            Theme.setColor(Theme.colors.border)
-            love.graphics.setLineWidth(1)
-            love.graphics.rectangle("line", removeX + 0.5, removeY + 0.5, removeBtnSize - 1, removeBtnSize - 1, 3, 3)
-            Theme.setColor(Theme.colors.text)
-            love.graphics.printf("×", removeX + 4, removeY + removeBtnSize * 0.5 - love.graphics.getFont():getHeight() * 0.5, removeBtnSize - 8, "center")
-          end
-
-          slotY = slotY + dropdown.optionHeight + 12
-      end
-  end
+    love.graphics.setScissor()
+    self.slotViewRect = {
+        x = slotClipX,
+        y = slotClipY,
+        w = slotClipW,
+        h = slotClipH,
+        minScroll = slotMinScroll
+    }
 end
+
 
 function Ship:drawDropdownOptions()
     local mx, my = Viewport.getMousePosition()
@@ -856,6 +1003,36 @@ function Ship:mousemoved(playerArg, xArg, yArg, dxArg, dyArg)
 
     return handled
 end
+
+function Ship:wheelmoved(x, y, dx, dy)
+    local instance = Ship.ensure()
+    if not Ship.visible or not instance.window or not instance.window.visible then
+        return false
+    end
+
+    -- Handle case where parameters might be nil
+    if dy == nil or dy == 0 then
+        return false
+    end
+
+    local handled = false
+    local scrollDelta = dy * 28
+
+    if instance.statsViewRect and pointInRectSimple(x, y, instance.statsViewRect) then
+        local minScroll = instance.statsViewRect.minScroll or 0
+        instance.statsScroll = clamp((instance.statsScroll or 0) + scrollDelta, minScroll, 0)
+        handled = true
+    end
+
+    if instance.slotViewRect and pointInRectSimple(x, y, instance.slotViewRect) then
+        local minScroll = instance.slotViewRect.minScroll or 0
+        instance.slotScroll = clamp((instance.slotScroll or 0) + scrollDelta, minScroll, 0)
+        handled = true
+    end
+
+    return handled
+end
+
 
 function Ship.keypressed(key)
   if key == "f9" then

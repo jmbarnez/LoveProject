@@ -74,8 +74,9 @@ function Player.new(x, y, shipId)
           local slot = self.components.equipment.grid[i]
           slot.id = nil
           slot.module = nil
-          slot.type = nil
           slot.enabled = false
+          slot.hotbarSlot = nil
+          slot.type = slot.baseType or slot.type or nil
       end
   end
 
@@ -374,14 +375,23 @@ function Player:equipModule(slotNum, moduleId, turretData)
                 self:unequipModule(slotNum)
             end
 
-            -- Equip the new module
-            self.components.equipment.grid[i] = {
-                id = moduleId,
-                module = actualModule,
-                enabled = true,
-                slot = slotNum,
-                type = moduleType
-            }
+            local baseType = gridData.baseType
+            if baseType and moduleType ~= baseType then
+                return false
+            end
+
+            if gridData.module then
+                self:unequipModule(slotNum)
+                gridData = self.components.equipment.grid[i]
+                baseType = gridData.baseType
+            end
+
+            gridData.id = moduleId
+            gridData.module = actualModule
+            gridData.enabled = true
+            gridData.slot = slotNum
+            gridData.type = moduleType
+            gridData.baseType = baseType
 
             -- Remove from inventory only if it was actually in inventory
             if cargo then
@@ -430,14 +440,12 @@ function Player:unequipModule(slotNum)
                 end
             end
 
-            -- Remove module from slot
-            self.components.equipment.grid[i] = {
-                id = nil,
-                module = nil,
-                enabled = false,
-                slot = slotNum,
-                type = nil
-            }
+            local slotRef = self.components.equipment.grid[i]
+            slotRef.id = nil
+            slotRef.module = nil
+            slotRef.enabled = false
+            slotRef.type = slotRef.baseType or nil
+            slotRef.hotbarSlot = nil
 
             -- Update systems based on module type
             if moduleType == "shield" then

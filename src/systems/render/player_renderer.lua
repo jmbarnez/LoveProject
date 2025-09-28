@@ -18,21 +18,21 @@ local function drawPlayerShip(entity, size)
     local v = props.visuals or {}
     local S = RenderUtils.createScaler(size)
 
-    -- Calculate turret angle to track cursor
+    -- Calculate turret angle to track cursor (relative to ship rotation)
     local turretAngle = 0
     if entity.components and entity.components.position and entity.cursorWorldPos then
         -- Use the cursor world position that's already calculated by the input system
         local shipX, shipY = entity.components.position.x, entity.components.position.y
         local cursorX, cursorY = entity.cursorWorldPos.x, entity.cursorWorldPos.y
-        
-        -- Calculate angle from ship to cursor
+
+        -- Calculate angle from ship to cursor in world space
         local dx = cursorX - shipX
         local dy = cursorY - shipY
-        turretAngle = math.atan2(dy, dx)
-        
-        -- Adjust for ship's current rotation (turret angle relative to ship body)
+        local worldAngle = math.atan2(dy, dx)
+
+        -- Convert to angle relative to ship's rotation
         local shipAngle = entity.components.position.angle or 0
-        turretAngle = turretAngle - shipAngle
+        turretAngle = worldAngle - shipAngle + math.pi / 2
     end
 
     if type(v.shapes) == "table" and #v.shapes > 0 then
@@ -41,16 +41,32 @@ local function drawPlayerShip(entity, size)
             if shape.turret then
                 -- Rotate turret components to track cursor
                 love.graphics.push()
-                -- Translate to turret center, rotate, then draw
-                if shape.type == "rectangle" then
-                    love.graphics.translate(S(shape.x + shape.w/2), S(shape.y + shape.h/2))
-                    love.graphics.rotate(turretAngle)
-                    love.graphics.translate(S(-(shape.x + shape.w/2)), S(-(shape.y + shape.h/2)))
+                local pivot = shape.turretPivot or v.turretPivot
+                local pivotX, pivotY
+
+                if type(pivot) == "table" then
+                    pivotX = pivot.x or 0
+                    pivotY = pivot.y or 0
+                elseif type(pivot) == "number" then
+                    pivotX = pivot
+                    pivotY = 0
+                elseif shape.turretPivotX or shape.turretPivotY then
+                    pivotX = shape.turretPivotX or 0
+                    pivotY = shape.turretPivotY or 0
                 else
-                    love.graphics.translate(S(shape.x or 0), S(shape.y or 0))
-                    love.graphics.rotate(turretAngle)
-                    love.graphics.translate(S(-(shape.x or 0)), S(-(shape.y or 0)))
+                    if shape.type == "rectangle" then
+                        pivotX = (shape.x or 0) + (shape.w or 0) / 2
+                        pivotY = (shape.y or 0) + (shape.h or 0) / 2
+                    else
+                        pivotX = shape.x or 0
+                        pivotY = shape.y or 0
+                    end
                 end
+
+                love.graphics.translate(S(pivotX), S(pivotY))
+                love.graphics.rotate(turretAngle)
+                love.graphics.translate(S(-pivotX), S(-pivotY))
+
                 RenderUtils.drawShape(shape, S)
                 love.graphics.pop()
             else

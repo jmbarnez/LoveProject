@@ -34,8 +34,17 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
         local ty = target.components.position.y
         angle = math.atan2(ty - sy, tx - sx)
     else
-        -- For manual firing, use the owner's facing direction
-        angle = turret.owner.components.position.angle or 0
+        -- For manual firing, use the cursor direction
+        if turret.owner.cursorWorldPos and turret.owner.components and turret.owner.components.position then
+            local shipX, shipY = turret.owner.components.position.x, turret.owner.components.position.y
+            local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
+            local dx = cursorX - shipX
+            local dy = cursorY - shipY
+            angle = math.atan2(dy, dx)
+        else
+            -- Fallback to ship facing if cursor position not available
+            angle = turret.owner.components.position.angle or 0
+        end
     end
 
     -- Perform hitscan collision check

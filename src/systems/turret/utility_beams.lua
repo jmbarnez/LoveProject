@@ -12,8 +12,18 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
         return
     end
 
-    -- Manual shooting - fire in the direction the player is facing
-    local angle = turret.owner.components.position.angle or 0
+    -- Manual shooting - fire in the direction of the cursor
+    local angle = 0
+    if turret.owner.cursorWorldPos and turret.owner.components and turret.owner.components.position then
+        local shipX, shipY = turret.owner.components.position.x, turret.owner.components.position.y
+        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
+        local dx = cursorX - shipX
+        local dy = cursorY - shipY
+        angle = math.atan2(dy, dx)
+    else
+        -- Fallback to ship facing if cursor position not available
+        angle = turret.owner.components.position.angle or 0
+    end
     local sx = turret.owner.components.position.x
     local sy = turret.owner.components.position.y
 
@@ -150,8 +160,18 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
         return
     end
 
-    -- Manual shooting - fire in the direction the player is facing
-    local angle = turret.owner.components.position.angle or 0
+    -- Manual shooting - fire in the direction of the cursor
+    local angle = 0
+    if turret.owner.cursorWorldPos and turret.owner.components and turret.owner.components.position then
+        local shipX, shipY = turret.owner.components.position.x, turret.owner.components.position.y
+        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
+        local dx = cursorX - shipX
+        local dy = cursorY - shipY
+        angle = math.atan2(dy, dx)
+    else
+        -- Fallback to ship facing if cursor position not available
+        angle = turret.owner.components.position.angle or 0
+    end
     local sx = turret.owner.components.position.x
     local sy = turret.owner.components.position.y
 

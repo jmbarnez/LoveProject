@@ -298,6 +298,7 @@ end
 function UIManager.update(dt, player)
   -- Sync with legacy UI state variables
   UIManager.state.inventory.open = Inventory.visible or false
+  UIManager.state.ship.open = Ship.visible or false
   UIManager.state.bounty.open = Bounty.visible or false
   UIManager.state.docked.open = DockedUI.isVisible()
   UIManager.state.escape.open = EscapeMenu.visible or false
@@ -309,13 +310,15 @@ function UIManager.update(dt, player)
   UIManager.state.debug.open = DebugPanel.isVisible()
   
   -- Update modal state
-  UIManager.modalActive = UIManager.state.escape.open or UIManager.state.map.open or UIManager.state.warp.open or SettingsPanel.visible
+  UIManager.modalActive = UIManager.state.escape.open or UIManager.state.map.open or UIManager.state.warp.open or UIManager.state.ship.open or SettingsPanel.visible
   if SettingsPanel.visible then
     UIManager.modalComponent = "settings"
   elseif UIManager.state.escape.open and UIManager.state.escape.showingSaveSlots then
     UIManager.modalComponent = "escape_save_slots"
   elseif UIManager.state.escape.open then
     UIManager.modalComponent = "escape"
+  elseif UIManager.state.ship.open then
+    UIManager.modalComponent = "ship"
   elseif UIManager.state.map.open then
     UIManager.modalComponent = "map"
   elseif UIManager.state.warp.open then
@@ -760,7 +763,12 @@ function UIManager.mousemoved(x, y, dx, dy)
   return false
 end
 
-function UIManager.wheelmoved(dx, dy)
+function UIManager.wheelmoved(x, y, dx, dy)
+  -- Handle case where dy might be nil
+  if dy == nil then
+    return false
+  end
+
   if SettingsPanel.visible and SettingsPanel.wheelmoved then
     local mx, my = love.mouse.getPosition()
     if SettingsPanel.wheelmoved(mx, my, dx, dy) then return true end
@@ -768,6 +776,9 @@ function UIManager.wheelmoved(dx, dy)
   if Bounty.visible and Bounty.wheelmoved then
     local mx, my = love.mouse.getPosition()
     if Bounty.wheelmoved(mx, my, dx, dy) then return true end
+  end
+  if Ship.visible and Ship.wheelmoved then
+    if Ship.wheelmoved(x, y, dx, dy) then return true end
   end
   local versionLogModule = Registry.get("version_log") or UIManager.versionLog
   if not versionLogModule then

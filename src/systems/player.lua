@@ -82,15 +82,13 @@ function PlayerSystem.update(dt, player, input, world, hub)
     local UIManager = require("src.core.ui_manager")
     local modalActive = UIManager and UIManager.isModalActive and UIManager.isModalActive() or false
 
-    -- Face the mouse cursor with smooth, high-turn-rate tracking (disabled while modal)
-    if not modalActive and input and input.aimx and input.aimy then
-        local dx = input.aimx - ppos.x
-        local dy = input.aimy - ppos.y
-        local desiredAngle = math.atan2(dy, dx)
+    -- Face the direction of movement (disabled while modal)
+    if not modalActive and body and (body.vx ~= 0 or body.vy ~= 0) then
+        local desiredAngle = math.atan2(body.vy, body.vx)
         local currentAngle = body.angle or 0
         local diff = (desiredAngle - currentAngle + math.pi) % (2 * math.pi) - math.pi
-        -- Limit how fast we can turn for a more skill-based feel (radians/sec)
-        local maxTurnRate = 6.0
+        -- Almost instant turning for responsive feel
+        local maxTurnRate = 50.0
         local step = math.max(-maxTurnRate * dt, math.min(maxTurnRate * dt, diff))
         body.angle = currentAngle + step
         player.components.position.angle = body.angle
@@ -262,7 +260,8 @@ function PlayerSystem.update(dt, player, input, world, hub)
         player.cursorWorldPos = { x = input.aimx, y = input.aimy }
     end
 
-    -- Ship body now faces cursor; turrets inherit via renderer
+    -- Ship maintains its heading (no cursor-facing rotation)
+    -- Turret rotation is handled in the renderer system
 
     -- Update physics and sync components
     if player.components.physics and player.components.physics.update then

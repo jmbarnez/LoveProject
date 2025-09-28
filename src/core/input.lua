@@ -376,7 +376,9 @@ function Input.love_wheelmoved(dx, dy)
             return
         end
     end
-    if mainState.UIManager and mainState.UIManager.wheelmoved and mainState.UIManager.wheelmoved(dx, dy) then
+    local mx, my = love.mouse.getPosition()
+    local vx, vy = Viewport.toVirtual(mx, my)
+    if mainState.UIManager and mainState.UIManager.wheelmoved and mainState.UIManager.wheelmoved(vx, vy, dx, dy) then
       return
     end
     Input.wheelmoved(dx, dy)
