@@ -32,6 +32,17 @@ local function applyWindowBounds(window)
     window.width, window.height = width, height
 end
 
+local function adjustContextMenuPosition(menuX, menuY, menuW, menuH)
+    local sw, sh = Viewport.getDimensions()
+    if menuX + menuW > sw then
+        menuX = sw - menuW - 10
+    end
+    if menuY + menuH > sh then
+        menuY = sh - menuH - 10
+    end
+    return menuX, menuY
+end
+
 -- State
 DockedUI.visible = false
 DockedUI.player = nil
@@ -181,7 +192,7 @@ function DockedUI.drawContent(window, x, y, w, h)
     end
 
     -- Draw context menu for numeric purchase/sale
-    if DockedUI.contextMenu.visible then
+    if DockedUI.contextMenu.visible and DockedUI.contextMenu.item then
         local menu = DockedUI.contextMenu
         local x_, y_, w_, h_ = menu.x, menu.y, 180, 110
         Theme.drawGradientGlowRect(x_, y_, w_, h_, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
@@ -189,7 +200,7 @@ function DockedUI.drawContent(window, x, y, w, h)
         -- Item name
         Theme.setColor(Theme.colors.textHighlight)
         love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-        love.graphics.printf(menu.item.name, x_, y_ + 6, w_, "center")
+        love.graphics.printf(menu.item.name or "Unknown Item", x_, y_ + 6, w_, "center")
 
         -- Quantity input field
         local inputW, inputH = 100, 28
@@ -218,7 +229,7 @@ function DockedUI.drawContent(window, x, y, w, h)
 
         -- Action button
         local btnW, btnH = 100, 28
-        local btnX, btnY = x_ + (w_ - btnW) / 2, y_ + 78
+        local btnX, btnY = x_ + (w_ - btnW) / 2, y_ + 70
         local btnHover = mx >= btnX and mx <= btnX + btnW and my >= btnY and my <= btnY + btnH
         local actionText = menu.type == "buy" and "BUY" or "SELL"
         local canAfford = true
@@ -235,7 +246,7 @@ function DockedUI.drawContent(window, x, y, w, h)
         menu._buttonRect = { x = btnX, y = btnY, w = btnW, h = btnH }
     end
 
-    if DockedUI.activeTab == "Ship" and DockedUI.equipment then
+    if DockedUI.activeTab == "Shop" and DockedUI.equipment then
         DockedUI.equipment:drawDropdownOptions()
     end
 end
@@ -297,6 +308,7 @@ end
 
 -- Draw shop items
 function DockedUI.drawShopItems(x, y, w, h, player)
+  DockedUI.shopScroll = 0 -- Disable scrolling for shop items
   return Shop.drawShopItems(DockedUI, x, y, w, h, player)
 end
 
@@ -398,15 +410,18 @@ function DockedUI.mousepressed(x, y, button, player)
     end
 
     -- Handle context menu first
-    if DockedUI.contextMenu and DockedUI.contextMenu.visible then
+    if DockedUI.contextMenu and DockedUI.contextMenu.visible and DockedUI.contextMenu.item then
         local menu = DockedUI.contextMenu
         local w_, h_ = 180, 110
+        -- Check if the click is inside the context menu
         if x >= menu.x and x <= menu.x + w_ and y >= menu.y and y <= menu.y + h_ then
             if button == 1 then
+                -- Check for click on the quantity input field
                 if menu._inputRect and x >= menu._inputRect.x and x <= menu._inputRect.x + menu._inputRect.w and y >= menu._inputRect.y and y <= menu._inputRect.y + menu._inputRect.h then
                     DockedUI.contextMenuActive = true
-                    return true, false
+                    return true, false -- Consume the click
                 end
+                -- Check for click on the action button (BUY/SELL)
                 if menu._buttonRect and x >= menu._buttonRect.x and x <= menu._buttonRect.x + menu._buttonRect.w and y >= menu._buttonRect.y and y <= menu._buttonRect.y + menu._buttonRect.h then
                     local qty = tonumber(menu.quantity) or 0
                     if qty > 0 and currentPlayer then
@@ -423,13 +438,15 @@ function DockedUI.mousepressed(x, y, button, player)
                     end
                     DockedUI.contextMenu.visible = false
                     DockedUI.contextMenuActive = false
-                    return true, false
+                    return true, false -- Consume the click
                 end
             end
-            return true, false
+            return true, false -- Consume the click if it's anywhere else inside the menu
         else
+            -- If the click is outside the menu, close it
             DockedUI.contextMenu.visible = false
-            return true, false
+            DockedUI.contextMenuActive = false
+            -- Do not return here, let the click fall through to other elements if needed
         end
     end
 
@@ -477,12 +494,13 @@ function DockedUI.mousepressed(x, y, button, player)
             end
     
             if DockedUI.activeShopTab == "Buy" and DockedUI._shopItems then
-                for _, itemUI in ipairs(DockedUI._shopItems) do
+                for i, itemUI in ipairs(DockedUI._shopItems) do
                     if x >= itemUI.x and x <= itemUI.x + itemUI.w and y >= itemUI.y and y <= itemUI.y + itemUI.h then
+                        local menuX, menuY = adjustContextMenuPosition(x + 10, y + 10, 180, 110)
                         DockedUI.contextMenu = {
                             visible = true,
-                            x = x + 10,
-                            y = y + 10,
+                            x = menuX,
+                            y = menuY,
                             item = itemUI.item,
                             quantity = "1",
                             type = "buy"
@@ -597,12 +615,6 @@ function DockedUI.wheelmoved(dx, dy, player)
   if DockedUI.activeTab == "Nodes" and DockedUI.nodes and DockedUI.nodes.wheelmoved then
     return DockedUI.nodes:wheelmoved(DockedUI.player, dx, dy)
   end
-  -- Shop tab: scroll list
-  if DockedUI.activeTab == "Shop" then
-    local delta = -dy * 24 -- scroll speed in pixels per wheel tick
-    DockedUI.shopScroll = math.max(0, math.min(DockedUI.shopScroll + delta, DockedUI._shopMaxScroll or 0))
-    return true
-  end
   return false
 end
 
@@ -625,7 +637,7 @@ function DockedUI.keypressed(key, scancode, isrepeat, player)
     end
   end
 
-  if DockedUI.contextMenu.visible then
+  if DockedUI.contextMenu.visible and DockedUI.contextMenu.item then
     local menu = DockedUI.contextMenu
     if DockedUI.contextMenuActive then
       -- Text input mode
@@ -707,7 +719,7 @@ function DockedUI.textinput(text, player)
     return true
   end
 
-  if DockedUI.contextMenu.visible and DockedUI.contextMenuActive then
+  if DockedUI.contextMenu.visible and DockedUI.contextMenuActive and DockedUI.contextMenu.item then
     if text:match("%d") then
       local menu = DockedUI.contextMenu
       if menu.quantity == "0" then menu.quantity = "" end

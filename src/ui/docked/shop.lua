@@ -199,53 +199,50 @@ function Shop.drawShopItems(DockedUI, x, y, w, h, player)
   DockedUI._shopItems = {}
   local currentHoveredItem = nil
   local itemFullH = slotH + padding
-  local totalRows = math.ceil(#shopItems / cols)
-  local contentHeight = math.max(0, totalRows * itemFullH - padding)
-  local maxScroll = math.max(0, contentHeight - h)
-  DockedUI.shopScroll = math.max(0, math.min(DockedUI.shopScroll or 0, maxScroll))
+  
   love.graphics.push()
-  love.graphics.setScissor(x, y, w, h)
+
   for i, item in ipairs(shopItems) do
     local index = i - 1
     local row = math.floor(index / cols)
     local col = index % cols
     local sx = startX + col * (slotW + padding)
-    local sy = startY + row * (slotH + padding) - DockedUI.shopScroll
+    local sy = startY + row * (slotH + padding)
     local dx = math.floor(sx + 0.5)
     local dy = math.floor(sy + 0.5)
-    if sy + slotH >= startY and sy <= startY + h then
-      local hover = mx >= sx and my >= sy and mx <= sx + slotW and my <= sy + slotH
-      if hover then currentHoveredItem = { x = dx, y = dy, w = slotW, h = slotH, item = item } end
-      if hover then
-        Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
-      else
-        Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
-      end
-      local iconSize = 48
-      local iconPad = (slotW - iconSize) / 2
-      local subject = Content.getTurret(item.id) or Content.getItem(item.id) or item.id
-      IconSystem.drawIconAny({ subject, item.id }, dx + iconPad, dy + iconPad, iconSize, 1.0)
-      Theme.setColor(Theme.colors.accent)
-      love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-      love.graphics.printf("∞", dx + 4, dy + 2, slotW - 4, "left")
-      local qtyOwned = 0
-      if player and player.components and player.components.cargo and player.components.cargo.getQuantity then
-        qtyOwned = player.components.cargo:getQuantity(item.id)
-      end
-      local countText = Util.formatNumber(qtyOwned)
-      local countWidth = love.graphics.getFont():getWidth(countText)
-      local countX = dx + slotW - countWidth - 4
-      local countY = dy + slotH - 14
-      if qtyOwned > 0 then Theme.setColor(Theme.colors.textHighlight) else Theme.setColor(Theme.colors.textDisabled) end
-      love.graphics.print(countText, countX, countY)
-      Theme.setColor(Theme.colors.accentGold)
-      love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-      local priceText = Util.formatNumber(item.price)
-      local priceWidth = love.graphics.getFont():getWidth(priceText)
-      love.graphics.print(priceText, dx + slotW - priceWidth - 12, dy + 2)
-      Theme.drawCurrencyToken(dx + slotW - 10, dy + 2, 8)
-      table.insert(DockedUI._shopItems, { x = dx, y = dy, w = slotW, h = slotH, item = item, canAfford = (player:getGC() >= item.price) })
+
+    local hover = mx >= sx and my >= sy and mx <= sx + slotW and my <= sy + slotH
+    if hover then currentHoveredItem = { x = dx, y = dy, w = slotW, h = slotH, item = item } end
+
+    if hover then
+      Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+    else
+      Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
     end
+    local iconSize = 48
+    local iconPad = (slotW - iconSize) / 2
+    local subject = Content.getTurret(item.id) or Content.getItem(item.id) or item.id
+    IconSystem.drawIconAny({ subject, item.id }, dx + iconPad, dy + iconPad, iconSize, 1.0)
+    Theme.setColor(Theme.colors.accent)
+    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+    love.graphics.printf("∞", dx + 4, dy + 2, slotW - 4, "left")
+    local qtyOwned = 0
+    if player and player.components and player.components.cargo and player.components.cargo.getQuantity then
+      qtyOwned = player.components.cargo:getQuantity(item.id)
+    end
+    local countText = Util.formatNumber(qtyOwned)
+    local countWidth = love.graphics.getFont():getWidth(countText)
+    local countX = dx + slotW - countWidth - 4
+    local countY = dy + slotH - 14
+    if qtyOwned > 0 then Theme.setColor(Theme.colors.textHighlight) else Theme.setColor(Theme.colors.textDisabled) end
+    love.graphics.print(countText, countX, countY)
+    Theme.setColor(Theme.colors.accentGold)
+    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+    local priceText = Util.formatNumber(item.price)
+    local priceWidth = love.graphics.getFont():getWidth(priceText)
+    love.graphics.print(priceText, dx + slotW - priceWidth - 12, dy + 2)
+    Theme.drawCurrencyToken(dx + slotW - 10, dy + 2, 8)
+    table.insert(DockedUI._shopItems, { x = dx, y = dy, w = slotW, h = slotH, item = item, canAfford = (player:getGC() >= item.price) })
   end
   if currentHoveredItem then
     if DockedUI.hoveredItem and DockedUI.hoveredItem.item.id == currentHoveredItem.item.id then
@@ -262,25 +259,7 @@ function Shop.drawShopItems(DockedUI, x, y, w, h, player)
     DockedUI.hoveredItem = nil
     DockedUI.hoverTimer = 0
   end
-  love.graphics.setScissor()
   love.graphics.pop()
-  if contentHeight > h then
-    local scrollBarW = 8
-    local scrollBarX = x + w - scrollBarW - 6
-    local scrollBarY = y + 4
-    local scrollBarH = h - 8
-    Theme.setColor(Theme.withAlpha(Theme.colors.bg3, 0.6))
-    love.graphics.rectangle("fill", scrollBarX, scrollBarY, scrollBarW, scrollBarH)
-    local thumbH = math.max(20, (h / contentHeight) * scrollBarH)
-    local tPct = (DockedUI.shopScroll / (maxScroll > 0 and maxScroll or 1))
-    local thumbY = scrollBarY + tPct * (scrollBarH - thumbH)
-    Theme.setColor(Theme.colors.accent)
-    love.graphics.rectangle("fill", scrollBarX, thumbY, scrollBarW, thumbH)
-    DockedUI._shopScrollBar = { x = scrollBarX, y = scrollBarY, w = scrollBarW, h = scrollBarH, thumbY = thumbY, thumbH = thumbH }
-    DockedUI._shopMaxScroll = maxScroll
-  else
-    DockedUI._shopScrollBar = nil
-  end
 end
 
 return Shop
