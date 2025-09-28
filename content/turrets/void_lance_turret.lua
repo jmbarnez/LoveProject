@@ -1,0 +1,40 @@
+return {
+    id = "void_lance_turret",
+    type = "laser",
+    name = "Void Lance",
+    description = "Experimental dark energy beam that bypasses shields and siphons energy.",
+    price = 3800,
+    module = { type = "turret" },
+    icon = {
+        size = 32,
+        shapes = {
+            { type = "rectangle", mode = "fill", color = {0.04, 0.05, 0.08, 1}, x = 9, y = 10, w = 16, h = 16, rx = 3 },
+            { type = "circle", mode = "fill", color = {0.10, 0.15, 0.25, 1}, x = 16, y = 18, r = 5 },
+            { type = "polygon", mode = "fill", color = {0.30, 0.10, 0.55, 0.9}, points = {12, 8, 20, 8, 18, 4, 14, 4} },
+            { type = "polygon", mode = "fill", color = {0.85, 0.40, 1.00, 0.85}, points = {14, 6, 18, 6, 19, 2, 13, 2} },
+        }
+    },
+    spread = { minDeg = 0.02, maxDeg = 0.12, decay = 1300 },
+    projectile = "void_lance_beam",
+    tracer = { color = {0.85, 0.40, 1.00, 0.95}, width = 1.4, coreRadius = 1.0 },
+    impact = {
+        shield = { spanDeg = 100, color1 = {0.60, 0.30, 0.95, 0.7}, color2 = {0.35, 0.15, 0.85, 0.5} },
+        hull = { spark = {0.80, 0.40, 1.0, 0.6}, ring = {0.45, 0.20, 0.85, 0.45} },
+    },
+    optimal = 1900,
+    falloff = 1100,
+    damage_range = { min = 4, max = 7 },
+    cycle = 2.4,
+    capCost = 7,
+    projectileSpeed = 5600,
+    maxRange = 2600,
+    shieldBypass = 0.6,
+    energyLeech = 3.0,
+    maxHeat = 140,
+    heatPerShot = 20,
+    cooldownRate = 32,
+    overheatCooldown = 5.5,
+    heatCycleMult = 0.75,
+    heatEnergyMult = 1.4,
+    fireMode = "manual"
+}

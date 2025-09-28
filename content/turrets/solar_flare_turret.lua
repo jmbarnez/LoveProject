@@ -1,0 +1,40 @@
+return {
+    id = "solar_flare_turret",
+    type = "laser",
+    name = "Solar Flare",
+    description = "Flare emitter that unleashes radiant bursts causing area burn damage.",
+    price = 2700,
+    module = { type = "turret" },
+    icon = {
+        size = 32,
+        shapes = {
+            { type = "rectangle", mode = "fill", color = {0.12, 0.08, 0.04, 1}, x = 8, y = 12, w = 18, h = 14, rx = 3 },
+            { type = "circle", mode = "fill", color = {0.35, 0.18, 0.05, 1}, x = 16, y = 18, r = 4 },
+            { type = "circle", mode = "fill", color = {1.00, 0.65, 0.10, 0.9}, x = 16, y = 10, r = 3.5 },
+            { type = "polygon", mode = "fill", color = {1.00, 0.85, 0.40, 0.8}, points = {13, 6, 16, 2, 19, 6, 16, 4} },
+        }
+    },
+    spread = { minDeg = 0.3, maxDeg = 1.2, decay = 700 },
+    projectile = "solar_flare",
+    tracer = { color = {1.00, 0.70, 0.20, 0.9}, width = 2.0, coreRadius = 2.2 },
+    impact = {
+        shield = { spanDeg = 90, color1 = {1.0, 0.70, 0.30, 0.6}, color2 = {1.0, 0.50, 0.15, 0.4} },
+        hull = { spark = {1.0, 0.55, 0.10, 0.6}, ring = {1.0, 0.45, 0.05, 0.45} },
+    },
+    optimal = 1000,
+    falloff = 800,
+    damage_range = { min = 3, max = 4.5 },
+    cycle = 1.2,
+    capCost = 4,
+    projectileSpeed = 4400,
+    maxRange = 1600,
+    burnRadius = 160,
+    burnDamage = { amount = 1.2, duration = 4.0 },
+    maxHeat = 115,
+    heatPerShot = 12,
+    cooldownRate = 26,
+    overheatCooldown = 4.8,
+    heatCycleMult = 0.6,
+    heatEnergyMult = 1.2,
+    fireMode = "automatic"
+}
