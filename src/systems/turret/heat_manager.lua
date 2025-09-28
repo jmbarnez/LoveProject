@@ -18,24 +18,33 @@ end
 function HeatManager.updateHeat(turret, dt, locked)
     if not turret.maxHeat or turret.maxHeat <= 0 then return end
 
-    -- Cool down when not firing or when locked (can't fire)
-    if locked or not turret.firing then
-        turret.currentHeat = math.max(0, turret.currentHeat - turret.cooldownRate * dt)
-
-        -- Check if we've cooled down from overheated state
-        if turret.overheated then
-            local timeSinceOverheat = (love.timer and love.timer.getTime() or 0) - turret.overheatStartTime
-            if timeSinceOverheat >= turret.overheatDuration then
-                turret.overheated = false
-            end
-        end
-    end
-
-    -- Check for overheating
+    -- If the turret overheats, force it into a cooldown phase until the heat bar is empty
     if turret.currentHeat >= turret.maxHeat and not turret.overheated then
         turret.overheated = true
         turret.overheatStartTime = love.timer and love.timer.getTime() or 0
+        turret.currentHeat = turret.maxHeat
         -- Optional: play overheat sound effect
+    end
+
+    -- Cool down when we're not actively firing, the turret is locked, or it's overheated
+    if locked or not turret.firing or turret.overheated then
+        local cooldownRate = turret.cooldownRate
+
+        -- When overheated, guarantee the bar drains within the configured overheat duration
+        if turret.overheated and turret.overheatDuration and turret.overheatDuration > 0 then
+            local forcedRate = turret.maxHeat / turret.overheatDuration
+            if forcedRate > cooldownRate then
+                cooldownRate = forcedRate
+            end
+        end
+
+        turret.currentHeat = math.max(0, turret.currentHeat - cooldownRate * dt)
+
+        -- Clear the overheated state once the heat bar has fully depleted
+        if turret.overheated and turret.currentHeat <= 0 then
+            turret.overheated = false
+            turret.currentHeat = 0
+        end
     end
 end
 
