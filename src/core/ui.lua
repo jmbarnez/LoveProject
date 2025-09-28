@@ -40,9 +40,6 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
   end
   Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, world:get_entities_with_components("mineable"))
   Hotbar.draw(player)
-  -- Skills panel
-  local SkillsPanel = require("src.ui.skills")
-  SkillsPanel.draw()
 end
 
 
@@ -414,10 +411,6 @@ function UI.drawHelpers(player, world, hub, camera)
     end
   end
 
-end
-
-function UI.hotbarMousePressed(player, mx, my, button)
-  return Hotbar.mousepressed(player, mx, my, button)
 end
 
 -- Export universal icon drawing helper

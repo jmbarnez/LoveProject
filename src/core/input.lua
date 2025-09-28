@@ -109,7 +109,7 @@ function Input.update(dt)
         if mainState.UIManager.isOpen("inventory")
             or mainState.UIManager.isOpen("bounty")
             or mainState.UIManager.isOpen("skills")
-            or mainState.UIManager.isOpen("map") then
+            or mainState.UIManager.isModalActive() then
             return
         end
     end
@@ -151,6 +151,15 @@ function Input.love_keypressed(key)
       return
     end
   elseif mainState.screen == "game" then
+    if key == "escape" then
+      if mainState.UIManager and mainState.UIManager.isModalActive() then
+        local modal = mainState.UIManager.getModalComponent()
+        if modal then
+          mainState.UIManager.close(modal)
+          return
+        end
+      end
+    end
     if key == "f5" then
       local StateManager = require("src.managers.state_manager")
       local success = StateManager.quickSave()
@@ -163,6 +172,17 @@ function Input.love_keypressed(key)
       return
     end
 
+    -- Use the active modal component to block input
+    if mainState.UIManager and mainState.UIManager.isModalActive() then
+        if mainState.UIManager.getModalComponent() ~= "settings" then
+            -- Allow settings panel to handle its own key events
+            return
+        end
+    end
+
+    if mainState.UIManager and mainState.UIManager.isTextInputActive and mainState.UIManager:isTextInputActive() then
+        return
+    end
     local textInputFocused = isUiTextInputFocused()
     if mainState.UIManager and mainState.UIManager.keypressed(key) then
       return
@@ -214,6 +234,7 @@ function Input.love_mousepressed(x, y, button)
             return
         end
     end
+    -- Use the active modal component to block input
     local vx, vy = Viewport.toVirtual(x, y)
     if mainState.UIManager and mainState.UIManager.mousepressed(vx, vy, button) then
       return
@@ -232,6 +253,7 @@ function Input.love_mousereleased(x, y, button)
             return
         end
     end
+    -- Use the active modal component to block input
     local vx, vy = Viewport.toVirtual(x, y)
     if mainState.UIManager and mainState.UIManager.mousereleased(vx, vy, button) then
       return

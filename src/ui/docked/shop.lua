@@ -45,7 +45,7 @@ local function openContextMenu(DockedUI, item, menuType, anchorX, anchorY)
   menu.y = menuY
   menu.item = item
   menu.type = menuType or "buy"
-  menu.quantity = ""  -- Start with empty string instead of "1"
+  menu.quantity = "1"
   DockedUI.contextMenuActive = false
   
   -- Pre-calculate button rectangle to ensure it's available for click detection

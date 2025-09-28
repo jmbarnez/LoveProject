@@ -146,7 +146,11 @@ local function toggleAction(name, bindingAction, component)
         callback = function(ctx)
             local ui = ctx and ctx.UIManager
             if ui and ui.toggle then
-                ui.toggle(component)
+                if ui.isOpen(component) then
+                    ui.close(component)
+                else
+                    ui.toggle(component)
+                end
                 return true
             end
             return false

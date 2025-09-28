@@ -132,7 +132,6 @@ function Start.new()
   })
   VersionLog.showWindow(self.versionWindow)
   self.loadSlotsUI = SaveSlots:new()
-  self.loadSlotsUI:setMode("load")
   self.showLoadUI = false
   -- Cache large title font (Press Start 2P)
   self.titleFont = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", 80)

@@ -194,7 +194,7 @@ Constants.STATION = {
 }
 
 Constants.PLAYER = {
-    STARTING_CREDITS = 500,
+    STARTING_CREDITS = 20000,
 }
 
 Constants.QUESTS = {

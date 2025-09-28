@@ -1002,13 +1002,7 @@ function EntityRenderers.draw(world, camera, player)
                 end
             end
             for i, turret in ipairs(turrets) do
-                if turret.drawHeatIndicator then
-                    local barWidth = 40
-                    local totalWidth = #turrets * barWidth + (#turrets - 1) * 5
-                    local startX = screenX - totalWidth / 2
-                    local barX = startX + (i - 1) * (barWidth + 5)
-                    turret:drawHeatIndicator(barX, screenY - 50, barWidth)
-                end
+
             end
         end
 

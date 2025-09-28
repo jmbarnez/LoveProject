@@ -1,7 +1,7 @@
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local SettingsPanel = require("src.ui.settings_panel")
-local SaveSlots = require("src.ui.save_slots")
+local SaveLoad = require("src.ui.save_load")
 local StateManager = require("src.managers.state_manager")
 local Window = require("src.ui.common.window")
 local UIButton = require("src.ui.common.button")
@@ -12,205 +12,7 @@ local EscapeMenu = {
     exitButtonDown = false,
     settingsButtonDown = false,
     saveButtonDown = false,
-    showSaveSlots = false,
-    saveSlotMode = "save",
-    saveSlotsUI = nil
-}
-
--- Save slots component for UI registry
-local SaveSlotsComponent = {
-    id = "escape_save_slots",
-    zIndex = 105, -- Above escape menu but below settings
-
-    isVisible = function()
-        return EscapeMenu.showSaveSlots and EscapeMenu.saveSlotsUI and EscapeMenu.visible
-    end,
-
-    getZ = function()
-        return 105 -- Above escape menu but below settings
-    end,
-
-    getRect = function()
-        if not (EscapeMenu.showSaveSlots and EscapeMenu.saveSlotsUI) then return nil end
-        local sw, sh = Viewport.getDimensions()
-
-        -- Defensive check to ensure saveSlotsUI is valid
-        if not EscapeMenu.saveSlotsUI or not EscapeMenu.saveSlotsUI.getPreferredSize then
-            return nil
-        end
-
-        local success, w, h = pcall(EscapeMenu.saveSlotsUI.getPreferredSize, EscapeMenu.saveSlotsUI)
-        if not success or type(w) ~= "number" or type(h) ~= "number" then return nil end
-        local contentW, contentH = w, h
-
-        -- Account for frame padding
-        local framePaddingX, framePaddingY = 20, 60
-        local frameW, frameH = contentW + framePaddingX, contentH + framePaddingY
-
-        local x = (sw - frameW) / 2
-        local y = (sh - frameH) / 2
-        return { x = x, y = y, w = frameW, h = frameH }
-    end,
-
-    draw = function(ctx)
-        if not (EscapeMenu.showSaveSlots and EscapeMenu.saveSlotsUI) then return end
-        local sw, sh = Viewport.getDimensions()
-
-        -- Defensive check to ensure saveSlotsUI is valid
-        if not EscapeMenu.saveSlotsUI or not EscapeMenu.saveSlotsUI.getPreferredSize then
-            return
-        end
-
-        local success, w, h = pcall(EscapeMenu.saveSlotsUI.getPreferredSize, EscapeMenu.saveSlotsUI)
-        if not success or type(w) ~= "number" or type(h) ~= "number" then return end
-        local contentW, contentH = w, h
-
-        local x = (sw - contentW) / 2
-        local y = (sh - contentH) / 2
-
-        -- Draw sci-fi frame and background (replicating start screen)
-        local framePaddingX, framePaddingY = 20, 60
-        local frameW, frameH = contentW + framePaddingX, contentH + framePaddingY
-
-        -- Draw background same as other panels
-        Theme.setColor(Theme.colors.windowBg)
-        love.graphics.rectangle("fill", x, y, frameW, frameH)
-
-        Theme.drawSciFiFrame(x, y, frameW, frameH)
-
-        -- Draw save slots content with proper padding
-        EscapeMenu.saveSlotsUI:draw(x + 10, y + 50, contentW + framePaddingX - 20, contentH + framePaddingY - 60)
-    end,
-
-    mousepressed = function(x, y, button, ctx)
-        if not (EscapeMenu.showSaveSlots and EscapeMenu.saveSlotsUI) then return false end
-        if type(x) ~= "number" or type(y) ~= "number" then return false end
-        local sw, sh = Viewport.getDimensions()
-
-        if not EscapeMenu.saveSlotsUI or not EscapeMenu.saveSlotsUI.getPreferredSize then
-            return false
-        end
-
-        local success, w, h = pcall(EscapeMenu.saveSlotsUI.getPreferredSize, EscapeMenu.saveSlotsUI)
-        if not success or type(w) ~= "number" or type(h) ~= "number" then return false end
-        local contentW, contentH = w, h
-
-        local framePaddingX, framePaddingY = 20, 60
-        local frameW, frameH = contentW + framePaddingX, contentH + framePaddingY
-        local saveSlotsX = (sw - frameW) / 2
-        local saveSlotsY = (sh - frameH) / 2
-
-        -- Check if click is within save slots UI bounds (including frame)
-        if x >= saveSlotsX and x <= saveSlotsX + frameW and y >= saveSlotsY and y <= saveSlotsY + frameH then
-            -- Check back button first
-            local backButtonW, backButtonH = 80, 30
-            local backButtonX, backButtonY = saveSlotsX + 10, saveSlotsY + 10
-            if x >= backButtonX and x <= backButtonX + backButtonW and y >= backButtonY and y <= backButtonY + backButtonH then
-                EscapeMenu.showSaveSlots = false
-                if _G.UIManager and _G.UIManager.state and _G.UIManager.state.escape then
-                    _G.UIManager.state.escape.showingSaveSlots = false
-                end
-                Registry.unregister("escape_save_slots")
-                return true
-            end
-
-            -- Additional safety check before calling mousepressed
-            if EscapeMenu.saveSlotsUI and EscapeMenu.saveSlotsUI.mousepressed then
-                local result = EscapeMenu.saveSlotsUI:mousepressed(x, y, button, saveSlotsX + 10, saveSlotsY + 50, frameW - 20, frameH - 60)
-                if result == "loaded" then
-                    -- Load operation completed, return to escape menu
-                    EscapeMenu.showSaveSlots = false
-                    if _G.UIManager and _G.UIManager.state and _G.UIManager.state.escape then
-                        _G.UIManager.state.escape.showingSaveSlots = false
-                    end
-                    -- Unregister the component since we're closing it
-                    Registry.unregister("escape_save_slots")
-                elseif result == "saved" or result == "deleted" then
-                    -- Save/delete operation completed, keep panel open to show updated save
-                end
-                return true
-            end
-        end
-        return false
-    end,
-
-    mousereleased = function(x, y, button, ctx)
-        if not (EscapeMenu.showSaveSlots and EscapeMenu.saveSlotsUI) then return false end
-        if type(x) ~= "number" or type(y) ~= "number" then return false end
-        local sw, sh = Viewport.getDimensions()
-
-        if not EscapeMenu.saveSlotsUI or not EscapeMenu.saveSlotsUI.getPreferredSize then
-            return false
-        end
-
-        local success, w, h = pcall(EscapeMenu.saveSlotsUI.getPreferredSize, EscapeMenu.saveSlotsUI)
-        if not success or type(w) ~= "number" or type(h) ~= "number" then return false end
-        local contentW, contentH = w, h
-
-        local saveSlotsX = (sw - contentW) / 2
-        local saveSlotsY = (sh - contentH) / 2
-
-        -- Check if click is within save slots UI bounds
-        if x >= saveSlotsX and x <= saveSlotsX + contentW and y >= saveSlotsY and y <= saveSlotsY + contentH then
-            if EscapeMenu.saveSlotsUI and EscapeMenu.saveSlotsUI.mousereleased then
-                return EscapeMenu.saveSlotsUI:mousereleased(x, y, button, saveSlotsX, saveSlotsY, contentW, contentH)
-            end
-            return true
-        end
-        return false
-    end,
-
-    mousemoved = function(x, y, dx, dy, ctx)
-        if not (EscapeMenu.showSaveSlots and EscapeMenu.saveSlotsUI) then return false end
-        if type(x) ~= "number" or type(y) ~= "number" then return false end
-        local sw, sh = Viewport.getDimensions()
-
-        if not EscapeMenu.saveSlotsUI or not EscapeMenu.saveSlotsUI.getPreferredSize then
-            return false
-        end
-
-        local success, w, h = pcall(EscapeMenu.saveSlotsUI.getPreferredSize, EscapeMenu.saveSlotsUI)
-        if not success or type(w) ~= "number" or type(h) ~= "number" then
-            return false
-        end
-        local contentW, contentH = w, h
-
-        local saveSlotsX = (sw - contentW) / 2
-        local saveSlotsY = (sh - contentH) / 2
-
-        if x >= saveSlotsX and x <= saveSlotsX + contentW and y >= saveSlotsY and y <= saveSlotsY + contentH then
-            if EscapeMenu.saveSlotsUI and EscapeMenu.saveSlotsUI.mousemoved then
-                return EscapeMenu.saveSlotsUI:mousemoved(x, y, dx, dy, saveSlotsX, saveSlotsY, contentW, contentH)
-            end
-            return true
-        end
-        return false
-    end,
-
-    keypressed = function(key, scancode, isrepeat, ctx)
-        if not (EscapeMenu.showSaveSlots and EscapeMenu.saveSlotsUI) then return false end
-        if key == "escape" then
-            EscapeMenu.showSaveSlots = false
-            if _G.UIManager and _G.UIManager.state and _G.UIManager.state.escape then
-                _G.UIManager.state.escape.showingSaveSlots = false
-            end
-            -- Unregister the component since we're closing it
-            Registry.unregister("escape_save_slots")
-            return true
-        end
-        if EscapeMenu.saveSlotsUI and EscapeMenu.saveSlotsUI.keypressed then
-            return EscapeMenu.saveSlotsUI:keypressed(key, scancode, isrepeat)
-        end
-        return false
-    end,
-
-    textinput = function(text)
-        if not (EscapeMenu.showSaveSlots and EscapeMenu.saveSlotsUI) then return false end
-        if EscapeMenu.saveSlotsUI and EscapeMenu.saveSlotsUI.textinput then
-            return EscapeMenu.saveSlotsUI:textinput(text)
-        end
-        return false
-    end
+    saveLoadPanel = nil
 }
 
 local function pointIn(px, py, rx, ry, rw, rh)
@@ -270,10 +72,6 @@ end
 
 function EscapeMenu.show()
     EscapeMenu.visible = true
-    if not EscapeMenu.saveSlotsUI then
-        EscapeMenu.saveSlotsUI = SaveSlots:new()
-    end
-
     -- Game continues running when escape menu is opened
 end
 
@@ -334,15 +132,6 @@ function EscapeMenu.draw()
         EscapeMenu.window:draw()
     end
 
-    -- Register/draw save slots component if needed (drawn on top)
-    if EscapeMenu.showSaveSlots then
-        if not Registry.get("escape_save_slots") then
-            Registry.register(SaveSlotsComponent)
-        end
-        -- The registry will handle drawing the component
-    elseif not EscapeMenu.showSaveSlots and Registry.get("escape_save_slots") then
-        Registry.unregister("escape_save_slots")
-    end
 end
 
 function EscapeMenu.drawContent(window, x, y, w, h)
@@ -381,14 +170,6 @@ end
 function EscapeMenu.mousepressed(x, y, button)
     if not EscapeMenu.visible then return false, false end
 
-    -- If save slots are active, let its component handle the press
-    if EscapeMenu.showSaveSlots then
-        if SaveSlotsComponent and SaveSlotsComponent.mousepressed then
-            local result, consumed = SaveSlotsComponent.mousepressed(x, y, button)
-            return result, consumed
-        end
-        return true, false -- Consume click even if component is missing
-    end
 
     -- Handle window interaction (drag, close)
     if EscapeMenu.window and EscapeMenu.window:mousepressed(x, y, button) then
@@ -428,10 +209,6 @@ function EscapeMenu.mousereleased(x, y, button)
     if not EscapeMenu.visible then return false, false end
     if not EscapeMenu.window then return true, false end
 
-    -- If save slots are active, don't handle escape menu clicks
-    if EscapeMenu.showSaveSlots then
-        return true, false
-    end
 
     if EscapeMenu.window:mousereleased(x, y, button) then
         return true, false
@@ -448,15 +225,78 @@ function EscapeMenu.mousereleased(x, y, button)
         if EscapeMenu.saveButtonDown then
             EscapeMenu.saveButtonDown = false
             if pointIn(x, y, buttonX, saveButtonY, buttonW, buttonH) then
-                EscapeMenu.saveSlotMode = "save"
-                if EscapeMenu.saveSlotsUI then
-                    EscapeMenu.saveSlotsUI:setMode("save")
-                end
-                EscapeMenu.showSaveSlots = true
-                -- Notify UIManager that we're showing save slots
-                if _G.UIManager and _G.UIManager.state and _G.UIManager.state.escape then
-                    _G.UIManager.state.escape.showingSaveSlots = true
-                end
+                if EscapeMenu.saveLoadPanel then return true, false end
+
+                 EscapeMenu.saveLoadPanel = SaveLoad:new({
+                     onClose = function()
+                         Registry.unregister("save_load_panel")
+                         EscapeMenu.saveLoadPanel = nil
+                     end
+                 })
+                 
+                 -- Make the window visible and ensure it's centered
+                 if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.window then
+                     -- Center the window on screen
+                     local sw, sh = Viewport.getDimensions()
+                     EscapeMenu.saveLoadPanel.window.x = math.floor((sw - EscapeMenu.saveLoadPanel.window.width) * 0.5)
+                     EscapeMenu.saveLoadPanel.window.y = math.floor((sh - EscapeMenu.saveLoadPanel.window.height) * 0.5)
+                     EscapeMenu.saveLoadPanel.window:show()
+                 end
+
+                local saveLoadComponent = {
+                    id = "save_load_panel",
+                    zIndex = 115,
+                    isVisible = function() return EscapeMenu.saveLoadPanel ~= nil end,
+                    getZ = function() return 115 end,
+                    getRect = function()
+                        if EscapeMenu.saveLoadPanel then
+                            local w = EscapeMenu.saveLoadPanel.window
+                            return { x = w.x, y = w.y, w = w.width, h = w.height }
+                        end
+                        return nil
+                    end,
+                    draw = function()
+                        if EscapeMenu.saveLoadPanel then
+                            EscapeMenu.saveLoadPanel.window:draw()
+                        end
+                    end,
+                    mousepressed = function(x, y, button)
+                        if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.window:mousepressed(x, y, button) then
+                            if not EscapeMenu.saveLoadPanel.window.visible then
+                                -- Window was closed, unregister
+                                Registry.unregister("save_load_panel")
+                                EscapeMenu.saveLoadPanel = nil
+                            end
+                            return true
+                        end
+                        return false
+                    end,
+                    mousereleased = function(x, y, button)
+                        if EscapeMenu.saveLoadPanel then
+                            return EscapeMenu.saveLoadPanel.window:mousereleased(x, y, button)
+                        end
+                        return false
+                    end,
+                    mousemoved = function(x, y, dx, dy)
+                        if EscapeMenu.saveLoadPanel then
+                            return EscapeMenu.saveLoadPanel.window:mousemoved(x, y, dx, dy)
+                        end
+                        return false
+                    end,
+                    keypressed = function(key)
+                        if EscapeMenu.saveLoadPanel then
+                            return EscapeMenu.saveLoadPanel:keypressed(key)
+                        end
+                        return false
+                    end,
+                    textinput = function(text)
+                        if EscapeMenu.saveLoadPanel then
+                            return EscapeMenu.saveLoadPanel:textinput(text)
+                        end
+                        return false
+                    end
+                }
+                Registry.register(saveLoadComponent)
                 return true, false
             end
         end
@@ -492,10 +332,6 @@ function EscapeMenu.mousemoved(x, y, dx, dy)
     if not EscapeMenu.visible then return false end
     if not EscapeMenu.window then return true end
 
-    -- If save slots are active, consume movement
-    if EscapeMenu.showSaveSlots then
-        return true
-    end
 
     if EscapeMenu.window:mousemoved(x, y, dx, dy) then
         return true
@@ -506,14 +342,6 @@ end
 function EscapeMenu.keypressed(key)
     if not EscapeMenu.visible then return false end
     
-    -- If save slots are open, escape should close them first
-    if EscapeMenu.showSaveSlots then
-        if key == "escape" then
-            EscapeMenu.showSaveSlots = false
-            return true
-        end
-        return true -- Consume other keypresses
-    end
     
     if SettingsPanel.visible then
         if key == "escape" then

@@ -79,6 +79,24 @@ local function isTextInputFocused()
     return false
 end
 
+function UIManager.isTextInputActive()
+    if UIManager.state.inventory.open then
+        local Inventory = require("src.ui.inventory")
+        if Inventory.isSearchInputActive and Inventory.isSearchInputActive() then
+            return true
+        end
+    end
+
+    if UIManager.state.docked.open then
+        local DockedUI = require("src.ui.docked")
+        if DockedUI.isSearchActive and DockedUI.isSearchActive() then
+            return true
+        end
+    end
+
+    return false
+end
+
 -- Modal state - when true, blocks input to lower layers
 UIManager.modalActive = false
 UIManager.modalComponent = nil
