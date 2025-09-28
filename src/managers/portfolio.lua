@@ -6,7 +6,7 @@
 local PortfolioManager = {}
 
 PortfolioManager.holdings = {} -- { symbol = { quantity = number, avgPrice = number } }
-PortfolioManager.funds = 10000 -- Starting funds
+PortfolioManager.funds = 500 -- Starting funds
 PortfolioManager.transactionHistory = {}
 
 -- Initializes the portfolio, optionally loading from saved data
@@ -14,11 +14,11 @@ function PortfolioManager.init(savedData)
   if not PortfolioManager._initialized then
     if savedData then
       PortfolioManager.holdings = savedData.holdings or {}
-      PortfolioManager.funds = savedData.funds or 10000
+      PortfolioManager.funds = savedData.funds or 500
       PortfolioManager.transactionHistory = savedData.transactionHistory or {}
     else
       PortfolioManager.holdings = {}
-      PortfolioManager.funds = 10000
+      PortfolioManager.funds = 500
       PortfolioManager.transactionHistory = {}
     end
     PortfolioManager._initialized = true

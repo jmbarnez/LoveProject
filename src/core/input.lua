@@ -419,9 +419,7 @@ function Input.mousepressed(x, y, button)
     end
     -- UI interactions are handled earlier via UIManager in love_* callbacks
 
-    if require("src.ui.hud.hotbar").mousepressed(gameState.player, x, y, button) then return end
-
-    require("src.systems.hotbar").mousepressed(x, y, button, gameState.player)
+    -- Hotbar mouse interactions removed
 
     if button == 2 then
         mouseState.rightButtonDown = true
@@ -439,7 +437,7 @@ function Input.mousereleased(x, y, button)
         mouseState.rightButtonDown = false
     end
 
-    require("src.systems.hotbar").mousereleased(button, gameState.player)
+    -- Hotbar mouse interactions removed
     
     if SkillsPanel.isVisible() then
         local consumed, shouldClose = SkillsPanel.mousereleased(x, y, button)

@@ -216,73 +216,7 @@ function Hotbar.keyreleased(key, player)
     end
 end
 
--- Handle mouse button presses mapped to hotbar slots
-function Hotbar.mousepressed(x, y, button, player)
-    local HotbarSelection = require("src.ui.hud.hotbar_selection")
-    if HotbarSelection.mousepressed(x, y, button) then return true end
-
-    local btnKey = (button == 1) and "mouse1" or (button == 2) and "mouse2" or nil
-    if not btnKey then return false end
-    for i, slot in ipairs(Hotbar.slots) do
-        local bound = Hotbar.getSlotKey(i)
-        if bound == btnKey then
-            if type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
-                local idx = tonumber(slot.item:match('^turret_slot_(%d+)$'))
-                if idx then
-                    -- Get the turret to check its fireMode
-                    local Turret = require("src.systems.turret.core")
-                    local turret = Turret.getTurretBySlot(player, idx)
-                    if turret then
-                        if turret.fireMode == "automatic" then
-                            -- For automatic mode: toggle the autoFire state
-                            Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
-                            Hotbar.state.active.turret_slots[idx] = not Hotbar.state.active.turret_slots[idx]
-                        else
-                            -- For manual mode: set firing to true (will be cleared on mouse release)
-                            Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
-                            Hotbar.state.active.turret_slots[idx] = true
-                        end
-                    end
-                    return true
-                end
-            else
-                -- One-shot actions (none currently)
-                Hotbar.activate(i, player)
-                return true
-            end
-        end
-    end
-    return false
-end
-
--- Handle mouse button release to clear hold actions
-function Hotbar.mousereleased(button, player)
-    local btnKey = (button == 1) and "mouse1" or (button == 2) and "mouse2" or nil
-    if not btnKey then return false end
-    for i, slot in ipairs(Hotbar.slots) do
-        local bound = Hotbar.getSlotKey(i)
-        if bound == btnKey then
-            if type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
-                local idx = tonumber(slot.item:match('^turret_slot_(%d+)$'))
-                if idx then
-                    -- Get the turret to check its fireMode
-                    local Turret = require("src.systems.turret.core")
-                    local turret = Turret.getTurretBySlot(player, idx)
-                    if turret and turret.fireMode == "manual" then
-                        -- For manual mode: clear the firing state on mouse release
-                        Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
-                        Hotbar.state.active.turret_slots[idx] = false
-                    end
-                    return true
-                end
-            else
-                -- no-op for one-shot actions
-                return false
-            end
-        end
-    end
-    return false
-end
+-- Mouse interactions with hotbar removed - hotbar is now display-only
 
 function Hotbar.activate(slotIndex, player)
     local slot = Hotbar.slots[slotIndex]

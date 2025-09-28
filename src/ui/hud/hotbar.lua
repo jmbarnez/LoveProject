@@ -6,7 +6,7 @@ local Config = require("src.content.config")
 
 local Hotbar = {}
 
-local HotbarSelection = require("src.ui.hud.hotbar_selection")
+-- HotbarSelection removed - slot assignment disabled
 
 local function pointInRect(px, py, r)
   -- Handle nil values gracefully
@@ -76,7 +76,7 @@ function Hotbar.draw(player)
   local x = math.floor((sw - w) * 0.5)
   local y = sh - size - 42
 
-  local mx, my = Viewport.getMousePosition()
+  -- Mouse position tracking removed - no hover effects
 
   for i, slot in ipairs(HotbarSystem.slots) do
     local rx = x + (i - 1) * (size + gap)
@@ -146,16 +146,19 @@ function Hotbar.draw(player)
                   love.graphics.setColor(heatColor)
                   love.graphics.rectangle('fill', rx, barY, barWidth * heatFactor, barHeight)
 
-                  -- Overheat warning
+                  -- Heat bar border
+                  local borderColor = {0.4, 0.4, 0.4, 1}
+                  local borderWidth = 1
+
+                  -- Overheat warning - pulsing red border instead of solid overlay
                   if t.overheated then
                       local pulse = (math.sin(love.timer.getTime() * 8) + 1) / 2
-                      love.graphics.setColor(1, 0.1, 0.1, 0.6 + pulse * 0.4)
-                      love.graphics.rectangle('fill', rx, barY, barWidth, barHeight)
+                      borderColor = {1, 0.1 + pulse * 0.3, 0.1 + pulse * 0.3, 1}
+                      borderWidth = 2
                   end
 
-                  -- Heat bar border
-                  love.graphics.setColor(0.4, 0.4, 0.4, 1)
-                  love.graphics.setLineWidth(1)
+                  love.graphics.setColor(borderColor)
+                  love.graphics.setLineWidth(borderWidth)
                   love.graphics.rectangle('line', rx, barY, barWidth, barHeight)
               end
           end
@@ -208,7 +211,8 @@ function Hotbar.draw(player)
           local gridData = player.components.equipment.grid[idx]
           if gridData and gridData.module then
             local t = gridData.module
-            if t and t.cooldown and t.cooldown > 0 then
+            -- Don't show cooldown if turret is overheated (can't fire anyway)
+            if t and t.cooldown and t.cooldown > 0 and not t.overheated then
               local cycle = t.cycle or 1.0  -- Fallback to 1.0 if cycle is not available
               local cooldownPct = math.max(0, math.min(1, t.cooldown / cycle))
               if cooldownPct > 0 then
@@ -239,14 +243,15 @@ function Hotbar.draw(player)
           end
         end
       elseif slot.item == 'turret' then
-        -- Aggregate primary turret cooldown (max ratio across installed turrets)
+        -- Aggregate primary turret cooldown (max ratio across installed turrets that are not overheated)
         local best = 0
         local bestTime = 0
         if player.components and player.components.equipment and player.components.equipment.grid then
           for _, gridData in ipairs(player.components.equipment.grid) do
             if gridData.type == "turret" and gridData.module then
               local t = gridData.module
-              if t and (t.cooldown or 0) > 0 then
+              -- Only consider turrets that are not overheated for cooldown display
+              if t and (t.cooldown or 0) > 0 and not t.overheated then
                   local effectiveCycle = t:getHeatModifiedCycle()
                   if effectiveCycle > 0 then
                       local pct = math.max(0, math.min(1, (t.cooldown or 0) / effectiveCycle))
@@ -346,45 +351,23 @@ function Hotbar.draw(player)
     elseif slot.item == 'boost' and (HotbarSystem.isActive and HotbarSystem.isActive('boost')) then
       borderColor = Theme.colors.warning
     end
-    local isHover = pointInRect(mx, my, { x = rx, y = ry, w = size, h = size })
-    local topColor = borderColor
-    if isHover then
-      topColor = Theme.colors.accent
-      Theme.drawGradientGlowRect(rx - 2, ry - 2, size + 4, size + 4, 6,
-        Theme.colors.bg2, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak * 0.6)
-    end
-    Theme.drawEVEBorder(rx, ry, size, size, 8, topColor, 6)
+    -- Hover effects removed - hotbar is display-only
+    Theme.drawEVEBorder(rx, ry, size, size, 8, borderColor, 6)
 
     local label = keyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(i) or slot.key)
     local oldFont = love.graphics.getFont()
     if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
     Theme.setColor(Theme.withAlpha(Theme.colors.text, 0.95))
-    love.graphics.printf(label, rx, ry - 16, size, 'center')
+    love.graphics.printf(label, rx, ry + size - 16, size, 'center')
     if Theme.fonts and Theme.fonts.small and oldFont then love.graphics.setFont(oldFont) end
   end
 
-  HotbarSelection.draw()
+  -- HotbarSelection.draw() removed - slot assignment disabled
 end
 
 function Hotbar.mousepressed(player, mx, my, button)
-  if HotbarSelection.mousepressed(mx, my, button) then return true end
-
-  local sw, sh = Viewport.getDimensions()
-  local size, gap = 52, 10
-  local totalSlots = #HotbarSystem.slots
-  local w = totalSlots * size + (totalSlots - 1) * gap
-  local x = math.floor((sw - w) * 0.5)
-  local y = sh - size - 42
-
-  for i = 1, totalSlots do
-    local rx = x + (i - 1) * (size + gap)
-    local ry = y
-    if pointInRect(mx, my, {x = rx, y = ry, w = size, h = size}) then
-      HotbarSelection.show(i, rx + size / 2, ry, player)
-      return true
-    end
-  end
-
+  -- Hotbar clicking for slot assignment has been removed
+  -- Only handle turret firing through the systems/hotbar.lua mousepressed function
   return false
 end
 
@@ -398,14 +381,6 @@ function Hotbar.drawTurretIcon(subject, x, y, size)
 end
 Hotbar.drawBoostIcon = drawBoostIcon
 
-function Hotbar.getRect()
-  local sw, sh = Viewport.getDimensions()
-  local size, gap = 52, 10
-  local totalSlots = #HotbarSystem.slots
-  local w = totalSlots * size + (totalSlots - 1) * gap
-  local x = math.floor((sw - w) * 0.5)
-  local y = sh - size - 42
-  return { x = x, y = y, w = w, h = size }
-end
+-- getRect function removed - hotbar no longer blocks UI interactions
 
 return Hotbar

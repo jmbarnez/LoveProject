@@ -355,15 +355,9 @@ function UIManager.isMouseOverUI()
 
   -- Hotbar
   local Hotbar = require("src.ui.hud.hotbar")
-  if Hotbar.getRect and Hotbar.getRect() then
-    local r = Hotbar.getRect()
-    if mx >= r.x and mx <= r.x + r.w and my >= r.y and my <= r.y + r.h then return true end
-  end
+  -- Hotbar rect check removed - hotbar no longer blocks UI interactions
 
-  local HotbarSelection = require("src.ui.hud.hotbar_selection")
-  if HotbarSelection.visible then
-    return true
-  end
+  -- HotbarSelection removed - slot assignment disabled
 
   return false
 end
