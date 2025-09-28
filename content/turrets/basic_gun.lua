@@ -39,7 +39,7 @@ return {
   maxHeat = 100, -- Heat capacity
   heatPerShot = 10, -- Heat generated per shot
   cooldownRate = 15, -- Heat dissipated per second
-  overheatDuration = 2.5, -- Seconds disabled when overheated
+  overheatCooldown = 5.0, -- Seconds required to recover from overheating
   heatCycleMult = 0.7, -- Slower firing when hot (cycle * 0.7 at max heat)
   heatEnergyMult = 1.3, -- More energy cost when hot
 

@@ -37,6 +37,7 @@ return {
   cycle = 1.0, capCost = 0,
   projectileSpeed = 800,
   baseAccuracy = 0.9,
+  overheatCooldown = 5.0,
   -- Volley settings
   volleyCount = 3,
   volleySpreadDeg = 30,

@@ -1,5 +1,3 @@
-local Config = require("src.content.config")
-
 local HeatManager = {}
 
 function HeatManager.initializeHeat(turret, params)
@@ -12,7 +10,7 @@ function HeatManager.initializeHeat(turret, params)
     turret.currentHeat = 15 -- Start with some heat for testing visibility
     turret.overheated = false
     turret.overheatStartTime = 0
-    turret.overheatDuration = params.overheatDuration or 3.0
+    turret.overheatCooldown = params.overheatCooldown or params.overheatDuration or 3.0
 end
 
 function HeatManager.updateHeat(turret, dt, locked)
@@ -30,9 +28,9 @@ function HeatManager.updateHeat(turret, dt, locked)
     if locked or not turret.firing or turret.overheated then
         local cooldownRate = turret.cooldownRate
 
-        -- When overheated, guarantee the bar drains within the configured overheat duration
-        if turret.overheated and turret.overheatDuration and turret.overheatDuration > 0 then
-            local forcedRate = turret.maxHeat / turret.overheatDuration
+        -- When overheated, drain the bar across the measured cooldown duration
+        if turret.overheated and turret.overheatCooldown and turret.overheatCooldown > 0 then
+            local forcedRate = turret.maxHeat / turret.overheatCooldown
             if forcedRate > cooldownRate then
                 cooldownRate = forcedRate
             end
