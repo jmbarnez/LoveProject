@@ -184,6 +184,27 @@ local function cloneSettings(src)
     return Util.deepCopy(src or {})
 end
 
+local function settingsEqual(a, b)
+    if a == b then return true end
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return false
+    end
+
+    for k, v in pairs(a) do
+        if not settingsEqual(v, b[k]) then
+            return false
+        end
+    end
+
+    for k in pairs(b) do
+        if a[k] == nil then
+            return false
+        end
+    end
+
+    return true
+end
+
 local function refreshGraphicsDropdowns()
     if vsyncDropdown then
         vsyncDropdown:setSelectedIndex(currentGraphicsSettings and currentGraphicsSettings.vsync and 2 or 1)
@@ -764,6 +785,8 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         Settings.applySettings(newGraphicsSettings, newAudioSettings)
         Settings.save()
         Notifications.add(Strings.getNotification("settings_applied"), "success")
+        originalGraphicsSettings = cloneSettings(Settings.getGraphicsSettings())
+        originalAudioSettings = cloneSettings(Settings.getAudioSettings())
         return true
     end
 
@@ -1055,9 +1078,19 @@ function SettingsPanel.toggle()
 
     if SettingsPanel.visible then
         SettingsPanel.refreshFromSettings()
+        originalGraphicsSettings = cloneSettings(Settings.getGraphicsSettings())
+        originalAudioSettings = cloneSettings(Settings.getAudioSettings())
     else
-        Settings.applyGraphicsSettings(cloneSettings(originalGraphicsSettings))
-        Settings.applyAudioSettings(cloneSettings(originalAudioSettings))
+        local graphicsSettings = Settings.getGraphicsSettings()
+        local audioSettings = Settings.getAudioSettings()
+
+        if originalGraphicsSettings and not settingsEqual(graphicsSettings, originalGraphicsSettings) then
+            Settings.applyGraphicsSettings(cloneSettings(originalGraphicsSettings))
+        end
+
+        if originalAudioSettings and not settingsEqual(audioSettings, originalAudioSettings) then
+            Settings.applyAudioSettings(cloneSettings(originalAudioSettings))
+        end
     end
 end
 
