@@ -235,6 +235,7 @@ function Ship:new()
     o.slotScroll = 0
     o.statsViewRect = nil
     o.slotViewRect = nil
+    o.activeContentBounds = nil
     Ship.window = o.window
     Ship._instance = Ship._instance or o
     return o
@@ -285,6 +286,7 @@ function Ship.hide()
     Ship._instance.window:hide()
   end
   Ship.visible = false
+  Ship._instance.activeContentBounds = nil
   return false
 end
 
@@ -435,12 +437,21 @@ end
 function Ship:draw(player, x, y, w, h)
     player = player or PlayerRef.get()
     if not player then
+        self.activeContentBounds = nil
         return
     end
 
     if not x or not y or not w or not h then
+        self.activeContentBounds = nil
         return
     end
+
+    self.activeContentBounds = {
+        x = x,
+        y = y,
+        w = w,
+        h = h
+    }
 
     local pad = (Theme.ui and Theme.ui.contentPadding) or 16
     local cx, cy = x + pad, y + pad
@@ -811,7 +822,13 @@ end
 function Ship:mousepressed(playerArg, xArg, yArg, buttonArg)
     local instance = Ship.ensure()
     if not Ship.visible or not instance.window or not instance.window.visible then
-        return false
+        -- Even when the standalone window is hidden, the ship UI can be embedded
+        -- inside other interfaces (like the station services screen). In those
+        -- cases we still want to process interaction events, so we don't early
+        -- out here. Instead, fall through and rely on stored bounds.
+        if not instance.activeContentBounds then
+            return false
+        end
     end
 
 
@@ -820,13 +837,15 @@ function Ship:mousepressed(playerArg, xArg, yArg, buttonArg)
         return false
     end
 
-    local content = instance.window:getContentBounds()
-    local insideContent = content and pointInRectSimple(x, y, { x = content.x, y = content.y, w = content.w, h = content.h })
+    local content = nil
+    if instance.window and instance.window.visible then
+        content = instance.window:getContentBounds()
+    end
+    if not content then
+        content = instance.activeContentBounds
+    end
 
-    -- Transform mouse coordinates to be relative to window content area
-    local contentX = x - (content and content.x or 0)
-    local contentY = y - (content and content.y or 0)
-
+    local insideContent = content and pointInRectSimple(x, y, content)
 
     -- Prioritize dropdown interaction when inside content area
     if insideContent and instance.slotDropdowns then
@@ -841,9 +860,12 @@ function Ship:mousepressed(playerArg, xArg, yArg, buttonArg)
         end
     end
 
-    local handled = instance.window:mousepressed(x, y, button)
-    if handled then
-        return true, false
+    local handled = false
+    if instance.window and instance.window.visible then
+        handled = instance.window:mousepressed(x, y, button)
+        if handled then
+            return true, false
+        end
     end
 
     if not insideContent or not player or type(player) ~= "table" then
@@ -954,7 +976,7 @@ end
 
 function Ship:mousereleased(playerArg, xArg, yArg, buttonArg)
     local instance = Ship.ensure()
-    if not Ship.visible or not instance.window or not instance.window.visible then
+    if (not Ship.visible or not (instance.window and instance.window.visible)) and not instance.activeContentBounds then
         return false, false
     end
 
@@ -963,9 +985,11 @@ function Ship:mousereleased(playerArg, xArg, yArg, buttonArg)
         return false, false
     end
 
-    local handled = instance.window:mousereleased(x, y, button)
-    if handled then
-        return true, false
+    if instance.window and instance.window.visible then
+        local handled = instance.window:mousereleased(x, y, button)
+        if handled then
+            return true, false
+        end
     end
 
     if instance.slotDropdowns then
@@ -984,7 +1008,7 @@ end
 
 function Ship:mousemoved(playerArg, xArg, yArg, dxArg, dyArg)
     local instance = Ship.ensure()
-    if not Ship.visible or not instance.window or not instance.window.visible then
+    if (not Ship.visible or not (instance.window and instance.window.visible)) and not instance.activeContentBounds then
         return false
     end
 
@@ -993,7 +1017,10 @@ function Ship:mousemoved(playerArg, xArg, yArg, dxArg, dyArg)
         return false
     end
 
-    local handled = instance.window:mousemoved(x, y, dx, dy)
+    local handled = false
+    if instance.window and instance.window.visible then
+        handled = instance.window:mousemoved(x, y, dx, dy)
+    end
 
     if instance.slotDropdowns then
         for _, dropdown in ipairs(instance.slotDropdowns) do
@@ -1006,7 +1033,7 @@ end
 
 function Ship:wheelmoved(x, y, dx, dy)
     local instance = Ship.ensure()
-    if not Ship.visible or not instance.window or not instance.window.visible then
+    if (not Ship.visible or not (instance.window and instance.window.visible)) and not instance.activeContentBounds then
         return false
     end
 
