@@ -198,6 +198,9 @@ function UIManager.init()
         return UIManager.state.ship.open
       end,
       getZ = function() return (UIManager.state.ship and UIManager.state.ship.zIndex) or 0 end,
+      keypressed = function(key, scancode, isrepeat, player)
+        return Ship and Ship.keypressed and Ship.keypressed(key, scancode, isrepeat, player)
+      end,
       getRect = function()
         local win = Ship.window
         if win then
@@ -328,6 +331,7 @@ function UIManager.update(dt, player)
   end
 
   -- Update individual components
+  if Ship.update then Ship.update(dt) end
   if Notifications.update then Notifications.update(dt) end
   if SkillsPanel.update then SkillsPanel.update(dt) end
   if Inventory.update then Inventory.update(dt) end
@@ -868,6 +872,8 @@ function UIManager.keypressed(key, scancode, isrepeat)
           handled = Bounty.keypressed(key, scancode, isrepeat)
         elseif component == "docked" and DockedUI.keypressed then
           handled = DockedUI.keypressed(key, scancode, isrepeat, UIManager._player)
+        elseif component == "ship" and Ship.keypressed then
+          handled = Ship.keypressed(key)
         elseif component == "map" and Map.keypressed then
           handled = Map.keypressed(key, world)
         elseif component == "warp" and warpInstance.keypressed then

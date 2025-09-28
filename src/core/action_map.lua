@@ -154,7 +154,7 @@ local function toggleAction(name, bindingAction, component)
     })
 end
 
-toggleAction("toggle_inventory", "toggle_inventory", "ship")
+toggleAction("toggle_inventory", "toggle_inventory", "inventory")
 toggleAction("toggle_ship", "toggle_ship", "ship")
 toggleAction("toggle_bounty", "toggle_bounty", "bounty")
 toggleAction("toggle_skills", "toggle_skills", "skills")

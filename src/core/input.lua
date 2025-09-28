@@ -322,7 +322,12 @@ function Input.mousepressed(x, y, button)
     end
     -- UI interactions are handled earlier via UIManager in love_* callbacks
 
-    -- Hotbar mouse interactions removed
+    -- Hotbar mouse interactions
+    if button == 1 then
+        Hotbar.keypressed("mouse1", gameState.player)
+    elseif button == 2 then
+        Hotbar.keypressed("mouse2", gameState.player)
+    end
 
     if button == 2 then
         mouseState.rightButtonDown = true
@@ -334,6 +339,12 @@ end
 function Input.mousereleased(x, y, button)
     -- UI interactions are handled earlier via UIManager in love_* callbacks
     
+    if button == 1 then
+        Hotbar.keyreleased("mouse1", gameState.player)
+    elseif button == 2 then
+        Hotbar.keyreleased("mouse2", gameState.player)
+    end
+
     if button == 1 then
         mouseState.leftButtonDown = false
     elseif button == 2 then

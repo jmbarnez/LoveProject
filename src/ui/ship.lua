@@ -173,39 +173,8 @@ local function buildHotbarPreview(player, gridOverride)
     return preview
 end
 
-local function normalizePressArgs(playerArg, xArg, yArg, buttonArg)
-    local player, x, y, button = playerArg, xArg, yArg, buttonArg
-
-    if button == nil and type(player) == "number" and type(x) == "number" then
-        button = y
-        y = x
-        x = player
-        player = nil
-    end
-
-    if type(player) ~= "table" or not player.components then
-        -- player = PlayerRef.get() -- This was the bug, it was overwriting the player
-    end
-
-    return player, x, y, button
-end
-
-local function normalizeMoveArgs(playerArg, xArg, yArg, dxArg, dyArg)
-    local player, x, y, dx, dy = playerArg, xArg, yArg, dxArg, dyArg
-
-    if dy == nil and type(player) == "number" and type(x) == "number" and type(y) == "number" then
-        dy = dx
-        dx = y
-        y = x
-        x = player
-        player = nil
-    end
-
-    if type(player) ~= "table" or not player.components then
-        -- player = PlayerRef.get() -- This was the bug, it was overwriting the player
-    end
-
-    return player, x, y, dx, dy
+local function pointInRectSimple(px, py, rect)
+    return rect and px and py and px >= rect.x and px <= rect.x + rect.w and py >= rect.y and py <= rect.y + rect.h
 end
 
 function Ship:new()
@@ -815,11 +784,7 @@ function Ship:drawDropdownOptions()
     end
 end
 
-local function pointInRectSimple(px, py, rect)
-    return rect and px and py and px >= rect.x and px <= rect.x + rect.w and py >= rect.y and py <= rect.y + rect.h
-end
-
-function Ship:mousepressed(playerArg, xArg, yArg, buttonArg)
+function Ship:mousepressed(x, y, button, player)
     local instance = Ship.ensure()
     if not Ship.visible or not instance.window or not instance.window.visible then
         -- Even when the standalone window is hidden, the ship UI can be embedded
@@ -831,8 +796,7 @@ function Ship:mousepressed(playerArg, xArg, yArg, buttonArg)
         end
     end
 
-
-    local player, x, y, button = normalizePressArgs(playerArg, xArg, yArg, buttonArg)
+    player = player or PlayerRef.get()
     if not x or not y or not button then
         return false
     end
@@ -974,13 +938,13 @@ function Ship:mousepressed(playerArg, xArg, yArg, buttonArg)
     return false
 end
 
-function Ship:mousereleased(playerArg, xArg, yArg, buttonArg)
+function Ship:mousereleased(x, y, button, player)
     local instance = Ship.ensure()
     if (not Ship.visible or not (instance.window and instance.window.visible)) and not instance.activeContentBounds then
         return false, false
     end
 
-    local player, x, y, button = normalizePressArgs(playerArg, xArg, yArg, buttonArg)
+    player = player or PlayerRef.get()
     if not x or not y or not button then
         return false, false
     end
@@ -1006,13 +970,13 @@ function Ship:mousereleased(playerArg, xArg, yArg, buttonArg)
     return false, false
 end
 
-function Ship:mousemoved(playerArg, xArg, yArg, dxArg, dyArg)
+function Ship:mousemoved(x, y, dx, dy, player)
     local instance = Ship.ensure()
     if (not Ship.visible or not (instance.window and instance.window.visible)) and not instance.activeContentBounds then
         return false
     end
 
-    local player, x, y, dx, dy = normalizeMoveArgs(playerArg, xArg, yArg, dxArg, dyArg)
+    player = player or PlayerRef.get()
     if not x or not y or dx == nil or dy == nil then
         return false
     end
