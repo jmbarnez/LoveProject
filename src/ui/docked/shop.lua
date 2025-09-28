@@ -7,7 +7,7 @@ local IconSystem = require("src.core.icon_system")
 
 local Shop = {}
 
-local MENU_WIDTH, MENU_HEIGHT = 180, 110
+local MENU_WIDTH, MENU_HEIGHT = 220, 130
 
 local function ensureContextMenu(DockedUI)
   DockedUI.contextMenu = DockedUI.contextMenu or { visible = false, quantity = "1", type = "buy" }
@@ -45,8 +45,18 @@ local function openContextMenu(DockedUI, item, menuType, anchorX, anchorY)
   menu.y = menuY
   menu.item = item
   menu.type = menuType or "buy"
-  menu.quantity = "1"
+  menu.quantity = ""  -- Start with empty string instead of "1"
   DockedUI.contextMenuActive = false
+  
+  -- Pre-calculate button rectangle to ensure it's available for click detection
+  local btnW, btnH = 100, 28
+  local btnX, btnY = menuX + (MENU_WIDTH - btnW) / 2, menuY + 80
+  menu._buttonRect = { x = btnX, y = btnY, w = btnW, h = btnH }
+  
+  -- Pre-calculate input rectangle as well
+  local inputW, inputH = 100, 28
+  local inputX, inputY = menuX + (MENU_WIDTH - inputW) / 2, menuY + 28
+  menu._inputRect = { x = inputX, y = inputY, w = inputW, h = inputH }
 end
 
 local function buildPlayerInventory(player)
@@ -243,6 +253,7 @@ function Shop.drawShopItems(DockedUI, x, y, w, h, player)
   local itemFullH = slotH + padding
   
   love.graphics.push()
+  love.graphics.setScissor(x, y, w, h)
 
   for i, item in ipairs(shopItems) do
     local index = i - 1
@@ -253,38 +264,43 @@ function Shop.drawShopItems(DockedUI, x, y, w, h, player)
     local dx = math.floor(sx + 0.5)
     local dy = math.floor(sy + 0.5)
 
-    local hover = mx >= sx and my >= sy and mx <= sx + slotW and my <= sy + slotH
-    if hover then currentHoveredItem = { x = dx, y = dy, w = slotW, h = slotH, item = item } end
+    -- Only render and add to click detection if item is within visible bounds
+    if sy + slotH >= y and sy <= y + h then
+      local hover = mx >= sx and my >= sy and mx <= sx + slotW and my <= sy + slotH
+      if hover then 
+        currentHoveredItem = { x = dx, y = dy, w = slotW, h = slotH, item = item } 
+      end
 
-    if hover then
-      Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
-    else
-      Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
+      if hover then
+        Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+      else
+        Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
+      end
+      local iconSize = 48
+      local iconPad = (slotW - iconSize) / 2
+      local subject = Content.getTurret(item.id) or Content.getItem(item.id) or item.id
+      IconSystem.drawIconAny({ subject, item.id }, dx + iconPad, dy + iconPad, iconSize, 1.0)
+      Theme.setColor(Theme.colors.accent)
+      love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+      love.graphics.printf("∞", dx + 4, dy + 2, slotW - 4, "left")
+      local qtyOwned = 0
+      if player and player.components and player.components.cargo and player.components.cargo.getQuantity then
+        qtyOwned = player.components.cargo:getQuantity(item.id)
+      end
+      local countText = Util.formatNumber(qtyOwned)
+      local countWidth = love.graphics.getFont():getWidth(countText)
+      local countX = dx + slotW - countWidth - 4
+      local countY = dy + slotH - 14
+      if qtyOwned > 0 then Theme.setColor(Theme.colors.textHighlight) else Theme.setColor(Theme.colors.textDisabled) end
+      love.graphics.print(countText, countX, countY)
+      Theme.setColor(Theme.colors.accentGold)
+      love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+      local priceText = Util.formatNumber(item.price)
+      local priceWidth = love.graphics.getFont():getWidth(priceText)
+      love.graphics.print(priceText, dx + slotW - priceWidth - 12, dy + 2)
+      Theme.drawCurrencyToken(dx + slotW - 10, dy + 2, 8)
+      table.insert(DockedUI._shopItems, { x = dx, y = dy, w = slotW, h = slotH, item = item, canAfford = (player:getGC() >= item.price) })
     end
-    local iconSize = 48
-    local iconPad = (slotW - iconSize) / 2
-    local subject = Content.getTurret(item.id) or Content.getItem(item.id) or item.id
-    IconSystem.drawIconAny({ subject, item.id }, dx + iconPad, dy + iconPad, iconSize, 1.0)
-    Theme.setColor(Theme.colors.accent)
-    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-    love.graphics.printf("∞", dx + 4, dy + 2, slotW - 4, "left")
-    local qtyOwned = 0
-    if player and player.components and player.components.cargo and player.components.cargo.getQuantity then
-      qtyOwned = player.components.cargo:getQuantity(item.id)
-    end
-    local countText = Util.formatNumber(qtyOwned)
-    local countWidth = love.graphics.getFont():getWidth(countText)
-    local countX = dx + slotW - countWidth - 4
-    local countY = dy + slotH - 14
-    if qtyOwned > 0 then Theme.setColor(Theme.colors.textHighlight) else Theme.setColor(Theme.colors.textDisabled) end
-    love.graphics.print(countText, countX, countY)
-    Theme.setColor(Theme.colors.accentGold)
-    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-    local priceText = Util.formatNumber(item.price)
-    local priceWidth = love.graphics.getFont():getWidth(priceText)
-    love.graphics.print(priceText, dx + slotW - priceWidth - 12, dy + 2)
-    Theme.drawCurrencyToken(dx + slotW - 10, dy + 2, 8)
-    table.insert(DockedUI._shopItems, { x = dx, y = dy, w = slotW, h = slotH, item = item, canAfford = (player:getGC() >= item.price) })
   end
   if currentHoveredItem then
     if DockedUI.hoveredItem and DockedUI.hoveredItem.item.id == currentHoveredItem.item.id then
@@ -301,6 +317,7 @@ function Shop.drawShopItems(DockedUI, x, y, w, h, player)
     DockedUI.hoveredItem = nil
     DockedUI.hoverTimer = 0
   end
+  love.graphics.setScissor()
   love.graphics.pop()
 end
 
@@ -318,20 +335,39 @@ local function drawContextMenuContents(DockedUI, mx, my)
   local inputW, inputH = 100, 28
   local inputX, inputY = x_ + (w_ - inputW) / 2, y_ + 28
   local inputHover = mx >= inputX and mx <= inputX + inputW and my >= inputY and my <= inputY + inputH
+  
+  -- Enhanced input field visual feedback
   local inputColor = inputHover and Theme.colors.bg2 or Theme.colors.bg1
-  Theme.drawGradientGlowRect(inputX, inputY, inputW, inputH, 3, inputColor, Theme.colors.bg0, Theme.colors.accent, Theme.effects.glowWeak)
+  local inputBorderColor = inputHover and Theme.colors.accent or Theme.colors.border
+  
+  Theme.drawGradientGlowRect(inputX, inputY, inputW, inputH, 3, inputColor, Theme.colors.bg0, inputBorderColor, Theme.effects.glowWeak)
+  
+  -- Add hover glow effect for input field
+  if inputHover then
+    Theme.drawGradientGlowRect(inputX - 1, inputY - 1, inputW + 2, inputH + 2, 1, Theme.colors.accent, Theme.colors.bg0, Theme.colors.accent, Theme.effects.glowWeak)
+  end
 
   Theme.setColor(Theme.colors.text)
   local quantityText = menu.quantity or "1"
   local font = love.graphics.getFont()
-  local textWidth = font:getWidth(quantityText)
+  
+  -- Show placeholder "1" only when not actively editing and field is empty
+  local displayText = quantityText
+  if not DockedUI.contextMenuActive and (quantityText == "" or quantityText == "1") then
+    displayText = "1"  -- Show placeholder when not editing
+  elseif DockedUI.contextMenuActive and quantityText == "" then
+    displayText = ""   -- Show empty when actively editing
+  end
+  
+  local textWidth = font:getWidth(displayText)
   local textX = inputX + (inputW - textWidth) / 2
-  love.graphics.print(quantityText, textX, inputY + 6)
+  love.graphics.print(displayText, textX, inputY + 6)
 
   if math.floor(love.timer.getTime() * 2) % 2 == 0 and DockedUI.contextMenuActive then
     love.graphics.rectangle("fill", textX + textWidth + 2, inputY + 4, 2, inputH - 8)
   end
-  menu._inputRect = { x = inputX, y = inputY, w = inputW, h = inputH }
+  -- Don't overwrite the pre-calculated input rectangle
+  -- menu._inputRect = { x = inputX, y = inputY, w = inputW, h = inputH }
 
   local qty = tonumber(quantityText) or 0
   local totalPrice = (menu.item.price or 0) * qty
@@ -339,22 +375,70 @@ local function drawContextMenuContents(DockedUI, mx, my)
   love.graphics.printf("Total: " .. Util.formatNumber(totalPrice), x_, y_ + 64, w_, "center")
 
   local btnW, btnH = 100, 28
-  local btnX, btnY = x_ + (w_ - btnW) / 2, y_ + 70
+  local btnX, btnY = x_ + (w_ - btnW) / 2, y_ + 80
   local btnHover = mx >= btnX and mx <= btnX + btnW and my >= btnY and my <= btnY + btnH
   local actionText = menu.type == "sell" and "SELL" or "BUY"
   local canAfford = true
   local player = DockedUI.player
+  
+  -- For affordability check, use the actual quantity or default to 1 if empty
+  local checkQty = qty > 0 and qty or 1
+  local checkPrice = (menu.item.price or 0) * checkQty
+  
   if menu.type == "buy" then
-    canAfford = player and player:getGC() >= totalPrice
+    canAfford = player and player:getGC() >= checkPrice
+    -- Debug: print affordability check
+    if player then
+      print("Affordability check - Player GC:", player:getGC(), "Check Price:", checkPrice, "Can Afford:", canAfford, "Qty:", qty, "CheckQty:", checkQty)
+    end
   else
     local cargo = player and player.components and player.components.cargo
-    canAfford = cargo and cargo:has(menu.item.id, qty)
+    canAfford = cargo and cargo:has(menu.item.id, checkQty)
   end
-  local btnColor = canAfford and (btnHover and Theme.colors.success or Theme.colors.bg3) or Theme.colors.bg1
-  Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 3, btnColor, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
-  Theme.setColor(canAfford and Theme.colors.textHighlight or Theme.colors.textSecondary)
+  
+  -- Enhanced button visual feedback
+  local btnColor
+  local textColor
+  local borderColor = Theme.colors.border
+  
+  if not canAfford then
+    -- Insufficient funds - red/grayed out
+    btnColor = Theme.colors.bg1
+    textColor = Theme.colors.textDisabled
+    borderColor = Theme.colors.danger
+  elseif btnHover then
+    -- Hover state - bright green
+    btnColor = Theme.colors.success
+    textColor = Theme.colors.textHighlight
+    borderColor = Theme.colors.success
+  else
+    -- Normal state
+    btnColor = Theme.colors.bg3
+    textColor = Theme.colors.textHighlight
+    borderColor = Theme.colors.border
+  end
+  
+  -- Draw button with enhanced visual feedback
+  Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 3, btnColor, Theme.colors.bg1, borderColor, Theme.effects.glowWeak)
+  
+  -- Add hover glow effect
+  if btnHover and canAfford then
+    Theme.drawGradientGlowRect(btnX - 2, btnY - 2, btnW + 4, btnH + 4, 2, Theme.colors.success, Theme.colors.bg0, Theme.colors.success, Theme.effects.glowStrong)
+  end
+  
+  -- Draw button text
+  Theme.setColor(textColor)
   love.graphics.printf(actionText, btnX, btnY + 6, btnW, "center")
-  menu._buttonRect = { x = btnX, y = btnY, w = btnW, h = btnH }
+  
+  -- Draw insufficient funds message
+  if not canAfford and menu.type == "buy" then
+    Theme.setColor(Theme.colors.danger)
+    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+    love.graphics.printf("Insufficient Funds", x_, y_ + h_ - 20, w_, "center")
+  end
+  
+  -- Don't overwrite the pre-calculated button rectangle
+  -- menu._buttonRect = { x = btnX, y = btnY, w = btnW, h = btnH }
 end
 
 function Shop.drawContextMenu(DockedUI, mx, my)
@@ -384,15 +468,22 @@ local function handleContextMenuClick(DockedUI, x, y, button, player)
 
   if menu._buttonRect and x >= menu._buttonRect.x and x <= menu._buttonRect.x + menu._buttonRect.w and y >= menu._buttonRect.y and y <= menu._buttonRect.y + menu._buttonRect.h then
     local qty = tonumber(menu.quantity) or 0
+    print("Button clicked - Qty:", qty, "Player exists:", player and "yes" or "no")
     if qty > 0 and player then
       if menu.type == "buy" then
         local cost = (menu.item.price or 0) * qty
+        print("Buy attempt - Cost:", cost, "Player GC:", player:getGC())
         if player:getGC() >= cost then
+          print("Purchase allowed - calling purchaseItem")
           DockedUI.purchaseItem(menu.item, player, qty)
+        else
+          print("Purchase blocked - insufficient funds")
         end
       elseif menu.type == "sell" then
         DockedUI.sellItem(menu.item, player, qty)
       end
+    else
+      print("Purchase blocked - invalid qty or no player")
     end
     Shop.hideContextMenu(DockedUI)
     return true
@@ -503,8 +594,8 @@ function Shop.keypressed(DockedUI, key, scancode, isrepeat, player)
   if menu.visible and menu.item then
     if DockedUI.contextMenuActive then
       if key == "backspace" then
-        menu.quantity = (menu.quantity or "1"):sub(1, -2)
-        if menu.quantity == "" then menu.quantity = "1" end
+        menu.quantity = (menu.quantity or ""):sub(1, -2)
+        -- Don't reset to "1" when field becomes empty - let it stay empty
         return true, false
       elseif key == "return" or key == "kpenter" then
         local qty = tonumber(menu.quantity) or 0
@@ -564,7 +655,8 @@ function Shop.textinput(DockedUI, text, player)
   local menu = ensureContextMenu(DockedUI)
   if menu.visible and DockedUI.contextMenuActive and menu.item then
     if text:match("%d") then
-      if menu.quantity == "0" then menu.quantity = "" end
+      -- Clear the field if it contains the default "1" placeholder
+      if menu.quantity == "1" then menu.quantity = "" end
       menu.quantity = (menu.quantity or "") .. text
       return true
     end
