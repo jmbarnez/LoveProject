@@ -25,8 +25,39 @@ return {
       { type = "arc", mode = "line", color = {0.25, 0.85, 1.00, 0.45}, x = 16, y = 8, r = 9, angle1 = -0.5, angle2 = 0.5, segments = 12, lineWidth = 1 },
     }
   },
-  -- Visuals: blue combat beam, crisp shield arcs
-  projectile = "laser_beam", -- Specify the projectile to be fired
+  -- Embedded projectile definition
+  projectile = {
+    id = "laser_beam",
+    name = "Laser Beam",
+    class = "Projectile",
+    physics = {
+      speed = 0, -- Beams should not advance position; collision handles ray
+      drag = 0,
+    },
+    renderable = {
+      type = "bullet",
+      props = {
+        kind = "laser",
+        length = 1500, -- Maximum beam length
+        tracerWidth = 4,
+        angle = 0, -- Will be set when fired
+        color = {0.30, 0.85, 1.00, 0.9}
+      }
+    },
+    collidable = {
+      radius = 2, -- small collision radius so the beam is included in collision queries
+    },
+    damage = 15,
+    timed_life = {
+      duration = 0.15, -- 0.1s buildup + 0.05s flash
+    },
+    charged_pulse = {
+      buildup_time = 0.1,  -- Energy charging phase
+      flash_time = 0.05,   -- Intense beam flash
+    }
+  },
+  
+  -- Visual effects
   tracer = { color = {0.0, 0.0, 1.0, 0.8}, width = 1.5, coreRadius = 1 },
   impact = {
     shield = { spanDeg = 80, color1 = {0.35, 0.85, 1.0, 0.65}, color2 = {0.65, 0.95, 1.0, 0.45} },

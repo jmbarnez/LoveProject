@@ -44,7 +44,15 @@ function Turret.new(owner, params)
     self.spread = params.spread or {minDeg = 0.1, maxDeg = 0.5, decay = 500}
 
     -- Weapon-specific parameters
-    self.projectileId = params.projectile
+    -- Handle both embedded projectile definitions and projectile ID strings
+    if params.projectile and type(params.projectile) == "table" then
+        -- Embedded projectile definition
+        self.projectile = params.projectile
+        self.projectileId = params.projectile.id
+    else
+        -- Legacy projectile ID string
+        self.projectileId = params.projectile
+    end
     self.projectileSpeed = params.projectileSpeed or (
         (self.kind == 'laser' or self.kind == 'mining_laser' or self.kind == 'salvaging_laser') and 100000 or
         (self.kind == 'missile' and 800) or 2400

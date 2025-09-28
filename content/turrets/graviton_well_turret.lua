@@ -15,7 +15,34 @@ return {
         }
     },
     spread = { minDeg = 0.5, maxDeg = 1.8, decay = 600 },
-    projectile = "graviton_orb",
+    
+    -- Embedded projectile definition with gravity effects
+    projectile = {
+        id = "graviton_orb",
+        name = "Graviton Orb",
+        class = "Projectile",
+        physics = {
+            speed = 2600,
+            drag = 0.04,
+        },
+        renderable = {
+            type = "bullet",
+            props = {
+                kind = "orb",
+                radius = 3.0,
+                color = {0.65, 0.55, 1.00, 0.9},
+            }
+        },
+        damage = {
+            value = 3.8,
+            gravityWell = { radius = 180, force = 140, duration = 2.5 },
+        },
+        timed_life = {
+            duration = 3.2,
+        }
+    },
+    
+    -- Visual effects
     tracer = { color = {0.65, 0.55, 1.00, 0.9}, width = 2.2, coreRadius = 2.8 },
     impact = {
         shield = { spanDeg = 85, color1 = {0.65, 0.55, 1.0, 0.65}, color2 = {0.45, 0.40, 1.0, 0.45} },

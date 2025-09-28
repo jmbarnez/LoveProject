@@ -15,7 +15,34 @@ return {
         }
     },
     spread = { minDeg = 0.0, maxDeg = 0.05, decay = 1200 },
-    projectile = "cryo_beam",
+    
+    -- Embedded projectile definition with slowing effects
+    projectile = {
+        id = "cryo_beam",
+        name = "Cryo Beam",
+        class = "Projectile",
+        physics = {
+            speed = 5000,
+            drag = 0,
+        },
+        renderable = {
+            type = "bullet",
+            props = {
+                kind = "beam",
+                radius = 1.5,
+                color = {0.55, 0.90, 1.00, 0.9},
+            }
+        },
+        damage = {
+            value = 2.5,
+            slowEffect = { multiplier = 0.6, duration = 2.5 },
+        },
+        timed_life = {
+            duration = 0.8,
+        }
+    },
+    
+    -- Visual effects
     tracer = { color = {0.55, 0.90, 1.00, 0.9}, width = 1.5, coreRadius = 1.0 },
     impact = {
         shield = { spanDeg = 85, color1 = {0.55, 0.90, 1.0, 0.65}, color2 = {0.35, 0.70, 1.0, 0.45} },

@@ -28,7 +28,33 @@ return {
       { type = "circle", mode = "fill", color = {1.00, 0.80, 0.35, 0.85}, x = 20, y = 18, r = 1.1 },
     }
   },
-  -- Yellow mining beam
+  -- Embedded projectile definition for mining
+  projectile = {
+    id = "mining_beam",
+    name = "Mining Beam",
+    class = "Projectile",
+    physics = {
+      speed = 0, -- Beam doesn't move
+      drag = 0,
+    },
+    renderable = {
+      type = "bullet",
+      props = {
+        kind = "beam",
+        radius = 2.0,
+        color = {1.0, 1.0, 0.0, 0.8},
+      }
+    },
+    damage = {
+      value = 1.5,
+      miningPower = 2.5,
+    },
+    timed_life = {
+      duration = 0.2,
+    }
+  },
+  
+  -- Visual effects
   tracer = { color = {1.0, 1.0, 0.0, 0.8}, width = 2.0, coreRadius = 2 },
   impact = {
     asteroid = {

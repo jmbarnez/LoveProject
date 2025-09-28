@@ -14,7 +14,34 @@ return {
         }
     },
     spread = { minDeg = 1.0, maxDeg = 3.5, decay = 350 },
-    projectile = "siege_shell",
+    
+    -- Embedded projectile definition with area damage
+    projectile = {
+        id = "siege_shell",
+        name = "Siege Shell",
+        class = "Projectile",
+        physics = {
+            speed = 2200,
+            drag = 0.05,
+        },
+        renderable = {
+            type = "bullet",
+            props = {
+                kind = "shell",
+                radius = 3.4,
+                color = {0.95, 0.75, 0.45, 0.9},
+            }
+        },
+        damage = {
+            value = 6.2,
+            splash = 120,
+        },
+        timed_life = {
+            duration = 3.4,
+        }
+    },
+    
+    -- Visual effects
     tracer = { color = {0.95, 0.75, 0.45, 0.9}, width = 2.4, coreRadius = 3 },
     impact = {
         shield = { spanDeg = 90, color1 = {0.95, 0.80, 0.50, 0.6}, color2 = {0.85, 0.60, 0.25, 0.45} },

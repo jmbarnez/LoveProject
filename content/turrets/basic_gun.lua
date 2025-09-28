@@ -23,7 +23,36 @@ return {
     }
   },
   spread = { minDeg = 0.15, maxDeg = 1.2, decay = 600 }, -- Much tighter spread for excellent accuracy
-  projectile = "gun_bullet", -- Specify the projectile to be fired
+  
+  -- Reference to embedded projectile
+  projectileId = "gun_bullet",
+  
+  -- Embedded projectile definition
+  projectile = {
+    id = "gun_bullet",
+    name = "Kinetic Slug",
+    class = "Projectile",
+    physics = {
+      speed = 4800,
+      drag = 0, -- No drag for simple bullets
+    },
+    renderable = {
+      type = "bullet",
+      props = {
+        kind = "bullet",
+        radius = 2,
+        color = {0.35, 0.70, 1.00, 1.0},
+      }
+    },
+    damage = {
+      value = 1.5, -- Average of damage_range min/max
+    },
+    timed_life = {
+      duration = 2.5,
+    }
+  },
+  
+  -- Visual effects
   tracer = { color = {0.35, 0.70, 1.00, 1.0}, width = 1, coreRadius = 2 },
   impact = {
     shield = { spanDeg = 70, color1 = {0.26, 0.62, 1.0, 0.55}, color2 = {0.50, 0.80, 1.0, 0.35} },
@@ -33,7 +62,6 @@ return {
   optimal = 800, falloff = 600,
   damage_range = { min = 1, max = 2 },
   cycle = 0.6, capCost = 2,
-  projectileSpeed = 4800, -- Even faster projectiles (4x original baseline)
   maxRange = 2000, -- Bullets disappear after traveling 2000 units
   -- Overheating parameters
   maxHeat = 100, -- Heat capacity

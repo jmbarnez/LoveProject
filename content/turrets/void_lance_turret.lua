@@ -15,7 +15,35 @@ return {
         }
     },
     spread = { minDeg = 0.02, maxDeg = 0.12, decay = 1300 },
-    projectile = "void_lance_beam",
+    
+    -- Embedded projectile definition with special effects
+    projectile = {
+        id = "void_lance_beam",
+        name = "Void Lance Beam",
+        class = "Projectile",
+        physics = {
+            speed = 5600,
+            drag = 0,
+        },
+        renderable = {
+            type = "bullet",
+            props = {
+                kind = "beam",
+                radius = 2.2,
+                color = {0.85, 0.40, 1.00, 0.95},
+            }
+        },
+        damage = {
+            value = 5.5,
+            shieldBypass = 0.6,
+            energyLeech = 3.0,
+        },
+        timed_life = {
+            duration = 3.0,
+        }
+    },
+    
+    -- Visual effects
     tracer = { color = {0.85, 0.40, 1.00, 0.95}, width = 1.4, coreRadius = 1.0 },
     impact = {
         shield = { spanDeg = 100, color1 = {0.60, 0.30, 0.95, 0.7}, color2 = {0.35, 0.15, 0.85, 0.5} },

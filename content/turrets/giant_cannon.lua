@@ -26,7 +26,33 @@ return {
     }
   },
   spread = { minDeg = 0.1, maxDeg = 1.0, decay = 600 },
-  projectile = "giant_bullet",
+  
+  -- Embedded projectile definition
+  projectile = {
+    id = "giant_bullet",
+    name = "Giant Shell",
+    class = "Projectile",
+    physics = {
+      speed = 3000,
+      drag = 0.01,
+    },
+    renderable = {
+      type = "bullet",
+      props = {
+        kind = "shell",
+        radius = 4.0,
+        color = {0.8, 0.4, 0.2, 1.0},
+      }
+    },
+    damage = {
+      value = 10.0,
+    },
+    timed_life = {
+      duration = 4.0,
+    }
+  },
+  
+  -- Visual effects
   tracer = { color = {0.8, 0.4, 0.2, 1.0}, width = 2, coreRadius = 3 },
   impact = {
     shield = { spanDeg = 90, color1 = {0.8, 0.4, 0.2, 0.6}, color2 = {1.0, 0.6, 0.3, 0.4} },

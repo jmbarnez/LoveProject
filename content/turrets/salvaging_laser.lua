@@ -28,7 +28,33 @@ return {
       { type = "circle", mode = "fill", color = {0.40, 1.00, 0.60, 0.9}, x = 20, y = 18, r = 1.1 },
     }
   },
-  -- Visuals: green salvaging beam
+  -- Embedded projectile definition for salvaging
+  projectile = {
+    id = "salvaging_beam",
+    name = "Salvaging Beam",
+    class = "Projectile",
+    physics = {
+      speed = 0, -- Beam doesn't move
+      drag = 0,
+    },
+    renderable = {
+      type = "bullet",
+      props = {
+        kind = "beam",
+        radius = 2.5,
+        color = {0.2, 1.0, 0.3, 0.8},
+      }
+    },
+    damage = {
+      value = 1.5,
+      salvagePower = 1.0,
+    },
+    timed_life = {
+      duration = 0.3,
+    }
+  },
+  
+  -- Visual effects
   tracer = { color = {0.2, 1.0, 0.3, 0.8}, width = 2.0, coreRadius = 3 },
   impact = {
     wreckage = { spark = {0.3, 1.0, 0.3, 0.8}, ring = {0.2, 0.8, 0.2, 0.6} },

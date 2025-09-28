@@ -27,7 +27,32 @@ return {
       { type = "rectangle", mode = "fill", color = {0.00, 0.75, 0.95, 0.8}, x = 10, y = 20, w = 12, h = 2, rx = 1 },
     }
   },
-  -- Visuals: warm orange rocket + exhaust
+  -- Embedded projectile definition
+  projectile = {
+    id = "missile",
+    name = "Guided Missile",
+    class = "Projectile",
+    physics = {
+      speed = 600,
+      drag = 0,
+    },
+    renderable = {
+      type = "bullet",
+      props = {
+        kind = "missile",
+        radius = 4,
+        color = {1.0, 0.7, 0.25, 1.0}
+      }
+    },
+    damage = {
+      value = 15,
+    },
+    timed_life = {
+      duration = 4.0,
+    }
+  },
+  
+  -- Visual effects
   tracer = { color = {1.00, 0.70, 0.25}, width = 2, coreRadius = 6 },
   impact = {
     shield = { spanDeg = 70, color1 = {1.0, 0.75, 0.35, 0.55}, color2 = {1.0, 0.55, 0.25, 0.40} },

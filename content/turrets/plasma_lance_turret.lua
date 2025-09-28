@@ -15,7 +15,33 @@ return {
         }
     },
     spread = { minDeg = 0.2, maxDeg = 0.8, decay = 700 },
-    projectile = "plasma_lance_bolt",
+    
+    -- Embedded projectile definition
+    projectile = {
+        id = "plasma_lance_bolt",
+        name = "Plasma Lance Bolt",
+        class = "Projectile",
+        physics = {
+            speed = 5200,
+            drag = 0,
+        },
+        renderable = {
+            type = "bullet",
+            props = {
+                kind = "bolt",
+                radius = 2.5,
+                color = {0.90, 0.45, 1.00, 1.0},
+            }
+        },
+        damage = {
+            value = 5.0,
+        },
+        timed_life = {
+            duration = 2.8,
+        }
+    },
+    
+    -- Visual effects
     tracer = { color = {0.90, 0.45, 1.00, 1.0}, width = 1.6, coreRadius = 1.8 },
     impact = {
         shield = { spanDeg = 85, color1 = {0.90, 0.45, 1.0, 0.65}, color2 = {0.65, 0.30, 1.0, 0.4} },

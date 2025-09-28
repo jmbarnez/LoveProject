@@ -23,7 +23,13 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
         -- Fallback to ship facing if cursor position not available
         angle = turret.owner.components.position.angle or 0
     end
-    local projSpeed = turret.projectileSpeed or 2400
+    -- Get projectile speed from embedded definition or fallback to turret setting
+    local projSpeed = 2400 -- Default fallback
+    if turret.projectile and type(turret.projectile) == "table" and turret.projectile.physics then
+        projSpeed = turret.projectile.physics.speed or 2400
+    elseif turret.projectileSpeed then
+        projSpeed = turret.projectileSpeed
+    end
 
     -- Handle volley firing for turrets that support it
     local volleyCount = turret.volleyCount or 1
@@ -44,9 +50,16 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
         local randomSpread = (math.random() - 0.5) * math.rad(spreadFactor)
         local finalAngle = angle + volleyAngle + randomSpread
 
-        -- Create projectile
-        local projectileId = turret.projectileId or "gun_bullet"
-        local projectileTemplate = Content.getProjectile(projectileId)
+        -- Create projectile using embedded definition or fallback to Content
+        local projectileTemplate = nil
+        if turret.projectile and type(turret.projectile) == "table" then
+            -- Use embedded projectile definition
+            projectileTemplate = turret.projectile
+        else
+            -- Fallback to separate projectile file
+            local projectileId = turret.projectileId or "gun_bullet"
+            projectileTemplate = Content.getProjectile(projectileId)
+        end
 
         if projectileTemplate then
             local sx = turret.owner.components.position.x
@@ -93,7 +106,14 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
 
     -- For missiles, use assigned target if available; otherwise fire straight ahead
     local angle = turret.owner.components.position.angle or 0
-    local projSpeed = turret.projectileSpeed or 800
+    
+    -- Get projectile speed from embedded definition or fallback to turret setting
+    local projSpeed = 800 -- Default fallback for missiles
+    if turret.projectile and type(turret.projectile) == "table" and turret.projectile.physics then
+        projSpeed = turret.projectile.physics.speed or 800
+    elseif turret.projectileSpeed then
+        projSpeed = turret.projectileSpeed
+    end
 
     local missileTarget = nil
     local isHoming = false
@@ -112,9 +132,16 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         angle = math.atan2(dy, dx)
     end
 
-    -- Create missile projectile
+    -- Create missile projectile using embedded definition or fallback to Content
+    local projectileTemplate = nil
     local projectileId = turret.projectileId or "missile"
-    local projectileTemplate = Content.getProjectile(projectileId)
+    if turret.projectile and type(turret.projectile) == "table" then
+        -- Use embedded projectile definition
+        projectileTemplate = turret.projectile
+    else
+        -- Fallback to separate projectile file
+        projectileTemplate = Content.getProjectile(projectileId)
+    end
 
     if projectileTemplate then
         local sx = turret.owner.components.position.x

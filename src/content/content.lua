@@ -75,6 +75,19 @@ function Content.load()
     if def and def.id then
       Content.byId.turret[def.id] = def
       Log.debug("Loaded turret: " .. def.id .. " (" .. (def.name or "unnamed") .. ")")
+      
+      -- Extract embedded projectile definition if it exists
+      if def.projectile and type(def.projectile) == "table" then
+        local projectileDef = def.projectile
+        Validator.projectile(projectileDef)
+        local ndef = Normalizer.normalizeProjectile(projectileDef)
+        table.insert(Content.projectiles, ndef)
+        if ndef and ndef.id then
+          Content.byId.projectile[ndef.id] = ndef
+          Log.debug("Extracted projectile from turret: " .. ndef.id)
+        end
+      end
+      
       if def.module then
         local item = Item.fromDef(def)
         table.insert(Content.items, item)
