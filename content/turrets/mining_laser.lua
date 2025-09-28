@@ -37,18 +37,18 @@ return {
       particles = {1.0, 0.8, 0.2, 0.7} -- Bright particles
     },
   },
-  -- Pulsed mining beam, 3 second cycles
+  -- Continuous mining beam, tuned for a gentle extraction rate
   optimal = 850, falloff = 250,
   damageMin = 1, damageMax = 2, -- Mining damage per pulse
-  cycle = 3.0, -- 3 second cycles for pulsing behavior
-  capCost = 25, -- Energy cost per pulse
+  cycle = 3.0, -- Seconds required to deal miningPower damage (controls DPS)
+  capCost = 25, -- Energy cost budget per cycle window
   spread = { minDeg = 0.05, maxDeg = 0.1, decay = 1000 }, -- Very precise for mining
-  miningPower = 2.5, -- Mining damage per pulse
-  beamDuration = 0.2, -- Visible beam duration per pulse
-  -- Heat management for pulsed beam
+  miningPower = 2.5, -- Total mining damage applied across each cycle window
+  beamDuration = 0.2, -- Legacy rendering hint for beam visuals
+  -- Heat management for continuous beam
   maxHeat = 20.0, -- Higher max heat for sustained use
-  heatPerShot = 5.0, -- Heat per pulse
-  cooldownRate = 10.0, -- Fast cooling between pulses
+  heatPerShot = 5.0, -- Heat generated across each cycle window
+  cooldownRate = 10.0, -- Fast cooling between pulses/pauses
   overheatCooldown = 5.0, -- Fixed cooldown window after overheating
 
   -- Firing mode: "manual" or "automatic"

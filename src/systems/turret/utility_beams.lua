@@ -1,16 +1,41 @@
 local CollisionHelpers = require("src.systems.turret.collision_helpers")
 local HeatManager = require("src.systems.turret.heat_manager")
-local Targeting = require("src.systems.turret.targeting")
 local TurretEffects = require("src.systems.turret.effects")
-local Content = require("src.content.content")
 
 local UtilityBeams = {}
+local IMPACT_INTERVAL = 0.18
 
--- Handle mining laser operation (pulsed weapon like combat laser)
-function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
-    if locked or not turret:canFire() then
+local function spawnSalvagePickup(target, amount, world)
+    if not world or amount <= 0 then
         return
     end
+
+    if not target.components or not target.components.position then
+        return
+    end
+
+    local ItemPickup = require("src.entities.item_pickup")
+    local pickup = ItemPickup.new(
+        target.components.position.x,
+        target.components.position.y,
+        "scraps",
+        amount
+    )
+
+    if pickup then
+        world:addEntity(pickup)
+    end
+end
+
+-- Handle mining laser operation (continuous beam with ticking damage)
+function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
+    if locked or not turret:canFire() then
+        turret.beamActive = false
+        turret.beamTarget = nil
+        return
+    end
+
+    turret._beamImpactTimer = math.max(0, (turret._beamImpactTimer or 0) - dt)
 
     -- Manual shooting - fire in the direction of the cursor
     local angle = 0
@@ -24,6 +49,7 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
         -- Fallback to ship facing if cursor position not available
         angle = turret.owner.components.position.angle or 0
     end
+
     local sx = turret.owner.components.position.x
     local sy = turret.owner.components.position.y
 
@@ -36,22 +62,10 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
         sx, sy, endX, endY, turret, world
     )
 
-    if hitTarget then
-        -- Only apply mining damage if target is an asteroid
-        if hitTarget.components and hitTarget.components.mineable then
-            -- Apply mining damage
-            local damageValue = turret.miningPower or math.random(1, 2)
-            UtilityBeams.applyMiningDamage(hitTarget, damageValue, turret.owner, world)
-            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "mining")
-        else
-            -- Hit a non-mineable object - no damage, but still create impact effect
-            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
-        end
-    end
-
-    -- Store beam data for rendering during draw phase
+    local wasActive = turret.beamActive
     local beamEndX = hitX or endX
     local beamEndY = hitY or endY
+
     turret.beamActive = true
     turret.beamStartX = sx
     turret.beamStartY = sy
@@ -59,9 +73,35 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     turret.beamEndY = beamEndY
     turret.beamTarget = hitTarget
 
-    -- Add heat and play effects
-    HeatManager.addHeat(turret, turret.heatPerShot or 5.0)
-    TurretEffects.playFiringSound(turret)
+    local cycle = math.max(0.1, turret.cycle or 1.0)
+    local miningPower = turret.miningPower or 1
+    local damageRate = miningPower / cycle
+
+    if hitTarget then
+        if hitTarget.components and hitTarget.components.mineable then
+            local damageValue = damageRate * dt
+            UtilityBeams.applyMiningDamage(hitTarget, damageValue, turret.owner, world)
+
+            if turret._beamImpactTimer <= 0 then
+                TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "mining")
+                turret._beamImpactTimer = IMPACT_INTERVAL
+            end
+        else
+            if turret._beamImpactTimer <= 0 then
+                TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
+                turret._beamImpactTimer = IMPACT_INTERVAL
+            end
+        end
+    end
+
+    turret.cooldownOverride = 0
+
+    local heatPerSecond = (turret.heatPerShot or 5.0) / cycle
+    HeatManager.addHeat(turret, heatPerSecond * dt)
+
+    if not wasActive then
+        TurretEffects.playFiringSound(turret)
+    end
 end
 
 -- Apply mining damage to asteroid durability
@@ -154,11 +194,15 @@ function UtilityBeams.completeMining(turret, target, world)
     )
 end
 
--- Handle salvaging laser operation (pulsed weapon like mining laser)
+-- Handle salvaging laser operation (continuous beam with ticking damage)
 function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     if locked or not turret:canFire() then
+        turret.beamActive = false
+        turret.beamTarget = nil
         return
     end
+
+    turret._beamImpactTimer = math.max(0, (turret._beamImpactTimer or 0) - dt)
 
     -- Manual shooting - fire in the direction of the cursor
     local angle = 0
@@ -172,6 +216,7 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
         -- Fallback to ship facing if cursor position not available
         angle = turret.owner.components.position.angle or 0
     end
+
     local sx = turret.owner.components.position.x
     local sy = turret.owner.components.position.y
 
@@ -184,22 +229,10 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
         sx, sy, endX, endY, turret, world
     )
 
-    if hitTarget then
-        -- Only apply salvage damage if target is wreckage
-        if hitTarget.components and hitTarget.components.wreckage then
-            -- Apply salvage damage
-            local damageValue = turret.salvagePower or math.random(1, 2)
-            UtilityBeams.applySalvageDamage(hitTarget, damageValue, turret.owner, world)
-            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "salvage")
-        else
-            -- Hit a non-wreckage object - no damage, but still create impact effect
-            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
-        end
-    end
-
-    -- Store beam data for rendering during draw phase
+    local wasActive = turret.beamActive
     local beamEndX = hitX or endX
     local beamEndY = hitY or endY
+
     turret.beamActive = true
     turret.beamStartX = sx
     turret.beamStartY = sy
@@ -207,9 +240,31 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     turret.beamEndY = beamEndY
     turret.beamTarget = hitTarget
 
-    -- Add heat and play effects
-    HeatManager.addHeat(turret, turret.heatPerShot or 5.0)
-    TurretEffects.playFiringSound(turret)
+    local cycle = math.max(0.1, turret.cycle or 1.0)
+    local salvagePower = turret.salvagePower or 1
+    local salvageRate = salvagePower / cycle
+
+    if hitTarget then
+        if hitTarget.components and hitTarget.components.wreckage then
+            local removed = UtilityBeams.applySalvageDamage(hitTarget, salvageRate * dt, turret.owner, world)
+            if removed and turret._beamImpactTimer <= 0 then
+                TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "salvage")
+                turret._beamImpactTimer = IMPACT_INTERVAL
+            end
+        elseif turret._beamImpactTimer <= 0 then
+            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
+            turret._beamImpactTimer = IMPACT_INTERVAL
+        end
+    end
+
+    turret.cooldownOverride = 0
+
+    local heatPerSecond = (turret.heatPerShot or 5.0) / cycle
+    HeatManager.addHeat(turret, heatPerSecond * dt)
+
+    if not wasActive then
+        TurretEffects.playFiringSound(turret)
+    end
 end
 
 -- Complete salvage operation (cleanup after all materials yielded)
@@ -226,7 +281,6 @@ end
 function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, world)
     if not world then return nil end
 
-    local CollisionHelpers = require("src.systems.turret.collision_helpers")
     local bestTarget = nil
     local bestDistance = math.huge
     local bestHitX, bestHitY = endX, endY
@@ -258,7 +312,6 @@ end
 function UtilityBeams.performSalvageHitscan(startX, startY, endX, endY, turret, world)
     if not world then return nil end
 
-    local CollisionHelpers = require("src.systems.turret.collision_helpers")
     local bestTarget = nil
     local bestDistance = math.huge
     local bestHitX, bestHitY = endX, endY
@@ -289,32 +342,45 @@ end
 -- Apply salvage damage to wreckage
 function UtilityBeams.applySalvageDamage(target, damage, source, world)
     if not target.components or not target.components.wreckage then
-        return
+        return false
+    end
+
+    if damage <= 0 then
+        return false
     end
 
     local wreckage = target.components.wreckage
-    local amountThisPulse = math.min(damage, wreckage.salvageAmount or 1)
-    wreckage.salvageAmount = math.max(0, (wreckage.salvageAmount or 1) - damage)
-
-    -- Create scrap pickup for this pulse
-    if amountThisPulse > 0 then
-        local ItemPickup = require("src.entities.item_pickup")
-        local pickup = ItemPickup.new(
-            target.components.position.x,
-            target.components.position.y,
-            "scraps",
-            amountThisPulse
-        )
-        if pickup and world then
-            world:addEntity(pickup)
-        end
+    local remaining = wreckage.salvageAmount or 0
+    if remaining <= 0 then
+        return false
     end
 
-    -- Check if wreckage is completely salvaged
-    if wreckage.salvageAmount <= 0 then
+    local applied = math.min(damage, remaining)
+    remaining = remaining - applied
+    wreckage.salvageAmount = remaining
+
+    wreckage._partialSalvage = (wreckage._partialSalvage or 0) + applied
+    wreckage._salvageDropped = wreckage._salvageDropped or 0
+    local whole = math.floor(wreckage._partialSalvage)
+    if whole >= 1 then
+        wreckage._partialSalvage = wreckage._partialSalvage - whole
+        wreckage._salvageDropped = wreckage._salvageDropped + whole
+        spawnSalvagePickup(target, whole, world)
+    end
+
+    if remaining <= 0 then
+        local initialTotal = wreckage.maxSalvageAmount or wreckage._salvageDropped
+        local remainingToDrop = math.max(0, math.floor((initialTotal or 0) - wreckage._salvageDropped + 0.0001))
+        if remainingToDrop > 0 then
+            wreckage._salvageDropped = wreckage._salvageDropped + remainingToDrop
+            spawnSalvagePickup(target, remainingToDrop, world)
+        end
+        wreckage._partialSalvage = 0
         UtilityBeams.completeSalvage(nil, target, world)
         target.dead = true
     end
+
+    return applied > 0
 end
 
 
