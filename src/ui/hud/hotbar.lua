@@ -110,9 +110,9 @@ function Hotbar.draw(player)
       if player and player.components and player.components.equipment and player.components.equipment.grid and idx then
         local gridData = player.components.equipment.grid[idx]
         if gridData and gridData.module then
+          local t = gridData.module
           if isTurret then
             -- Handle turret
-            local t = gridData.module
             local subject = resolveTurretSubject(t, gridData.id)
             drawIcon({ subject, (t and t.id), "basic_gun" }, rx + 4, ry + 4, size - 8)
             drewIcon = true
@@ -127,10 +127,10 @@ function Hotbar.draw(player)
           -- Draw heat bar for turrets only
           if isTurret and t and t.getHeatFactor then
               local heatFactor = t:getHeatFactor()
-              if heatFactor > 0.01 then
-                  local barY = ry - 8
+              if heatFactor > 0.001 then -- Lower threshold to make heat bars more visible
+                  local barY = ry + 2
                   local barWidth = size
-                  local barHeight = 3
+                  local barHeight = 4
 
                   -- Heat bar background
                   love.graphics.setColor(0.2, 0.2, 0.2, 0.8)
@@ -147,7 +147,7 @@ function Hotbar.draw(player)
                   love.graphics.rectangle('fill', rx, barY, barWidth * heatFactor, barHeight)
 
                   -- Overheat warning
-                  if t.isOverheated then
+                  if t.overheated then
                       local pulse = (math.sin(love.timer.getTime() * 8) + 1) / 2
                       love.graphics.setColor(1, 0.1, 0.1, 0.6 + pulse * 0.4)
                       love.graphics.rectangle('fill', rx, barY, barWidth, barHeight)
@@ -160,31 +160,6 @@ function Hotbar.draw(player)
               end
           end
 
-          -- Draw cooldown bar for turrets only
-          if isTurret and t and t.cooldown and t.cooldown > 0 and t.cycle and t.cycle > 0 then
-              local cooldownPct = math.max(0, math.min(1, t.cooldown / t.cycle))
-              if cooldownPct > 0 then
-                  local barHeight = math.floor(size * cooldownPct)
-                  -- Use blue for cooldown bar
-                  love.graphics.setColor(0.2, 0.6, 1.0, 0.7)
-                  love.graphics.rectangle('fill', rx, ry + size - barHeight, size, barHeight)
-                  love.graphics.setColor(0.4, 0.8, 1.0, 0.9)
-                  love.graphics.setLineWidth(1)
-                  love.graphics.rectangle('line', rx, ry + size - barHeight, size, barHeight)
-
-                  -- Numeric cooldown
-                  local text = string.format("%.1f", t.cooldown)
-                  local fOld = love.graphics.getFont()
-                  if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
-                  local fw = love.graphics.getFont():getWidth(text)
-                  local Theme = require("src.core.theme")
-                  Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.7))
-                  love.graphics.print(text, rx + size - fw - 5 + 1, ry + 5 + 1)
-                  Theme.setColor(Theme.colors.text)
-                  love.graphics.print(text, rx + size - fw - 5, ry + 5)
-                  if fOld then love.graphics.setFont(fOld) end
-              end
-          end
         end
       end
     elseif slot.item == "boost" then
@@ -213,14 +188,54 @@ function Hotbar.draw(player)
             local text = string.format("%.1f", remaining)
             local fOld = love.graphics.getFont()
             if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
-            local fw = love.graphics.getFont():getWidth(text)
+            local font = love.graphics.getFont()
+            local fw = font:getWidth(text)
+            local fh = font:getHeight()
+            local tx, ty = rx + (size - fw) * 0.5, ry + (size - fh) * 0.5
             -- shadow for readability
             local Theme = require("src.core.theme")
             Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.7))
-            love.graphics.print(text, rx + size - fw - 5 + 1, ry + 5 + 1)
+            love.graphics.print(text, tx + 1, ty + 1)
             Theme.setColor(Theme.colors.text)
-            love.graphics.print(text, rx + size - fw - 5, ry + 5)
+            love.graphics.print(text, tx, ty)
             if fOld then love.graphics.setFont(fOld) end
+          end
+        end
+      elseif type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
+        -- Individual turret slot cooldown
+        local idx = tonumber(slot.item:match('^turret_slot_(%d+)$'))
+        if player and player.components and player.components.equipment and player.components.equipment.grid and idx then
+          local gridData = player.components.equipment.grid[idx]
+          if gridData and gridData.module then
+            local t = gridData.module
+            if t and t.cooldown and t.cooldown > 0 then
+              local cycle = t.cycle or 1.0  -- Fallback to 1.0 if cycle is not available
+              local cooldownPct = math.max(0, math.min(1, t.cooldown / cycle))
+              if cooldownPct > 0 then
+                local barHeight = math.floor(size * cooldownPct)
+                -- Use more visible blue for cooldown bar
+                love.graphics.setColor(0.1, 0.4, 1.0, 0.8)
+                love.graphics.rectangle('fill', rx, ry + size - barHeight, size, barHeight)
+                love.graphics.setColor(0.2, 0.6, 1.0, 1.0)
+                love.graphics.setLineWidth(2)
+                love.graphics.rectangle('line', rx, ry + size - barHeight, size, barHeight)
+
+                -- Numeric cooldown
+                local text = string.format("%.1f", t.cooldown)
+                local fOld = love.graphics.getFont()
+                if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
+                local font = love.graphics.getFont()
+                local fw = font:getWidth(text)
+                local fh = font:getHeight()
+                local tx, ty = rx + (size - fw) * 0.5, ry + (size - fh) * 0.5
+                local Theme = require("src.core.theme")
+                Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.7))
+                love.graphics.print(text, tx + 1, ty + 1)
+                Theme.setColor(Theme.colors.text)
+                love.graphics.print(text, tx, ty)
+                if fOld then love.graphics.setFont(fOld) end
+              end
+            end
           end
         end
       elseif slot.item == 'turret' then
@@ -231,10 +246,14 @@ function Hotbar.draw(player)
           for _, gridData in ipairs(player.components.equipment.grid) do
             if gridData.type == "turret" and gridData.module then
               local t = gridData.module
-              if t and (t.cooldown or 0) > 0 and (t.cycle or 0) > 0 then
-                local pct = math.max(0, math.min(1, (t.cooldown or 0) / (t.cycle or 1)))
-                if pct > best then best = pct end
-                if (t.cooldown or 0) > bestTime then bestTime = (t.cooldown or 0) end
+              if t and (t.cooldown or 0) > 0 then
+                  local effectiveCycle = t:getHeatModifiedCycle()
+                  if effectiveCycle > 0 then
+                      local pct = math.max(0, math.min(1, (t.cooldown or 0) / effectiveCycle))
+                      if pct > best then best = pct end
+                      if (t.cooldown or 0) > bestTime then bestTime = (t.cooldown or 0) end
+                  end
+              end
             end
           end
         end
@@ -252,15 +271,70 @@ function Hotbar.draw(player)
             local text = string.format("%.1f", bestTime)
             local fOld = love.graphics.getFont()
             if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
-            local fw = love.graphics.getFont():getWidth(text)
+            local font = love.graphics.getFont()
+            local fw = font:getWidth(text)
+            local fh = font:getHeight()
+            local tx, ty = rx + (size - fw) * 0.5, ry + (size - fh) * 0.5
             -- shadow for readability
             local Theme = require("src.core.theme")
             Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.7))
-            love.graphics.print(text, rx + size - fw - 5 + 1, ry + 5 + 1)
+            love.graphics.print(text, tx + 1, ty + 1)
             Theme.setColor(Theme.colors.text)
-            love.graphics.print(text, rx + size - fw - 5, ry + 5)
+            love.graphics.print(text, tx, ty)
             if fOld then love.graphics.setFont(fOld) end
           end
+        end
+
+        -- Draw heat bar for general turret slot (show max heat across all turrets)
+        local maxHeat = 0
+        local maxHeatFactor = 0
+        local anyOverheated = false
+        if player.components and player.components.equipment and player.components.equipment.grid then
+          for _, gridData in ipairs(player.components.equipment.grid) do
+            if gridData.type == "turret" and gridData.module then
+              local t = gridData.module
+              if t and t.getHeatFactor then
+                local heatFactor = t:getHeatFactor()
+                if heatFactor > maxHeatFactor then
+                  maxHeatFactor = heatFactor
+                end
+                if t.overheated then
+                  anyOverheated = true
+                end
+              end
+            end
+          end
+        end
+        if maxHeatFactor > 0.001 then -- Lower threshold to make heat bars more visible
+          local barY = ry + 2
+          local barWidth = size
+          local barHeight = 4
+
+          -- Heat bar background
+          love.graphics.setColor(0.2, 0.2, 0.2, 0.8)
+          love.graphics.rectangle('fill', rx, barY, barWidth, barHeight)
+
+          -- Heat bar fill
+          local heatColor = {
+              1.0 - maxHeatFactor * 0.3, -- Red increases with heat
+              0.8 - maxHeatFactor * 0.6, -- Green decreases with heat
+              0.2, -- Blue stays low
+              0.8 -- High visibility
+          }
+          love.graphics.setColor(heatColor)
+          love.graphics.rectangle('fill', rx, barY, barWidth * maxHeatFactor, barHeight)
+
+          -- Overheat warning
+          if anyOverheated then
+              local pulse = (math.sin(love.timer.getTime() * 8) + 1) / 2
+              love.graphics.setColor(1, 0.1, 0.1, 0.6 + pulse * 0.4)
+              love.graphics.rectangle('fill', rx, barY, barWidth, barHeight)
+          end
+
+          -- Heat bar border
+          love.graphics.setColor(0.4, 0.4, 0.4, 1)
+          love.graphics.setLineWidth(1)
+          love.graphics.rectangle('line', rx, barY, barWidth, barHeight)
         end
       end
     end
@@ -312,8 +386,6 @@ function Hotbar.mousepressed(player, mx, my, button)
   end
 
   return false
-end
-
 end
 
 Hotbar.drawIcon = drawIcon

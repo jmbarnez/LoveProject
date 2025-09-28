@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.311",
+    "date": "2025-09-28",
+    "subject": "UI Polish and Bug Fixes",
+    "notes": [
+      "Fixed mouse wheel event handling causing arithmetic errors in ship UI",
+      "Enhanced fitting slot labels with improved spacing and visibility",
+      "Made UI more sleek with better font sizing and text layout",
+      "Added robust nil checks for wheel event parameters",
+      "Improved ship equipment slot text readability and spacing",
+      "Enhanced version display and version log formatting"
+    ]
+  },
+  {
     "version": "0.31",
     "date": "2025-09-27",
     "subject": "Bug Fixes and UI Polish",

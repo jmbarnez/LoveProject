@@ -87,6 +87,7 @@ function Turret.new(owner, params)
     self.lockOnStartTime = 0 -- When lock-on started
     self.lockOnDuration = params.lockOnDuration or 2.0 -- How long to hold aim for lock-on (seconds)
     self.isLockedOn = false -- Whether lock-on has been achieved
+    self.lockOnProgress = 0 -- 0-1 progress toward lock acquisition
 
     -- Set default tracer colors if not specified
     if (self.kind == 'gun' or self.kind == 'projectile' or not self.kind) and not self.tracer.color then
@@ -130,8 +131,10 @@ function Turret:update(dt, target, locked, world)
         self.firing = false
         self.currentTarget = nil
         self.beamActive = false
-        -- Reset lock-on when turret is locked
-        self:resetLockOn()
+        -- Preserve missile lock progress even when not firing so the player can pre-aim
+        if self.kind ~= "missile" then
+            self:resetLockOn()
+        end
         return
     end
 
@@ -190,6 +193,12 @@ function Turret:update(dt, target, locked, world)
 
     -- Update last fire time (legacy compatibility)
     self.lastFireTime = love.timer and love.timer.getTime() or 0
+end
+
+function Turret:cancelFiring()
+    self.firing = false
+    self.beamActive = false
+    -- Don't reset cooldown here; let it finish its cycle
 end
 
 -- Legacy compatibility functions
@@ -262,6 +271,7 @@ function Turret:resetLockOn()
     self.lockOnTarget = nil
     self.lockOnStartTime = 0
     self.isLockedOn = false
+    self.lockOnProgress = 0
 end
 
 -- Update lock-on system

@@ -169,11 +169,7 @@ end
 function Player:addXP(amount)
   if self.components and self.components.progression then
     local leveledUp = self.components.progression:addXP(amount)
-    if leveledUp and self.components.health then
-      self.components.health.maxHP = self.components.health.maxHP + 10
-      self.components.health.maxShield = self.components.health.maxShield + 10
-      self.components.health.shield = self.components.health.maxShield
-    end
+    -- Level up effects disabled - no HP or shield changes
     return leveledUp
   end
   return false

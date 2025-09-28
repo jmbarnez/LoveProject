@@ -9,7 +9,7 @@ function HeatManager.initializeHeat(turret, params)
     turret.heatCycleMult = params.heatCycleMult or (turret.kind == "mining_laser" and 0.5 or 0.8)
     turret.heatEnergyMult = params.heatEnergyMult or (turret.kind == "mining_laser" and 2.0 or 1.5)
 
-    turret.currentHeat = 0
+    turret.currentHeat = 15 -- Start with some heat for testing visibility
     turret.overheated = false
     turret.overheatStartTime = 0
     turret.overheatDuration = params.overheatDuration or 3.0

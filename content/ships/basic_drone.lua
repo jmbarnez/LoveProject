@@ -12,16 +12,38 @@ return {
     },
 
     visuals = {
-        size = 0.7, -- slightly smaller base size
+        size = 0.8, -- adjusted for hexagonal design
+        hullColor = {0.42, 0.45, 0.50, 1.0},
+        panelColor = {0.32, 0.35, 0.39, 1.0},
+        accentColor = {1.0, 0.35, 0.25, 0.9},
+        engineColor = {1.0, 0.25, 0.2},
         shapes = {
-            { type = "circle", mode = "fill", color = {0.42, 0.45, 0.50, 1.0}, x = 0, y = 0, r = 10 },
-            { type = "circle", mode = "line", color = {0.20, 0.22, 0.26, 0.9}, x = 0, y = 0, r = 10 },
-            { type = "circle", mode = "fill", color = {1.0, 0.35, 0.25, 0.9}, x = 3, y = 0, r = 3.2 },
-            { type = "rect", mode = "fill", color = {0.32, 0.35, 0.39, 1.0}, x = -6, y = -12, w = 18, h = 4, rx = 1 },
-            { type = "rect", mode = "fill", color = {0.32, 0.35, 0.39, 1.0}, x = -6, y = 8,  w = 18, h = 4, rx = 1 },
-            { type = "rect", mode = "fill", color = {0.28, 0.30, 0.34, 1.0}, x = 8, y = -1, w = 8, h = 2, rx = 1 },
-            { type = "circle", mode = "fill", color = {1.0, 0.25, 0.2, 0.8}, x = -6, y = -10, r = 1.5 },
-            { type = "circle", mode = "fill", color = {1.0, 0.25, 0.2, 0.8}, x = -6, y = 10,  r = 1.5 },
+            -- Central hexagonal core (drone-like)
+            { type = "polygon", mode = "fill", color = {0.42, 0.45, 0.50, 1.0}, points = { 0,-10,  -8,-5,  -8,5,  0,10,  8,5,  8,-5 } },
+
+            -- Symmetrical engine mounts (4 points around center)
+            { type = "rectangle", mode = "fill", color = {0.32, 0.35, 0.39, 1.0}, x = -10, y = -3, w = 3, h = 6 },
+            { type = "rectangle", mode = "fill", color = {0.32, 0.35, 0.39, 1.0}, x = 7, y = -3, w = 3, h = 6 },
+            { type = "rectangle", mode = "fill", color = {0.32, 0.35, 0.39, 1.0}, x = -3, y = -10, w = 6, h = 3 },
+            { type = "rectangle", mode = "fill", color = {0.32, 0.35, 0.39, 1.0}, x = -3, y = 7, w = 6, h = 3 },
+
+            -- Engine glow effects (positioned at engine mounts)
+            { type = "circle", mode = "fill", color = {1.0, 0.35, 0.25, 0.9}, x = -8, y = 0, r = 1.5 },
+            { type = "circle", mode = "fill", color = {1.0, 0.25, 0.2, 0.8}, x = 8, y = 0, r = 1.5 },
+            { type = "circle", mode = "fill", color = {1.0, 0.35, 0.25, 0.9}, x = 0, y = -8, r = 1.5 },
+            { type = "circle", mode = "fill", color = {1.0, 0.25, 0.2, 0.8}, x = 0, y = 8, r = 1.5 },
+
+            -- Central sensor array
+            { type = "circle", mode = "fill", color = {0.25, 0.75, 0.95, 0.4}, x = 0, y = 0, r = 4 },
+
+            -- Symmetrical sensor nodes
+            { type = "circle", mode = "fill", color = {0.35, 0.65, 0.85, 0.5}, x = 0, y = -6, r = 1.5 },
+            { type = "circle", mode = "fill", color = {0.35, 0.65, 0.85, 0.5}, x = 0, y = 6, r = 1.5 },
+            { type = "circle", mode = "fill", color = {0.35, 0.65, 0.85, 0.5}, x = -6, y = 0, r = 1.5 },
+            { type = "circle", mode = "fill", color = {0.35, 0.65, 0.85, 0.5}, x = 6, y = 0, r = 1.5 },
+
+            -- Outer hull outline
+            { type = "polygon", mode = "line", color = {0.20, 0.22, 0.26, 0.9}, points = { 0,-10,  -8,-5,  -8,5,  0,10,  8,5,  8,-5 } },
         }
     },
 

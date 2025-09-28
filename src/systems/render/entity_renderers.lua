@@ -991,6 +991,27 @@ function EntityRenderers.draw(world, camera, player)
 
         love.graphics.pop()
 
+        -- Draw turret heat bars in screen space
+        if entity.components.ai and entity.components.equipment and entity.components.equipment.grid then
+            local x, y = entity.components.position.x, entity.components.position.y
+            local screenX, screenY = Viewport.toScreen(x, y)
+            local turrets = {}
+            for _, gridData in ipairs(entity.components.equipment.grid) do
+                if gridData.type == "turret" and gridData.module then
+                    table.insert(turrets, gridData.module)
+                end
+            end
+            for i, turret in ipairs(turrets) do
+                if turret.drawHeatIndicator then
+                    local barWidth = 40
+                    local totalWidth = #turrets * barWidth + (#turrets - 1) * 5
+                    local startX = screenX - totalWidth / 2
+                    local barX = startX + (i - 1) * (barWidth + 5)
+                    turret:drawHeatIndicator(barX, screenY - 50, barWidth)
+                end
+            end
+        end
+
         -- Draw enemy laser beams after pop, in world space
         if entity.components.ai and entity.components.equipment and entity.components.equipment.grid then
             for _, gridData in ipairs(entity.components.equipment.grid) do
