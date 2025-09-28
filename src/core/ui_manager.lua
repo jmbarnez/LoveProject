@@ -460,15 +460,24 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
     end
   end
 
-  -- Draw escape and settings last, with settings on top of escape
+  -- Draw escape menu first
   if UIManager.state.escape.open then
     EscapeMenu.draw()
   end
-  -- Draw save slots on top of escape menu if active
+  
+  -- Draw registered floating components (like save panel) on top of escape menu
+  for _, comp in ipairs(Registry.visibleSortedAscending()) do
+    if comp.id == "save_load_panel" and comp.draw then
+      comp:draw()
+    end
+  end
+  
+  -- Draw save slots on top of escape menu if active (legacy support)
   if UIManager.state.escape.open and UIManager.state.escape.showingSaveSlots then
     local comp = Registry.get("escape_save_slots")
     if comp and comp.draw then comp.draw() end
   end
+  
   if SettingsPanel.visible then
     SettingsPanel.draw()
   end

@@ -22,7 +22,7 @@ function SaveLoad:new(options)
         title = "Save & Load Game",
         width = windowW,
         height = windowH,
-        useLoadPanelTheme = true,
+        useLoadPanelTheme = false,
         closable = true,
         onClose = function()
             if o.onClose then

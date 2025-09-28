@@ -1,7 +1,7 @@
 local Input = require("src.core.input")
 local Viewport = require("src.core.viewport")
 local Theme = require("src.core.theme")
-local SaveSlots = require("src.ui.save_slots")
+local SaveLoad = require("src.ui.save_load")
 local StateManager = require("src.managers.state_manager")
 local World = require("src.core.world")
 local AuroraTitle = require("src.shaders.aurora_title")
@@ -131,14 +131,17 @@ function Start.new()
     end
   })
   VersionLog.showWindow(self.versionWindow)
-  self.loadSlotsUI = SaveSlots:new()
+  self.loadSlotsUI = SaveLoad:new({
+    onClose = function()
+      self.showLoadUI = false
+    end
+  })
   self.showLoadUI = false
   -- Cache large title font (Press Start 2P)
   self.titleFont = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", 80)
   self.titleFont:setFilter('nearest', 'nearest', 1)
   -- Aurora title shader
   self.auroraShader = AuroraTitle.new()
-  self.blurCanvas = love.graphics.newCanvas(self.w, self.h)
 
 
   return self
@@ -357,43 +360,14 @@ function Start:draw()
 
   
   -- Draw load UI on top of everything else
-  if self.showLoadUI then
-    
-    -- Draw load slots UI with dynamic sizing
-    local contentW, contentH = 600, 500
-    if self.loadSlotsUI and self.loadSlotsUI.getPreferredSize then
-      contentW, contentH = self.loadSlotsUI:getPreferredSize()
-    end
-    local framePaddingX, framePaddingY = 20, 60
-    local loadW, loadH = contentW + framePaddingX, contentH + framePaddingY
-    local loadX = (w - loadW) / 2
-    local loadY = (h - loadH) / 2
-    
-    -- Background
-    -- Frosted glass effect (blur)
-    -- Frosted glass effect (blur)
-    love.graphics.setCanvas({self.blurCanvas, stencil = true})
-    love.graphics.setColor(1, 1, 1, 1)
-    love.graphics.draw(Viewport.getCanvas(), 0, 0)
-    love.graphics.setCanvas(Viewport.getCanvas())
-    love.graphics.setShader(Theme.shaders.ui_blur)
-    love.graphics.setColor(1, 1, 1, 0.8) -- Control blur intensity
-    love.graphics.draw(self.blurCanvas, 0, 0)
-    love.graphics.setShader()
-
-    -- Sci-fi frame
-    Theme.drawSciFiFrame(loadX, loadY, loadW, loadH)
-    
-    -- Back button
-    local backButtonW, backButtonH = 80, 30
-    local backButtonX, backButtonY = loadX + 10, loadY + 10
-    local mx, my = Viewport.getMousePosition()
-    local backHover = mx >= backButtonX and mx <= backButtonX + backButtonW and my >= backButtonY and my <= backButtonY + backButtonH
-    self.backButtonRect = UIButton.drawRect(backButtonX, backButtonY, backButtonW, backButtonH, Strings.getUI("back_button"), backHover, love.timer.getTime(), { menuButton = true })
-    
-    -- Load slots content
-    if self.loadSlotsUI then
-      self.loadSlotsUI:draw(loadX + 10, loadY + 50, loadW - 20, loadH - 60)
+  if self.showLoadUI and self.loadSlotsUI then
+    -- Center the save/load panel on screen
+    local sw, sh = Viewport.getDimensions()
+    if self.loadSlotsUI.window then
+      self.loadSlotsUI.window.x = math.floor((sw - self.loadSlotsUI.window.width) * 0.5)
+      self.loadSlotsUI.window.y = math.floor((sh - self.loadSlotsUI.window.height) * 0.5)
+      self.loadSlotsUI.window:show()
+      self.loadSlotsUI.window:draw()
     end
   end
 
@@ -407,36 +381,20 @@ end
 
 function Start:mousepressed(x, y, button)
   -- Check load UI first (highest priority)
-  if self.showLoadUI then
-    local w, h = self.w, self.h
-    local loadW, loadH = 600, 500
-    local loadX = (w - loadW) / 2
-    local loadY = (h - loadH) / 2
-    
-    -- Check back button using Theme.handleButtonClick for consistent behavior
-    if Theme.handleButtonClick({ _rect = self.backButtonRect }, x, y, function()
-      self.showLoadUI = false
-    end) then
-      return false
+  if self.showLoadUI and self.loadSlotsUI then
+    -- Handle SaveLoad panel interactions
+    if self.loadSlotsUI.window and self.loadSlotsUI.window:mousepressed(x, y, button) then
+      if not self.loadSlotsUI.window.visible then
+        -- Panel was closed
+        self.showLoadUI = false
+        return true
+      end
+      return true -- Click was handled by the panel
     end
     
-    -- Handle load slots UI clicks
-    if self.loadSlotsUI then
-      local result = self.loadSlotsUI:mousepressed(x, y, button, loadX + 10, loadY + 50, loadW - 20, loadH - 60)
-      if result == "loaded" then
-        -- Game was loaded, signal to main.lua to start the game
-        self.showLoadUI = false
-        return "loadGame"
-      elseif result == "loadSelected" then
-        -- Player selected a slot to load, signal to main.lua to start the game
-        self.showLoadUI = false
-        return "loadGame"
-      elseif result == "deleted" then
-        -- File was deleted, just refresh the interface
-        return false
-      elseif result then
-        return false
-      end
+    -- Handle content area clicks
+    if self.loadSlotsUI:mousepressed(x, y, button) then
+      return true -- Click was handled by the panel
     end
     
     -- Consume all clicks when load UI is open
@@ -461,6 +419,9 @@ function Start:mousepressed(x, y, button)
 end
 
 function Start:mousereleased(x, y, button)
+  if self.showLoadUI and self.loadSlotsUI and self.loadSlotsUI.window then
+    self.loadSlotsUI.window:mousereleased(x, y, button)
+  end
   SettingsPanel.mousereleased(x, y, button)
   if VersionLog.visible then
     self.versionWindow:mousereleased(x, y, button)
@@ -469,6 +430,9 @@ function Start:mousereleased(x, y, button)
 end
 
 function Start:mousemoved(x, y, dx, dy)
+  if self.showLoadUI and self.loadSlotsUI and self.loadSlotsUI.window then
+    self.loadSlotsUI.window:mousemoved(x, y, dx, dy)
+  end
   SettingsPanel.mousemoved(x, y, dx, dy)
   if VersionLog.visible then
     self.versionWindow:mousemoved(x, y, dx, dy)
@@ -502,7 +466,10 @@ function Start:keypressed(key)
     end
 
     -- Handle load UI key presses
-    if self.showLoadUI then
+    if self.showLoadUI and self.loadSlotsUI then
+        if self.loadSlotsUI:keypressed(key) then
+            return true
+        end
         return true -- Consume all key presses when load UI is open
     end
 
@@ -517,6 +484,9 @@ function Start:keypressed(key)
 end
 
 function Start:textinput(text)
+    if self.showLoadUI and self.loadSlotsUI then
+        return self.loadSlotsUI:textinput(text)
+    end
     return false
 end
 
