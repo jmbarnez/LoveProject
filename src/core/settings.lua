@@ -107,19 +107,20 @@ local settings = {
         music_volume = 0.25,
     },
     keymap = {
-        toggle_inventory = "tab",
-        toggle_ship = "g",
-        toggle_bounty = "b",
-        toggle_skills = "p",
-        toggle_map = "m",
-        dock = "space",
+        toggle_inventory = { primary = "tab" },
+        toggle_ship = { primary = "g" },
+        toggle_bounty = { primary = "b" },
+        toggle_skills = { primary = "p" },
+        toggle_map = { primary = "m" },
+        dock = { primary = "space" },
+        repair_beacon = { primary = "r" },
         -- Combat actions
-        dash = "lshift",
-        hotbar_1 = "mouse1", -- LMB
-        hotbar_2 = "mouse2", -- RMB
-        hotbar_3 = "q",
-        hotbar_4 = "e",
-        hotbar_5 = "r",
+        dash = { primary = "lshift" },
+        hotbar_1 = { primary = "mouse1" }, -- LMB
+        hotbar_2 = { primary = "mouse2" }, -- RMB
+        hotbar_3 = { primary = "q" },
+        hotbar_4 = { primary = "e" },
+        hotbar_5 = { primary = "r" },
     },
     hotbar = {
         items = {
@@ -301,12 +302,56 @@ function Settings.applySettings(graphicsSettings, audioSettings)
     end
 end
 
-function Settings.getKeymap()
-    return settings.keymap
+local function ensureBindingTable(action)
+    local binding = settings.keymap[action]
+    if binding == nil then
+        binding = {}
+        settings.keymap[action] = binding
+    elseif type(binding) ~= "table" then
+        binding = { primary = binding }
+        settings.keymap[action] = binding
+    end
+    return binding
 end
 
-function Settings.setKeyBinding(action, key)
-    settings.keymap[action] = key
+local function flattenKeymap()
+    local flattened = {}
+    for action, binding in pairs(settings.keymap) do
+        if type(binding) == "table" then
+            flattened[action] = binding.primary
+        else
+            flattened[action] = binding
+        end
+    end
+    return flattened
+end
+
+function Settings.getKeymap()
+    return flattenKeymap()
+end
+
+function Settings.getBinding(action)
+    local binding = settings.keymap[action]
+    if binding == nil then
+        return nil
+    end
+    if type(binding) ~= "table" then
+        binding = { primary = binding }
+        settings.keymap[action] = binding
+    end
+    return binding
+end
+
+function Settings.getBindingValue(action, slot)
+    local binding = Settings.getBinding(action)
+    if not binding then return nil end
+    local key = slot or "primary"
+    return binding[key]
+end
+
+function Settings.setKeyBinding(action, key, slot)
+    local binding = ensureBindingTable(action)
+    binding[slot or "primary"] = key
 end
 
 function Settings.getHotbarSettings()

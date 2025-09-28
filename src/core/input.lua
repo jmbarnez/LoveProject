@@ -2,16 +2,16 @@
   Input handling module for the game.
   Manages keyboard and mouse input, UI interactions, and game state changes.
 ]]
-local Settings = require("src.core.settings")
+local ActionMap = require("src.core.action_map")
 local Events = require("src.core.events")
 local Viewport = require("src.core.viewport")
 local Notifications = require("src.ui.notifications")
-local SkillsPanel = require("src.ui.skills")
-local EscapeMenu = require("src.ui.escape_menu")
 local Map = require("src.ui.map")
 local SettingsPanel = require("src.ui.settings_panel")
 local Util = require("src.core.util")
 local Log = require("src.core.log")
+local Hotbar = require("src.systems.hotbar")
+local RepairSystem = require("src.systems.repair_system")
 
 local Input = {}
 
@@ -104,137 +104,47 @@ function Input.update(dt)
         Map.update(dt, gameState.player)
     end
     
-    if (mainState.UIManager and mainState.UIManager.isOpen("inventory")) or
-        (mainState.UIManager and mainState.UIManager.isOpen("bounty")) or
-        (SkillsPanel and SkillsPanel.isVisible and SkillsPanel.isVisible()) or
-        (Map and Map.isVisible and Map.isVisible()) then
-        return
+    if mainState.UIManager then
+        if mainState.UIManager.isOpen("inventory")
+            or mainState.UIManager.isOpen("bounty")
+            or mainState.UIManager.isOpen("skills")
+            or mainState.UIManager.isOpen("map") then
+            return
+        end
     end
 end
 
 -- This is the existing game-logic keypressed
 function Input.keypressed(key)
     Log.debug("Input.keypressed", key)
-    local keymap = Settings.getKeymap()
 
     if isUiTextInputFocused() then
         return
     end
 
-    if Map and Map.keypressed and Map.keypressed(key, gameState and gameState.world) then return end
+    local context = {
+        key = key,
+        player = gameState.player,
+        world = gameState.world,
+        UIManager = mainState.UIManager,
+        Events = Events,
+        notifications = Notifications,
+        util = Util,
+        repairSystem = RepairSystem,
+    }
 
-    local DockedUI = require("src.ui.docked")
-    if DockedUI.isVisible() then
-        local consumed, shouldClose = DockedUI.keypressed(key)
-        if key == "escape" and shouldClose then
-            if gameState.player then gameState.player:undock() end
-            EscapeMenu.toggle()
-            return -- We're done with this keypress
-        end
-        if shouldClose and gameState.player then gameState.player:undock() end
-        if consumed then return end
+    local handled = ActionMap.dispatch(key, context)
+    if handled then
+        return
     end
 
-    if key == "escape" then
-        -- Only open escape menu if player exists and is not docked
-        if gameState.player and not DockedUI.isVisible() then
-            EscapeMenu.toggle()
-        end
-        return -- Always consume escape key, whether we open menu or not
-    end
-
-    if EscapeMenu.keypressed(key) then return end
-
-    if mainState.UIManager.isOpen("inventory") then
-        local Inventory = getInventoryModule()
-        -- Loot container UI has been removed
-    end
-    if key == keymap.toggle_inventory or key == keymap.toggle_ship then
-        mainState.UIManager.toggle("ship")
-    end
-    if key == keymap.toggle_bounty then mainState.UIManager.toggle("bounty") end
-    if key == keymap.toggle_skills then SkillsPanel.toggle() end
-    if key == keymap.toggle_map then Map.toggle(gameState and gameState.world) end
-    if key == keymap.dock or key == "space" then
-        -- Universal interaction key: interactables > dock > containers
-        if gameState.player and gameState.world then
-            local px = gameState.player.components.position.x
-            local py = gameState.player.components.position.y
-
-            -- 1) Generic interactables (nearest within range)
-            local nearest, nearestDist = nil, math.huge
-            for _, e in ipairs(gameState.world:get_entities_with_components("interactable")) do
-                local inter = e.components and e.components.interactable
-                local pos = e.components and e.components.position
-                local range = inter and inter.range or nil
-                if inter and inter.activate and pos and type(range) == "number" then
-                    local d = Util.distance(px, py, pos.x, pos.y)
-                    if d <= range and d < nearestDist then
-                        nearest, nearestDist = e, d
-                    end
-                end
-            end
-            if nearest then
-                local ok = nearest.components.interactable.activate(gameState.player)
-                if ok ~= false then return end
-            end
-
-            -- 2) Docking
-            if gameState.player.canDock then
-                Events.emit(Events.GAME_EVENTS.DOCK_REQUESTED)
-                return
-            end
-
-            -- Loot containers have been removed, items drop directly now
-        end
-    end
-
-    -- Handle repair key (R key)
-    if key == "r" then
-        -- Check if player is near a repairable beacon station
-        if gameState.player and gameState.world then
-            local RepairSystem = require("src.systems.repair_system")
-            local all_stations = gameState.world:get_entities_with_components("repairable")
-            
-            for _, station in ipairs(all_stations) do
-                if station.components.repairable and station.components.repairable.broken then
-                    local dx = station.components.position.x - gameState.player.components.position.x
-                    local dy = station.components.position.y - gameState.player.components.position.y
-                    local distance = math.sqrt(dx * dx + dy * dy)
-
-                    if distance <= 200 then -- Same range as tooltip
-                        local success = RepairSystem.tryRepair(station, gameState.player)
-                        if success then
-                            Notifications.add("Beacon station repaired successfully!", "success")
-                        else
-                            Notifications.add("Insufficient materials for repair", "error")
-                        end
-                        return -- Only repair one station per key press
-                    end
-                end
-            end
-        end
-    end
-
-
-    local Hotbar = require("src.systems.hotbar")
     Log.debug("Input.keypressed: forwarding to Hotbar", key)
     Hotbar.keypressed(key, gameState.player)
-
-    if key == "f11" then
-        local fs = love.window.getFullscreen()
-        love.window.setFullscreen(not fs, "desktop")
-    end
 end
 
 -- This is the new LÖVE callback handler
 function Input.love_keypressed(key)
   if SettingsPanel.keypressed(key) then return true end
-  if key == "f11" then
-    local fs = love.window.getFullscreen()
-    love.window.setFullscreen(not fs, "desktop")
-    return
-  end
   if mainState.screen == "start" then
     if mainState.startScreen and mainState.startScreen.keypressed and mainState.startScreen:keypressed(key) then
       return
@@ -253,13 +163,6 @@ function Input.love_keypressed(key)
     end
 
     local textInputFocused = isUiTextInputFocused()
-
-    if key == "tab" then
-      if not textInputFocused then
-        mainState.UIManager.toggle("inventory")
-        return
-      end
-    end
     if mainState.UIManager and mainState.UIManager.keypressed(key) then
       return
     end
@@ -280,7 +183,6 @@ function Input.love_keyreleased(key)
       return
     end
     -- Forward to hotbar system for manual mode turrets
-    local Hotbar = require("src.systems.hotbar")
     Hotbar.keyreleased(key, gameState.player)
   end
 end

@@ -294,6 +294,21 @@ function ConfigValidator.color()
     end
 end
 
+function ConfigValidator.keyBinding()
+    return function(value, fieldName)
+        if type(value) == "string" then
+            return true, nil
+        elseif type(value) == "table" then
+            local primary = value.primary
+            if type(primary) ~= "string" then
+                return false, string.format("Field '%s.primary' must be a string", fieldName)
+            end
+            return true, nil
+        end
+        return false, string.format("Field '%s' must be a string or table, got %s", fieldName, type(value))
+    end
+end
+
 -- Predefined schemas for common configurations
 ConfigValidator.schemas = {}
 
@@ -322,17 +337,18 @@ ConfigValidator.schemas.audio = Schema.new()
 
 -- Keymap schema
 ConfigValidator.schemas.keymap = Schema.new()
-    :field("toggle_inventory", "string")
-    :field("toggle_bounty", "string")
-    :field("toggle_skills", "string")
-    :field("toggle_map", "string")
-    :field("dock", "string")
-    :field("dash", "string")
-    :field("hotbar_1", "string")
-    :field("hotbar_2", "string")
-    :field("hotbar_3", "string")
-    :field("hotbar_4", "string")
-    :field("hotbar_5", "string")
+    :field("toggle_inventory", ConfigValidator.keyBinding())
+    :field("toggle_bounty", ConfigValidator.keyBinding())
+    :field("toggle_skills", ConfigValidator.keyBinding())
+    :field("toggle_map", ConfigValidator.keyBinding())
+    :field("dock", ConfigValidator.keyBinding())
+    :field("dash", ConfigValidator.keyBinding())
+    :field("hotbar_1", ConfigValidator.keyBinding())
+    :field("hotbar_2", ConfigValidator.keyBinding())
+    :field("hotbar_3", ConfigValidator.keyBinding())
+    :field("hotbar_4", ConfigValidator.keyBinding())
+    :field("hotbar_5", ConfigValidator.keyBinding())
+    :field("repair_beacon", ConfigValidator.keyBinding())
 
 -- Hotbar schema
 ConfigValidator.schemas.hotbar = Schema.new()
