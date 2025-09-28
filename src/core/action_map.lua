@@ -1,4 +1,5 @@
 local Settings = require("src.core.settings")
+local UIManager = require("src.core.ui_manager")
 local Events = require("src.core.events")
 
 local ActionMap = {}
@@ -118,6 +119,7 @@ function ActionMap.iterate()
     return ipairs(registeredActions)
 end
 
+
 local function resolveUIManager(ctx)
     if ctx and ctx.UIManager then
         return ctx.UIManager
@@ -144,6 +146,11 @@ local function toggleAction(name, bindingAction, component)
         end,
         callback = function(ctx)
             local ui = resolveUIManager(ctx)
+            local ui = (ctx and ctx.UIManager) or UIManager
+            return ui ~= nil and ui.toggle ~= nil
+        end,
+        callback = function(ctx)
+            local ui = (ctx and ctx.UIManager) or UIManager
             if ui and ui.toggle then
                 ui.toggle(component)
                 return true
