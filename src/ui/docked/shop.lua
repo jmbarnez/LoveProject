@@ -7,6 +7,48 @@ local IconSystem = require("src.core.icon_system")
 
 local Shop = {}
 
+local MENU_WIDTH, MENU_HEIGHT = 180, 110
+
+local function ensureContextMenu(DockedUI)
+  DockedUI.contextMenu = DockedUI.contextMenu or { visible = false, quantity = "1", type = "buy" }
+  return DockedUI.contextMenu
+end
+
+local function positionContextMenu(anchorX, anchorY)
+  local sw, sh = Viewport.getDimensions()
+  local x = math.max(10, anchorX)
+  local y = math.max(10, anchorY)
+  if x + MENU_WIDTH > sw then
+    x = sw - MENU_WIDTH - 10
+  end
+  if y + MENU_HEIGHT > sh then
+    y = sh - MENU_HEIGHT - 10
+  end
+  return x, y
+end
+
+function Shop.hideContextMenu(DockedUI)
+  local menu = DockedUI and DockedUI.contextMenu
+  if menu then
+    menu.visible = false
+  end
+  if DockedUI then
+    DockedUI.contextMenuActive = false
+  end
+end
+
+local function openContextMenu(DockedUI, item, menuType, anchorX, anchorY)
+  local menu = ensureContextMenu(DockedUI)
+  local menuX, menuY = positionContextMenu(anchorX, anchorY)
+  menu.visible = true
+  menu.x = menuX
+  menu.y = menuY
+  menu.item = item
+  menu.type = menuType or "buy"
+  menu.quantity = "1"
+  DockedUI.contextMenuActive = false
+end
+
 local function buildPlayerInventory(player)
   local items = {}
   if not player or not player.components or not player.components.cargo then
@@ -260,6 +302,275 @@ function Shop.drawShopItems(DockedUI, x, y, w, h, player)
     DockedUI.hoverTimer = 0
   end
   love.graphics.pop()
+end
+
+local function drawContextMenuContents(DockedUI, mx, my)
+  local menu = ensureContextMenu(DockedUI)
+  if not menu.visible or not menu.item then return end
+
+  local x_, y_, w_, h_ = menu.x, menu.y, MENU_WIDTH, MENU_HEIGHT
+  Theme.drawGradientGlowRect(x_, y_, w_, h_, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+
+  Theme.setColor(Theme.colors.textHighlight)
+  love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+  love.graphics.printf(menu.item.name or "Unknown Item", x_, y_ + 6, w_, "center")
+
+  local inputW, inputH = 100, 28
+  local inputX, inputY = x_ + (w_ - inputW) / 2, y_ + 28
+  local inputHover = mx >= inputX and mx <= inputX + inputW and my >= inputY and my <= inputY + inputH
+  local inputColor = inputHover and Theme.colors.bg2 or Theme.colors.bg1
+  Theme.drawGradientGlowRect(inputX, inputY, inputW, inputH, 3, inputColor, Theme.colors.bg0, Theme.colors.accent, Theme.effects.glowWeak)
+
+  Theme.setColor(Theme.colors.text)
+  local quantityText = menu.quantity or "1"
+  local font = love.graphics.getFont()
+  local textWidth = font:getWidth(quantityText)
+  local textX = inputX + (inputW - textWidth) / 2
+  love.graphics.print(quantityText, textX, inputY + 6)
+
+  if math.floor(love.timer.getTime() * 2) % 2 == 0 and DockedUI.contextMenuActive then
+    love.graphics.rectangle("fill", textX + textWidth + 2, inputY + 4, 2, inputH - 8)
+  end
+  menu._inputRect = { x = inputX, y = inputY, w = inputW, h = inputH }
+
+  local qty = tonumber(quantityText) or 0
+  local totalPrice = (menu.item.price or 0) * qty
+  Theme.setColor(Theme.colors.accentGold)
+  love.graphics.printf("Total: " .. Util.formatNumber(totalPrice), x_, y_ + 64, w_, "center")
+
+  local btnW, btnH = 100, 28
+  local btnX, btnY = x_ + (w_ - btnW) / 2, y_ + 70
+  local btnHover = mx >= btnX and mx <= btnX + btnW and my >= btnY and my <= btnY + btnH
+  local actionText = menu.type == "sell" and "SELL" or "BUY"
+  local canAfford = true
+  local player = DockedUI.player
+  if menu.type == "buy" then
+    canAfford = player and player:getGC() >= totalPrice
+  else
+    local cargo = player and player.components and player.components.cargo
+    canAfford = cargo and cargo:has(menu.item.id, qty)
+  end
+  local btnColor = canAfford and (btnHover and Theme.colors.success or Theme.colors.bg3) or Theme.colors.bg1
+  Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 3, btnColor, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+  Theme.setColor(canAfford and Theme.colors.textHighlight or Theme.colors.textSecondary)
+  love.graphics.printf(actionText, btnX, btnY + 6, btnW, "center")
+  menu._buttonRect = { x = btnX, y = btnY, w = btnW, h = btnH }
+end
+
+function Shop.drawContextMenu(DockedUI, mx, my)
+  drawContextMenuContents(DockedUI, mx or 0, my or 0)
+end
+
+local function handleContextMenuClick(DockedUI, x, y, button, player)
+  local menu = ensureContextMenu(DockedUI)
+  if not menu.visible or not menu.item then
+    return false
+  end
+
+  local inside = x >= menu.x and x <= menu.x + MENU_WIDTH and y >= menu.y and y <= menu.y + MENU_HEIGHT
+  if not inside then
+    Shop.hideContextMenu(DockedUI)
+    return false
+  end
+
+  if button ~= 1 then
+    return true
+  end
+
+  if menu._inputRect and x >= menu._inputRect.x and x <= menu._inputRect.x + menu._inputRect.w and y >= menu._inputRect.y and y <= menu._inputRect.y + menu._inputRect.h then
+    DockedUI.contextMenuActive = true
+    return true
+  end
+
+  if menu._buttonRect and x >= menu._buttonRect.x and x <= menu._buttonRect.x + menu._buttonRect.w and y >= menu._buttonRect.y and y <= menu._buttonRect.y + menu._buttonRect.h then
+    local qty = tonumber(menu.quantity) or 0
+    if qty > 0 and player then
+      if menu.type == "buy" then
+        local cost = (menu.item.price or 0) * qty
+        if player:getGC() >= cost then
+          DockedUI.purchaseItem(menu.item, player, qty)
+        end
+      elseif menu.type == "sell" then
+        DockedUI.sellItem(menu.item, player, qty)
+      end
+    end
+    Shop.hideContextMenu(DockedUI)
+    return true
+  end
+
+  return true
+end
+
+function Shop.mousepressed(DockedUI, x, y, button, player)
+  player = player or (DockedUI and DockedUI.player)
+  ensureContextMenu(DockedUI)
+
+  if DockedUI.contextMenu and DockedUI.contextMenu.visible and DockedUI.contextMenu.item then
+    local consumed = handleContextMenuClick(DockedUI, x, y, button, player)
+    if consumed then
+      return true, false
+    end
+  end
+
+  if button ~= 1 then
+    Shop.hideContextMenu(DockedUI)
+    DockedUI.searchActive = false
+    return false, false
+  end
+
+  DockedUI.searchActive = false
+  if DockedUI._searchBar then
+    local sb = DockedUI._searchBar
+    if x >= sb.x and x <= sb.x + sb.w and y >= sb.y and y <= sb.y + sb.h then
+      DockedUI.searchActive = true
+      DockedUI.searchText = DockedUI.searchText or ""
+      DockedUI.contextMenuActive = false
+      Shop.hideContextMenu(DockedUI)
+      return true, false
+    end
+  end
+
+  if DockedUI.activeShopTab == "Buyback" and DockedUI._buybackButtons then
+    for _, btn in ipairs(DockedUI._buybackButtons) do
+      if x >= btn.x and x <= btn.x + btn.w and y >= btn.y and y <= btn.y + btn.h then
+        if player and player:getGC() >= btn.item.price then
+          DockedUI.purchaseItem(btn.item, player, 1)
+          table.remove(DockedUI.buybackItems, btn.index)
+          Shop.hideContextMenu(DockedUI)
+        end
+        return true, false
+      end
+    end
+  end
+
+  if DockedUI.activeShopTab == "Buy" then
+    if DockedUI.categoryDropdown and DockedUI.categoryDropdown:mousepressed(x, y, button) then
+      Shop.hideContextMenu(DockedUI)
+      return true, false
+    end
+  end
+
+  if DockedUI.activeShopTab == "Buy" and DockedUI._shopItems then
+    for _, itemUI in ipairs(DockedUI._shopItems) do
+      if x >= itemUI.x and x <= itemUI.x + itemUI.w and y >= itemUI.y and y <= itemUI.y + itemUI.h then
+        openContextMenu(DockedUI, itemUI.item, "buy", x + 10, y + 10)
+        return true, false
+      end
+    end
+  end
+
+  if DockedUI.activeShopTab == "Sell" and DockedUI._sellItems then
+    for _, itemUI in ipairs(DockedUI._sellItems) do
+      if x >= itemUI.x and x <= itemUI.x + itemUI.w and y >= itemUI.y and y <= itemUI.y + itemUI.h then
+        openContextMenu(DockedUI, itemUI.item, "sell", x + 10, y + 10)
+        return true, false
+      end
+    end
+  end
+
+  Shop.hideContextMenu(DockedUI)
+  return false, false
+end
+
+local function closeContextMenuIfVisible(DockedUI)
+  local menu = DockedUI and DockedUI.contextMenu
+  if menu and menu.visible then
+    Shop.hideContextMenu(DockedUI)
+    return true
+  end
+  return false
+end
+
+function Shop.keypressed(DockedUI, key, scancode, isrepeat, player)
+  player = player or (DockedUI and DockedUI.player)
+
+  if DockedUI.searchActive then
+    if key == "backspace" then
+      local text = DockedUI.searchText or ""
+      DockedUI.searchText = text:sub(1, -2)
+      return true, false
+    elseif key == "return" or key == "kpenter" then
+      DockedUI.searchActive = false
+      return true, false
+    elseif key == "escape" then
+      DockedUI.searchActive = false
+      DockedUI.searchText = DockedUI.searchText or ""
+      return true, false
+    end
+  end
+
+  local menu = ensureContextMenu(DockedUI)
+  if menu.visible and menu.item then
+    if DockedUI.contextMenuActive then
+      if key == "backspace" then
+        menu.quantity = (menu.quantity or "1"):sub(1, -2)
+        if menu.quantity == "" then menu.quantity = "1" end
+        return true, false
+      elseif key == "return" or key == "kpenter" then
+        local qty = tonumber(menu.quantity) or 0
+        if qty > 0 and player then
+          if menu.type == "buy" then
+            local cost = (menu.item.price or 0) * qty
+            if player:getGC() >= cost then
+              DockedUI.purchaseItem(menu.item, player, qty)
+            end
+          elseif menu.type == "sell" then
+            DockedUI.sellItem(menu.item, player, qty)
+          end
+        end
+        Shop.hideContextMenu(DockedUI)
+        return true, false
+      elseif key == "escape" then
+        Shop.hideContextMenu(DockedUI)
+        return true, false
+      end
+    else
+      if key == "return" or key == "kpenter" then
+        local qty = tonumber(menu.quantity) or 0
+        if qty > 0 and player then
+          if menu.type == "buy" then
+            local cost = (menu.item.price or 0) * qty
+            if player:getGC() >= cost then
+              DockedUI.purchaseItem(menu.item, player, qty)
+            end
+          elseif menu.type == "sell" then
+            DockedUI.sellItem(menu.item, player, qty)
+          end
+        end
+        Shop.hideContextMenu(DockedUI)
+        return true, false
+      elseif key == "escape" then
+        Shop.hideContextMenu(DockedUI)
+        return true, false
+      end
+    end
+  end
+
+  if key == "escape" then
+    if closeContextMenuIfVisible(DockedUI) then
+      return true, false
+    end
+  end
+
+  return nil
+end
+
+function Shop.textinput(DockedUI, text, player)
+  if DockedUI.searchActive then
+    DockedUI.searchText = (DockedUI.searchText or "") .. text
+    return true
+  end
+
+  local menu = ensureContextMenu(DockedUI)
+  if menu.visible and DockedUI.contextMenuActive and menu.item then
+    if text:match("%d") then
+      if menu.quantity == "0" then menu.quantity = "" end
+      menu.quantity = (menu.quantity or "") .. text
+      return true
+    end
+  end
+
+  return nil
 end
 
 return Shop
