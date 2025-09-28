@@ -1,0 +1,42 @@
+return {
+    id = "cluster_barrage_turret",
+    type = "missile",
+    name = "Cluster Barrage",
+    description = "Heavy launcher that fires cluster warheads splitting into bomblets.",
+    price = 3600,
+    module = { type = "turret" },
+    icon = {
+        size = 32,
+        shapes = {
+            { type = "rectangle", mode = "fill", color = {0.10, 0.12, 0.18, 1}, x = 8, y = 10, w = 18, h = 18, rx = 3 },
+            { type = "rectangle", mode = "fill", color = {0.22, 0.28, 0.36, 1}, x = 10, y = 12, w = 14, h = 14, rx = 2 },
+            { type = "polygon", mode = "fill", color = {1.00, 0.45, 0.20, 0.9}, points = {12, 8, 20, 8, 18, 4, 14, 4} },
+            { type = "circle", mode = "fill", color = {1.00, 0.70, 0.25, 0.85}, x = 16, y = 18, r = 3 },
+        }
+    },
+    spread = { minDeg = 1.2, maxDeg = 4.5, decay = 280 },
+    projectile = "cluster_warhead",
+    tracer = { color = {1.00, 0.50, 0.20, 0.9}, width = 2.6, coreRadius = 5 },
+    impact = {
+        shield = { spanDeg = 85, color1 = {1.0, 0.60, 0.30, 0.6}, color2 = {1.0, 0.40, 0.15, 0.4} },
+        hull = { spark = {1.0, 0.50, 0.15, 0.6}, ring = {1.0, 0.35, 0.05, 0.4} },
+    },
+    optimal = 1500,
+    falloff = 2800,
+    damage_range = { min = 4, max = 6 },
+    cycle = 5.0,
+    capCost = 8,
+    homingStrength = 0.6,
+    missileTurnRate = 3.5,
+    projectileSpeed = 700,
+    maxRange = 3200,
+    bomblets = 6,
+    maxHeat = 70,
+    heatPerShot = 18,
+    cooldownRate = 12,
+    overheatCooldown = 5.5,
+    heatCycleMult = 0.5,
+    heatEnergyMult = 1.4,
+    fireMode = "manual",
+    lockOnDuration = 2.5
+}
