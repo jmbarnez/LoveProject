@@ -147,28 +147,32 @@ Constants.WORLD = {
 
 Constants.COMBAT = {
     -- Alignment and targeting
-    ALIGN_LOCK_DEGREES = 10,
+    ALIGN_LOCK_DEG = 10,
     ALIGN_RANGE_BONUS = 1.2,
 
     -- Boost mechanics
-    BOOST_THRUST_MULTIPLIER = 1.5,
-    BOOST_ENERGY_DRAIN_PER_SECOND = 100,
+    BOOST_THRUST_MULT = 1.5,
+    BOOST_ENERGY_DRAIN = 100,
 
     -- Shield ability
-    SHIELD_CHANNEL_SLOWDOWN = 0.5,
+    SHIELD_CHANNEL_SLOW = 0.5,
     SHIELD_DAMAGE_REDUCTION = 0.5,
     SHIELD_DURATION = 3.0,
     SHIELD_COOLDOWN = 5.0,
     SHIELD_ENERGY_COST = 50,
 
+    -- Collision restitution
+    HULL_RESTITUTION = 0.28,
+    SHIELD_RESTITUTION = 0.88,
+
     -- HUD visibility
-    ENEMY_BAR_VISIBLE_TIME = 2.5,
+    ENEMY_BAR_VIS_TIME = 2.5,
 }
 
 Constants.SPAWNING = {
     MARGIN = 75,
-    STATION_BUFFER = 300,
-    MIN_PLAYER_DISTANCE = 150,
+    STATION_BUFFER = 5000,
+    MIN_PLAYER_DIST = 150,
     INTERVAL_MIN = 2.0,
     INTERVAL_MAX = 4.0,
     MAX_ENEMIES = 36,

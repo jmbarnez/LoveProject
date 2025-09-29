@@ -219,7 +219,8 @@ function Game.load(fromSave, saveSlot, loadingScreen)
 
   -- Step 9: Spawn the player
   updateProgress(0.9, "Spawning player...")
-  local spawn_margin = assert(Config.SPAWN and Config.SPAWN.STATION_BUFFER, "Config.SPAWN.STATION_BUFFER is required") or Constants.SPAWNING.STATION_BUFFER
+  local spawnSettings = Config.SPAWN or {}
+  local spawn_margin = spawnSettings.STATION_BUFFER or Constants.SPAWNING.STATION_BUFFER
 
   -- Handle loading from save vs starting new game
   if fromSave and saveSlot then
