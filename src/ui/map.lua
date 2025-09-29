@@ -44,66 +44,24 @@ local function getMapBounds()
   return margin, margin, sw - 2 * margin, sh - 2 * margin
 end
 
-local function worldToScreen(worldX, worldY, mapX, mapY, mapW, mapH, world)
-  if not world then return mapX + mapW/2, mapY + mapH/2 end
-  
-  -- Convert world coordinates to normalized coordinates (0-1)
-  local normX = worldX / world.width
-  local normY = worldY / world.height
-  
-  -- Apply scale and centering
-  local scaledW = mapW * Map.scale
-  local scaledH = mapH * Map.scale
-  
-  -- Calculate center offset
-  local centerOffsetX = Map.centerX * scaledW
-  local centerOffsetY = Map.centerY * scaledH
-  
-  -- Convert to screen coordinates
-  local screenX = mapX + (mapW - scaledW) / 2 + normX * scaledW + centerOffsetX + Map.dragOffsetX
-  local screenY = mapY + (mapH - scaledH) / 2 + normY * scaledH + centerOffsetY + Map.dragOffsetY
-  
-  return screenX, screenY
-end
-
-local function screenToWorld(screenX, screenY, mapX, mapY, mapW, mapH, world)
-  if not world then return 0, 0 end
-  
-  local scaledW = mapW * Map.scale
-  local scaledH = mapH * Map.scale
-  
-  local centerOffsetX = Map.centerX * scaledW
-  local centerOffsetY = Map.centerY * scaledH
-  
-  -- Convert screen to normalized coordinates
-  local normX = ((screenX - mapX - (mapW - scaledW) / 2 - centerOffsetX - Map.dragOffsetX) / scaledW)
-  local normY = ((screenY - mapY - (mapH - scaledH) / 2 - centerOffsetY - Map.dragOffsetY) / scaledH)
-  
-  -- Convert to world coordinates
-  local worldX = normX * world.width
-  local worldY = normY * world.height
-  
-  return worldX, worldY
-end
-
 local function drawGrid(mapX, mapY, mapW, mapH, world)
   if not Map.showGrid or not world then return end
-  
+
   Theme.setColor(Theme.withAlpha(Theme.colors.border, 0.3))
   love.graphics.setLineWidth(1)
-  
+
   -- Draw major grid lines every gridSize units
   for x = 0, world.width, Map.gridSize do
-    local sx, sy1 = worldToScreen(x, 0, mapX, mapY, mapW, mapH, world)
-    local _, sy2 = worldToScreen(x, world.height, mapX, mapY, mapW, mapH, world)
+    local sx, sy1 = Transform.worldToScreen(x, 0, mapX, mapY, mapW, mapH, Map, world)
+    local _, sy2 = Transform.worldToScreen(x, world.height, mapX, mapY, mapW, mapH, Map, world)
     if sx >= mapX and sx <= mapX + mapW then
       love.graphics.line(sx, math.max(mapY, sy1), sx, math.min(mapY + mapH, sy2))
     end
   end
   
   for y = 0, world.height, Map.gridSize do
-    local sx1, sy = worldToScreen(0, y, mapX, mapY, mapW, mapH, world)
-    local sx2, _ = worldToScreen(world.width, y, mapX, mapY, mapW, mapH, world)
+    local sx1, sy = Transform.worldToScreen(0, y, mapX, mapY, mapW, mapH, Map, world)
+    local sx2, _ = Transform.worldToScreen(world.width, y, mapX, mapY, mapW, mapH, Map, world)
     if sy >= mapY and sy <= mapY + mapH then
       love.graphics.line(math.max(mapX, sx1), sy, math.min(mapX + mapW, sx2), sy)
     end
@@ -116,8 +74,8 @@ local function drawWorldBounds(mapX, mapY, mapW, mapH, world)
   Theme.setColor(Theme.colors.accent)
   love.graphics.setLineWidth(2)
   
-  local x1, y1 = worldToScreen(0, 0, mapX, mapY, mapW, mapH, world)
-  local x2, y2 = worldToScreen(world.width, world.height, mapX, mapY, mapW, mapH, world)
+  local x1, y1 = Transform.worldToScreen(0, 0, mapX, mapY, mapW, mapH, Map, world)
+  local x2, y2 = Transform.worldToScreen(world.width, world.height, mapX, mapY, mapW, mapH, Map, world)
   
   -- Clamp to map bounds
   x1 = math.max(mapX, math.min(mapX + mapW, x1))
@@ -134,7 +92,7 @@ local function drawEntity(entity, mapX, mapY, mapW, mapH, world, entityType)
   if not entity.components or not entity.components.position then return end
 
   local pos = entity.components.position
-  local sx, sy = worldToScreen(pos.x, pos.y, mapX, mapY, mapW, mapH, world)
+  local sx, sy = Transform.worldToScreen(pos.x, pos.y, mapX, mapY, mapW, mapH, Map, world)
 
   -- Only draw if within map bounds
   if sx < mapX - 10 or sx > mapX + mapW + 10 or sy < mapY - 10 or sy > mapY + mapH + 10 then
@@ -252,8 +210,8 @@ local function drawPlayerTrail(mapX, mapY, mapW, mapH, world)
   for i = 2, #Map.playerTrail do
     local p1 = Map.playerTrail[i-1]
     local p2 = Map.playerTrail[i]
-    local sx1, sy1 = worldToScreen(p1.x, p1.y, mapX, mapY, mapW, mapH, world)
-    local sx2, sy2 = worldToScreen(p2.x, p2.y, mapX, mapY, mapW, mapH, world)
+    local sx1, sy1 = Transform.worldToScreen(p1.x, p1.y, mapX, mapY, mapW, mapH, Map, world)
+    local sx2, sy2 = Transform.worldToScreen(p2.x, p2.y, mapX, mapY, mapW, mapH, Map, world)
     
     -- Fade trail based on age
     local age = i / #Map.playerTrail
