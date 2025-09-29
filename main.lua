@@ -10,6 +10,7 @@ local Sound = require("src.core.sound")
 local DebugPanel = require("src.ui.debug_panel")
 local Constants = require("src.core.constants")
 local LoadingScreen = require("src.ui.loading_screen")
+local WindowMode = require("src.core.window_mode")
 local Log = require("src.core.log")
 
 --[[
@@ -95,8 +96,10 @@ end
 
 function love.applyGraphicsSettings()
     local graphicsSettings = Settings.getGraphicsSettings()
-    applyWindowMode(graphicsSettings)
-    Viewport.init(graphicsSettings.resolution.width, graphicsSettings.resolution.height)
+    local success = WindowMode.apply(graphicsSettings)
+    if success then
+        Viewport.init(graphicsSettings.resolution.width, graphicsSettings.resolution.height)
+    end
     updateFPSLimit()
 end
 
