@@ -3,6 +3,7 @@ local Settings = {}
 local Log = require("src.core.log")
 local Constants = require("src.core.constants")
 local Util = require("src.core.util")
+local WindowMode = require("src.core.window_mode")
 
 local IconRenderer = require("src.content.icon_renderer")
 local defaultSettings = {} -- Will be populated with the initial settings
@@ -140,57 +141,17 @@ function Settings.applyGraphicsSettings(newSettings)
        (oldSettings.borderless ~= newSettings.borderless) or
        (oldSettings.vsync ~= newSettings.vsync) then
 
-        -- Determine window mode settings based on display mode
-        -- Use responsive minimum window sizes based on the chosen resolution
-        local minWidth, minHeight
-        if newSettings.resolution.width <= Constants.RESOLUTION.MIN_WINDOW_WIDTH_800PX then
-            minWidth = math.max(Constants.RESOLUTION.MIN_WINDOW_WIDTH_800PX, newSettings.resolution.width)
-        else
-            minWidth = Constants.RESOLUTION.MIN_WINDOW_WIDTH_1024PX
+        local success, err = WindowMode.apply(newSettings)
+        if not success then
+            if Log and Log.warn then
+                Log.warn("Settings.applyGraphicsSettings - Failed to apply window mode: " .. tostring(err))
+            end
+            return
         end
-
-        if newSettings.resolution.height <= Constants.RESOLUTION.MIN_WINDOW_HEIGHT_800PX then
-            minHeight = math.max(Constants.RESOLUTION.MIN_WINDOW_HEIGHT_800PX, newSettings.resolution.height)
-        else
-            minHeight = Constants.RESOLUTION.MIN_WINDOW_HEIGHT_1024PX
-        end
-
-        Log.debug("Settings.applyGraphicsSettings - Using responsive minimum window size: " .. minWidth .. "x" .. minHeight)
-
-        local windowSettings = {
-            fullscreen = newSettings.fullscreen,
-            fullscreentype = newSettings.fullscreen_type or "desktop",
-            borderless = newSettings.borderless or false,
-            vsync = newSettings.vsync,
-            resizable = true,
-            minwidth = minWidth,
-            minheight = minHeight
-        }
-
-        -- If borderless windowed mode, ensure fullscreen is false
-        if newSettings.borderless then
-            windowSettings.fullscreen = false
-            windowSettings.borderless = true
-        end
-
-        Log.debug("Settings.applyGraphicsSettings - Applying window mode:")
-        Log.debug("  Resolution: " .. newSettings.resolution.width .. "x" .. newSettings.resolution.height)
-        Log.debug("  Fullscreen: " .. tostring(windowSettings.fullscreen))
-        Log.debug("  Fullscreen type: " .. (windowSettings.fullscreentype or "nil"))
-        Log.debug("  Borderless: " .. tostring(windowSettings.borderless))
-        Log.debug("  VSync: " .. tostring(windowSettings.vsync))
-
-        love.window.setMode(
-            newSettings.resolution.width,
-            newSettings.resolution.height,
-            windowSettings
-        )
-
-        Log.debug("Settings.applyGraphicsSettings - Window mode applied successfully")
 
         IconRenderer.clearCache()
-local Content = require("src.content.content")
-Content.rebuildIcons()
+        local Content = require("src.content.content")
+        Content.rebuildIcons()
 
         -- Trigger a resize event to update UI elements
         local success, err = pcall(function()
