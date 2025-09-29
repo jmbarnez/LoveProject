@@ -94,6 +94,35 @@ local function findHubStation(world)
   return nil
 end
 
+local function restorePlayerPhysicsTuning(player, body)
+  if not body or not player then
+    return
+  end
+
+  local engine = player.ship and player.ship.engine
+  if engine then
+    local mass = engine.mass or body.mass
+    if mass then
+      body.mass = mass
+    end
+
+    local accelMultiplier = (engine.accel or 500) / 500
+    local baseThrust = (mass or 500) * 50
+    body.thrusterPower = body.thrusterPower or {}
+    body.thrusterPower.main = baseThrust * accelMultiplier * 1.2
+    body.thrusterPower.lateral = baseThrust * accelMultiplier * 0.4
+    body.thrusterPower.rotational = baseThrust * accelMultiplier * 0.3
+
+    body.maxSpeed = engine.maxSpeed or body.maxSpeed
+    body.dragCoefficient = engine.dragCoefficient or 1.0
+  end
+
+  local collidable = player.components and player.components.collidable
+  if collidable and collidable.radius then
+    body.radius = collidable.radius
+  end
+end
+
 local function dropPlayerLoot(world, player, x, y)
   local cargo = player.components and player.components.cargo
   if not cargo then return end
@@ -302,6 +331,9 @@ function DestructionSystem.update(world, gameState, hub)
                     phys.body.y = py
                     phys.body.vx = 0
                     phys.body.vy = 0
+                    phys.body.ax = 0
+                    phys.body.ay = 0
+                    phys.body.torque = 0
                     phys.body.angle = 0
                     phys.body.angularVel = 0
                   end)
@@ -350,6 +382,9 @@ function DestructionSystem.update(world, gameState, hub)
               local velSuccess = pcall(function()
                 phys.body:setVelocity(0, 0)
                 phys.body.angularVel = 0
+                phys.body.ax = 0
+                phys.body.ay = 0
+                phys.body.torque = 0
                 -- Explicitly set the physics body position to match component position
                 phys.body:setPosition(px, py)
                 phys.body.angle = 0
@@ -372,6 +407,16 @@ function DestructionSystem.update(world, gameState, hub)
                 if phys.body.getPosition then
                   local bx, by = phys.body:getPosition()
                   Log.debug("DestructionSystem - Physics body actual position:", bx, by)
+                end
+                if e.isPlayer then
+                  restorePlayerPhysicsTuning(e, phys.body)
+                  if phys.body.resetThrusters then
+                    phys.body:resetThrusters()
+                  end
+                  phys.body.boostFactor = 1.0
+                  phys.body.ax = 0
+                  phys.body.ay = 0
+                  phys.body.torque = 0
                 end
               end
             else
