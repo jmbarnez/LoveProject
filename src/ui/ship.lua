@@ -10,7 +10,8 @@ local function pointInRect(px, py, rect)
     return false
   end
   return px >= rect.x and px < rect.x + rect.w and py >= rect.y and py < rect.y + rect.h
-  
+end
+
 local UIUtils = require("src.ui.common.utils")
 
 local Ship = {}
