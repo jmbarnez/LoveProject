@@ -1,4 +1,5 @@
 local Window = require("src.ui.common.window")
+local UIUtils = require("src.ui.common.utils")
 
 local Ship = {}
 
@@ -39,17 +40,6 @@ local PlayerRef = require("src.core.player_ref")
 local HotbarSystem = require("src.systems.hotbar")
 local Notifications = require("src.ui.notifications")
 local HotbarUI = require("src.ui.hud.hotbar")
-
-local function formatHotbarKeyLabel(key)
-    if not key or key == "" then return "Unbound" end
-    key = tostring(key)
-    if key == "mouse1" then return "LMB" end
-    if key == "mouse2" then return "RMB" end
-    if key == "space" then return "SPACE" end
-    if key == "lshift" or key == "rshift" then return "SHIFT" end
-    if #key == 1 then return key:upper() end
-    return key:upper()
-end
 
 local function resolveModuleDisplayName(entry)
     if not entry then return nil end
@@ -557,7 +547,7 @@ function Ship:draw(player, x, y, w, h)
         Theme.setColor(Theme.colors.border)
         love.graphics.rectangle("line", sx, slotsY, slotSize, slotSize, 4, 4)
 
-        local keyLabel = formatHotbarKeyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(slotIndex))
+        local keyLabel = UIUtils.formatKeyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(slotIndex), "Unbound")
         Theme.setColor(Theme.colors.textSecondary)
         love.graphics.setFont(Theme.fonts and Theme.fonts.tiny or love.graphics.getFont())
         love.graphics.printf(keyLabel, sx, slotsY - 18, slotSize, "center")
@@ -702,7 +692,10 @@ function Ship:draw(player, x, y, w, h)
                 local hbValue = hotbarButton.value or 0
                 if slotData and slotData.module then
                     if hbValue > 0 then
-                        local keyLabel = formatHotbarKeyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(hbValue))
+                        local keyLabel = UIUtils.formatKeyLabel(
+                            HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(hbValue),
+                            "Unbound"
+                        )
                         if keyLabel == "Unbound" then
                             hotbarLabel = string.format("Slot %d", hbValue)
                         else
