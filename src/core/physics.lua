@@ -283,6 +283,16 @@ function PhysicsBody:setVelocity(vx, vy)
     self.vy = vy
 end
 
+-- Explicitly set position (for compatibility with systems that reposition bodies directly)
+function PhysicsBody:setPosition(x, y)
+    if x ~= nil then
+        self.x = x
+    end
+    if y ~= nil then
+        self.y = y
+    end
+end
+
 -- Apply impulse (instant change in momentum)
 function PhysicsBody:applyImpulse(ix, iy)
     self.vx = self.vx + ix / self.mass
