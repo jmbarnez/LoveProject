@@ -1,11 +1,8 @@
-﻿local Log = require("src.core.log")
+local Log = require("src.core.log")
+local Util = require("src.core.util")
 
 local EngineTrail = {}
 EngineTrail.__index = EngineTrail
-
-local function clamp01(value)
-    return math.max(0, math.min(1, value))
-end
 
 function EngineTrail.new(config)
     local self = setmetatable({}, EngineTrail)
@@ -19,7 +16,7 @@ function EngineTrail.new(config)
     }
     self.size = config.size or 1.0
     self.offset = config.offset or 15  -- Distance in front of ship to emit particles
-    local initialIntensity = clamp01(config.intensity or 0)
+    local initialIntensity = Util.clamp01(config.intensity or 0)
     self.intensity = initialIntensity
     self.currentIntensity = initialIntensity
     self.targetIntensity = initialIntensity
@@ -77,7 +74,7 @@ function EngineTrail:updateThrustState(isThrusting, intensity)
     local target = 0
 
     if isThrusting then
-        target = clamp01(intensity or 0)
+        target = Util.clamp01(intensity or 0)
     end
 
     self.targetIntensity = target

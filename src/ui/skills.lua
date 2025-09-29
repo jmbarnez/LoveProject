@@ -8,14 +8,7 @@ local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local AuroraTitle = require("src.shaders.aurora_title")
 local Window = require("src.ui.common.window")
-
-local function pointInRect(px, py, r)
-    -- Handle nil values gracefully
-    if px == nil or py == nil or r == nil or r.x == nil or r.y == nil or r.w == nil or r.h == nil then
-        return false
-    end
-    return px >= r.x and py >= r.y and px <= r.x + r.w and py <= r.y + r.h
-end
+local UIUtils = require("src.ui.common.utils")
 
 local function drawSkillBar(x, y, w, h, progress, skillName, level, xp, xpToNext)
     -- Enhanced background
@@ -60,7 +53,8 @@ local function drawSkillBar(x, y, w, h, progress, skillName, level, xp, xpToNext
     -- Progress percentage
     local percentValue = math.max(0, math.min(100, progress * 100))
     local percentText = string.format("%.1f%%", percentValue)
-    local percentW = font:getWidth(percentText)
+    local percentMetrics = UIUtils.getCachedTextMetrics(percentText, font)
+    local percentW = percentMetrics.width
     Theme.setColor(Theme.colors.accent)
     love.graphics.print(percentText, x + w - percentW - 8, y + 4)
 end

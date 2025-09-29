@@ -11,6 +11,7 @@ local DebugPanel = require("src.ui.debug_panel")
 local Constants = require("src.core.constants")
 local LoadingScreen = require("src.ui.loading_screen")
 local WindowMode = require("src.core.window_mode")
+local Log = require("src.core.log")
 
 --[[
     The main module is responsible for orchestrating high-level state changes
@@ -71,6 +72,28 @@ function updateFPSLimit()
   minFrameTime = (graphicsSettings.max_fps and graphicsSettings.max_fps > 0) and (1 / graphicsSettings.max_fps) or 0
 end
 
+local function applyWindowMode(graphicsSettings)
+    local ok, err = pcall(function()
+        love.window.setMode(
+            graphicsSettings.resolution.width,
+            graphicsSettings.resolution.height,
+            {
+                fullscreen = graphicsSettings.fullscreen,
+                fullscreentype = graphicsSettings.fullscreen_type,
+                borderless = graphicsSettings.borderless,
+                vsync = graphicsSettings.vsync,
+                resizable = true,
+                minwidth = Constants.RESOLUTION.MIN_WINDOW_WIDTH_1024PX,
+                minheight = Constants.RESOLUTION.MIN_WINDOW_HEIGHT_1024PX,
+            }
+        )
+    end)
+
+    if not ok then
+        Log.warn("Failed to apply window mode: " .. tostring(err))
+    end
+end
+
 function love.applyGraphicsSettings()
     local graphicsSettings = Settings.getGraphicsSettings()
     local success = WindowMode.apply(graphicsSettings)
@@ -92,10 +115,10 @@ local function seedRandom()
 end
 
 function love.load()
-    local Log = require("src.core.log")
+    -- Configure logging defaults so startup diagnostics flow through the console.
     Log.setLevel("info")
-    Log.setInfoEnabled(true) -- Ensure info-level logs are emitted during startup
     Log.clearDebugWhitelist()
+    Log.setInfoEnabled(true)
     Log.info("Game Identity:", love.filesystem.getIdentity())
     Log.info("LÖVE Save Directory:", love.filesystem.getSaveDirectory())
     seedRandom()

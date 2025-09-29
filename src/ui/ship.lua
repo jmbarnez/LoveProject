@@ -1,4 +1,5 @@
 local Window = require("src.ui.common.window")
+local Util = require("src.core.util")
 
 local Ship = {}
 
@@ -9,7 +10,10 @@ local function pointInRect(px, py, rect)
     return false
   end
   return px >= rect.x and px < rect.x + rect.w and py >= rect.y and py < rect.y + rect.h
-end
+  
+local UIUtils = require("src.ui.common.utils")
+
+local Ship = {}
 
 local function clamp(value, minValue, maxValue)
     if value < minValue then
@@ -171,10 +175,6 @@ local function buildHotbarPreview(player, gridOverride)
     end
 
     return preview
-end
-
-local function pointInRectSimple(px, py, rect)
-    return rect and px and py and px >= rect.x and px <= rect.x + rect.w and py >= rect.y and py <= rect.y + rect.h
 end
 
 function Ship:new()
@@ -498,7 +498,7 @@ function Ship:draw(player, x, y, w, h)
     local statsClipX, statsClipY, statsClipW, statsClipH = statsX, statsY, statsInnerWidth, statsViewHeight
     local statsViewInnerHeight = math.max(0, statsClipH - 24)
     local statsMinScroll = math.min(0, statsViewInnerHeight - statsContentHeight)
-    self.statsScroll = clamp(self.statsScroll or 0, statsMinScroll, 0)
+    self.statsScroll = Util.clamp(self.statsScroll or 0, statsMinScroll, 0)
     local statsScroll = self.statsScroll
 
     love.graphics.setScissor(statsClipX, statsClipY, statsClipW, statsClipH)
@@ -627,7 +627,7 @@ function Ship:draw(player, x, y, w, h)
     local slotContentHeight = slotCursor - slotBaseY + 16
     local slotViewInnerHeight = math.max(0, slotClipH - 16)
     local slotMinScroll = math.min(0, slotViewInnerHeight - slotContentHeight)
-    self.slotScroll = clamp(self.slotScroll or 0, slotMinScroll, 0)
+    self.slotScroll = Util.clamp(self.slotScroll or 0, slotMinScroll, 0)
     local slotScroll = self.slotScroll
 
     love.graphics.setScissor(slotClipX, slotClipY, slotClipW, slotClipH)
@@ -655,7 +655,7 @@ function Ship:draw(player, x, y, w, h)
             local rowRectW = slotClipW - 4
             local rowRectH = math.max(36, labelHeight + dropdown.optionHeight + extraHotbarHeight + 16)
 
-            local rowHover = mx and my and pointInRect(mx, my, { x = rowRectX, y = rowRectY, w = rowRectW, h = rowRectH })
+            local rowHover = mx and my and UIUtils.pointInRect(mx, my, { x = rowRectX, y = rowRectY, w = rowRectW, h = rowRectH })
             Theme.setColor(rowHover and Theme.withAlpha(Theme.colors.hover, 0.85) or Theme.withAlpha(Theme.colors.bg3, 0.55))
             love.graphics.rectangle("fill", rowRectX, rowRectY, rowRectW, rowRectH, 6, 6)
 
@@ -692,7 +692,7 @@ function Ship:draw(player, x, y, w, h)
                     hotbarRect.w = math.max(56, hotbarRect.w - overflow)
                     removeRect.x = hotbarRect.x + hotbarRect.w + 8
                 end
-                local hotbarHover = pointInRect(mx, my, hotbarRect)
+                local hotbarHover = hotbarRect and mx and my and UIUtils.pointInRect(mx, my, hotbarRect)
 
                 hotbarButton.rect = hotbarRect
                 hotbarButton.hover = hotbarHover
@@ -730,7 +730,7 @@ function Ship:draw(player, x, y, w, h)
                 if oldFont then love.graphics.setFont(oldFont) end
 
                 if slotData and slotData.module then
-                    local removeHover = pointInRect(mx, my, removeRect)
+                    local removeHover = removeRect and mx and my and UIUtils.pointInRect(mx, my, removeRect)
 
                     self.removeButtons[i].rect = removeRect
                     self.removeButtons[i].hover = removeHover
@@ -811,7 +811,7 @@ function Ship:mousepressed(x, y, button, player)
         content = instance.activeContentBounds
     end
 
-    local insideContent = content and pointInRectSimple(x, y, content)
+    local insideContent = content and x and y and UIUtils.pointInRect(x, y, content)
 
     -- Prioritize dropdown interaction when inside content area
     if insideContent and instance.slotDropdowns then
@@ -841,7 +841,7 @@ function Ship:mousepressed(x, y, button, player)
     if button == 1 and instance.hotbarButtons then
         for index, hbButton in ipairs(instance.hotbarButtons) do
             local rect = hbButton and hbButton.rect
-            if hbButton and hbButton.enabled and rect and pointInRect(x, y, rect) then
+            if hbButton and hbButton.enabled and rect and x and y and UIUtils.pointInRect(x, y, rect) then
                 local playerModule = player.components and player.components.equipment and player.components.equipment.grid and player.components.equipment.grid[index]
                 if playerModule and playerModule.module then -- Handle any module type
                     -- Cycle to next available hotbar slot, skipping occupied ones
@@ -918,7 +918,7 @@ function Ship:mousepressed(x, y, button, player)
     if button == 1 and instance.removeButtons then
         for index, removeButton in ipairs(instance.removeButtons) do
             local rect = removeButton and removeButton.rect
-            if rect and pointInRect(x, y, rect) then
+            if rect and x and y and UIUtils.pointInRect(x, y, rect) then
                 local unequipped = player.unequipModule and player:unequipModule(index)
                 if unequipped then
                     instance:updateDropdowns(player)
@@ -1011,15 +1011,15 @@ function Ship:wheelmoved(x, y, dx, dy)
     local handled = false
     local scrollDelta = dy * 28
 
-    if instance.statsViewRect and pointInRectSimple(x, y, instance.statsViewRect) then
+    if instance.statsViewRect and x and y and UIUtils.pointInRect(x, y, instance.statsViewRect) then
         local minScroll = instance.statsViewRect.minScroll or 0
-        instance.statsScroll = clamp((instance.statsScroll or 0) + scrollDelta, minScroll, 0)
+        instance.statsScroll = Util.clamp((instance.statsScroll or 0) + scrollDelta, minScroll, 0)
         handled = true
     end
 
-    if instance.slotViewRect and pointInRectSimple(x, y, instance.slotViewRect) then
+    if instance.slotViewRect and x and y and UIUtils.pointInRect(x, y, instance.slotViewRect) then
         local minScroll = instance.slotViewRect.minScroll or 0
-        instance.slotScroll = clamp((instance.slotScroll or 0) + scrollDelta, minScroll, 0)
+        instance.slotScroll = Util.clamp((instance.slotScroll or 0) + scrollDelta, minScroll, 0)
         handled = true
     end
 

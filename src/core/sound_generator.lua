@@ -5,11 +5,7 @@
 
 local SoundGenerator = {}
 local Log = require("src.core.log")
-
--- Helper function to clamp values
-local function clamp(value, min, max)
-    return math.max(min, math.min(max, value))
-end
+local Util = require("src.core.util")
 
 -- Generate white noise
 local function noise()
@@ -68,7 +64,7 @@ function SoundGenerator.generateLaserZap(duration, frequency, sampleRate)
         sample = sample * envelope
 
         -- Clamp and convert to 16-bit
-        sample = clamp(sample * 0.3, -1, 1)
+        sample = Util.clamp(sample * 0.3, -1, 1)
         soundData:setSample(i, sample)
     end
 
@@ -106,7 +102,7 @@ function SoundGenerator.generateMiningLaser(duration, frequency, sampleRate)
         -- Apply envelope
         sample = sample * envelope
 
-        sample = clamp(sample * 0.4, -1, 1)
+        sample = Util.clamp(sample * 0.4, -1, 1)
         soundData:setSample(i, sample)
     end
 
@@ -143,7 +139,7 @@ function SoundGenerator.generateSalvagingLaser(duration, frequency, sampleRate)
         -- Apply envelope
         sample = sample * envelope
 
-        sample = clamp(sample * 0.35, -1, 1)
+        sample = Util.clamp(sample * 0.35, -1, 1)
         soundData:setSample(i, sample)
     end
 
@@ -188,7 +184,7 @@ function SoundGenerator.generateShieldHit(duration, sampleRate)
         -- Add subtle electromagnetic interference
         sample = sample + noise() * 0.05 * envelope
         
-        sample = clamp(sample * 0.5, -1, 1)
+        sample = Util.clamp(sample * 0.5, -1, 1)
         soundData:setSample(i, sample)
     end
     
@@ -217,7 +213,7 @@ function SoundGenerator.generateShieldStatic(duration, sampleRate)
         -- Subtle high-pass to reduce boominess
         last = 0.9 * last + 0.1 * s
         s = s - last * 0.2
-        s = clamp(s * 0.9, -1, 1)
+        s = Util.clamp(s * 0.9, -1, 1)
         soundData:setSample(i, s)
     end
 
@@ -252,7 +248,7 @@ function SoundGenerator.generateHullHit(duration, sampleRate)
         local envelope = math.exp(-t * 5)
         sample = sample * envelope
         
-        sample = clamp(sample * 0.5, -1, 1)
+        sample = Util.clamp(sample * 0.5, -1, 1)
         soundData:setSample(i, sample)
     end
     
@@ -297,7 +293,7 @@ function SoundGenerator.generateExplosion(duration, sampleRate)
         local envelope = attack * decay
         sample = sample * envelope
 
-        sample = clamp(sample * 0.7, -1, 1)
+        sample = Util.clamp(sample * 0.7, -1, 1)
         soundData:setSample(i, sample)
     end
 
@@ -332,7 +328,7 @@ function SoundGenerator.generateMissileLaunch(duration, sampleRate)
         local envelope = math.min(1, t * 10) * math.exp(-t * 1.5)
         sample = sample * envelope
         
-        sample = clamp(sample * 0.5, -1, 1)
+        sample = Util.clamp(sample * 0.5, -1, 1)
         soundData:setSample(i, sample)
     end
     
@@ -357,7 +353,7 @@ function SoundGenerator.generateLockOn(duration, sampleRate)
         local envelope = math.exp(-t * 20)
         sample = sample * envelope
         
-        sample = clamp(sample * 0.7, -1, 1)
+        sample = Util.clamp(sample * 0.7, -1, 1)
         soundData:setSample(i, sample)
     end
     

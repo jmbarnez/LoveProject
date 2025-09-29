@@ -1,8 +1,6 @@
-local EngineTrailSystem = {}
+local Util = require("src.core.util")
 
-local function clamp01(value)
-	return math.max(0, math.min(1, value))
-end
+local EngineTrailSystem = {}
 
 function EngineTrailSystem.update(dt, world)
 	if not world then return end
@@ -31,7 +29,7 @@ function EngineTrailSystem.update(dt, world)
 			local isThrusting = thrusterState.isThrusting or (intensity > 0)
 
 			-- Only show trails if there's actual thrust input or significant movement
-			local normalizedIntensity = clamp01(intensity)
+                        local normalizedIntensity = Util.clamp01(intensity)
 			if isThrusting and normalizedIntensity > 0.05 then
 				trail:updateThrustState(true, normalizedIntensity)
 			else
@@ -58,7 +56,7 @@ function EngineTrailSystem.update(dt, world)
 
 				-- Update thruster state based on movement - only if actively moving
 				if isThrusting then
-					local intensity = clamp01(speed / 180)
+                                        local intensity = Util.clamp01(speed / 180)
 					trail:updateThrustState(true, intensity)
 				else
 					trail:updateThrustState(false, 0)  -- Explicitly turn off trails when not moving
