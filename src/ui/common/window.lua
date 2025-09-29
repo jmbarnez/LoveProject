@@ -163,26 +163,13 @@ function Window:draw()
 
   local mx, my = Viewport.getMousePosition()
 
-  -- Draw window background with load panel theme if enabled
-  if self.useLoadPanelTheme then
-    -- Use the deep space background like load panels
-    Theme.setColor(Theme.colors.bg0)
-    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
+  -- Draw solid dark black background for entire window
+  Theme.setColor(Theme.colors.bg0)
+  love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
 
-    -- Add subtle inner shadow for depth
-    Theme.setColor(Theme.withAlpha(Theme.colors.bg1, 0.3))
-    love.graphics.rectangle("fill", self.x + 1, self.y + 1, self.width - 2, self.height - 2)
-  else
-    -- Original window background
-    Theme.setColor(Theme.colors.windowBg)
-    love.graphics.rectangle("fill", self.x, self.y, self.width, self.height)
-  end
-
-  -- Title bar separator line (only if not using load panel theme or for title bar)
-  if not self.useLoadPanelTheme then
-    Theme.setColor(Theme.colors.border)
-    love.graphics.line(self.x, self.y + self.titleBarHeight, self.x + self.width, self.y + self.titleBarHeight)
-  end
+  -- Title bar separator line (always draw for all windows)
+  Theme.setColor(Theme.colors.border)
+  love.graphics.line(self.x, self.y + self.titleBarHeight, self.x + self.width, self.y + self.titleBarHeight)
 
   -- Close button
   if self.closable then
@@ -199,9 +186,9 @@ function Window:draw()
 
   -- Content background with load panel theme if enabled
   if self.useLoadPanelTheme then
-    -- Use the same deep space background as the main window
-    Theme.setColor(Theme.colors.bg1)
-    love.graphics.rectangle("fill", content.x, content.y, content.w, content.h)
+    -- Skip content background for load panel theme to avoid visual bar
+    -- Theme.setColor(Theme.colors.bg1)
+    -- love.graphics.rectangle("fill", content.x, content.y, content.w, content.h)
   else
     -- Original content background
     Theme.setColor(Theme.colors.bg1)
@@ -227,9 +214,10 @@ function Window:draw()
     -- Use sci-fi frame border for load panel theme
     Theme.drawSciFiFrame(self.x, self.y, self.width, self.height)
   else
-    -- Original window border
-    Theme.drawEVEBorder(self.x, self.y, self.width, self.height, self.cornerRadius,
-                       Theme.colors.borderBright, 8)
+    -- Simple window border without colored corners
+    Theme.setColor(Theme.colors.border)
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", math.floor(self.x + 0.5), math.floor(self.y + 0.5), self.width, self.height)
   end
 end
 

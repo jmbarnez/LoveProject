@@ -15,11 +15,11 @@ Theme.colors = {
   primaryDark = {0.00, 0.00, 0.02, 1.00},  -- Pure void black
   primaryDim = {0.01, 0.01, 0.03, 1.00},   -- Dim space black
 
-  -- Cyan/lavender accents (cyan primary, lavender secondary)
-  accent = {0.2, 0.8, 0.9, 1.00},          -- Electric cyan (main accent)
-  accentGold = {0.6, 0.4, 0.9, 1.00},      -- Ethereal lavender (secondary)
-  accentTeal = {0.3, 0.9, 1.0, 1.00},      -- Bright cyan (highlights)
-  accentPink = {0.7, 0.5, 0.9, 1.00},      -- Deep lavender (accents)
+  -- Single cyan accent color
+  accent = {0.2, 0.8, 0.9, 1.00},          -- Electric cyan (single accent)
+  accentGold = {0.2, 0.8, 0.9, 1.00},      -- Same as accent
+  accentTeal = {0.2, 0.8, 0.9, 1.00},      -- Same as accent
+  accentPink = {0.2, 0.8, 0.9, 1.00},      -- Same as accent
 
   -- Space-themed status colors
   success = {0.3, 0.9, 0.6, 1.00},         -- Cyan-tinted green
@@ -27,23 +27,23 @@ Theme.colors = {
   danger = {0.9, 0.3, 0.5, 1.00},          -- Magenta red
   info = {0.5, 0.7, 0.9, 1.00},            -- Soft lavender
 
-  -- Ultra-dark space background layers
-  bg0 = {0.00, 0.00, 0.01, 1.00},          -- Pure void black
-  bg1 = {0.02, 0.02, 0.04, 1.00},          -- Deep space
-  bg2 = {0.04, 0.04, 0.08, 1.00},          -- Dark nebula
-  bg3 = {0.06, 0.06, 0.12, 1.00},          -- Medium nebula
-  bg4 = {0.08, 0.08, 0.16, 1.00},          -- Light nebula
+  -- Solid black backgrounds
+  bg0 = {0.00, 0.00, 0.00, 1.00},          -- Pure black
+  bg1 = {0.00, 0.00, 0.00, 1.00},          -- Pure black
+  bg2 = {0.00, 0.00, 0.00, 1.00},          -- Pure black
+  bg3 = {0.00, 0.00, 0.00, 1.00},          -- Pure black
+  bg4 = {0.00, 0.00, 0.00, 1.00},          -- Pure black
 
-  -- Dark space chrome
-  windowBg = {0.01, 0.01, 0.03, 0.95},     -- Ultra-dark transparent panel
-  titleBar = {0.01, 0.01, 0.03, 0.95},     -- Same as window background
-  titleBarAccent = {0.08, 0.12, 0.18, 1.00}, -- Cyan chrome accent
+  -- Solid black UI chrome
+  windowBg = {0.00, 0.00, 0.00, 1.00},     -- Pure black
+  titleBar = {0.00, 0.00, 0.00, 1.00},     -- Pure black
+  titleBarAccent = {0.2, 0.8, 0.9, 1.00},  -- Cyan accent
 
-  -- Lavender-cyan borders
-  border = {0.6, 0.4, 0.9, 0.7},           -- Lavender border (semi-transparent)
-  borderBright = {0.5, 0.7, 0.9, 1.00},    -- Bright cyan border
-  borderGlow = {0.5, 0.7, 0.9, 0.4},       -- Cyan glow
-  outline = {0.12, 0.18, 0.24, 1.00},      -- Soft cyan outline
+  -- Unified border color
+  border = {0.5, 0.7, 0.9, 0.8},           -- Single cyan border color
+  borderBright = {0.5, 0.7, 0.9, 0.8},     -- Same as border
+  borderGlow = {0.5, 0.7, 0.9, 0.8},       -- Same as border
+  outline = {0.5, 0.7, 0.9, 0.8},          -- Same as border
 
   -- Starfield typography
   text = {0.95, 0.95, 1.00, 1.00},         -- Pure white stars
@@ -543,30 +543,13 @@ function Theme.drawEVEBorder(x, y, w, h, radius, borderColor, cornerSize)
     return
   end
 
-  cornerSize = cornerSize or math.min(w, h) * 0.1
   Theme.setColor(borderColor)
   love.graphics.setLineWidth(1)
 
   x, y, w, h = math.floor(x + 0.5), math.floor(y + 0.5), w, h
 
-  -- Top line
-  love.graphics.line(x + cornerSize, y, x + w - cornerSize, y)
-  -- Bottom line
-  love.graphics.line(x + cornerSize, y + h, x + w - cornerSize, y + h)
-  -- Left line
-  love.graphics.line(x, y + cornerSize, x, y + h - cornerSize)
-  -- Right line
-  love.graphics.line(x + w, y + cornerSize, x + w, y + h - cornerSize)
-
-  -- Corners
-  -- Top-left corner
-  love.graphics.line(x, y + cornerSize, x, y, x + cornerSize, y)
-  -- Top-right corner
-  love.graphics.line(x + w - cornerSize, y, x + w, y, x + w, y + cornerSize)
-  -- Bottom-left corner
-  love.graphics.line(x, y + h - cornerSize, x, y + h, x + cornerSize, y + h)
-  -- Bottom-right corner
-  love.graphics.line(x + w - cornerSize, y + h, x + w, y + h, x + w, y + h - cornerSize)
+  -- Simple rectangle border without corner pieces
+  love.graphics.rectangle("line", x, y, w, h)
 end
 
 function Theme.drawDesignToken(x, y, size)
@@ -978,25 +961,12 @@ Theme.turretSlotColors = {
 -- Example: Theme.animateValue(0, 100, 1.0, Theme.easeInOut, function(v) print(v) end)
 
 function Theme.drawSciFiFrame(x, y, w, h)
-    local cornerSize = math.min(w, h) * 0.1
-    local accent = Theme.colors.accent
     local border = Theme.colors.border
 
-    -- Main border
+    -- Simple border without colored corner details
     Theme.setColor(border)
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", x, y, w, h)
-
-    -- Corner details
-    Theme.setColor(accent)
-    love.graphics.line(x, y, x + cornerSize, y)
-    love.graphics.line(x, y, x, y + cornerSize)
-    love.graphics.line(x + w, y, x + w - cornerSize, y)
-    love.graphics.line(x + w, y, x + w, y + cornerSize)
-    love.graphics.line(x, y + h, x + cornerSize, y + h)
-    love.graphics.line(x, y + h, x, y + h - cornerSize)
-    love.graphics.line(x + w, y + h, x + w - cornerSize, y + h)
-    love.graphics.line(x + w, y + h, x + w, y + h - cornerSize)
 end
 
 Theme.shaders = {}

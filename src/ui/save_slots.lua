@@ -21,6 +21,28 @@ function SaveSlots:new(options)
     o._allSlots = nil
     o._cacheDirty = true
 
+    -- Listen for global save/load/delete events and refresh cache so the UI
+    -- reflects changes performed elsewhere in the app (or by this panel).
+    local Events = require("src.core.events")
+    Events.on("game_saved", function(data)
+        -- If a save was written, refresh our cache so the new slot shows up
+        if data and data.slotName then
+            o._cacheDirty = true
+            o._slotLookup = nil
+            o._allSlots = nil
+            -- Safe pcall in case UI isn't ready for immediate refresh
+            pcall(function() o:_ensureCache() end)
+        end
+    end)
+    Events.on("game_save_deleted", function(data)
+        if data and data.slotName then
+            o._cacheDirty = true
+            o._slotLookup = nil
+            o._allSlots = nil
+            pcall(function() o:_ensureCache() end)
+        end
+    end)
+
     return o
 end
 
@@ -328,8 +350,18 @@ function SaveSlots:mousepressed(mx, my, button)
         local success = StateManager.saveGame(selectedSlotName, description)
         if success then
             self._cacheDirty = true
+            -- Force refresh of the cached slot list so the UI reflects the new save immediately
+            self._slotLookup = nil
+            self._allSlots = nil
+            self:_ensureCache()
+            -- Show success notification
+            local Notifications = require("src.ui.notifications")
+            Notifications.add("Game saved to slot " .. selectedSlotName, "action")
             return "saved"
         end
+        -- Show failure notification
+        local Notifications = require("src.ui.notifications")
+        Notifications.add("Failed to save game", "error")
         return "saveFailed"
     end
 
@@ -340,8 +372,18 @@ function SaveSlots:mousepressed(mx, my, button)
         local loaded = StateManager.loadGame(selectedSlotName)
         if loaded then
             self._cacheDirty = true
+            -- Ensure slot list is refreshed to reflect any metadata changes
+            self._slotLookup = nil
+            self._allSlots = nil
+            self:_ensureCache()
+            -- Show success notification
+            local Notifications = require("src.ui.notifications")
+            Notifications.add("Game loaded from slot " .. selectedSlotName, "info")
             return "loaded"
         end
+        -- Show failure notification
+        local Notifications = require("src.ui.notifications")
+        Notifications.add("Failed to load game", "error")
         return "loadFailed"
     end
 
@@ -356,8 +398,18 @@ function SaveSlots:mousepressed(mx, my, button)
                     else
                         self._cacheDirty = true
                     end
+                    -- Refresh slot cache so deleted slot is removed from the UI immediately
+                    self._slotLookup = nil
+                    self._allSlots = nil
+                    self:_ensureCache()
+                    -- Show success notification
+                    local Notifications = require("src.ui.notifications")
+                    Notifications.add("Save slot " .. slotName .. " deleted", "info")
                     return "deleted"
                 end
+                -- Show failure notification
+                local Notifications = require("src.ui.notifications")
+                Notifications.add("Failed to delete save slot", "error")
                 return "deleteFailed"
             end
 
@@ -373,8 +425,19 @@ function SaveSlots:mousepressed(mx, my, button)
     if pointInRect(mx, my, layout.autosaveLoad) then
         local loaded = StateManager.loadGame("autosave")
         if loaded then
+            -- Refresh cache so autosave state is shown
+            self._cacheDirty = true
+            self._slotLookup = nil
+            self._allSlots = nil
+            self:_ensureCache()
+            -- Show success notification
+            local Notifications = require("src.ui.notifications")
+            Notifications.add("Auto-save loaded", "info")
             return "autosaveLoaded"
         end
+        -- Show failure notification
+        local Notifications = require("src.ui.notifications")
+        Notifications.add("Failed to load auto-save", "error")
         return "loadFailed"
     end
 

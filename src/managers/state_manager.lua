@@ -6,7 +6,7 @@ local StateManager = {}
 
 -- Configuration
 local SAVE_VERSION = "1.0.0"
-local SAVE_DIRECTORY = "saves/"
+local SAVE_DIRECTORY = "saves"
 local AUTO_SAVE_INTERVAL = 30 -- seconds
 local MAX_SAVE_SLOTS = 10
 local AUTO_SAVE_SLOT = "autosave"
@@ -341,6 +341,13 @@ function StateManager.saveGame(slotName, description)
   
   if success then
     Log.debug("Game saved to slot:", slotName)
+    -- Debug: confirm file info after write
+    local info = love.filesystem.getInfo(filename)
+    if info then
+      Log.debug("Save file written:", filename, "size:", info.size, "modtime:", info.modtime)
+    else
+      Log.warn("Save file write succeeded but getInfo returned nil for", filename)
+    end
     
     -- Emit save event
     Events.emit("game_saved", {

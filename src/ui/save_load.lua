@@ -30,7 +30,11 @@ function SaveLoad:new(options)
         height = windowH,
         useLoadPanelTheme = false,
         closable = true,
+        draggable = true,
+        resizable = false,
         onClose = function()
+            -- Ensure window visibility cleared and call provided onClose
+            o.window.visible = false
             if o.onClose then
                 o.onClose()
             end
@@ -38,6 +42,18 @@ function SaveLoad:new(options)
         drawContent = function(window, x, y, w, h) o.saveSlots:draw(x, y, w, h) end
     })
     return o
+end
+
+function SaveLoad:show()
+    if self.window then self.window:show() end
+end
+
+function SaveLoad:hide()
+    if self.window then self.window:hide() end
+end
+
+function SaveLoad:toggle()
+    if self.window then self.window:toggle() end
 end
 
 function SaveLoad:mousepressed(mx, my, button)

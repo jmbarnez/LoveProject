@@ -12,7 +12,7 @@ local Window = require("src.ui.common.window")
 local UITabs = require("src.ui.common.tabs")
 local Shop = require("src.ui.docked.shop")
 local Dropdown = require("src.ui.common.dropdown")
-local Ship = require("src.ui.ship")
+-- Ship UI is standalone; do not require it here
 
 local DockedUI = {}
 
@@ -73,7 +73,7 @@ function DockedUI.init()
         end
         end
     })
-    DockedUI.equipment = Ship:new()
+    -- Ship UI is standalone; do not embed ship UI inside DockedUI
     DockedUI.quests = Quests:new()
     DockedUI.nodes = Nodes:new()
 
@@ -103,10 +103,7 @@ function DockedUI.show(player, station)
     DockedUI.quests.station = station
   end
 
-  -- Refresh shared ship UI instance with current player equipment
-  if player then
-    DockedUI.equipment:updateDropdowns(player)
-  end
+  -- Ship UI is standalone. Refresh of ship UI should happen when the Ship window is opened.
 end
 
 function DockedUI.setBounty(bounty)
@@ -176,16 +173,9 @@ function DockedUI.drawContent(window, x, y, w, h)
         DockedUI.quests:draw(player, x + pad, contentY, w - pad * 2, contentH)
     elseif DockedUI.activeTab == "Nodes" then
         DockedUI.nodes:draw(player, x + pad, contentY, w - pad * 2, contentH)
-    elseif DockedUI.activeTab == "Ship" then
-        if DockedUI.equipment and player then
-          DockedUI.equipment:updateDropdowns(player)
-          DockedUI.equipment:draw(player, x + pad, contentY, w - pad * 2, contentH)
-        end
     end
 
-    if DockedUI.activeTab == "Shop" and DockedUI.equipment then
-        DockedUI.equipment:drawDropdownOptions()
-    end
+    -- Ship UI is standalone; no embedded dropdown options to draw
 end
 
 function DockedUI.drawMainTabs(x, y, w, h)
@@ -355,9 +345,7 @@ function DockedUI.mousepressed(x, y, button, player)
                     DockedUI.searchActive = false
                     Shop.hideContextMenu(DockedUI)
                 end
-                if tab.name == "Ship" and DockedUI.equipment then
-                    DockedUI.equipment:updateDropdowns(currentPlayer)
-                end
+                -- ship tab removed
                 return true, false
             end
         end
@@ -380,8 +368,6 @@ function DockedUI.mousepressed(x, y, button, player)
         return DockedUI.quests:mousepressed(currentPlayer, x, y, button)
     elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
         return DockedUI.nodes:mousepressed(currentPlayer, x, y, button)
-    elseif DockedUI.activeTab == "Ship" and DockedUI.equipment then
-        return DockedUI.equipment:mousepressed(currentPlayer, x, y, button)
     end
 
     return false, false
@@ -412,8 +398,6 @@ function DockedUI.mousereleased(x, y, button, player)
         return DockedUI.quests:mousereleased(currentPlayer, x, y, button)
     elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
         return DockedUI.nodes:mousereleased(currentPlayer, x, y, button)
-    elseif DockedUI.activeTab == "Ship" and DockedUI.equipment then
-        return DockedUI.equipment:mousereleased(currentPlayer, x, y, button)
     end
 
     return false, false
@@ -447,8 +431,6 @@ function DockedUI.mousemoved(x, y, dx, dy, player)
         return DockedUI.quests:mousemoved(currentPlayer, x, y, dx, dy)
     elseif DockedUI.activeTab == "Nodes" and DockedUI.nodes then
         return DockedUI.nodes:mousemoved(currentPlayer, x, y, dx, dy)
-    elseif DockedUI.activeTab == "Ship" and DockedUI.equipment then
-        return DockedUI.equipment:mousemoved(currentPlayer, x, y, dx, dy)
     end
 
     return false, false

@@ -71,113 +71,56 @@ local function truncateText(text, maxWidth, font)
 end
 
 function SettingsPanel.calculateContentHeight()
-    local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
-
-    -- Check if we're in fullscreen mode
-    local windowMode = love.window.getMode()
-    local isFullscreen = false
-    if type(windowMode) == "table" and windowMode.fullscreen then
-        isFullscreen = true
-    elseif type(windowMode) == "boolean" then
-        isFullscreen = windowMode
-    elseif type(windowMode) == "number" then
-        -- Handle case where getMode returns a number (some LÖVE versions)
-        isFullscreen = (windowMode == 1)
-    end
-
-    -- Responsive panel sizing based on screen resolution and window mode
-    local panelWidth, panelHeight
-    if isFullscreen then
-        -- In fullscreen mode, use more generous sizing for better usability
-        if sw <= 800 or sh <= 600 then
-            -- For small fullscreen (800x600 or smaller), use 90% to leave some margin
-            panelWidth = math.floor(sw * 0.9)
-            panelHeight = math.floor(sh * 0.9)
-        elseif sw <= 1024 or sh <= 768 then
-            -- For medium fullscreen, use 85%
-            panelWidth = math.floor(sw * 0.85)
-            panelHeight = math.floor(sh * 0.85)
-        else
-            -- For large fullscreen, use 80%
-            panelWidth = math.floor(sw * 0.8)
-            panelHeight = math.floor(sh * 0.8)
-        end
+    -- If window/content bounds are available, compute contentHeight relative
+    -- to the current window so scrolling stays correct when the window is moved.
+    local contentX, contentY, contentW, contentH
+    if SettingsPanel.window then
+        local cb = SettingsPanel.window:getContentBounds()
+        contentX, contentY, contentW, contentH = cb.x, cb.y, cb.w, cb.h
     else
-        -- In windowed mode, use the previous responsive logic
-        if sw <= 800 or sh <= 600 then
-            -- For small windows (800x600 or smaller), use more conservative sizing
-            panelWidth = math.floor(sw * 0.95)  -- Use 95% of width
-            panelHeight = math.floor(sh * 0.95) -- Use 95% of height
-        elseif sw <= 1024 or sh <= 768 then
-            -- For medium windows (1024x768 or smaller), use 90% sizing
-            panelWidth = math.floor(sw * 0.9)
-            panelHeight = math.floor(sh * 0.9)
-        else
-            -- For larger windows, use 80% sizing
-            panelWidth = math.floor(sw * 0.8)
-            panelHeight = math.floor(sh * 0.8)
-        end
+        contentX, contentY, contentW, contentH = Viewport.getDimensions(), 0, Viewport.getDimensions(), 0
     end
 
-    -- Ensure minimum panel size (larger minimum for fullscreen)
-    if isFullscreen then
-        panelWidth = math.max(panelWidth, 700)
-        panelHeight = math.max(panelHeight, 500)
-    else
-        panelWidth = math.max(panelWidth, 600)
-        panelHeight = math.max(panelHeight, 400)
-    end
+    local yOffset = contentY + 10 + 60 -- start padding + initial offset
+    local itemHeight = 40
 
-    -- Ensure panel doesn't exceed screen bounds
-    panelWidth = math.min(panelWidth, sw - 20)
-    panelHeight = math.min(panelHeight, sh - 20)
+    -- Graphics settings (vsync, max fps)
+    yOffset = yOffset + itemHeight * 2
 
-    local x = math.floor((sw - panelWidth) / 2)
-    local y = math.floor((sh - panelHeight) / 2)
-    local w, h = panelWidth, panelHeight
-    local innerTop = y + 40
-    local innerH = h - 80
+    -- UI Scale slider
+    yOffset = yOffset + itemHeight
 
--- Calculate yOffset based on all the UI elements
-local yOffset = y + 60
-local itemHeight = 40
+    -- Font Scale slider
+    yOffset = yOffset + itemHeight
 
--- Graphics settings (vsync, max fps)
-yOffset = yOffset + itemHeight * 2
+    -- Reticle button
+    yOffset = yOffset + itemHeight
 
--- UI Scale slider
-yOffset = yOffset + itemHeight
+    -- Accent Color Theme
+    yOffset = yOffset + itemHeight
 
--- Font Scale slider
-yOffset = yOffset + itemHeight
+    -- Helpers toggle
+    yOffset = yOffset + itemHeight
 
--- Reticle button
-yOffset = yOffset + itemHeight
+    -- Audio settings section
+    yOffset = yOffset + itemHeight + 30 -- "Audio" label + spacing
+    yOffset = yOffset + itemHeight * 3 -- 3 volume sliders
 
--- Accent Color Theme
-yOffset = yOffset + itemHeight
+    -- Keybindings section
+    yOffset = yOffset + itemHeight + 30 -- "Keybindings" label + spacing
+    local keybindOrder = {
+        "toggle_inventory", "toggle_ship", "toggle_bounty", "toggle_skills",
+        "toggle_map", "dock",
+        "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5"
+    }
+    yOffset = yOffset + 30 * #keybindOrder -- Each keybinding takes 30 pixels
 
--- Helpers toggle
-yOffset = yOffset + itemHeight
+    -- Update scrollable content height based on last yOffset
+    -- The content height should be the total height of all content within the scissor area
+    contentHeight = (yOffset - contentY) + 20
 
--- Audio settings section
-yOffset = yOffset + itemHeight + 30 -- "Audio" label + spacing
-yOffset = yOffset + itemHeight * 3 -- 3 volume sliders
-
--- Keybindings section
-yOffset = yOffset + itemHeight + 30 -- "Keybindings" label + spacing
-local keybindOrder = {
-    "toggle_inventory", "toggle_bounty", "toggle_skills",
-    "toggle_map", "dock",
-    "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5"
-}
-yOffset = yOffset + 30 * #keybindOrder -- Each keybinding takes 30 pixels
-
--- Update scrollable content height based on last yOffset
-contentHeight = (yOffset - innerTop) + 20
-
--- Allow content to be taller than panel height for scrolling
--- The scrollbar will handle showing content that extends beyond the panel
+    -- Allow content to be taller than panel height for scrolling
+    -- The scrollbar will handle showing content that extends beyond the panel
 end
 
 local function cloneSettings(src)
@@ -382,16 +325,18 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     love.graphics.setFont(settingsFont)
 
     local mx, my = Viewport.getMousePosition()
+    local scrolledMouseY = my + scrollY
 
     love.graphics.push()
-    local innerTop = y
-    local innerH = h - 60  -- Leave room for bottom bar with Apply button
+    -- Get the actual title bar height from the window
+    local innerTop = y  -- Start below the title bar
+    local innerH = h - 60   -- Leave room for title bar and bottom bar (60px)
     love.graphics.setScissor(x, innerTop, w, innerH)
     love.graphics.translate(0, -scrollY)
 
     -- Settings content with organized sections
     local pad = (Theme.ui and Theme.ui.contentPadding) or 20
-    local yOffset = y + 60
+    local yOffset = innerTop + 10  -- Start from the scissor area top with small padding
     local labelX = x + pad
     local valueX = x + 150
     local dropdownW = 150
@@ -422,8 +367,7 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     Theme.setColor(Theme.colors.text)
     love.graphics.print("Reticle:", labelX, yOffset)
     local btnX, btnY, btnW, btnH = valueX, yOffset - 4, 140, 26
-    local mx, my = Viewport.getMousePosition()
-    local btnHover = mx >= btnX and mx <= btnX + btnW and my + scrollY >= btnY and my + scrollY <= btnY + btnH
+    local btnHover = mx >= btnX and mx <= btnX + btnW and scrolledMouseY >= btnY and scrolledMouseY <= btnY + btnH
     -- Show full text without truncation
     Theme.drawStyledButton(btnX, btnY, btnW, btnH, "Select Reticle", btnHover, love.timer.getTime())
     SettingsPanel._reticleButtonRect = { x = btnX, y = btnY - scrollY, w = btnW, h = btnH }
@@ -452,7 +396,7 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     love.graphics.print("Helpers", labelX, yOffset + 4)
     local toggleX, toggleY, toggleW, toggleH = valueX, yOffset, 70, 24
     local enabled = currentGraphicsSettings.helpers_enabled ~= false
-    local toggleHover = mx >= toggleX and mx <= toggleX + toggleW and my + scrollY >= toggleY and my + scrollY <= toggleY + toggleH
+    local toggleHover = mx >= toggleX and mx <= toggleX + toggleW and scrolledMouseY >= toggleY and scrolledMouseY <= toggleY + toggleH
     local toggleLabel = enabled and "On" or "Off"
     Theme.drawStyledButton(toggleX, toggleY, toggleW, toggleH, "", toggleHover, love.timer.getTime())
     Theme.setColor(Theme.colors.text)
@@ -542,35 +486,32 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     
     -- Use consistent order for keybindings
     local keybindOrder = {
-        "toggle_inventory", "toggle_bounty", "toggle_skills",
-        "toggle_map", "dock", 
+        "toggle_inventory", "toggle_ship", "toggle_bounty", "toggle_skills",
+        "toggle_map", "dock",
         "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5"
     }
     
     for _, action in ipairs(keybindOrder) do
         local key = keymap[action]
+        -- Debug: Always show the action name, even if key is missing
+        Theme.setColor(Theme.colors.text)
+        love.graphics.print(action, x + 20, yOffset)
+        
         if key then
-            Theme.setColor(Theme.colors.text)
-            love.graphics.print(action, x + 20, yOffset)
-            
             -- Draw keybinding as a button
             local btnX, btnY, btnW, btnH = x + 200, yOffset - 2, 100, 24
             local keyText = bindingAction == action and Strings.getControl("press_key") or key
-            local mx, my = Viewport.getMousePosition()
-            local hover = mx >= btnX and mx <= btnX + btnW and my + scrollY >= btnY and my + scrollY <= btnY + btnH
+            local hover = mx >= btnX and mx <= btnX + btnW and scrolledMouseY >= btnY and scrolledMouseY <= btnY + btnH
             
-            -- Button background
-            Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 3,
-                hover and Theme.colors.bg3 or Theme.colors.bg2,
-                Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak * 0.2)
-            
-            -- Button text
-            Theme.setColor(bindingAction == action and Theme.colors.accent or Theme.colors.textHighlight)
-            local textW = settingsFont:getWidth(keyText)
-            love.graphics.print(keyText, btnX + (btnW - textW) / 2, btnY + (btnH - settingsFont:getHeight()) / 2)
-            
-            yOffset = yOffset + 30
+            -- Use themed button drawing
+            Theme.drawStyledButton(btnX, btnY, btnW, btnH, keyText, hover, love.timer.getTime(), nil, bindingAction == action)
+        else
+            -- Show "Not Set" if no key is configured
+            Theme.setColor(Theme.colors.textDisabled)
+            love.graphics.print("Not Set", x + 200, yOffset)
         end
+        
+        yOffset = yOffset + 30
     end
 
     -- Calculate content height
@@ -582,11 +523,19 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     -- Disable scissor for UI elements below the scrollable area
     love.graphics.setScissor()
 
+    -- Draw separation lines between sections
+    Theme.setColor(Theme.colors.border)
+    love.graphics.setLineWidth(1)
+    
+    -- Bottom separation line (between content and bottom bar)
+    love.graphics.line(x, y + h - 60, x + w, y + h - 60)
+
     -- Set scissor to full panel bounds for dropdowns and apply button
     love.graphics.setScissor(x, y, w, h)
 
     -- Scrollbar (inside scissor, but not translated)
-    local scrollbarX = x + w - 12
+    local scrollbarWidth = 12
+    local scrollbarX = x + w - scrollbarWidth - 4  -- 4px margin from right edge
     local scrollbarY = innerTop
     local scrollbarH = innerH
     if contentHeight > innerH then
@@ -594,18 +543,25 @@ function SettingsPanel.drawContent(window, x, y, w, h)
         local trackRange = scrollbarH - thumbH
         local thumbY = scrollbarY + (trackRange > 0 and (trackRange * (scrollY / (contentHeight - innerH))) or 0)
 
-        -- Draw scrollbar track (background)
-        Theme.drawGradientGlowRect(scrollbarX, scrollbarY, 8, scrollbarH, 2, Theme.colors.bg0, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak * 0.1)
-        -- Draw scrollbar thumb (handle)
-        Theme.drawGradientGlowRect(scrollbarX, thumbY, 8, thumbH, 2, Theme.colors.accent, Theme.colors.bg3, Theme.colors.border, Theme.effects.glowWeak * 0.2)
+        -- Draw scrollbar track (background) - solid black with border
+        Theme.setColor(Theme.colors.bg0)
+        love.graphics.rectangle("fill", scrollbarX, scrollbarY, scrollbarWidth, scrollbarH)
+        Theme.setColor(Theme.colors.border)
+        love.graphics.rectangle("line", scrollbarX, scrollbarY, scrollbarWidth, scrollbarH)
+        
+        -- Draw scrollbar thumb (handle) - accent color with border
+        Theme.setColor(Theme.colors.accent)
+        love.graphics.rectangle("fill", scrollbarX + 1, thumbY + 1, scrollbarWidth - 2, thumbH - 2)
+        Theme.setColor(Theme.colors.border)
+        love.graphics.rectangle("line", scrollbarX + 1, thumbY + 1, scrollbarWidth - 2, thumbH - 2)
 
         -- Store scrollbar bounds for mouse interaction (convert to screen coordinates)
         local windowX, windowY = 0, 0
         if SettingsPanel.window then
             windowX, windowY = SettingsPanel.window.x, SettingsPanel.window.y
         end
-        SettingsPanel._scrollbarTrack = { x = scrollbarX + windowX, y = scrollbarY + windowY, w = 8, h = scrollbarH }
-        SettingsPanel._scrollbarThumb = { x = scrollbarX + windowX, y = thumbY + windowY, w = 8, h = thumbH }
+        SettingsPanel._scrollbarTrack = { x = scrollbarX + windowX, y = scrollbarY + windowY, w = scrollbarWidth, h = scrollbarH }
+        SettingsPanel._scrollbarThumb = { x = scrollbarX + windowX, y = thumbY + windowY, w = scrollbarWidth, h = thumbH }
     else
         SettingsPanel._scrollbarTrack = nil
         SettingsPanel._scrollbarThumb = nil
@@ -629,19 +585,10 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     local buttonY = buttonAreaY + 15
     local applyBtnHover = mx >= applyButtonX and mx <= applyButtonX + buttonW and my >= buttonY and my <= buttonY + buttonH
 
-    -- Draw green Apply button
-    Theme.setColor(Theme.colors.success)  -- Green color
-    love.graphics.rectangle("fill", applyButtonX, buttonY, buttonW, buttonH)
-    Theme.setColor(Theme.colors.success[1] * 0.8, Theme.colors.success[2] * 0.8, Theme.colors.success[3] * 0.8, 1)  -- Darker green for border
-    love.graphics.rectangle("line", applyButtonX, buttonY, buttonW, buttonH)
-
-    -- Button text
-    Theme.setColor(Theme.colors.textHighlight)
-    local font = Theme.fonts and (Theme.fonts.small or Theme.fonts.normal) or love.graphics.getFont()
+    -- Draw Apply button using themed button renderer and store its rect
     local applyText = Strings.getUI("apply_button")
-    local textW = font:getWidth(applyText)
-    local textH = font:getHeight()
-    love.graphics.print(applyText, applyButtonX + (buttonW - textW) / 2, buttonY + (buttonH - textH) / 2)
+    Theme.drawStyledButton(applyButtonX, buttonY, buttonW, buttonH, applyText, applyBtnHover, love.timer.getTime())
+    SettingsPanel._applyButton = { _rect = { x = applyButtonX, y = buttonY, w = buttonW, h = buttonH } }
 
     -- Reticle Gallery Popup
     if reticleGalleryOpen then
@@ -753,6 +700,8 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     local valueX = contentX + 150
     local dropdownW = 150
     local itemHeight = 40
+    -- Also have screen coords for popups drawn in screen space
+    local screenX, screenY = Viewport.toScreen(x, y)
 
     -- Check if click is outside the panel
     local isInsidePanel = x >= panelX and x <= panelX + w and y >= panelY and y <= panelY + h
@@ -772,10 +721,10 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     if fpsLimitDropdown:mousepressed(x, y, button) then return true end
     if accentThemeDropdown:mousepressed(x, y, button) then return true end
     
-    -- Handle apply button
+    -- Handle apply button (use content bounds like drawContent does)
     local buttonW, buttonH = 100, 30
-    local applyButtonX = panelX + (w / 2) - buttonW / 2
-    local buttonAreaY = panelY + h - 60
+    local applyButtonX = contentX + (contentW / 2) - buttonW / 2
+    local buttonAreaY = contentY + contentH - 60
     local buttonY = buttonAreaY + 15
     if x >= applyButtonX and x <= applyButtonX + buttonW and y >= buttonY and y <= buttonY + buttonH then
         local newGraphicsSettings = {}
@@ -790,16 +739,16 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         return true
     end
 
-    -- Handle reticle gallery pop-up interactions
+    -- Handle reticle gallery pop-up interactions (popup is drawn in screen coords)
     if reticleGalleryOpen then
-        if SettingsPanel._reticleDone and x >= SettingsPanel._reticleDone._rect.x and x <= SettingsPanel._reticleDone._rect.x + SettingsPanel._reticleDone._rect.w and
-           y >= SettingsPanel._reticleDone._rect.y and y <= SettingsPanel._reticleDone._rect.y + SettingsPanel._reticleDone._rect.h then
+        if SettingsPanel._reticleDone and screenX >= SettingsPanel._reticleDone._rect.x and screenX <= SettingsPanel._reticleDone._rect.x + SettingsPanel._reticleDone._rect.w and
+           screenY >= SettingsPanel._reticleDone._rect.y and screenY <= SettingsPanel._reticleDone._rect.y + SettingsPanel._reticleDone._rect.h then
             reticleGalleryOpen = false
             return true
         end
-        if SettingsPanel._reticlePopup and x >= SettingsPanel._reticlePopup.x and y >= SettingsPanel._reticlePopup.y then
-            local col = math.floor((x - SettingsPanel._reticlePopup.x) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
-            local row = math.floor((y - SettingsPanel._reticlePopup.y) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
+        if SettingsPanel._reticlePopup and screenX >= SettingsPanel._reticlePopup.x and screenY >= SettingsPanel._reticlePopup.y then
+            local col = math.floor((screenX - SettingsPanel._reticlePopup.x) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
+            local row = math.floor((screenY - SettingsPanel._reticlePopup.y) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
             if col >= 0 and col < SettingsPanel._reticlePopup.cols and row >= 0 and row < SettingsPanel._reticlePopup.rows then
                 local index = row * SettingsPanel._reticlePopup.cols + col + 1
                 if index >= 1 and index <= 50 then
@@ -810,7 +759,7 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         end
         if SettingsPanel._colorSliders then
             for _, slider in ipairs(SettingsPanel._colorSliders) do
-                if x >= slider.x and x <= slider.x + slider.w and y >= slider.y - 10 and y <= slider.y + slider.h + 10 then
+                if screenX >= slider.x and screenX <= slider.x + slider.w and screenY >= slider.y - 10 and screenY <= slider.y + slider.h + 10 then
                     draggingSlider = 'reticle_color_' .. slider.key
                     return true
                 end
@@ -820,21 +769,22 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
         local gw, gh = 560, 420
         local gx, gy = (sw - gw) / 2, (sh - gh) / 2
-        if x >= gx and x <= gx + gw and y >= gy and y <= gy + gh then
+        if screenX >= gx and screenX <= gx + gw and screenY >= gy and screenY <= gy + gh then
             return true
         end
     end
 
     -- Handle scrollbar clicking and dragging
     if contentHeight > innerH then
-        local scrollbarX = panelX + w - 12
-        local scrollbarY = innerTop
+        local scrollbarWidth = 12
+        local scrollbarX = panelX + w - scrollbarWidth - 4
+        local scrollbarY = contentY -- Use contentY, which is the true top of the content area
         local scrollbarH = innerH
         local thumbH = math.max(20, scrollbarH * (innerH / contentHeight))
         local trackRange = scrollbarH - thumbH
         local thumbY = scrollbarY + (trackRange > 0 and (trackRange * (scrollY / (contentHeight - innerH))) or 0)
 
-        if x >= scrollbarX and x <= scrollbarX + 8 then
+        if x >= scrollbarX and x <= scrollbarX + scrollbarWidth then
             if y >= thumbY and y <= thumbY + thumbH then
                 draggingSlider = "scrollbar"
                 scrollDragOffset = y - thumbY
@@ -849,39 +799,48 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         end
     end
 
-    -- Now handle main content (scrolled): check if click is in content area
-    if x < contentX or x > contentX + contentW or y < contentY or y > contentY + contentH - 60 then
+    -- Now handle main content (scrolled): check if click is in the visible content area
+    if x < contentX or x > contentX + contentW or y < contentY or y > contentY + contentH then
         return false -- Not in the scrollable content area
     end
 
-    local scrolledY = y - contentY + scrollY
+    -- Correctly calculate mouse Y position in the virtual, scrolled content space
+    -- Mouse `y` is in virtual screen space; elements are drawn translated by -scrollY,
+    -- so compare mouseY + scrollY against absolute element Y positions.
+    local scrolledY = y + scrollY
     local sectionSpacing = 60
 
-    -- yOffset is now relative to the top of the content pane
-    local yOffset = 60 -- start of content
+    -- Replicate the yOffset logic from drawContent EXACTLY for perfect alignment
+    local yOffset = contentY + 10 -- Start relative to the content area's top + padding
+
+    -- === GRAPHICS SECTION ===
     yOffset = yOffset + 30 -- "Graphics Settings" label
 
-    -- VSync dropdown
-    if vsyncDropdown:mousepressed(x, y, button) then return true end
+    -- VSync Dropdown
+    -- Dropdown handles its own mousepress, so we just increment yOffset
     yOffset = yOffset + itemHeight
 
-    -- Max FPS dropdown
-    if fpsLimitDropdown:mousepressed(x, y, button) then return true end
+    -- Max FPS Dropdown
+    -- Dropdown handles its own mousepress
     yOffset = yOffset + itemHeight
 
     -- Reticle button
-    if scrolledY >= yOffset - 4 and scrolledY <= yOffset + 22 and x >= valueX and x <= valueX + 140 then
+    local btnX, btnW, btnH = valueX, 140, 26
+    local btnY = yOffset - 4
+    if scrolledY >= btnY and scrolledY <= btnY + btnH and x >= btnX and x <= btnX + btnW then
         reticleGalleryOpen = true
         return true
     end
     yOffset = yOffset + itemHeight
 
-    -- Accent Color Theme dropdown
-    if accentThemeDropdown:mousepressed(x, y, button) then return true end
+    -- Accent Color Theme Dropdown
+    -- Dropdown handles its own mousepress
     yOffset = yOffset + itemHeight
 
     -- Helpers toggle
-    if scrolledY >= yOffset - 2 and scrolledY <= yOffset + 22 and x >= valueX and x <= valueX + 70 then
+    local toggleX, toggleW, toggleH = valueX, 70, 24
+    local toggleY = yOffset
+    if scrolledY >= toggleY and scrolledY <= toggleY + toggleH and x >= toggleX and x <= toggleX + toggleW then
         currentGraphicsSettings.helpers_enabled = not currentGraphicsSettings.helpers_enabled
         return true
     end
@@ -891,20 +850,30 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     yOffset = yOffset + 30 -- "Audio Settings" label
 
     -- Master Volume
-    if scrolledY >= yOffset - 5 and scrolledY <= yOffset + 5 and x >= valueX and x <= valueX + 200 then
+    local sliderX, sliderW, sliderH = valueX, 200, 10
+    local sliderY = yOffset - 5
+    if scrolledY >= sliderY and scrolledY <= sliderY + sliderH and x >= sliderX and x <= sliderX + sliderW then
         draggingSlider = "master_volume"
+        local pct = (x - sliderX) / sliderW -- Set initial value on click
+        currentAudioSettings.master_volume = math.max(0, math.min(1, pct))
         return true
     end
     yOffset = yOffset + itemHeight
     -- SFX Volume
-    if scrolledY >= yOffset - 5 and scrolledY <= yOffset + 5 and x >= valueX and x <= valueX + 200 then
+    sliderY = yOffset - 5
+    if scrolledY >= sliderY and scrolledY <= sliderY + sliderH and x >= sliderX and x <= sliderX + sliderW then
         draggingSlider = "sfx_volume"
+        local pct = (x - sliderX) / sliderW -- Set initial value on click
+        currentAudioSettings.sfx_volume = math.max(0, math.min(1, pct))
         return true
     end
     yOffset = yOffset + itemHeight
     -- Music Volume
-    if scrolledY >= yOffset - 5 and scrolledY <= yOffset + 5 and x >= valueX and x <= valueX + 200 then
+    sliderY = yOffset - 5
+    if scrolledY >= sliderY and scrolledY <= sliderY + sliderH and x >= sliderX and x <= sliderX + sliderW then
         draggingSlider = "music_volume"
+        local pct = (x - sliderX) / sliderW -- Set initial value on click
+        currentAudioSettings.music_volume = math.max(0, math.min(1, pct))
         return true
     end
     yOffset = yOffset + itemHeight + sectionSpacing
@@ -913,9 +882,11 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     yOffset = yOffset + 30 -- "Controls" label
     yOffset = yOffset + 30 -- "Keybindings" label
 
-    local keybindOrder = { "toggle_inventory", "toggle_bounty", "toggle_skills", "toggle_map", "dock", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5" }
+    local keybindOrder = { "toggle_inventory", "toggle_ship", "toggle_bounty", "toggle_skills", "toggle_map", "dock", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5" }
     for _, action in ipairs(keybindOrder) do
-        if scrolledY >= yOffset - 2 and scrolledY <= yOffset + 22 and x >= contentX + 200 and x <= contentX + 300 then
+        local btnX, btnW, btnH = contentX + 200, 100, 24
+        local btnY = yOffset - 2
+        if scrolledY >= btnY and scrolledY <= btnY + btnH and x >= btnX and x <= btnX + btnW then
             bindingAction = action
             return true
         end
@@ -980,33 +951,46 @@ function SettingsPanel.mousemoved(raw_x, raw_y, dx, dy)
     local isInsidePanel = x >= panelX and x <= panelX + w and y >= panelY and y <= panelY + h
 
     if isInsidePanel then
-        -- Check dropdown hovers
-        local yOffsetUnscrolled = panelY + 60
-        local vsyncButtonY = yOffsetUnscrolled
-        local fpsButtonY = vsyncButtonY + itemHeight
-        local accentButtonY = fpsButtonY + itemHeight * 2
-        
-        -- Standardized dropdown components handle their own hover detection
+        -- Dropdowns handle their own hover detection, no changes needed here
         vsyncDropdown:mousemoved(x, y)
         fpsLimitDropdown:mousemoved(x, y)
         accentThemeDropdown:mousemoved(x, y)
 
         -- Check slider hovers (scrolled content)
+        -- Use the exact same logic as mousepressed to find the elements
         if x >= contentX and x <= contentX + contentW and y >= contentY and y <= contentY + innerH then
-            local scrolledY = y - contentY + scrollY
-            local yOffset = 60 + 30
-            yOffset = yOffset + itemHeight * 4 + 60 -- Graphics section
-            yOffset = yOffset + 30 -- Audio label
+            -- Mouse `y` is virtual; elements are drawn translated by -scrollY.
+            -- So compare mouseY + scrollY against absolute element Y positions.
+            local scrolledY = y + scrollY
+            local sectionSpacing = 60
+            local yOffset = contentY + 10 -- Start relative to the content area's top + padding
 
-            if scrolledY >= yOffset - 5 and scrolledY <= yOffset + 5 and x >= valueX and x <= valueX + 200 then
+            -- === GRAPHICS SECTION ===
+            yOffset = yOffset + 30 -- "Graphics Settings" label
+            yOffset = yOffset + itemHeight -- VSync
+            yOffset = yOffset + itemHeight -- Max FPS
+            yOffset = yOffset + itemHeight -- Reticle
+            yOffset = yOffset + itemHeight -- Accent Color
+            yOffset = yOffset + itemHeight + sectionSpacing -- Helpers + spacing
+
+            -- === AUDIO SECTION ===
+            yOffset = yOffset + 30 -- "Audio Settings" label
+
+            -- Master Volume
+            local sliderY = yOffset - 5
+            if scrolledY >= sliderY and scrolledY <= sliderY + 10 and x >= valueX and x <= valueX + 200 then
                 hoveredSlider.master_volume = true
             end
             yOffset = yOffset + itemHeight
-            if scrolledY >= yOffset - 5 and scrolledY <= yOffset + 5 and x >= valueX and x <= valueX + 200 then
+            -- SFX Volume
+            sliderY = yOffset - 5
+            if scrolledY >= sliderY and scrolledY <= sliderY + 10 and x >= valueX and x <= valueX + 200 then
                 hoveredSlider.sfx_volume = true
             end
             yOffset = yOffset + itemHeight
-            if scrolledY >= yOffset - 5 and scrolledY <= yOffset + 5 and x >= valueX and x <= valueX + 200 then
+            -- Music Volume
+            sliderY = yOffset - 5
+            if scrolledY >= sliderY and scrolledY <= sliderY + 10 and x >= valueX and x <= valueX + 200 then
                 hoveredSlider.music_volume = true
             end
         end
@@ -1017,7 +1001,9 @@ function SettingsPanel.mousemoved(raw_x, raw_y, dx, dy)
     -- Handle slider dragging
     if draggingSlider == "scrollbar" then
         if contentHeight > innerH then
-            local scrollbarY = content.y -- Use content bounds
+            local scrollbarWidth = 12
+            local scrollbarX = panelX + w - scrollbarWidth - 4
+            local scrollbarY = innerTop
             local scrollbarH = innerH
             local thumbH = math.max(20, scrollbarH * (innerH / contentHeight))
             local trackRange = scrollbarH - thumbH
@@ -1105,86 +1091,101 @@ function applyAccentTheme(themeName)
     local Theme = require("src.core.theme")
 
     if themeName == "Cyan/Lavender" then
-        -- Current cyan/lavender theme
-        Theme.colors.accent = {0.2, 0.8, 0.9, 1.00}          -- Electric cyan (main)
-        Theme.colors.accentGold = {0.6, 0.4, 0.9, 1.00}      -- Ethereal lavender (secondary)
-        Theme.colors.accentTeal = {0.3, 0.9, 1.0, 1.00}      -- Bright cyan (highlights)
-        Theme.colors.accentPink = {0.7, 0.5, 0.9, 1.00}      -- Deep lavender (accents)
-        Theme.colors.border = {0.6, 0.4, 0.9, 0.7}           -- Lavender border
-        Theme.colors.borderBright = {0.5, 0.7, 0.9, 1.00}    -- Bright cyan border
+        -- Single cyan theme
+        Theme.colors.accent = {0.2, 0.8, 0.9, 1.00}          -- Electric cyan (single)
+        Theme.colors.accentGold = {0.2, 0.8, 0.9, 1.00}      -- Same as accent
+        Theme.colors.accentTeal = {0.2, 0.8, 0.9, 1.00}      -- Same as accent
+        Theme.colors.accentPink = {0.2, 0.8, 0.9, 1.00}      -- Same as accent
+        Theme.colors.border = {0.5, 0.7, 0.9, 0.8}           -- Unified cyan border
+        Theme.colors.borderBright = {0.5, 0.7, 0.9, 0.8}     -- Same as border
+        Theme.colors.bg0 = {0.00, 0.00, 0.00, 1.00}          -- Pure black
+        Theme.colors.bg1 = {0.00, 0.00, 0.00, 1.00}          -- Pure black
+        Theme.colors.windowBg = {0.00, 0.00, 0.00, 1.00}     -- Pure black
 
     elseif themeName == "Blue/Purple" then
-        -- Blue/purple theme
-        Theme.colors.accent = {0.4, 0.6, 1.0, 1.00}          -- Electric blue (main)
-        Theme.colors.accentGold = {0.9, 0.7, 1.0, 1.00}      -- Purple-tinted gold (secondary)
-        Theme.colors.accentTeal = {0.3, 0.7, 0.9, 1.00}      -- Deep blue (highlights)
-        Theme.colors.accentPink = {0.8, 0.4, 0.9, 1.00}      -- Royal purple (accents)
-        Theme.colors.border = {0.8, 0.4, 0.9, 0.7}           -- Purple border
-        Theme.colors.borderBright = {0.4, 0.6, 1.0, 1.00}    -- Bright blue border
+        -- Single blue theme
+        Theme.colors.accent = {0.4, 0.6, 1.0, 1.00}          -- Electric blue (single)
+        Theme.colors.accentGold = {0.4, 0.6, 1.0, 1.00}      -- Same as accent
+        Theme.colors.accentTeal = {0.4, 0.6, 1.0, 1.00}      -- Same as accent
+        Theme.colors.accentPink = {0.4, 0.6, 1.0, 1.00}      -- Same as accent
+        Theme.colors.border = {0.4, 0.6, 1.0, 0.8}           -- Unified blue border
+        Theme.colors.borderBright = {0.4, 0.6, 1.0, 0.8}     -- Same as border
+        Theme.colors.bg0 = {0.00, 0.00, 0.00, 1.00}          -- Pure black
+        Theme.colors.bg1 = {0.00, 0.00, 0.00, 1.00}          -- Pure black
+        Theme.colors.windowBg = {0.00, 0.00, 0.00, 1.00}     -- Pure black
 
     elseif themeName == "Green/Emerald" then
-        -- Green/emerald theme
-        Theme.colors.accent = {0.3, 0.9, 0.4, 1.00}          -- Emerald green (main)
-        Theme.colors.accentGold = {0.2, 0.8, 0.3, 1.00}      -- Bright green (secondary)
-        Theme.colors.accentTeal = {0.1, 0.7, 0.4, 1.00}      -- Forest green (highlights)
-        Theme.colors.accentPink = {0.4, 0.8, 0.2, 1.00}      -- Lime green (accents)
-        Theme.colors.border = {0.4, 0.8, 0.2, 0.7}           -- Green border
-        Theme.colors.borderBright = {0.3, 0.9, 0.4, 1.00}    -- Bright green border
+        -- Single green theme
+        Theme.colors.accent = {0.3, 0.9, 0.4, 1.00}          -- Emerald green (single)
+        Theme.colors.accentGold = {0.3, 0.9, 0.4, 1.00}      -- Same as accent
+        Theme.colors.accentTeal = {0.3, 0.9, 0.4, 1.00}      -- Same as accent
+        Theme.colors.accentPink = {0.3, 0.9, 0.4, 1.00}      -- Same as accent
+        Theme.colors.border = {0.3, 0.9, 0.4, 0.8}           -- Unified green border
+        Theme.colors.borderBright = {0.3, 0.9, 0.4, 0.8}     -- Same as border
+        Theme.colors.bg0 = {0.00, 0.00, 0.00, 1.00}          -- Pure black
+        Theme.colors.bg1 = {0.00, 0.00, 0.00, 1.00}          -- Pure black
+        Theme.colors.windowBg = {0.00, 0.00, 0.00, 1.00}     -- Pure black
 
     elseif themeName == "Red/Orange" then
-        -- Red/orange theme
-        Theme.colors.accent = {0.9, 0.3, 0.2, 1.00}          -- Crimson red (main)
-        Theme.colors.accentGold = {1.0, 0.5, 0.1, 1.00}      -- Bright orange (secondary)
-        Theme.colors.accentTeal = {0.8, 0.2, 0.1, 1.00}      -- Dark red (highlights)
-        Theme.colors.accentPink = {0.9, 0.4, 0.3, 1.00}      -- Coral red (accents)
-        Theme.colors.border = {0.9, 0.4, 0.3, 0.7}           -- Red border
-        Theme.colors.borderBright = {0.9, 0.3, 0.2, 1.00}    -- Bright red border
+        -- Single red theme
+        Theme.colors.accent = {0.9, 0.3, 0.2, 1.00}          -- Crimson red (single)
+        Theme.colors.accentGold = {0.9, 0.3, 0.2, 1.00}      -- Same as accent
+        Theme.colors.accentTeal = {0.9, 0.3, 0.2, 1.00}      -- Same as accent
+        Theme.colors.accentPink = {0.9, 0.3, 0.2, 1.00}      -- Same as accent
+        Theme.colors.border = {0.9, 0.3, 0.2, 0.8}           -- Unified red border
+        Theme.colors.borderBright = {0.9, 0.3, 0.2, 0.8}     -- Same as border
+        Theme.colors.bg0 = {0.00, 0.00, 0.00, 1.00}          -- Pure black
+        Theme.colors.bg1 = {0.00, 0.00, 0.00, 1.00}          -- Pure black
+        Theme.colors.windowBg = {0.00, 0.00, 0.00, 1.00}     -- Pure black
 
     elseif themeName == "Monochrome" then
-        -- Monochrome theme (grayscale)
-        Theme.colors.accent = {0.7, 0.7, 0.7, 1.00}          -- Medium gray (main)
-        Theme.colors.accentGold = {0.5, 0.5, 0.5, 1.00}      -- Dark gray (secondary)
-        Theme.colors.accentTeal = {0.6, 0.6, 0.6, 1.00}      -- Light gray (highlights)
-        Theme.colors.accentPink = {0.4, 0.4, 0.4, 1.00}      -- Very dark gray (accents)
-        Theme.colors.border = {0.5, 0.5, 0.5, 0.7}           -- Gray border
-        Theme.colors.borderBright = {0.7, 0.7, 0.7, 1.00}    -- Light gray border
+        -- Single gray theme
+        Theme.colors.accent = {0.7, 0.7, 0.7, 1.00}          -- Medium gray (single)
+        Theme.colors.accentGold = {0.7, 0.7, 0.7, 1.00}      -- Same as accent
+        Theme.colors.accentTeal = {0.7, 0.7, 0.7, 1.00}      -- Same as accent
+        Theme.colors.accentPink = {0.7, 0.7, 0.7, 1.00}      -- Same as accent
+        Theme.colors.border = {0.7, 0.7, 0.7, 0.8}           -- Unified gray border
+        Theme.colors.borderBright = {0.7, 0.7, 0.7, 0.8}     -- Same as border
+        Theme.colors.bg0 = {0.00, 0.00, 0.00, 1.00}          -- Pure black
+        Theme.colors.bg1 = {0.00, 0.00, 0.00, 1.00}          -- Pure black
+        Theme.colors.windowBg = {0.00, 0.00, 0.00, 1.00}     -- Pure black
     end
 
-    -- Update turret slot colors to match the new theme
+    -- Update turret slot colors to match the new single-color theme
     if themeName == "Cyan/Lavender" then
         Theme.turretSlotColors = {
             {0.2, 0.8, 0.9, 1.00},    -- Electric cyan
-            {0.3, 0.9, 1.0, 1.00},    -- Bright cyan
-            {0.6, 0.4, 0.9, 1.00},    -- Ethereal lavender
-            {0.7, 0.5, 0.9, 1.00},    -- Deep lavender
+            {0.2, 0.8, 0.9, 1.00},    -- Electric cyan
+            {0.2, 0.8, 0.9, 1.00},    -- Electric cyan
+            {0.2, 0.8, 0.9, 1.00},    -- Electric cyan
         }
     elseif themeName == "Blue/Purple" then
         Theme.turretSlotColors = {
             {0.4, 0.6, 1.0, 1.00},    -- Electric blue
-            {0.3, 0.7, 0.9, 1.00},    -- Deep blue
-            {0.8, 0.4, 0.9, 1.00},    -- Royal purple
-            {0.9, 0.7, 1.0, 1.00},    -- Purple-tinted gold
+            {0.4, 0.6, 1.0, 1.00},    -- Electric blue
+            {0.4, 0.6, 1.0, 1.00},    -- Electric blue
+            {0.4, 0.6, 1.0, 1.00},    -- Electric blue
         }
     elseif themeName == "Green/Emerald" then
         Theme.turretSlotColors = {
             {0.3, 0.9, 0.4, 1.00},    -- Emerald green
-            {0.2, 0.8, 0.3, 1.00},    -- Bright green
-            {0.1, 0.7, 0.4, 1.00},    -- Forest green
-            {0.4, 0.8, 0.2, 1.00},    -- Lime green
+            {0.3, 0.9, 0.4, 1.00},    -- Emerald green
+            {0.3, 0.9, 0.4, 1.00},    -- Emerald green
+            {0.3, 0.9, 0.4, 1.00},    -- Emerald green
         }
     elseif themeName == "Red/Orange" then
         Theme.turretSlotColors = {
             {0.9, 0.3, 0.2, 1.00},    -- Crimson red
-            {1.0, 0.5, 0.1, 1.00},    -- Bright orange
-            {0.8, 0.2, 0.1, 1.00},    -- Dark red
-            {0.9, 0.4, 0.3, 1.00},    -- Coral red
+            {0.9, 0.3, 0.2, 1.00},    -- Crimson red
+            {0.9, 0.3, 0.2, 1.00},    -- Crimson red
+            {0.9, 0.3, 0.2, 1.00},    -- Crimson red
         }
     elseif themeName == "Monochrome" then
         Theme.turretSlotColors = {
             {0.7, 0.7, 0.7, 1.00},    -- Medium gray
-            {0.6, 0.6, 0.6, 1.00},    -- Light gray
-            {0.5, 0.5, 0.5, 1.00},    -- Dark gray
-            {0.4, 0.4, 0.4, 1.00},    -- Very dark gray
+            {0.7, 0.7, 0.7, 1.00},    -- Medium gray
+            {0.7, 0.7, 0.7, 1.00},    -- Medium gray
+            {0.7, 0.7, 0.7, 1.00},    -- Medium gray
         }
     end
 end

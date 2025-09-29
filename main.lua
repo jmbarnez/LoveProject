@@ -88,6 +88,9 @@ local function seedRandom()
 end
 
 function love.load()
+    local Log = require('src/core/log')
+    Log.setLevel('debug')
+    Log.clearDebugWhitelist()
     seedRandom()
     Settings.load()
     Sound.applySettings()

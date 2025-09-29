@@ -224,6 +224,7 @@ function Ship.ensure()
 end
 
 function Ship.show()
+  Log.info("Ship.show called")
   local instance = Ship.ensure()
   instance.statsScroll = 0
   instance.slotScroll = 0
@@ -247,6 +248,7 @@ function Ship.show()
 end
 
 function Ship.hide()
+  Log.info("Ship.hide called")
   if not Ship._instance then
     Ship.visible = false
     return false

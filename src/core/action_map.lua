@@ -132,6 +132,27 @@ local function resolveUIManager(ctx)
     return nil
 end
 
+local function ensureToggleCallback(component)
+    return function(ctx)
+        -- Always route toggles through the central UIManager module
+        local ok, UIManager = pcall(require, "src.core.ui_manager")
+        if not ok or not UIManager then return false end
+        if UIManager.toggle then
+            UIManager.toggle(component)
+            return true
+        end
+        -- If toggle not available, try explicit open/close on UIManager
+        if UIManager.isOpen and UIManager.isOpen(component) then
+            if UIManager.close then UIManager.close(component) end
+            return true
+        else
+            if UIManager.open then UIManager.open(component) end
+            return true
+        end
+        return false
+    end
+end
+
 local function toggleAction(name, bindingAction, component)
     ActionMap.registerAction({
         name = name,
@@ -140,21 +161,10 @@ local function toggleAction(name, bindingAction, component)
             return ActionMap.bindingKeys(bindingAction)
         end,
         enabled = function(ctx)
-            local ui = (ctx and ctx.UIManager) or UIManager
-            return ui ~= nil and ui.toggle ~= nil
+            local ui = resolveUIManager(ctx)
+            return ui ~= nil and ui.open ~= nil and ui.close ~= nil and ui.isOpen ~= nil
         end,
-        callback = function(ctx)
-            local ui = ctx and ctx.UIManager
-            if ui and ui.toggle then
-                if ui.isOpen(component) then
-                    ui.close(component)
-                else
-                    ui.toggle(component)
-                end
-                return true
-            end
-            return false
-        end,
+        callback = ensureToggleCallback(component),
     })
 end
 

@@ -387,16 +387,16 @@ function Start:mousepressed(x, y, button)
       if not self.loadSlotsUI.window.visible then
         -- Panel was closed
         self.showLoadUI = false
-        return true
+        return false
       end
-      return true -- Click was handled by the panel
+      return false -- Click was handled by the panel; do not start game
     end
-    
+
     -- Handle content area clicks
     if self.loadSlotsUI:mousepressed(x, y, button) then
-      return true -- Click was handled by the panel
+      return false -- Click was handled by the panel; do not start game
     end
-    
+
     -- Consume all clicks when load UI is open
     return false
   end

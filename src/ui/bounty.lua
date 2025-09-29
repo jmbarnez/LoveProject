@@ -91,6 +91,30 @@ local function drawClaimButton(docked)
     love.graphics.printf("Claim Bounties", rect.x, rect.y + 6, rect.w, "center")
 end
 
+function Bounty.show()
+    Bounty.visible = true
+    local ok, UIManager = pcall(require, "src.core.ui_manager")
+    if ok and UIManager and UIManager.state and UIManager.state.bounty then
+        UIManager.state.bounty.open = true
+    end
+end
+
+function Bounty.hide()
+    Bounty.visible = false
+    local ok, UIManager = pcall(require, "src.core.ui_manager")
+    if ok and UIManager and UIManager.state and UIManager.state.bounty then
+        UIManager.state.bounty.open = false
+    end
+end
+
+function Bounty.toggle()
+  if Bounty.visible then
+    Bounty.hide()
+  else
+    Bounty.show()
+  end
+end
+
 function Bounty.draw(state, docked)
     if not Bounty.visible then return end
     if not Bounty.window then Bounty.init() end

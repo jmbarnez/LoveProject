@@ -44,6 +44,10 @@ function DebugPanel.toggle()
     if not DebugPanel.window then DebugPanel.init() end
     DebugPanel.visible = not DebugPanel.visible
     DebugPanel.window.visible = DebugPanel.visible
+    local ok, UIManager = pcall(require, "src.core.ui_manager")
+    if ok and UIManager and UIManager.state and UIManager.state.debug then
+        UIManager.state.debug.open = DebugPanel.visible
+    end
 end
 
 -- Query debug panel visibility

@@ -41,12 +41,20 @@ end
 -- Show/hide the warp interface
 function Warp:show()
     self.visible = true
+    local ok, UIManager = pcall(require, "src.core.ui_manager")
+    if ok and UIManager and UIManager.state and UIManager.state.warp then
+        UIManager.state.warp.open = true
+    end
     self.selectedSector = nil
     self.confirmingWarp = false
 end
 
 function Warp:hide()
     self.visible = false
+    local ok, UIManager = pcall(require, "src.core.ui_manager")
+    if ok and UIManager and UIManager.state and UIManager.state.warp then
+        UIManager.state.warp.open = false
+    end
     self.selectedSector = nil
     self.confirmingWarp = false
 end

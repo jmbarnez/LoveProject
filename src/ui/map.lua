@@ -407,10 +407,18 @@ end
 
 function Map.show()
   Map.visible = true
+  local ok, UIManager = pcall(require, "src.core.ui_manager")
+  if ok and UIManager and UIManager.state and UIManager.state.map then
+    UIManager.state.map.open = true
+  end
 end
 
 function Map.hide()
   Map.visible = false
+  local ok, UIManager = pcall(require, "src.core.ui_manager")
+  if ok and UIManager and UIManager.state and UIManager.state.map then
+    UIManager.state.map.open = false
+  end
 end
 
 function Map.isVisible()

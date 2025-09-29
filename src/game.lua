@@ -292,6 +292,22 @@ function Game.load(fromSave, saveSlot)
     end
   end)
   
+  -- Add event listeners for save/load notifications
+  Events.on("game_saved", function(data)
+    local Notifications = require("src.ui.notifications")
+    Notifications.add("Game saved: " .. (data.description or "Unknown"), "action")
+  end)
+  
+  Events.on("game_loaded", function(data)
+    local Notifications = require("src.ui.notifications")
+    Notifications.add("Game loaded: " .. (data.loadTime or "Unknown"), "info")
+  end)
+  
+  Events.on("game_save_deleted", function(data)
+    local Notifications = require("src.ui.notifications")
+    Notifications.add("Save slot deleted: " .. (data.slotName or "Unknown"), "info")
+  end)
+  
   -- Initialize quest system with player reference and event listeners
   QuestSystem.init(player)
   

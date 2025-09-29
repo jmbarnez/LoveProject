@@ -311,6 +311,11 @@ end
 
 function VersionLog.open()
     VersionLog.visible = true
+    local ok, UIManager = pcall(require, "src.core.ui_manager")
+    if ok and UIManager and UIManager.state and UIManager.state.debug then
+        -- Version log is treated like a debug-level overlay; set debug state open
+        UIManager.state.debug.open = true
+    end
     VersionLog.refresh(true)
     if VersionLog.window then
         VersionLog.window:show()
@@ -321,6 +326,10 @@ function VersionLog.close()
     if VersionLog.closing then return end
     VersionLog.closing = true
     VersionLog.visible = false
+    local ok, UIManager = pcall(require, "src.core.ui_manager")
+    if ok and UIManager and UIManager.state and UIManager.state.debug then
+        UIManager.state.debug.open = false
+    end
     VersionLog.closeDown = false
     if VersionLog.window then
         VersionLog.window:hide()

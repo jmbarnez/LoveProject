@@ -147,6 +147,10 @@ end
 
 function SkillsPanel.toggle()
     SkillsPanel.visible = not SkillsPanel.visible
+    local ok, UIManager = pcall(require, "src.core.ui_manager")
+    if ok and UIManager and UIManager.state and UIManager.state.skills then
+        UIManager.state.skills.open = SkillsPanel.visible
+    end
 end
 
 function SkillsPanel.isVisible()

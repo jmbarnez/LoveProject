@@ -79,11 +79,21 @@ end
 
 function EscapeMenu.show()
     EscapeMenu.visible = true
+    -- Ensure UIManager state sync
+    local ok, UIManager = pcall(require, "src.core.ui_manager")
+    if ok and UIManager and UIManager.state and UIManager.state.escape then
+        UIManager.state.escape.open = true
+    end
     -- Game continues running when escape menu is opened
 end
 
 function EscapeMenu.hide()
     EscapeMenu.visible = false
+    -- Ensure UIManager state sync
+    local ok, UIManager = pcall(require, "src.core.ui_manager")
+    if ok and UIManager and UIManager.state and UIManager.state.escape then
+        UIManager.state.escape.open = false
+    end
 
     if EscapeMenu.saveLoadPanel then
         Registry.unregister("save_load_panel")
@@ -182,7 +192,21 @@ end
 
 function EscapeMenu.mousepressed(x, y, button)
     if not EscapeMenu.visible then return false, false end
-
+    -- If a floating save/load panel exists and the click is inside it,
+    -- route to the save/load panel and always consume the click so it
+    -- does not fall through to the EscapeMenu buttons behind it.
+    if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.window then
+        local w = EscapeMenu.saveLoadPanel.window
+        if pointIn(x, y, w.x, w.y, w.width, w.height) then
+            -- Ensure the save/load instance gets the event and bring it to front
+            local handled = false
+            if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.mousepressed then
+                handled = EscapeMenu.saveLoadPanel:mousepressed(x, y, button)
+            end
+            EscapeMenu.saveLoadPanelZ = nextFloatingZ()
+            return true, false
+        end
+    end
 
     -- Handle window interaction (drag, close)
     if EscapeMenu.window and EscapeMenu.window:mousepressed(x, y, button) then
@@ -295,17 +319,18 @@ function EscapeMenu.mousereleased(x, y, button)
                             return true
                         end
 
-                        if window then
-                            local content = window.getContentBounds and window:getContentBounds()
-                            if content and pointIn(x, y, content.x, content.y, content.w, content.h) then
-                                local result = EscapeMenu.saveLoadPanel:mousepressed(x, y, button)
-                                if result then
-                                    EscapeMenu.saveLoadPanelZ = nextFloatingZ()
-                                    return true
-                                end
-                            end
+                    if window then
+                        local content = window.getContentBounds and window:getContentBounds()
+                        if content and pointIn(x, y, content.x, content.y, content.w, content.h) then
+                            -- Route to saveLoadPanel; always consume clicks inside
+                            -- the save/load window so they don't leak to underlying UI.
+                            local result = EscapeMenu.saveLoadPanel:mousepressed(x, y, button)
+                            EscapeMenu.saveLoadPanelZ = nextFloatingZ()
+                            -- return whatever the underlying handler returned (truthy values treated as handled)
+                            return result
                         end
-                        return false
+                    end
+                    return false
                     end,
                     mousereleased = function(x, y, button)
                         if EscapeMenu.saveLoadPanel then

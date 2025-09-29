@@ -162,8 +162,20 @@ local function callComponentMethod(componentId, methodName, registeredArgs, fall
   if registered then
     local fn = registered[methodName]
     if type(fn) == "function" then
-      local r1, r2, r3 = fn(registered, unpack(argsForRegistered))
-      return r1, r2, r3, "registered"
+      -- Try calling as plain function first (most registered closures expect this).
+      -- If that errors (some components expect the registered table as first arg),
+      -- fall back to calling with the registered table as 'self'. Use pcall to
+      -- avoid crashing the UI loop.
+      local ok, r1, r2, r3 = pcall(function() return fn(unpack(argsForRegistered)) end)
+      if ok then
+        return r1, r2, r3, "registered"
+      end
+      -- Fallback: attempt method-style call
+      ok, r1, r2, r3 = pcall(function() return fn(registered, unpack(argsForRegistered)) end)
+      if ok then
+        return r1, r2, r3, "registered"
+      end
+      -- Both attempts failed; continue to fallback handlers
     end
   end
 
@@ -206,7 +218,7 @@ function UIManager.init()
   if not UIManager._registryInitialized then
     Registry.register({
       id = "inventory",
-      isVisible = function() return UIManager.state.inventory.open or (Inventory and Inventory.visible) end,
+      isVisible = function() return UIManager.state.inventory.open end,
       getZ = function() return (UIManager.state.inventory and UIManager.state.inventory.zIndex) or 0 end,
       getRect = function() return Inventory and Inventory.getRect and Inventory.getRect() or nil end,
     })
@@ -229,13 +241,13 @@ function UIManager.init()
     })
     Registry.register({
       id = "bounty",
-      isVisible = function() return UIManager.state.bounty.open or (Bounty and Bounty.visible) end,
+      isVisible = function() return UIManager.state.bounty.open end,
       getZ = function() return (UIManager.state.bounty and UIManager.state.bounty.zIndex) or 0 end,
       getRect = function() return Bounty.getRect and Bounty.getRect() or nil end,
     })
     Registry.register({
       id = "docked",
-      isVisible = function() return UIManager.state.docked.open or (DockedUI and DockedUI.isVisible and DockedUI.isVisible()) end,
+      isVisible = function() return UIManager.state.docked.open end,
       getZ = function() return (UIManager.state.docked and UIManager.state.docked.zIndex) or 0 end,
       getRect = function()
         local sw, sh = Viewport.getDimensions()
@@ -244,7 +256,7 @@ function UIManager.init()
     })
     Registry.register({
       id = "skills",
-      isVisible = function() return UIManager.state.skills.open or (SkillsPanel and SkillsPanel.visible) end,
+      isVisible = function() return UIManager.state.skills.open end,
       getZ = function() return (UIManager.state.skills and UIManager.state.skills.zIndex) or 0 end,
       getRect = function()
         local win = SkillsPanel and SkillsPanel.window
@@ -254,7 +266,7 @@ function UIManager.init()
     })
     Registry.register({
       id = "map",
-      isVisible = function() return UIManager.state.map.open or (Map and Map.isVisible and Map.isVisible()) end,
+      isVisible = function() return UIManager.state.map.open end,
       getZ = function() return (UIManager.state.map and UIManager.state.map.zIndex) or 0 end,
       getRect = function()
         local win = Map and Map.window
@@ -264,13 +276,13 @@ function UIManager.init()
     })
     Registry.register({
       id = "warp",
-      isVisible = function() return UIManager.state.warp.open or (warpInstance and warpInstance.visible) end,
+      isVisible = function() return UIManager.state.warp.open end,
       getZ = function() return (UIManager.state.warp and UIManager.state.warp.zIndex) or 0 end,
       getRect = function() return nil end,
     })
     Registry.register({
       id = "escape",
-      isVisible = function() return UIManager.state.escape.open or (EscapeMenu and EscapeMenu.isVisible and EscapeMenu.isVisible()) end,
+      isVisible = function() return UIManager.state.escape.open end,
       getZ = function() return (UIManager.state.escape and UIManager.state.escape.zIndex) or 0 end,
       getRect = function()
         local win = EscapeMenu and EscapeMenu.window
@@ -281,8 +293,7 @@ function UIManager.init()
     Registry.register({
       id = "settings",
       isVisible = function()
-        local SettingsPanel = require("src.ui.settings_panel")
-        return (UIManager.state.settings and UIManager.state.settings.open) or (SettingsPanel and SettingsPanel.visible)
+        return (UIManager.state.settings and UIManager.state.settings.open) or false
       end,
       getZ = function() return (UIManager.state.settings and UIManager.state.settings.zIndex) or 0 end,
       getRect = function()
@@ -294,7 +305,7 @@ function UIManager.init()
     })
     Registry.register({
       id = "debug",
-      isVisible = function() return DebugPanel.isVisible() end,
+      isVisible = function() return UIManager.state.debug.open end,
       getZ = function() return (UIManager.state.debug and UIManager.state.debug.zIndex) or 0 end,
       getRect = function()
         local win = DebugPanel and DebugPanel.window
@@ -541,10 +552,27 @@ end
 
 -- Toggle UI component visibility
 function UIManager.toggle(component)
+  -- Determine current open state robustly (consult underlying component where possible)
+  local function componentIsOpen(comp)
+    if comp == "ship" then
+      local Ship = require("src.ui.ship")
+      return Ship and Ship.visible or false
+    end
+    if UIManager.state[comp] then
+      return UIManager.state[comp].open
+    end
+    return false
+  end
+
+  if component == "ship" then
+    Log.info("UIManager.toggle: ship.open = " .. tostring(componentIsOpen("ship")))
+  end
+
   if UIManager.state[component] then
-    local wasOpen = UIManager.state[component].open
-    UIManager.close(component)
-    if not wasOpen then
+    local wasOpen = componentIsOpen(component)
+    if wasOpen then
+      UIManager.close(component)
+    else
       UIManager.open(component)
     end
     Log.debug("UI toggle", component, "->", not wasOpen)
@@ -555,6 +583,7 @@ end
 
 -- Open UI component
 function UIManager.open(component)
+  Log.info("UIManager.open called for component: " .. component)
   if UIManager.state[component] then
     UIManager.topZ = UIManager.topZ + 1
     UIManager.state[component].zIndex = UIManager.topZ
@@ -564,6 +593,7 @@ function UIManager.open(component)
     if component == "inventory" then
       Inventory.visible = true
     elseif component == "ship" then
+      Ship.visible = true
       Ship.show()
     elseif component == "bounty" then
       Bounty.visible = true
@@ -592,6 +622,7 @@ end
 
 -- Close UI component
 function UIManager.close(component)
+  Log.info("UIManager.close called for component: " .. component)
   if UIManager.state[component] then
     UIManager.state[component].open = false
     
@@ -600,6 +631,7 @@ function UIManager.close(component)
       Inventory.visible = false
       if Inventory.clearSearchFocus then Inventory.clearSearchFocus() end
     elseif component == "ship" then
+      Ship.visible = false
       Ship.hide()
     elseif component == "bounty" then
       Bounty.visible = false
@@ -710,6 +742,7 @@ function UIManager.mousepressed(x, y, button)
   -- Route input to components from top to bottom
   for _, layer in ipairs(openLayers) do
     local component = layer.name
+    local registeredComponent = Registry.get(component)
     local handled, shouldClose, _, source = callComponentMethod(
       component,
       "mousepressed",
@@ -725,6 +758,26 @@ function UIManager.mousepressed(x, y, button)
     end
 
     if handled then
+      -- Track the component that captured the mouse so we can ensure
+      -- mousereleased/mousemoved are routed to it even if z-order changes during drag.
+      UIManager._capturedComponent = component
+      UIManager._capturedRegistered = registeredComponent
+      -- Capture direct handler functions for best fidelity (survives registry changes)
+      local handlers = {}
+      if registeredComponent then
+        handlers.mousemoved = registeredComponent.mousemoved
+        handlers.mousereleased = registeredComponent.mousereleased
+      else
+        local fb = componentFallbacks[component]
+        if fb and fb.module then
+          handlers.mousemoved = fb.module.mousemoved
+          handlers.mousereleased = fb.module.mousereleased
+        end
+      end
+      UIManager._capturedHandlers = handlers
+      -- If a floating registered component handled the click, consume it
+      -- and do not allow further propagation so underlying UI doesn't
+      -- receive the same click (prevents leakage past modal windows).
       return true
     end
   end
@@ -734,13 +787,64 @@ end
 
 -- Handle mouse release for UI components
 function UIManager.mousereleased(x, y, button)
-  -- Give both Equipment panels priority so drops are handled before Inventory clears drags
-  -- Process all open components for mouse release
+  -- Route mouse release to visible registered components first (topmost first)
+  -- Give explicit priority to the save/load floating panel to ensure
+  -- its release handler runs (fixes stuck drag on that panel).
+  local saveComp = Registry.get("save_load_panel")
+  if saveComp and saveComp.mousereleased then
+    local handled, shouldClose = callComponentMethod("save_load_panel", "mousereleased", { x, y, button, UIManager._player }, { x, y, button, UIManager._player })
+    UIManager._capturedComponent = nil
+    UIManager._capturedRegistered = nil
+    UIManager._capturedHandlers = nil
+    if shouldClose and componentFallbacks["save_load_panel"] and componentFallbacks["save_load_panel"].onClose then
+      componentFallbacks["save_load_panel"].onClose()
+    end
+    if handled then
+      return true
+    end
+    -- Fallback: ensure the underlying window receives the release (fix stuck drag)
+    local ok, EscapeMenu = pcall(require, "src.ui.escape_menu")
+    if ok and EscapeMenu and EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.window then
+      local w = EscapeMenu.saveLoadPanel.window
+      if w and w.mousereleased and w:mousereleased(x, y, button) then
+        return true
+      end
+    end
+  end
+
+  -- If a component captured the mouse on press, send release to it first
+  if UIManager._capturedComponent then
+    local id = UIManager._capturedComponent
+    -- Prefer routing through callComponentMethod so registered vs fallback
+    -- calling conventions are handled centrally.
+    local handled, shouldClose = callComponentMethod(id, "mousereleased", { x, y, button, UIManager._player }, { x, y, button, UIManager._player })
+    UIManager._capturedComponent = nil
+    UIManager._capturedRegistered = nil
+    UIManager._capturedHandlers = nil
+    if shouldClose and componentFallbacks[id] and componentFallbacks[id].onClose then
+      componentFallbacks[id].onClose()
+    end
+    if handled then
+      return true
+    end
+  end
+
+  for _, comp in ipairs(Registry.visibleSortedDescending()) do
+    local id = comp.id
+    if comp.mousereleased then
+      local handled, shouldClose = callComponentMethod(id, "mousereleased", { x, y, button, UIManager._player }, { x, y, button, UIManager._player })
+      if shouldClose and componentFallbacks[id] and componentFallbacks[id].onClose then
+        componentFallbacks[id].onClose()
+      end
+      if handled then
+        return true
+      end
+    end
+  end
+
+  -- Fallback: route to legacy layer-order components (for modules not registered)
   for _, component in ipairs(UIManager.layerOrder) do
     if UIManager.state[component].open then
-      -- Get the registered component
-      local registeredComponent = Registry.get(component)
-
       callComponentMethod(
         component,
         "mousereleased",
@@ -749,16 +853,32 @@ function UIManager.mousereleased(x, y, button)
       )
     end
   end
+
+  -- Also notify SettingsPanel and DebugPanel if present
   if SettingsPanel.visible and SettingsPanel.mousereleased then
-    SettingsPanel.mousereleased(x, y, button)
+    if SettingsPanel.mousereleased(x, y, button) then return true end
   end
   if DebugPanel.isVisible() and DebugPanel.mousereleased then
-    DebugPanel.mousereleased(x, y, button)
+    if DebugPanel.mousereleased(x, y, button) then return true end
   end
+
+  return false
 end
 
 function UIManager.mousemoved(x, y, dx, dy)
   -- Build list of visible components from registry (topmost first)
+  -- If a component captured the mouse on press, route movement directly to it
+  if UIManager._capturedComponent then
+    local id = UIManager._capturedComponent
+    local reg = UIManager._capturedRegistered or Registry.get(id)
+    if reg and reg.mousemoved then
+      local ok, handled = pcall(function() return reg.mousemoved(x, y, dx, dy) end)
+      if ok and handled then
+        return true
+      end
+    end
+    -- fallthrough to normal routing if direct handler didn't handle it
+  end
   local openLayers = {}
   for _, comp in ipairs(Registry.visibleSortedDescending()) do
     table.insert(openLayers, { name = comp.id, z = (comp.getZ and comp.getZ()) or 0 })
@@ -776,8 +896,8 @@ function UIManager.mousemoved(x, y, dx, dy)
     local handled = callComponentMethod(
       component,
       "mousemoved",
-      { x, y, dx, dy, UIManager._player },
-      { x, y, dx, dy, UIManager._player }
+      { x, y, dx, dy },
+      { x, y, dx, dy }
     )
 
     if handled then
@@ -865,19 +985,24 @@ function UIManager.keypressed(key, scancode, isrepeat)
       UIManager.toggle("escape")
     end
     return true
-  elseif key == "i" then
-    if not textInputFocused then
-      UIManager.toggle("inventory")
-      return true
-    end
   end
 
-  -- Also accept TAB as inventory toggle at UI manager level so tab works regardless
-  if key == "tab" then
-    if not textInputFocused then
-      UIManager.toggle("inventory")
-      return true
-    end
+  -- Let the action map handle configured hotkeys (toggles etc.) so bindings in Settings take precedence
+  local ActionMap = require("src.core.action_map")
+  local ok, handled
+  local context = {
+    key = key,
+    player = UIManager._player,
+    UIManager = UIManager,
+    Events = require("src.core.events"),
+    notifications = Notifications,
+    util = require("src.core.util")
+  }
+  ok, handled = pcall(function()
+    return ActionMap.dispatch(key, context)
+  end)
+  if ok and handled then
+    return true
   end
   
   -- Route to active components

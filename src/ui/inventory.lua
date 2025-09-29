@@ -492,6 +492,11 @@ end
 function Inventory.draw()
     if not Inventory.visible then return end
     if not Inventory.window then Inventory.init() end
+    -- Keep UIManager state in sync when inventory is shown/hidden directly
+    local ok, UIManager = pcall(require, "src.core.ui_manager")
+    if ok and UIManager and UIManager.state and UIManager.state.inventory then
+        UIManager.state.inventory.open = Inventory.visible
+    end
     Inventory.window.visible = Inventory.visible
     Inventory.window:draw()
 

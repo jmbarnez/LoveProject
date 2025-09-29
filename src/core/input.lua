@@ -172,13 +172,9 @@ function Input.love_keypressed(key)
       return
     end
 
-    -- Use the active modal component to block input
-    if mainState.UIManager and mainState.UIManager.isModalActive() then
-        if mainState.UIManager.getModalComponent() ~= "settings" then
-            -- Allow settings panel to handle its own key events
-            return
-        end
-    end
+    -- Previously input was blocked when a modal UI was active; allow the
+    -- UIManager to receive keypresses so toggle hotkeys (e.g. 'g' for ship)
+    -- continue to work even while a modal (like the ship window) is open.
 
     if mainState.UIManager and mainState.UIManager.isTextInputActive and mainState.UIManager:isTextInputActive() then
         return
@@ -230,13 +226,16 @@ function Input.love_mousepressed(x, y, button)
       return
     end
   else
+    -- Convert screen coords to virtual coords so UI hit-testing matches rendering
+    local vx, vy = Viewport.toVirtual(x, y)
+
     if SettingsPanel.visible then
-        if SettingsPanel.mousepressed(x, y, button) then
+        if SettingsPanel.mousepressed(vx, vy, button) then
             return
         end
     end
+
     -- Use the active modal component to block input
-    local vx, vy = Viewport.toVirtual(x, y)
     if mainState.UIManager and mainState.UIManager.mousepressed(vx, vy, button) then
       return
     end
@@ -249,13 +248,15 @@ function Input.love_mousereleased(x, y, button)
     local vx, vy = Viewport.toVirtual(x, y)
     mainState.startScreen:mousereleased(vx, vy, button)
   elseif mainState.screen == "game" then
+    -- Convert screen coords to virtual coords
+    local vx, vy = Viewport.toVirtual(x, y)
+
     if SettingsPanel.visible then
-        if SettingsPanel.mousereleased(x, y, button) then
+        if SettingsPanel.mousereleased(vx, vy, button) then
             return
         end
     end
     -- Use the active modal component to block input
-    local vx, vy = Viewport.toVirtual(x, y)
     if mainState.UIManager and mainState.UIManager.mousereleased(vx, vy, button) then
       return
     end
@@ -269,13 +270,16 @@ function Input.love_mousemoved(x, y, dx, dy, istouch)
     local s = Viewport.getScale()
     mainState.startScreen:mousemoved(vx, vy, dx / s, dy / s, istouch)
   elseif mainState.screen == "game" then
+    -- Convert screen coords to virtual coords and scale deltas
+    local vx, vy = Viewport.toVirtual(x, y)
+    local s = Viewport.getScale()
+
     if SettingsPanel.visible then
-        if SettingsPanel.mousemoved(x, y, dx, dy) then
+        if SettingsPanel.mousemoved(vx, vy, dx / s, dy / s) then
             return
         end
     end
-    local vx, vy = Viewport.toVirtual(x, y)
-    local s = Viewport.getScale()
+
     if mainState.UIManager and mainState.UIManager.mousemoved(vx, vy, dx / s, dy / s) then
       return
     end
@@ -297,8 +301,9 @@ function Input.love_wheelmoved(dx, dy)
 
   if mainState.screen == "game" then
     if SettingsPanel.visible then
-        local x, y = love.mouse.getPosition()
-        if SettingsPanel.wheelmoved(x, y, dx, dy) then
+        local mx, my = love.mouse.getPosition()
+        local vx, vy = Viewport.toVirtual(mx, my)
+        if SettingsPanel.wheelmoved(vx, vy, dx, dy) then
             return
         end
     end
