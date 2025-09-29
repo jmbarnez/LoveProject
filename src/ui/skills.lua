@@ -9,14 +9,6 @@ local Viewport = require("src.core.viewport")
 local AuroraTitle = require("src.shaders.aurora_title")
 local Window = require("src.ui.common.window")
 
-local function pointInRect(px, py, r)
-    -- Handle nil values gracefully
-    if px == nil or py == nil or r == nil or r.x == nil or r.y == nil or r.w == nil or r.h == nil then
-        return false
-    end
-    return px >= r.x and py >= r.y and px <= r.x + r.w and py <= r.y + r.h
-end
-
 local function drawSkillBar(x, y, w, h, progress, skillName, level, xp, xpToNext)
     -- Enhanced background
     Theme.drawGradientGlowRect(x, y, w, h, 4,

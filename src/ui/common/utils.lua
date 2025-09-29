@@ -77,8 +77,46 @@ function UIUtils.shouldUpdate(name, frequency)
 end
 
 -- Check if point is in rectangle
-function UIUtils.pointInRect(px, py, rect)
-  return px >= rect.x and py >= rect.y and px <= rect.x + rect.w and py <= rect.y + rect.h
+function UIUtils.pointInRect(px, py, rectOrX, y, w, h, options)
+  if px == nil or py == nil then
+    return false
+  end
+
+  local rect = rectOrX
+  local opts = options
+
+  if type(rectOrX) ~= "table" then
+    rect = {
+      x = rectOrX,
+      y = y,
+      w = w,
+      h = h,
+    }
+  elseif type(y) == "table" and options == nil and w == nil and h == nil then
+    opts = y
+  end
+
+  if not rect or rect.x == nil or rect.y == nil or rect.w == nil or rect.h == nil then
+    return false
+  end
+
+  local inclusive = true
+  if type(opts) == "table" then
+    if opts.inclusive ~= nil then
+      inclusive = opts.inclusive
+    end
+  elseif type(opts) == "boolean" then
+    inclusive = opts
+  end
+
+  local right = rect.x + rect.w
+  local bottom = rect.y + rect.h
+
+  if inclusive then
+    return px >= rect.x and px <= right and py >= rect.y and py <= bottom
+  end
+
+  return px >= rect.x and px < right and py >= rect.y and py < bottom
 end
 
 -- Create a button with hover states

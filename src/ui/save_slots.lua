@@ -1,5 +1,6 @@
 local Theme = require("src.core.theme")
 local StateManager = require("src.managers.state_manager")
+local UIUtils = require("src.ui.common.utils")
 
 local DEFAULT_SLOT_COUNT = 3
 
@@ -374,11 +375,6 @@ function SaveSlots:draw(x, y, w, h)
     end
 end
 
-local function pointInRect(px, py, rect)
-    if not rect then return false end
-    return px >= rect.x and px <= rect.x + rect.w and py >= rect.y and py <= rect.y + rect.h
-end
-
 function SaveSlots:mousepressed(mx, my, button)
     if button ~= 1 then return false end
 
@@ -387,7 +383,7 @@ function SaveSlots:mousepressed(mx, my, button)
     local selectedSlotName = self:getSelectedSlotName()
     local selectedData = selectedSlotName and self._slotLookup and self._slotLookup[selectedSlotName] or nil
 
-    if pointInRect(mx, my, layout.saveButton) then
+    if UIUtils.pointInRect(mx, my, layout.saveButton) then
         if self.disableSave then
             return "noop" -- Save button is disabled
         end
@@ -443,7 +439,7 @@ function SaveSlots:mousepressed(mx, my, button)
         end
     end
 
-    if pointInRect(mx, my, layout.loadButton) then
+    if UIUtils.pointInRect(mx, my, layout.loadButton) then
         if not selectedSlotName then
             local Notifications = require("src.ui.notifications")
             Notifications.add("Please select a slot first", "warning")
@@ -477,7 +473,7 @@ function SaveSlots:mousepressed(mx, my, button)
 
     if layout.slots then
         for slotName, rects in pairs(layout.slots) do
-            if pointInRect(mx, my, rects.delete) then
+            if UIUtils.pointInRect(mx, my, rects.delete) then
                 local deleted = StateManager.deleteSave(slotName)
                 if deleted then
                     if self:getSelectedSlotName() == slotName then
@@ -500,7 +496,7 @@ function SaveSlots:mousepressed(mx, my, button)
                 return "deleteFailed"
             end
 
-            if pointInRect(mx, my, rects.body) then
+            if UIUtils.pointInRect(mx, my, rects.body) then
                 if rects.index then
                     self:setSelectedSlot(rects.index)
                     return "selected"
@@ -509,7 +505,7 @@ function SaveSlots:mousepressed(mx, my, button)
         end
     end
 
-    if pointInRect(mx, my, layout.autosaveLoad) then
+    if UIUtils.pointInRect(mx, my, layout.autosaveLoad) then
         local success, error = pcall(StateManager.loadGame, "autosave")
         if success and error then
             -- Mark cache as dirty - it will refresh on next draw call
