@@ -10,6 +10,7 @@ local Sound = require("src.core.sound")
 local DebugPanel = require("src.ui.debug_panel")
 local Constants = require("src.core.constants")
 local LoadingScreen = require("src.ui.loading_screen")
+local Log = require("src.core.log")
 
 --[[
     The main module is responsible for orchestrating high-level state changes
@@ -88,7 +89,6 @@ local function applyWindowMode(graphicsSettings)
     end)
 
     if not ok then
-        local Log = require("src.core.log")
         Log.warn("Failed to apply window mode: " .. tostring(err))
     end
 end
@@ -112,10 +112,10 @@ local function seedRandom()
 end
 
 function love.load()
-    local Log = require("src.core.log")
+    -- Configure logging defaults so startup diagnostics flow through the console.
     Log.setLevel("info")
-    Log.setInfoEnabled(true) -- Ensure info-level logs are emitted during startup
     Log.clearDebugWhitelist()
+    Log.setInfoEnabled(true)
     Log.info("Game Identity:", love.filesystem.getIdentity())
     Log.info("LÖVE Save Directory:", love.filesystem.getSaveDirectory())
     seedRandom()
