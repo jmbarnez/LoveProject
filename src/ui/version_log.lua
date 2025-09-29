@@ -3,6 +3,7 @@ local Viewport = require("src.core.viewport")
 local Strings = require("src.core.strings")
 local ScrollArea = require("src.ui.common.scroll_area")
 local Json = require("src.libs.json")
+local UIUtils = require("src.ui.common.utils")
 
 local VersionLog = {
     visible = false,
@@ -172,10 +173,6 @@ local function clampScroll()
         return
     end
     VersionLog.scrollY = math.max(0, math.min(maxScroll, VersionLog.scrollY))
-end
-
-local function pointInRect(px, py, rx, ry, rw, rh)
-    return px >= rx and px <= rx + rw and py >= ry and py <= ry + rh
 end
 
 local function getRepoDir()
@@ -609,15 +606,15 @@ function VersionLog.mousepressed(mx, my, button)
         return true
     end
 
-    if button == 1 and VersionLog.scrollGeom and VersionLog.scrollGeom.thumb then
+    if button == 1 and VersionLog.scrollGeom then
         local thumb = VersionLog.scrollGeom.thumb
-        if pointInRect(mx, my, thumb.x, thumb.y, thumb.w, thumb.h) then
+        local track = VersionLog.scrollGeom.track
+        if thumb and mx and my and UIUtils.pointInRect(mx, my, thumb) then
             VersionLog.scrollState.dragging = true
             VersionLog.scrollState.dragOffset = my - thumb.y
             return true
-        elseif pointInRect(mx, my, VersionLog.scrollGeom.track.x, VersionLog.scrollGeom.track.y, VersionLog.scrollGeom.track.w, VersionLog.scrollGeom.track.h) then
-            local track = VersionLog.scrollGeom.track
-            local thumbHeight = VersionLog.scrollGeom.thumb.h
+        elseif thumb and track and mx and my and UIUtils.pointInRect(mx, my, track) then
+            local thumbHeight = thumb.h
             local clampedY = math.max(track.y, math.min(track.y + track.h - thumbHeight, my - thumbHeight * 0.5))
             local t = (clampedY - track.y) / (track.h - thumbHeight)
             VersionLog.scrollY = t * (VersionLog.scrollGeom.maxScroll or 0)
@@ -688,7 +685,7 @@ function VersionLog.wheelmoved(x, y, dx, dy)
         return false
     end
     if VersionLog.bounds then
-        if not pointInRect(x, y, VersionLog.bounds.x, VersionLog.bounds.y, VersionLog.bounds.w, VersionLog.bounds.h) then
+        if not x or not y or not UIUtils.pointInRect(x, y, VersionLog.bounds) then
             return false
         end
     end

@@ -2,6 +2,7 @@ local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local AuroraTitle = require("src.shaders.aurora_title")
 local Window = require("src.ui.common.window")
+local UIUtils = require("src.ui.common.utils")
 
 local Bounty = {
   visible = false,
@@ -30,14 +31,6 @@ end
 function Bounty.getRect()
     if not Bounty.window then return nil end
     return { x = Bounty.window.x, y = Bounty.window.y, w = Bounty.window.width, h = Bounty.window.height }
-end
-
-local function pointInRect(px, py, x, y, w, h)
-  -- Handle nil values gracefully
-  if px == nil or py == nil or x == nil or y == nil or w == nil or h == nil then
-    return false
-  end
-  return px >= x and py >= y and px <= x + w and py <= y + h
 end
 
 -- Icon drawing functions
@@ -77,7 +70,7 @@ local function drawClaimButton(docked)
     if not docked then return end
     local rect = getClaimButtonRect()
     local mx, my = Viewport.getMousePosition()
-    local hover = pointInRect(mx, my, rect.x, rect.y, rect.w, rect.h)
+    local hover = rect and mx and my and UIUtils.pointInRect(mx, my, rect)
     
     -- Use Theme functions for consistent button styling
     local buttonBg = hover and Theme.colors.primary or Theme.colors.bg2
@@ -212,12 +205,12 @@ function Bounty.mousepressed(x, y, button, docked)
     if Bounty._scrollbarTrack and Bounty._scrollbarThumb then
         local tr = Bounty._scrollbarTrack
         local th = Bounty._scrollbarThumb
-        if pointInRect(x, y, th.x, th.y, th.w, th.h) then
+        if th and x and y and UIUtils.pointInRect(x, y, th) then
             Bounty.dragging = "scrollbar"
             Bounty.dragDY = y - th.y
             return true, false
         end
-        if pointInRect(x, y, tr.x, tr.y, tr.w, tr.h) then
+        if tr and x and y and UIUtils.pointInRect(x, y, tr) then
             local innerH = Bounty.window.height - (Bounty.window.titleBarHeight + (docked and 40 or 10))
             local trackRange = tr.h - th.h
             local rel = math.max(0, math.min(trackRange, (y - tr.y) - th.h * 0.5))
@@ -231,7 +224,7 @@ function Bounty.mousepressed(x, y, button, docked)
     -- Claim button
     if docked then
         local claimRect = getClaimButtonRect()
-        if pointInRect(x, y, claimRect.x, claimRect.y, claimRect.w, claimRect.h) then
+        if claimRect and x and y and UIUtils.pointInRect(x, y, claimRect) then
             Bounty.claimDown = true
             return true, false
         end
@@ -256,7 +249,7 @@ function Bounty.mousereleased(x, y, button, docked, claimBounty)
         end
         if docked and Bounty.claimDown then
             local claimRect = getClaimButtonRect()
-            if pointInRect(x, y, claimRect.x, claimRect.y, claimRect.w, claimRect.h) then
+            if claimRect and x and y and UIUtils.pointInRect(x, y, claimRect) then
                 if claimBounty then claimBounty() end
             end
             Bounty.claimDown = false
