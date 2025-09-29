@@ -16,6 +16,19 @@ local RepairSystem = require("src.systems.repair_system")
 
 local Input = {}
 
+local function dispatch_settings_panel_event(event_name, ...)
+  if not SettingsPanel.visible then
+    return false
+  end
+
+  local handler = SettingsPanel[event_name]
+  if type(handler) ~= "function" then
+    return false
+  end
+
+  return handler(...)
+end
+
 -- Game state references (will be tables with the actual values)
 local gameState = {}
 -- State passed from main.lua
@@ -277,10 +290,8 @@ function Input.love_mousepressed(x, y, button)
     -- Convert screen coords to virtual coords so UI hit-testing matches rendering
     local vx, vy = Viewport.toVirtual(x, y)
 
-    if SettingsPanel.visible then
-        if SettingsPanel.mousepressed(vx, vy, button) then
-            return
-        end
+    if dispatch_settings_panel_event("mousepressed", vx, vy, button) then
+      return
     end
 
     -- Use the active modal component to block input
@@ -299,10 +310,8 @@ function Input.love_mousereleased(x, y, button)
     -- Convert screen coords to virtual coords
     local vx, vy = Viewport.toVirtual(x, y)
 
-    if SettingsPanel.visible then
-        if SettingsPanel.mousereleased(vx, vy, button) then
-            return
-        end
+    if dispatch_settings_panel_event("mousereleased", vx, vy, button) then
+      return
     end
     -- Use the active modal component to block input
     if mainState.UIManager and mainState.UIManager.mousereleased(vx, vy, button) then
@@ -322,10 +331,8 @@ function Input.love_mousemoved(x, y, dx, dy, istouch)
     local vx, vy = Viewport.toVirtual(x, y)
     local s = Viewport.getScale()
 
-    if SettingsPanel.visible then
-        if SettingsPanel.mousemoved(vx, vy, dx / s, dy / s) then
-            return
-        end
+    if dispatch_settings_panel_event("mousemoved", vx, vy, dx / s, dy / s) then
+      return
     end
 
     if mainState.UIManager and mainState.UIManager.mousemoved(vx, vy, dx / s, dy / s) then
@@ -348,15 +355,12 @@ function Input.love_wheelmoved(dx, dy)
   end
 
   if mainState.screen == "game" then
-    if SettingsPanel.visible then
-        local mx, my = love.mouse.getPosition()
-        local vx, vy = Viewport.toVirtual(mx, my)
-        if SettingsPanel.wheelmoved(vx, vy, dx, dy) then
-            return
-        end
-    end
     local mx, my = love.mouse.getPosition()
     local vx, vy = Viewport.toVirtual(mx, my)
+
+    if dispatch_settings_panel_event("wheelmoved", vx, vy, dx, dy) then
+      return
+    end
     if mainState.UIManager and mainState.UIManager.wheelmoved and mainState.UIManager.wheelmoved(vx, vy, dx, dy) then
       return
     end
