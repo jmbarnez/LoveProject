@@ -1,6 +1,6 @@
-local NodeMarket = {}
+local Util = require("src.core.util")
 
-local function clamp(x, a, b) return math.max(a, math.min(b, x)) end
+local NodeMarket = {}
 
 -- Return raw candles for a node
 function NodeMarket.getCandles(node)
@@ -284,7 +284,7 @@ function NodeMarket.update(dt)
       local trendInfluence = ((c.mid - c.price) / c.price) * 0.001  -- Small pull to mid
       change = change + trendInfluence
       -- Clamp to prevent extremes
-      change = clamp(change, -0.01, 0.01)  -- Max 1% per tick
+      change = Util.clamp(change, -0.01, 0.01)  -- Max 1% per tick
 
       local simulatedPrice = c.price * (1 + change)
       simulatedPrice = math.max(0.01, simulatedPrice)
@@ -310,7 +310,7 @@ function NodeMarket.update(dt)
       -- Update buy/sell pressure based on simulated order direction
       local isBuy = math.random() < c.liquidity.buyPressure
       local pressureDelta = (isBuy and 0.01 or -0.01)
-      c.liquidity.buyPressure = clamp(c.liquidity.buyPressure + pressureDelta, 0.1, 0.9)
+      c.liquidity.buyPressure = Util.clamp(c.liquidity.buyPressure + pressureDelta, 0.1, 0.9)
       -- Mean-revert pressure slowly
       c.liquidity.buyPressure = c.liquidity.buyPressure + (0.5 - c.liquidity.buyPressure) * 0.005
 

@@ -1,4 +1,5 @@
 local Window = require("src.ui.common.window")
+local Util = require("src.core.util")
 
 local Ship = {}
 
@@ -9,16 +10,6 @@ local function pointInRect(px, py, rect)
     return false
   end
   return px >= rect.x and px < rect.x + rect.w and py >= rect.y and py < rect.y + rect.h
-end
-
-local function clamp(value, minValue, maxValue)
-    if value < minValue then
-        return minValue
-    end
-    if value > maxValue then
-        return maxValue
-    end
-    return value
 end
 
 -- Debug function to check loaded turrets
@@ -498,7 +489,7 @@ function Ship:draw(player, x, y, w, h)
     local statsClipX, statsClipY, statsClipW, statsClipH = statsX, statsY, statsInnerWidth, statsViewHeight
     local statsViewInnerHeight = math.max(0, statsClipH - 24)
     local statsMinScroll = math.min(0, statsViewInnerHeight - statsContentHeight)
-    self.statsScroll = clamp(self.statsScroll or 0, statsMinScroll, 0)
+    self.statsScroll = Util.clamp(self.statsScroll or 0, statsMinScroll, 0)
     local statsScroll = self.statsScroll
 
     love.graphics.setScissor(statsClipX, statsClipY, statsClipW, statsClipH)
@@ -627,7 +618,7 @@ function Ship:draw(player, x, y, w, h)
     local slotContentHeight = slotCursor - slotBaseY + 16
     local slotViewInnerHeight = math.max(0, slotClipH - 16)
     local slotMinScroll = math.min(0, slotViewInnerHeight - slotContentHeight)
-    self.slotScroll = clamp(self.slotScroll or 0, slotMinScroll, 0)
+    self.slotScroll = Util.clamp(self.slotScroll or 0, slotMinScroll, 0)
     local slotScroll = self.slotScroll
 
     love.graphics.setScissor(slotClipX, slotClipY, slotClipW, slotClipH)
@@ -1013,13 +1004,13 @@ function Ship:wheelmoved(x, y, dx, dy)
 
     if instance.statsViewRect and pointInRectSimple(x, y, instance.statsViewRect) then
         local minScroll = instance.statsViewRect.minScroll or 0
-        instance.statsScroll = clamp((instance.statsScroll or 0) + scrollDelta, minScroll, 0)
+        instance.statsScroll = Util.clamp((instance.statsScroll or 0) + scrollDelta, minScroll, 0)
         handled = true
     end
 
     if instance.slotViewRect and pointInRectSimple(x, y, instance.slotViewRect) then
         local minScroll = instance.slotViewRect.minScroll or 0
-        instance.slotScroll = clamp((instance.slotScroll or 0) + scrollDelta, minScroll, 0)
+        instance.slotScroll = Util.clamp((instance.slotScroll or 0) + scrollDelta, minScroll, 0)
         handled = true
     end
 

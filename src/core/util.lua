@@ -6,6 +6,10 @@ function util.clamp(x, a, b)
   return x
 end
 
+function util.clamp01(x)
+  return util.clamp(x, 0, 1)
+end
+
 function util.lerp(a, b, t)
   return a + (b - a) * t
 end
