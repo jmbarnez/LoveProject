@@ -95,6 +95,10 @@ function Normalizer.normalizeWorldObject(def)
       resources = m.resources or m.amount or 0,
       resourceType = m.resourceType or m.id or "stone",
       mineCycleTime = m.mineCycleTime or 1.0,
+      durability = m.durability,
+      maxDurability = m.maxDurability,
+      extractionCycle = m.extractionCycle,
+      activeCyclesPerResource = m.activeCyclesPerResource,
     }
   end
 

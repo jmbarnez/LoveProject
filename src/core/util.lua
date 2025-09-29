@@ -75,20 +75,65 @@ function util.deepCopy(obj)
     return res
 end
 
-function util.generateAsteroidVertices(radius)
+function util.generateAsteroidGeometry(radius, opts)
+  opts = opts or {}
   local vertices = {}
-  local numPoints = 12
+  local numPoints = opts.numPoints or 12
   local angleStep = (2 * math.pi) / numPoints
-  
+  local jaggedness = opts.jaggedness or {0.75, 1.2}
+
   for i = 0, numPoints - 1 do
     local angle = i * angleStep
-    local r = radius * (0.8 + math.random() * 0.4) -- Add randomness
+    local r = radius * (jaggedness[1] + math.random() * (jaggedness[2] - jaggedness[1]))
     local x = r * math.cos(angle)
     local y = r * math.sin(angle)
     table.insert(vertices, {x, y})
   end
-  
-  return vertices
+
+  local chunkCountRange = opts.chunkCount or {1, 3}
+  local chunkSizeRange = opts.chunkSize or {0.18, 0.32}
+  local chunkOffsetRange = opts.chunkOffset or {1.0, 1.25}
+  local chunkSquashRange = opts.chunkSquash or {0.7, 1.0}
+  local palette = opts.chunkPalette or {}
+  local outlineColor = opts.chunkOutline
+
+  local chunkCount = chunkCountRange[1]
+  if chunkCountRange[2] and chunkCountRange[2] > chunkCountRange[1] then
+    chunkCount = math.random(chunkCountRange[1], chunkCountRange[2])
+  end
+
+  local chunks = {}
+  for _ = 1, chunkCount do
+    local angle = math.random() * 2 * math.pi
+    local distance = radius * (chunkOffsetRange[1] + math.random() * ((chunkOffsetRange[2] or chunkOffsetRange[1]) - chunkOffsetRange[1]))
+    local size = radius * (chunkSizeRange[1] + math.random() * ((chunkSizeRange[2] or chunkSizeRange[1]) - chunkSizeRange[1]))
+    local squash = chunkSquashRange[1] + math.random() * ((chunkSquashRange[2] or chunkSquashRange[1]) - chunkSquashRange[1])
+
+    local color
+    if #palette > 0 then
+      color = palette[math.random(1, #palette)]
+    end
+
+    table.insert(chunks, {
+      shape = "ellipse",
+      x = math.cos(angle) * distance,
+      y = math.sin(angle) * distance,
+      rx = size,
+      ry = size * squash,
+      color = color,
+      outlineColor = outlineColor,
+    })
+  end
+
+  return {
+    vertices = vertices,
+    chunks = chunks,
+  }
+end
+
+function util.generateAsteroidVertices(radius, opts)
+  local geometry = util.generateAsteroidGeometry(radius, opts)
+  return geometry.vertices
 end
 
 -- Wrap text to fit a max width, respecting word boundaries

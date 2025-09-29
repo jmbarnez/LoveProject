@@ -296,16 +296,43 @@ function EntityRenderers.asteroid(entity, player)
         
         -- No hover-based color changes; rely on active beam effects only
         
-        RenderUtils.setColor(fillColor)
-        
         -- Unpack the nested vertex table for Love2D's polygon function
         local flatVertices = {}
         for _, vertex in ipairs(vertices) do
             table.insert(flatVertices, vertex[1])
             table.insert(flatVertices, vertex[2])
         end
-        
+
+        RenderUtils.setColor(fillColor)
         love.graphics.polygon("fill", flatVertices)
+
+        -- Draw protruding chunks sitting on top of the base rock
+        local chunks = props.chunks or {}
+        local chunkOutlineColor = colors.chunkOutline or outlineColor
+        local chunkPalette = colors.chunkPalette or colors.chunks
+        for _, chunk in ipairs(chunks) do
+            local chunkColor = chunk.color or (chunkPalette and chunkPalette[1]) or fillColor
+            RenderUtils.setColor(chunkColor)
+            if chunk.shape == "ellipse" then
+                love.graphics.ellipse("fill", chunk.x or 0, chunk.y or 0, chunk.rx or 4, chunk.ry or chunk.rx or 4)
+                RenderUtils.setColor(chunk.outlineColor or chunkOutlineColor)
+                love.graphics.ellipse("line", chunk.x or 0, chunk.y or 0, chunk.rx or 4, chunk.ry or chunk.rx or 4)
+            elseif chunk.shape == "circle" then
+                love.graphics.circle("fill", chunk.x or 0, chunk.y or 0, chunk.r or 4)
+                RenderUtils.setColor(chunk.outlineColor or chunkOutlineColor)
+                love.graphics.circle("line", chunk.x or 0, chunk.y or 0, chunk.r or 4)
+            elseif chunk.shape == "polygon" and chunk.vertices then
+                local flat = {}
+                for _, v in ipairs(chunk.vertices) do
+                    table.insert(flat, v[1])
+                    table.insert(flat, v[2])
+                end
+                love.graphics.polygon("fill", flat)
+                RenderUtils.setColor(chunk.outlineColor or chunkOutlineColor)
+                love.graphics.polygon("line", flat)
+            end
+        end
+
         RenderUtils.setColor(outlineColor)
         love.graphics.polygon("line", flatVertices)
         
