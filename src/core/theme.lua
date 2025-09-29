@@ -763,24 +763,62 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
     return
   end
 
+  local t = t or love.timer.getTime()
   local pulseColor = {0, 0, 0, 0.05} -- More transparent black border
-  local glowIntensity = hover and Theme.effects.glowMedium * 0.7 or Theme.effects.glowWeak * 0.7
+  
+  -- Play hover sound effect (only once per hover state)
+  if hover and not (opts and opts._hoverPlayed) then
+    local UISounds = require("src.ui.sounds")
+    if UISounds and UISounds.playButtonHover then
+      UISounds.playButtonHover()
+    end
+    -- Mark as played to avoid repeated sounds
+    if opts then opts._hoverPlayed = true end
+  elseif not hover and opts then
+    -- Reset hover sound flag when not hovering
+    opts._hoverPlayed = false
+  end
+  
+  -- Enhanced glow intensity for better hover feedback
+  local glowIntensity = hover and Theme.effects.glowMedium or Theme.effects.glowWeak
+  
+  -- Add subtle pulsing animation for hover state
+  local pulseOffset = 0
+  if hover and t then
+    pulseOffset = math.sin(t * 8) * 0.1 -- Subtle pulsing effect
+  end
 
-  -- Create very transparent versions of the colors
-  local bg3 = {Theme.colors.bg3[1], Theme.colors.bg3[2], Theme.colors.bg3[3], 0.2}
+  -- Create more vibrant hover colors
+  local bg3 = {Theme.colors.bg3[1], Theme.colors.bg3[2], Theme.colors.bg3[3], 0.3 + pulseOffset}
   local bg2 = {Theme.colors.bg2[1], Theme.colors.bg2[2], Theme.colors.bg2[3], 0.1}
-  local bg4 = {Theme.colors.bg4[1], Theme.colors.bg4[2], Theme.colors.bg4[3], 0.3}
+  local bg4 = {Theme.colors.bg4[1], Theme.colors.bg4[2], Theme.colors.bg4[3], 0.4}
 
   local topColor = color or (hover and bg3 or bg2)
   if down then
     topColor = bg4
   end
 
+  -- Add subtle scale effect for hover
+  local scaleX, scaleY = 1, 1
+  if hover and not down then
+    scaleX = 1.02 -- Very subtle scale up
+    scaleY = 1.02
+    local offsetX = (w * (scaleX - 1)) * 0.5
+    local offsetY = (h * (scaleY - 1)) * 0.5
+    x = x - offsetX
+    y = y - offsetY
+    w = w * scaleX
+    h = h * scaleY
+  end
+
   Theme.drawGradientGlowRect(x, y, w, h, 0,
     topColor,
     topColor, pulseColor, glowIntensity)
 
-  Theme.drawEVEBorder(math.floor(x + 0.5), math.floor(y + 0.5), w, h, 0, pulseColor, 0)
+  -- Enhanced border for hover state
+  local borderColor = hover and Theme.colors.borderBright or pulseColor
+  local borderGlow = hover and Theme.effects.glowSubtle or 0
+  Theme.drawEVEBorder(math.floor(x + 0.5), math.floor(y + 0.5), w, h, 0, borderColor, borderGlow)
 
   -- If a fixed font is provided via opts, use it for consistent sizing
   local padX = 12
@@ -867,8 +905,9 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
   local textX = math.floor(x + (w - tw) * 0.5 + 0.5)
   local textY = math.floor(y + (h - th) * 0.5 + 0.5)
 
-  -- Clean text (no shadow for sharpness)
-  Theme.setColor(Theme.colors.text)
+  -- Enhanced text color for hover state
+  local textColor = hover and Theme.colors.textHighlight or Theme.colors.text
+  Theme.setColor(textColor)
   love.graphics.print(text, textX, textY)
 
   -- Restore font

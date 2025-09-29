@@ -165,17 +165,8 @@ function EscapeMenu.drawContent(window, x, y, w, h)
     local font = Theme.fonts and (Theme.fonts.small or Theme.fonts.normal) or love.graphics.getFont()
     love.graphics.setFont(font)
 
-    -- Calculate button dimensions consistently
-    local buttonH = (Theme.ui and Theme.ui.buttonHeight) or 28
-    local buttonSpacing = (Theme.ui and Theme.ui.buttonSpacing) or 4
-    local buttonW = w
-    local buttonX = x
-    local startY = y
-
-    -- Calculate button positions
-    local saveButtonY = startY
-    local settingsButtonY = saveButtonY + buttonH + buttonSpacing
-    local exitButtonY = settingsButtonY + buttonH + buttonSpacing
+    -- Use the same layout calculation as mousepressed for consistency
+    local _, _, _, _, buttonX, saveButtonY, settingsButtonY, exitButtonY, buttonW, buttonH = getLayout()
 
     -- Save Game button
     local saveHover = pointIn(mx, my, buttonX, saveButtonY, buttonW, buttonH)

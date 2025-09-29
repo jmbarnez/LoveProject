@@ -161,11 +161,6 @@ function PlayerSystem.update(dt, player, input, world, hub)
     -- Debug input state (only log if input is detected but player is stuck)
     if (w or s or a or d) and (body.vx == 0 and body.vy == 0) then
         Log.warn("PlayerSystem - Input detected but player not moving! w=", w, "s=", s, "a=", a, "d=", d)
-        
-        -- Temporary test: force movement to see if physics body responds
-        Log.warn("PlayerSystem - Testing forced movement...")
-        body.vx = body.vx + 100
-        body.vy = body.vy + 100
     end
 
     local h = player.components and player.components.health

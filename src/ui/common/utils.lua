@@ -108,6 +108,32 @@ function UIUtils.drawButton(x, y, w, h, text, hover, active, options)
   local textColor = options.textColor
   local bgColor, borderColor
   
+  -- Play hover sound effect (only once per hover state)
+  if hover and not active and not options._hoverPlayed then
+    local UISounds = require("src.ui.sounds")
+    if UISounds and UISounds.playButtonHover then
+      UISounds.playButtonHover()
+    end
+    -- Mark as played to avoid repeated sounds
+    options._hoverPlayed = true
+  elseif not hover then
+    -- Reset hover sound flag when not hovering
+    options._hoverPlayed = false
+  end
+  
+  -- Add subtle scale effect for hover
+  local scaleX, scaleY = 1, 1
+  if hover and not active then
+    scaleX = 1.01 -- Very subtle scale up
+    scaleY = 1.01
+    local offsetX = (w * (scaleX - 1)) * 0.5
+    local offsetY = (h * (scaleY - 1)) * 0.5
+    x = x - offsetX
+    y = y - offsetY
+    w = w * scaleX
+    h = h * scaleY
+  end
+  
   -- Determine colors based on state
   if active then
     bgColor = options.activeBg or Theme.colors.bg4
@@ -123,10 +149,12 @@ function UIUtils.drawButton(x, y, w, h, text, hover, active, options)
     textColor = textColor or Theme.colors.text
   end
   
+  -- Enhanced glow for hover state
+  local glowIntensity = hover and Theme.effects.glowMedium or Theme.effects.glowWeak
+  
   -- Draw button background
   Theme.drawGradientGlowRect(x, y, w, h, cornerRadius,
-    bgColor, Theme.colors.bg1, borderColor, 
-    hover and Theme.effects.glowSubtle or Theme.effects.glowWeak)
+    bgColor, Theme.colors.bg1, borderColor, glowIntensity)
   
   -- Draw button text
   if text then
