@@ -4,6 +4,9 @@ LoadingScreen.__index = LoadingScreen
 local Theme = require("src.core.theme")
 local Log = require("src.core.log")
 
+-- Shared cached font reference so we avoid recreating fonts every frame
+LoadingScreen.titleFont = nil
+
 function LoadingScreen.new()
     local self = setmetatable({}, LoadingScreen)
     
@@ -19,7 +22,16 @@ function LoadingScreen.new()
     self.spinnerAngle = 0
     self.spinnerSpeed = 3.0
     self.pulseSpeed = 2.0
-    
+
+    -- Prefer theme fonts, but fall back to a cached dedicated font
+    self.titleFont = Theme.fonts and Theme.fonts.title or LoadingScreen.titleFont
+    if not self.titleFont then
+        LoadingScreen.titleFont = love.graphics.newFont(24)
+        LoadingScreen.titleFont:setFilter("nearest", "nearest", 1)
+        self.titleFont = LoadingScreen.titleFont
+        Log.debug("LoadingScreen", "Initialized fallback loading screen title font")
+    end
+
     return self
 end
 
@@ -78,7 +90,7 @@ end
 
 function LoadingScreen:draw()
     if not self.isVisible then return end
-    
+
     local vw, vh = love.graphics.getDimensions()
     local centerX, centerY = vw / 2, vh / 2
     
@@ -89,7 +101,20 @@ function LoadingScreen:draw()
     -- "Loading..." text
     local textColor = {0.95, 0.95, 1.0, 1.0}
     love.graphics.setColor(textColor)
-    local titleFont = love.graphics.newFont(24)
+    local titleFont = Theme.fonts and Theme.fonts.title or self.titleFont
+    if not titleFont then
+        -- Lazily initialize fallback font if Theme fonts load after construction
+        if not LoadingScreen.titleFont then
+            LoadingScreen.titleFont = love.graphics.newFont(24)
+            LoadingScreen.titleFont:setFilter("nearest", "nearest", 1)
+            Log.debug("LoadingScreen", "Initialized fallback loading screen title font")
+        end
+        self.titleFont = LoadingScreen.titleFont
+        titleFont = self.titleFont
+    elseif titleFont ~= self.titleFont then
+        -- Theme fonts may have been loaded after construction; update cached reference
+        self.titleFont = titleFont
+    end
     love.graphics.setFont(titleFont)
     local title = "Loading..."
     local titleW = titleFont:getWidth(title)
