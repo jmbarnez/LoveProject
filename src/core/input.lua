@@ -100,6 +100,57 @@ local function handleInput()
     }
 end
 
+local function transitionToGame(opts)
+    opts = opts or {}
+    local fromSave = opts.fromSave == true
+    local saveSlot = opts.slot
+    local loadingScreen = mainState.loadingScreen
+    local Game = require("src.game")
+
+    if loadingScreen then
+        loadingScreen:show({"Loading..."}, false)
+    end
+
+    local function performLoad()
+        if fromSave then
+            if saveSlot == "autosave" then
+                return Game.load(true, "autosave", loadingScreen)
+            end
+            return Game.load(true, saveSlot, loadingScreen)
+        end
+
+        return Game.load(false, nil, loadingScreen)
+    end
+
+    local success, result = pcall(performLoad)
+
+    if loadingScreen then
+        loadingScreen:hide()
+    end
+
+    if not success then
+        Log.error("Game load failed with error:", result)
+        Notifications.add("Failed to load game: " .. tostring(result), "error")
+        return false
+    end
+
+    if not result then
+        Log.error("Game.load returned false")
+        if fromSave then
+            Notifications.add("Game load failed - save file may be corrupted", "error")
+        else
+            Notifications.add("Failed to start new game", "error")
+        end
+        return false
+    end
+
+    mainState.UIManager = require("src.core.ui_manager")
+    love.mouse.setVisible(false)
+    mainState.setScreen("game")
+
+    return true
+end
+
 function Input.update(dt)
     if Map and Map.update then
         Map.update(dt, gameState.player)
@@ -205,97 +256,19 @@ function Input.love_keyreleased(key)
 end
 
 function Input.love_mousepressed(x, y, button)
-  local Game = require("src.game")
   if mainState.screen == "start" then
     local vx, vy = Viewport.toVirtual(x, y)
     local start = mainState.startScreen:mousepressed(vx, vy, button)
     if start == true then
-        -- Show loading screen
-        if mainState.loadingScreen then
-          mainState.loadingScreen:show({"Loading..."}, false) -- No auto-advance
-          
-          -- Start loading immediately
-          Game.load(false, nil, mainState.loadingScreen) -- Start new game with loading screen
-          mainState.loadingScreen:hide()
-          love.mouse.setVisible(false)
-          mainState.UIManager = require("src.core.ui_manager")
-          mainState.setScreen("game")
-        else
-          -- Fallback if no loading screen
-          Game.load(false)
-          love.mouse.setVisible(false)
-          mainState.UIManager = require("src.core.ui_manager")
-          mainState.setScreen("game")
-        end
-      
+        transitionToGame({ fromSave = false })
       return
     elseif start == "loadGame" then
       local loadedSlot = mainState.startScreen.loadedSlot
       if loadedSlot then
-        -- Show loading screen
-        if mainState.loadingScreen then
-          mainState.loadingScreen:show({"Loading..."}, false) -- No auto-advance
-          
-          -- Load game from save immediately
-          local success, error = pcall(function()
-            if loadedSlot == "autosave" then
-              -- Special handling for autosave
-              return Game.load(true, "autosave", mainState.loadingScreen)
-            else
-              -- Regular slot loading
-              return Game.load(true, loadedSlot, mainState.loadingScreen)
-            end
-          end)
-          
-          mainState.loadingScreen:hide()
-          
-          if not success then
-            Log.error("Game load failed with error:", error)
-            local Notifications = require("src.ui.notifications")
-            Notifications.add("Failed to load game: " .. tostring(error), "error")
-            return
-          end
-          
-          if error then -- Game.load returns true on success
-            mainState.UIManager = require("src.core.ui_manager")
-            love.mouse.setVisible(false)
-            mainState.setScreen("game")
-          else
-            Log.error("Game.load returned false")
-            local Notifications = require("src.ui.notifications")
-            Notifications.add("Game load failed - save file may be corrupted", "error")
-          end
-        else
-          -- Fallback if no loading screen
-          local success, error = pcall(function()
-            if loadedSlot == "autosave" then
-              return Game.load(true, "autosave")
-            else
-              return Game.load(true, loadedSlot)
-            end
-          end)
-          
-          if not success then
-            Log.error("Game load failed with error:", error)
-            local Notifications = require("src.ui.notifications")
-            Notifications.add("Failed to load game: " .. tostring(error), "error")
-            return
-          end
-          
-          if error then
-            mainState.UIManager = require("src.core.ui_manager")
-            love.mouse.setVisible(false)
-            mainState.setScreen("game")
-          else
-            Log.error("Game.load returned false")
-            local Notifications = require("src.ui.notifications")
-            Notifications.add("Game load failed - save file may be corrupted", "error")
-          end
-        end
+        transitionToGame({ fromSave = true, slot = loadedSlot })
         return
       else
         Log.error("No loaded slot information available")
-        local Notifications = require("src.ui.notifications")
         Notifications.add("No save slot selected", "warning")
         return
       end
