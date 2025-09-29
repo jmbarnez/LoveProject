@@ -1,6 +1,16 @@
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
+local Constants = require("src.core.constants")
 local Config = require("src.content.config")
+
+local combatOverrides = Config.COMBAT or {}
+local combatConstants = Constants.COMBAT
+
+local function getCombatValue(key)
+  local value = combatOverrides[key]
+  if value ~= nil then return value end
+  return combatConstants[key]
+end
 local Settings = require("src.core.settings")
 
 local Reticle = {}
@@ -15,7 +25,7 @@ local function isAligned(player)
   local desired = (math.atan2 and math.atan2(dy, dx)) or math.atan(dy / math.max(1e-6, dx))
   local diff = (desired - (pos.angle or 0) + math.pi) % (2 * math.pi) - math.pi
   local deg = math.deg(math.abs(diff))
-  return deg <= ((Config.COMBAT and Config.COMBAT.ALIGN_LOCK_DEG) or 10)
+  return deg <= (getCombatValue("ALIGN_LOCK_DEG") or 10)
 end
 
 function Reticle.drawPreset(style, scale, color)

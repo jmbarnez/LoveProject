@@ -1,4 +1,15 @@
 local Theme = require("src.core.theme")
+local Constants = require("src.core.constants")
+local Config = require("src.content.config")
+
+local combatOverrides = Config.COMBAT or {}
+local combatConstants = Constants.COMBAT
+
+local function getCombatValue(key)
+  local value = combatOverrides[key]
+  if value ~= nil then return value end
+  return combatConstants[key]
+end
 local EnemyStatusBars = {}
 
 -- Draw small screen-aligned shield/health bars above an enemy entity.
@@ -9,7 +20,7 @@ function EnemyStatusBars.drawMiniBars(entity)
   if not (h and col) then return end
 
   -- Only show for a limited duration after player deals damage
-  local showTime = (require("src.content.config").COMBAT.ENEMY_BAR_VIS_TIME or 2.5)
+  local showTime = getCombatValue("ENEMY_BAR_VIS_TIME") or 2.5
   local last = entity._hudDamageTime or -1e9
   if love.timer.getTime() - last > showTime then return end
 

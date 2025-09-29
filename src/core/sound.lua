@@ -5,6 +5,7 @@
 
 local Settings = require("src.core.settings")
 local Log = require("src.core.log")
+local Constants = require("src.core.constants")
 local Config = require("src.content.config")
 local Sound = {}
 local SoundGenerator = require("src.core.sound_generator")
@@ -22,11 +23,12 @@ local listenerX, listenerY = nil, nil
 
 -- Audio attenuation settings (can be overridden via Config.AUDIO)
 local function getAudioConfig()
-    local A = (Config and Config.AUDIO) or {}
+    local overrides = (Config and Config.AUDIO) or {}
+    local defaults = Constants.AUDIO
     return {
-        FULL_VOLUME_DISTANCE = A.FULL_VOLUME_DISTANCE or 300,  -- within this distance play at event volume
-        HEARING_DISTANCE = A.HEARING_DISTANCE or 1400,         -- beyond this distance: silent
-        MIN_VOLUME = A.MIN_VOLUME or 0.0                       -- floor volume multiplier (0..1)
+        FULL_VOLUME_DISTANCE = overrides.FULL_VOLUME_DISTANCE or defaults.FULL_VOLUME_DISTANCE,
+        HEARING_DISTANCE = overrides.HEARING_DISTANCE or defaults.HEARING_DISTANCE,
+        MIN_VOLUME = overrides.MIN_VOLUME or defaults.MIN_VOLUME
     }
 end
 

@@ -2,9 +2,19 @@ local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local Content = require("src.content.content")
 local HotbarSystem = require("src.systems.hotbar")
+local Constants = require("src.core.constants")
 local Config = require("src.content.config")
 
 local Hotbar = {}
+
+local combatOverrides = Config.COMBAT or {}
+local combatConstants = Constants.COMBAT
+
+local function getCombatValue(key)
+  local value = combatOverrides[key]
+  if value ~= nil then return value end
+  return combatConstants[key]
+end
 
 -- HotbarSelection removed - slot assignment disabled
 
@@ -176,7 +186,7 @@ function Hotbar.draw(player)
       if slot.item == 'shield' then
         local ss = player._shieldState
         if ss and ss.cooldown and ss.cooldown > 0 then
-          local total = (Config.COMBAT and Config.COMBAT.SHIELD_COOLDOWN) or 5.0
+          local total = getCombatValue("SHIELD_COOLDOWN") or 5.0
           if total > 0 then
             local pct = math.max(0, math.min(1, ss.cooldown / total))
             local barHeight = math.floor(size * pct)

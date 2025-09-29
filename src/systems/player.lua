@@ -1,6 +1,7 @@
 -- PlayerSystem: Handles all player-specific logic, including input processing.
 local Util = require("src.core.util")
 local Events = require("src.core.events")
+local Constants = require("src.core.constants")
 local Config = require("src.content.config")
 local Input = require("src.core.input")
 local HotbarSystem = require("src.systems.hotbar")
@@ -8,6 +9,15 @@ local WarpGateSystem = require("src.systems.warp_gate_system")
 local Log = require("src.core.log")
 
 local PlayerSystem = {}
+
+local combatOverrides = Config.COMBAT or {}
+local combatConstants = Constants.COMBAT
+
+local function getCombatValue(key)
+    local value = combatOverrides[key]
+    if value ~= nil then return value end
+    return combatConstants[key]
+end
 
 local function onPlayerDamaged(eventData)
   local player = eventData.entity
@@ -167,14 +177,14 @@ function PlayerSystem.update(dt, player, input, world, hub)
     
     -- Apply boost multiplier
     if boosting then
-        local mult = (Config.COMBAT and Config.COMBAT.BOOST_THRUST_MULT) or 1.5
+        local mult = getCombatValue("BOOST_THRUST_MULT") or 1.5
         thrust = thrust * mult
         player.thrusterState.boost = 1.0
     end
     
     -- Apply slow when actively channeling shields
     if player.shieldChannel then
-        local slow = (Config.COMBAT and Config.COMBAT.SHIELD_CHANNEL_SLOW) or 0.5
+        local slow = getCombatValue("SHIELD_CHANNEL_SLOW") or 0.5
         thrust = thrust * math.max(0.1, slow)
     end
     
@@ -194,7 +204,7 @@ function PlayerSystem.update(dt, player, input, world, hub)
         local accel = (thrust / ((body.mass or 500))) * dt * 1.0
         local maxSpeed = (player.maxSpeed or 450)
         if boosting then
-            maxSpeed = maxSpeed * ((Config.COMBAT and Config.COMBAT.BOOST_THRUST_MULT) or 1.5)
+            maxSpeed = maxSpeed * (getCombatValue("BOOST_THRUST_MULT") or 1.5)
         end
 
         -- Apply acceleration
@@ -237,7 +247,7 @@ function PlayerSystem.update(dt, player, input, world, hub)
     -- Handle boost drain and auto-stop on empty capacitor (drains even when not moving)
     if boosting then
         if h then
-            local drain = (Config.COMBAT and Config.COMBAT.BOOST_ENERGY_DRAIN) or 20
+            local drain = getCombatValue("BOOST_ENERGY_DRAIN") or 20
             h.energy = math.max(0, (h.energy or 0) - drain * dt)
             if (h.energy or 0) <= 0 then
                 boosting = false -- capacitor empty; stop boosting

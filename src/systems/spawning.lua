@@ -1,4 +1,5 @@
 local EntityFactory = require("src.templates.entity_factory")
+local Constants = require("src.core.constants")
 local Config = require("src.content.config")
 local Log = require("src.core.log")
 
@@ -7,14 +8,25 @@ local SpawningSystem = {}
 local enemySpawnTimer = 0
 local bossSpawnTimer = 0
 local asteroidSpawnTimer = 0
-local maxEnemies = 36 -- Significantly increased for relentless pressure
+
+local spawnOverrides = Config.SPAWN or {}
+local spawnConstants = Constants.SPAWNING
+
+local function getSpawnValue(key)
+  local value = spawnOverrides[key]
+  if value ~= nil then return value end
+  return spawnConstants[key]
+end
+
+local maxEnemies = getSpawnValue("MAX_ENEMIES") or 36 -- Significantly increased for relentless pressure
 local maxBosses = 3   -- Hard cap on boss drones
 local maxAsteroids = 15
 
 -- Check if a position is within any custom no-spawn zones
 local function isPositionInNoSpawnZone(x, y)
-  if Config.SPAWN and Config.SPAWN.NO_SPAWN_ZONES then
-    for _, zone in ipairs(Config.SPAWN.NO_SPAWN_ZONES) do
+  local zones = spawnOverrides.NO_SPAWN_ZONES
+  if zones then
+    for _, zone in ipairs(zones) do
       local dx = x - zone.x
       local dy = y - zone.y
       local distanceSquared = dx * dx + dy * dy
@@ -35,7 +47,7 @@ local function isPositionSafeFromStations(x, y, world, hub)
     local dx = x - hub.components.position.x
     local dy = y - hub.components.position.y
     local distanceSquared = dx * dx + dy * dy
-    local safeDistance = hub.shieldRadius or (Config.SPAWN and Config.SPAWN.STATION_BUFFER) or 5000
+    local safeDistance = hub.shieldRadius or getSpawnValue("STATION_BUFFER") or 5000
     local safeDistanceSquared = safeDistance * safeDistance
     
     if distanceSquared <= safeDistanceSquared then
@@ -53,7 +65,7 @@ local function isPositionSafeFromStations(x, y, world, hub)
       local distanceSquared = dx * dx + dy * dy
 
       -- Use custom no-spawn radius for beacon stations (only if repaired), otherwise use default buffer
-      local buffer = ((Config.SPAWN and Config.SPAWN.STATION_BUFFER) or 300)
+      local buffer = getSpawnValue("STATION_BUFFER") or 300
 
       -- For beacon stations, only apply large no-spawn radius if repaired
       if station.noSpawnRadius and (not station.broken) then
@@ -81,7 +93,7 @@ end
 
 -- Spawns a basic drone enemy
 local function spawnEnemy(player, hub, world)
-  local margin = (Config.SPAWN and Config.SPAWN.MARGIN) or 300
+  local margin = getSpawnValue("MARGIN") or 300
   local x, y
   local attempts = 0
   repeat
@@ -96,7 +108,7 @@ local function spawnEnemy(player, hub, world)
     local okNoSpawnZones = not isPositionInNoSpawnZone(x, y)
     
     local okPlayer = true
-    local minPlayerDist = (Config.SPAWN and Config.SPAWN.MIN_PLAYER_DIST) or 450  -- Reduced from 600 for closer spawns
+    local minPlayerDist = getSpawnValue("MIN_PLAYER_DIST") or 450  -- Reduced from 600 for closer spawns
     if player then
       local dxp, dyp = x - player.components.position.x, y - player.components.position.y
       okPlayer = (dxp*dxp + dyp*dyp) > (minPlayerDist * minPlayerDist)
@@ -140,7 +152,7 @@ local function spawnBoss(player, hub, world)
   end
   if count >= maxBosses then return end
 
-  local margin = (Config.SPAWN and Config.SPAWN.MARGIN) or 300
+  local margin = getSpawnValue("MARGIN") or 300
   local x, y
   local attempts = 0
   repeat
@@ -152,7 +164,7 @@ local function spawnBoss(player, hub, world)
     local okPlayer = true
     if player then
       local dxp, dyp = x - player.components.position.x, y - player.components.position.y
-      local minP = (Config.SPAWN and Config.SPAWN.MIN_PLAYER_DIST) or 600
+      local minP = getSpawnValue("MIN_PLAYER_DIST") or 600
       okPlayer = (dxp*dxp + dyp*dyp) > (minP * minP)
     end
   until (okStations and okPlayer and okNoSpawnZones) or attempts > 200
@@ -175,7 +187,7 @@ local function spawnAsteroid(hub, world)
     y = math.random(margin, world.height - margin)
     
     -- Check distance from all stations (asteroids can be closer than enemy safe zones)
-    local asteroid_buffer = ((Config.SPAWN and Config.SPAWN.STATION_BUFFER) or 300) * 0.5  -- Half buffer for asteroids
+  local asteroid_buffer = (getSpawnValue("STATION_BUFFER") or 300) * 0.5  -- Half buffer for asteroids
     local ok_stations = true
     
     -- First check the hub directly
@@ -270,8 +282,8 @@ function SpawningSystem.update(dt, player, hub, world)
   if enemySpawnTimer <= 0 and #enemies < 12 then
     spawnEnemy(player, hub, world)
     -- More aggressive spawn rates - faster and more frequent
-    local smin = (Config.SPAWN and Config.SPAWN.INTERVAL_MIN) or 2.0
-    local smax = (Config.SPAWN and Config.SPAWN.INTERVAL_MAX) or 4.0
+    local smin = getSpawnValue("INTERVAL_MIN") or 2.0
+    local smax = getSpawnValue("INTERVAL_MAX") or 4.0
     enemySpawnTimer = smin + math.random() * (smax - smin)
   end
 

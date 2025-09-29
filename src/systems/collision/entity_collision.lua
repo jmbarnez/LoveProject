@@ -1,3 +1,4 @@
+local Constants = require("src.core.constants")
 local Config = require("src.content.config")
 local Effects = require("src.systems.effects")
 local Radius = require("src.systems.collision.radius")
@@ -5,6 +6,15 @@ local StationShields = require("src.systems.collision.station_shields")
 local CollisionEffects = require("src.systems.collision.effects")
 
 local EntityCollision = {}
+
+local combatOverrides = Config.COMBAT or {}
+local combatConstants = Constants.COMBAT
+
+local function getCombatValue(key)
+    local value = combatOverrides[key]
+    if value ~= nil then return value end
+    return combatConstants[key]
+end
 
 -- Check if two entities collide (using effective radius that includes shields)
 local function checkEntityCollision(entity1, entity2)
@@ -140,8 +150,8 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt)
         local pushDistance = overlap * 0.55 -- Split the separation
 
         -- Choose restitution based on shields (make shields bouncier)
-        local HULL_REST = (Config and Config.COMBAT and Config.COMBAT.HULL_RESTITUTION) or 0.28
-        local SHIELD_REST = (Config and Config.COMBAT and Config.COMBAT.SHIELD_RESTITUTION) or 0.88
+        local HULL_REST = getCombatValue("HULL_RESTITUTION") or 0.28
+        local SHIELD_REST = getCombatValue("SHIELD_RESTITUTION") or 0.88
         local e1Rest = StationShields.hasActiveShield(entity1) and SHIELD_REST or HULL_REST
         local e2Rest = StationShields.hasActiveShield(entity2) and SHIELD_REST or HULL_REST
 
