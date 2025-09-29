@@ -59,17 +59,6 @@ local function drawShieldIcon(x, y, size, active)
   love.graphics.circle('fill', cx + r*0.35, cy - r*0.35, 2)
 end
 
-local function keyLabel(k)
-  if not k then return "" end
-  k = tostring(k)
-  if k == 'lshift' or k == 'rshift' then return 'SHIFT' end
-  if k == 'space' then return 'SPACE' end
-  if k == 'mouse1' then return 'LMB' end
-  if k == 'mouse2' then return 'RMB' end
-  if #k == 1 then return k:upper() end
-  return k:upper()
-end
-
 function Hotbar.draw(player)
   local sw, sh = Viewport.getDimensions()
   local size, gap = 52, 10
@@ -359,7 +348,7 @@ function Hotbar.draw(player)
     -- Hover effects removed - hotbar is display-only
     Theme.drawEVEBorder(rx, ry, size, size, 8, borderColor, 6)
 
-    local label = keyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(i) or slot.key)
+    local label = UIUtils.formatKeyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(i) or slot.key)
     local oldFont = love.graphics.getFont()
     if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
     Theme.setColor(Theme.withAlpha(Theme.colors.text, 0.95))

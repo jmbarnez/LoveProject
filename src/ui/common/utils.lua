@@ -3,6 +3,26 @@ local Viewport = require("src.core.viewport")
 
 local UIUtils = {}
 
+-- Normalize key labels for display across UI components.
+-- Provides shorthand for mouse buttons, modifiers, and single-character keys.
+function UIUtils.formatKeyLabel(key, fallback)
+    if not key or key == "" then return fallback or "" end
+
+    key = tostring(key)
+    local normalized = key:lower()
+
+    if normalized == "mouse1" then return "LMB" end
+    if normalized == "mouse2" then return "RMB" end
+    if normalized == "space" then return "SPACE" end
+    if normalized == "lshift" or normalized == "rshift" then return "SHIFT" end
+
+    if #key == 1 then
+        return key:upper()
+    end
+
+    return key:upper()
+end
+
 -- UI Caching system for expensive calculations
 local textMetricsCache = {}
 local layoutCache = {}
