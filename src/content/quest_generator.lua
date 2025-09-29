@@ -11,62 +11,90 @@ local function makeId(prefix)
   return string.format("%s_%d_%d", prefix, os.time(), math.random(1000, 9999))
 end
 
--- Build a kill quest
+local function pluralize(name)
+  if not name then return "" end
+  if name:match("[sS]$") then return name end
+  return name .. "s"
+end
+
 local function buildKillQuest(opts)
-  local count = opts.count or randRange(4, 10)
   local target = opts.target or "basic_drone"
-  local title = string.format("Purge %d Drones", count)
-  local desc = string.format("Eliminate %d %s in the sector.", count, (Content.getShip(target) and Content.getShip(target).name) or target)
-  local rewardGC = 150 * count
-  local rewardXP = 10 * count
+  local ship = Content.getShip(target)
+  local label = ship and ship.name or target
+  local count = opts.count or randRange(6, 14)
+  local rewardXP = opts.rewardXP or (15 * count)
+  local title = string.format("Destroy %d %s", count, pluralize(label))
+  local desc = string.format("Eliminate %d hostile %s patrolling nearby lanes.", count, pluralize(label):lower())
 
   return {
     id = makeId("pq_kill_" .. target .. "_" .. count),
     title = title,
     description = desc,
     objective = { type = "kill", target = target, count = count },
-    reward = { gc = rewardGC, xp = rewardXP }
+    reward = { xp = rewardXP }
   }
 end
 
--- Build a mining quest
 local function buildMineQuest(opts)
-  local count = opts.count or randRange(8, 25)
   local target = opts.target or "ore_tritanium"
   local item = Content.getItem(target)
   local itemName = (item and item.name) or target
+  local count = opts.count or randRange(12, 28)
+  local rewardXP = opts.rewardXP or (12 * count)
   local title = string.format("Mine %d %s", count, itemName)
-  local desc = string.format("Extract %d units of %s from local asteroids.", count, itemName)
-  local rewardGC = 50 * count
-  local rewardXP = 6 * count
+  local desc = string.format("Extract %d units of %s from asteroids in the sector.", count, itemName)
 
   return {
     id = makeId("pq_mine_" .. target .. "_" .. count),
     title = title,
     description = desc,
     objective = { type = "mine", target = target, count = count },
-    reward = { gc = rewardGC, xp = rewardXP }
+    reward = { xp = rewardXP }
   }
 end
 
--- Choose a random quest type based on simple weights
+local function buildSalvageQuest(opts)
+  local resource = opts.target or "scraps"
+  local item = Content.getItem(resource)
+  local itemName = (item and item.name) or resource
+  local count = opts.count or randRange(6, 16)
+  local rewardXP = opts.rewardXP or (14 * count)
+  local title = string.format("Salvage %d Wrecks", count)
+  local desc = string.format("Recover %d loads of %s from wreckage fields.", count, itemName)
+
+  return {
+    id = makeId("pq_salvage_" .. resource .. "_" .. count),
+    title = title,
+    description = desc,
+    objective = { type = "salvage", target = resource, count = count },
+    reward = { xp = rewardXP }
+  }
+end
+
 function QuestGenerator.generateQuest(player)
-  local choices = {
-    { w = 0.6, f = function() return buildKillQuest({}) end },
-    { w = 0.4, f = function()
-        -- Mine either tritanium (common) or palladium (rare)
-        local ore = (math.random() < 0.75) and "ore_tritanium" or "ore_palladium"
-        local count = ore == "ore_tritanium" and randRange(10, 24) or randRange(6, 14)
+  local roll = math.random()
+  local thresholds = {
+    { limit = 0.4, build = function()
+        local droneCount = randRange(8, 18)
+        return buildKillQuest({ count = droneCount })
+      end },
+    { limit = 0.75, build = function()
+        local ore = (math.random() < 0.8) and "ore_tritanium" or "ore_palladium"
+        local count = ore == "ore_tritanium" and randRange(14, 28) or randRange(10, 18)
         return buildMineQuest({ target = ore, count = count })
       end },
+    { limit = 1.0, build = function()
+        local count = randRange(8, 18)
+        return buildSalvageQuest({ count = count })
+      end }
   }
 
-  local r = math.random()
-  local acc = 0
-  for _, c in ipairs(choices) do
-    acc = acc + c.w
-    if r <= acc then return c.f() end
+  for _, option in ipairs(thresholds) do
+    if roll <= option.limit then
+      return option.build()
+    end
   end
+
   return buildKillQuest({})
 end
 
