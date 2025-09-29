@@ -253,8 +253,8 @@ function DestructionSystem.update(world, gameState)
               end
             end
           end
-          
-          -- Reset velocities
+
+          -- Reset velocities and ensure the physics body matches the respawn location
           phys = e.components.physics
           if phys and phys.body then
             local success, isDestroyed = pcall(function() return phys.body:isDestroyed() end)
@@ -263,6 +263,10 @@ function DestructionSystem.update(world, gameState)
               local velSuccess = pcall(function()
                 phys.body:setVelocity(0, 0)
                 phys.body.angularVel = 0
+                phys.body.x = px
+                phys.body.y = py
+                phys.body.angle = 0
+                phys.body.skipThrusterForce = true
               end)
               if not velSuccess then
                 -- If setting velocity fails, the body might be invalid
