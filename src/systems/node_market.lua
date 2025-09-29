@@ -87,10 +87,6 @@ local MAX_CANDLES = 14400 -- up to 4 hours at 1s resolution
 -- Global transaction history for all nodes
 NodeMarket.globalTransactionHistory = {}
 
-local function pick(list)
-  return list[1 + math.random(#list - 1)]
-end
-
 local companies = {
   "Astra Dynamics", "Nova Labs", "Quark Systems", "PhotonX Industries",
   "VoltWorks", "Nebula Capital", "ChronoTech", "Lumos Foundry",
@@ -117,6 +113,12 @@ function NodeMarket._updateGlobalState(dt)
 end
 
 local function makeNode(symbol, name, basePrice)
+  local function pick(list)
+    if not list or #list == 0 then return nil end
+    if #list == 1 then return list[1] end
+    return list[math.random(#list)]
+  end
+
   local t = love.timer and love.timer.getTime() or os.time()
   local node = {
     symbol = symbol,
