@@ -16,17 +16,6 @@ local function getCombatValue(key)
   return combatConstants[key]
 end
 
--- HotbarSelection removed - slot assignment disabled
-
-local function pointInRect(px, py, r)
-  -- Handle nil values gracefully
-  if px == nil or py == nil or r == nil or r.x == nil or r.y == nil or r.w == nil or r.h == nil then
-    return false
-  end
-  return px >= r.x and py >= r.y and px <= r.x + r.w and py <= r.y + r.h
-end
-
-
 local IconSystem = require("src.core.icon_system")
 
 local function drawIcon(subjects, x, y, size)
