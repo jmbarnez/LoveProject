@@ -5,39 +5,6 @@ local Util = require("src.core.util")
 
 local Tooltip = {}
 
--- Helper function to wrap text to fit within a given width
-local function wrapText(text, font, maxWidth)
-  if not text or text == "" then return {} end
-
-  local words = {}
-  for word in text:gmatch("%S+") do
-    table.insert(words, word)
-  end
-
-  local lines = {}
-  local currentLine = ""
-
-  for i, word in ipairs(words) do
-    local testLine = currentLine .. (currentLine == "" and "" or " ") .. word
-    local testWidth = font:getWidth(testLine)
-
-    if testWidth <= maxWidth then
-      currentLine = testLine
-    else
-      if currentLine ~= "" then
-        table.insert(lines, currentLine)
-      end
-      currentLine = word
-    end
-  end
-
-  if currentLine ~= "" then
-    table.insert(lines, currentLine)
-  end
-
-  return lines
-end
-
 -- Draw a unified tooltip for any item, module, or turret
 function Tooltip.drawItemTooltip(item, x, y)
   if not item then return end
@@ -149,14 +116,14 @@ function Tooltip.drawItemTooltip(item, x, y)
   -- Add description lines if present
   local descriptionLines = {}
   if description and description ~= "" then
-    descriptionLines = wrapText(description, statFont, maxWidth - padding * 2)
+    descriptionLines = Util.wrapText(description, maxWidth - padding * 2, statFont)
     h = h + (#descriptionLines * statH) + tooltipConfig.statLineSpacing
   end
 
   -- Add flavor text lines if present
   local flavorLines = {}
   if flavor and flavor ~= "" then
-    flavorLines = wrapText(flavor, statFont, maxWidth - padding * 2)
+    flavorLines = Util.wrapText(flavor, maxWidth - padding * 2, statFont)
     h = h + (#flavorLines * statH) + tooltipConfig.statLineSpacing
   end
 
