@@ -129,7 +129,7 @@ function Settings.getAvailableResolutions()
 end
 
 function Settings.applyGraphicsSettings(newSettings)
-    local oldSettings = settings.graphics
+    local oldSettings = Util.deepCopy(settings.graphics)
     settings.graphics = newSettings
 
     -- Only change window mode if resolution or fullscreen settings changed
@@ -145,6 +145,10 @@ function Settings.applyGraphicsSettings(newSettings)
         if not success then
             if Log and Log.warn then
                 Log.warn("Settings.applyGraphicsSettings - Failed to apply window mode: " .. tostring(err))
+            end
+            settings.graphics = oldSettings
+            if Log and Log.warn then
+                Log.warn("Settings.applyGraphicsSettings - Rolling back to previous graphics settings")
             end
             return
         end
