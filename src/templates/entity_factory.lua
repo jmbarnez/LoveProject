@@ -132,26 +132,35 @@ function EntityFactory.createEnemy(shipId, x, y)
             local nextSlot = 1
             for _, hardpoint in ipairs(hardpoints) do
                 local turretId = hardpoint.turret or hardpoint.id
-                if turretId then
-                    local turretDef = Content.getTurret(turretId)
-                    if turretDef then
-                        local turretParams = Util.deepCopy(turretDef)
-                        turretParams.fireMode = turretParams.fireMode or "automatic"
-                        local turretInstance = TurretCore.new(enemy, turretParams)
-                        turretInstance.fireMode = "automatic"
-                        turretInstance.autoFire = true
+                local turretDef = nil
+                
+                -- Check if turret is embedded (table) or external (string ID)
+                if type(turretId) == "table" then
+                    -- Embedded turret definition
+                    turretDef = turretId
+                    turretId = turretDef.id or "embedded_turret_" .. nextSlot
+                else
+                    -- External turret definition
+                    turretDef = Content.getTurret(turretId)
+                end
+                
+                if turretDef then
+                    local turretParams = Util.deepCopy(turretDef)
+                    turretParams.fireMode = turretParams.fireMode or "automatic"
+                    local turretInstance = TurretCore.new(enemy, turretParams)
+                    turretInstance.fireMode = "automatic"
+                    turretInstance.autoFire = true
 
-                        local slotIndex = hardpoint.slot or nextSlot
-                        local slot = getSlot(slotIndex)
-                        slot.id = turretId
-                        slot.module = turretInstance
-                        slot.enabled = true
-                        slot.type = "turret"
+                    local slotIndex = hardpoint.slot or nextSlot
+                    local slot = getSlot(slotIndex)
+                    slot.id = turretId
+                    slot.module = turretInstance
+                    slot.enabled = true
+                    slot.type = "turret"
 
-                        nextSlot = math.max(nextSlot, slotIndex + 1)
-                    else
-                        Log.warn("EntityFactory - Missing turret definition for", tostring(turretId))
-                    end
+                    nextSlot = math.max(nextSlot, slotIndex + 1)
+                else
+                    Log.warn("EntityFactory - Missing turret definition for", tostring(turretId))
                 end
             end
         end

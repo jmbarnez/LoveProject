@@ -11,6 +11,8 @@ WorldObject.__index = WorldObject
 function WorldObject.new(x, y, angle, friendly, config)
     local self = setmetatable({}, WorldObject)
     self.name = config.name or "Unnamed Object"
+    self.type = "world_object"
+    self.subtype = config.id or "unknown"
 
     self.components = {
         position = Position.new({ x = x, y = y, angle = 0 }),

@@ -6,11 +6,11 @@ local ActionMap = require("src.core.action_map")
 local Events = require("src.core.events")
 local Viewport = require("src.core.viewport")
 local Notifications = require("src.ui.notifications")
+local Log = require("src.core.log")
 local Map = require("src.ui.map")
 local SettingsPanel = require("src.ui.settings_panel")
 local SkillsPanel = require("src.ui.skills")
 local Util = require("src.core.util")
-local Log = require("src.core.log")
 local Hotbar = require("src.systems.hotbar")
 local RepairSystem = require("src.systems.repair_system")
 
@@ -210,20 +210,95 @@ function Input.love_mousepressed(x, y, button)
     local vx, vy = Viewport.toVirtual(x, y)
     local start = mainState.startScreen:mousepressed(vx, vy, button)
     if start == true then
-      Game.load(false) -- Start new game
-      love.mouse.setVisible(false)
-      mainState.UIManager = require("src.core.ui_manager")
-      mainState.setScreen("game")
+        -- Show loading screen
+        if mainState.loadingScreen then
+          mainState.loadingScreen:show({"Loading..."}, false) -- No auto-advance
+          
+          -- Start loading immediately
+          Game.load(false, nil, mainState.loadingScreen) -- Start new game with loading screen
+          mainState.loadingScreen:hide()
+          love.mouse.setVisible(false)
+          mainState.UIManager = require("src.core.ui_manager")
+          mainState.setScreen("game")
+        else
+          -- Fallback if no loading screen
+          Game.load(false)
+          love.mouse.setVisible(false)
+          mainState.UIManager = require("src.core.ui_manager")
+          mainState.setScreen("game")
+        end
+      
       return
     elseif start == "loadGame" then
-      local loadSlotsUI = mainState.startScreen.loadSlotsUI
-      local selectedSlot = loadSlotsUI and loadSlotsUI.getSelectedSlotIndex and loadSlotsUI:getSelectedSlotIndex()
-      -- Load game from save (Game.load will handle save loading)
-      Game.load(true, selectedSlot)
-      mainState.UIManager = require("src.core.ui_manager")
-      love.mouse.setVisible(false)
-      mainState.setScreen("game")
-      return
+      local loadedSlot = mainState.startScreen.loadedSlot
+      if loadedSlot then
+        -- Show loading screen
+        if mainState.loadingScreen then
+          mainState.loadingScreen:show({"Loading..."}, false) -- No auto-advance
+          
+          -- Load game from save immediately
+          local success, error = pcall(function()
+            if loadedSlot == "autosave" then
+              -- Special handling for autosave
+              return Game.load(true, "autosave", mainState.loadingScreen)
+            else
+              -- Regular slot loading
+              return Game.load(true, loadedSlot, mainState.loadingScreen)
+            end
+          end)
+          
+          mainState.loadingScreen:hide()
+          
+          if not success then
+            Log.error("Game load failed with error:", error)
+            local Notifications = require("src.ui.notifications")
+            Notifications.add("Failed to load game: " .. tostring(error), "error")
+            return
+          end
+          
+          if error then -- Game.load returns true on success
+            mainState.UIManager = require("src.core.ui_manager")
+            love.mouse.setVisible(false)
+            mainState.setScreen("game")
+          else
+            Log.error("Game.load returned false")
+            local Notifications = require("src.ui.notifications")
+            Notifications.add("Game load failed - save file may be corrupted", "error")
+          end
+        else
+          -- Fallback if no loading screen
+          local success, error = pcall(function()
+            if loadedSlot == "autosave" then
+              return Game.load(true, "autosave")
+            else
+              return Game.load(true, loadedSlot)
+            end
+          end)
+          
+          if not success then
+            Log.error("Game load failed with error:", error)
+            local Notifications = require("src.ui.notifications")
+            Notifications.add("Failed to load game: " .. tostring(error), "error")
+            return
+          end
+          
+          if error then
+            mainState.UIManager = require("src.core.ui_manager")
+            love.mouse.setVisible(false)
+            mainState.setScreen("game")
+          else
+            Log.error("Game.load returned false")
+            local Notifications = require("src.ui.notifications")
+            Notifications.add("Game load failed - save file may be corrupted", "error")
+          end
+        end
+        return
+      else
+        Log.error("No loaded slot information available")
+        local Notifications = require("src.ui.notifications")
+        Notifications.add("No save slot selected", "warning")
+        return
+      end
     end
   else
     -- Convert screen coords to virtual coords so UI hit-testing matches rendering

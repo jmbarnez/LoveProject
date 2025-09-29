@@ -79,6 +79,7 @@ local Log = require("src.core.log")
 local Constants = require("src.core.constants")
 
 local IconRenderer = require("src.content.icon_renderer")
+local defaultSettings = {} -- Will be populated with the initial settings
 local settings = {
   graphics = {
         resolution = {
@@ -167,6 +168,19 @@ do
         settings.graphics.resolution.width = nativeWidth
         settings.graphics.resolution.height = nativeHeight
     end
+end
+
+do
+    local function deepcopy(orig)
+        local t = type(orig)
+        if t ~= 'table' then return orig end
+        local copy = {}
+        for k, v in pairs(orig) do
+            copy[k] = deepcopy(v)
+        end
+        return copy
+    end
+    defaultSettings = deepcopy(settings)
 end
 
 function Settings.getGraphicsSettings()
@@ -363,16 +377,59 @@ function Settings.setHotbarSettings(newSettings)
 end
 
 function Settings.save()
-    -- Settings saving is disabled - don't save to filesystem
-    Log.debug("Settings.save - Settings saving disabled, using defaults only")
-    return true
+    local filename = "settings.json"
+    local json = require("src.libs.json")
+    local data = json.encode(settings)
+    local success, err = love.filesystem.write(filename, data)
+
+    if not success then
+        Log.error("Settings.save - Failed to save settings to " .. filename .. ": " .. tostring(err))
+    else
+        Log.info("Settings.save - Settings saved successfully.")
+    end
+
+    return success
 end
 
 function Settings.load()
-    -- Always use default settings - don't load from filesystem
-    Log.debug("Settings.load - Using default settings (saving/loading disabled)")
-    Log.debug("Settings.load - Default fullscreen: " .. tostring(settings.graphics.fullscreen))
-    Log.debug("Settings.load - Default resolution: " .. settings.graphics.resolution.width .. "x" .. settings.graphics.resolution.height)
+    local filename = "settings.json"
+    if not love.filesystem.getInfo(filename) then
+        Log.info("Settings.load - No settings file found, using defaults.")
+        -- First time running, save the defaults
+        Settings.save()
+        return
+    end
+
+    local data, size = love.filesystem.read(filename)
+    if not data then
+        Log.error("Settings.load - Could not read settings file: " .. filename)
+        return
+    end
+    
+    local json = require("src.libs.json")
+    local ok, loadedSettings = pcall(json.decode, data)
+
+    if not ok then
+        Log.error("Settings.load - Failed to parse settings.json: " .. tostring(loadedSettings))
+        return
+    end
+
+    -- Deep merge loaded settings over defaults to ensure new defaults are applied
+    -- while preserving user's existing settings.
+    local function deepMerge(defaults, custom)
+        local new = {}
+        for k, v in pairs(defaults) do
+            if type(v) == "table" and custom and custom[k] and type(custom[k]) == "table" then
+                new[k] = deepMerge(v, custom[k])
+            else
+                new[k] = (custom and custom[k]) or v
+            end
+        end
+        return new
+    end
+    
+    settings = deepMerge(defaultSettings, loadedSettings)
+    Log.info("Settings.load - Settings loaded successfully from " .. filename)
 end
 
 return Settings

@@ -1,3 +1,4 @@
+local Theme = require("src.core.theme")
 local EnemyStatusBars = {}
 
 -- Draw small screen-aligned shield/health bars above an enemy entity.
@@ -30,9 +31,26 @@ function EnemyStatusBars.drawMiniBars(entity)
   local baseY = -(radius + 12)
   local x0 = -barW/2
 
+  -- Shield bar (above health bar, only if enemy has shields)
+  if maxShield > 0 then
+    local shieldPct = math.max(0, math.min(1, shield / math.max(1, maxShield)))
+    local shieldY = baseY - barH - gap
+    
+    -- Shield bar background
+    Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.6))
+    love.graphics.rectangle('fill', x0, shieldY, barW, barH, 2, 2)
+    
+    -- Shield bar fill (cyan color)
+    Theme.setColor(Theme.semantic.statusShield[1], Theme.semantic.statusShield[2], Theme.semantic.statusShield[3], 0.95)
+    love.graphics.rectangle('fill', x0, shieldY, barW * shieldPct, barH, 2, 2)
+    
+    -- Shield bar border
+    love.graphics.setColor(0.9, 0.9, 0.9, 0.6)
+    love.graphics.rectangle('line', x0, shieldY, barW, barH, 2, 2)
+  end
+
   -- Health bar
   local hpPct = math.max(0, math.min(1, hp / math.max(1, maxHP)))
-  local Theme = require("src.core.theme")
   Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.6))
   love.graphics.rectangle('fill', x0, baseY, barW, barH, 2, 2)
   local r, g

@@ -36,7 +36,7 @@ function Enemy.new(x, y, options)
     self.components = {
         position   = Position.new({ x = x, y = y, angle = 0 }),
         collidable = Collidable.new({ radius = physics.body.radius }),
-        health     = Health.new({ hp = 5, maxHP = 5, shield = 3, maxShield = 3 }),
+        health     = Health.new({ hp = 5, maxHP = 5, shield = 3, maxShield = 3, energy = 0, maxEnergy = 0 }),
         physics    = physics,
         renderable = Renderable.new("enemy", { visuals = self.visuals }),
         ai         = AI.new({

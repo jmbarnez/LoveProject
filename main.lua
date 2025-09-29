@@ -9,10 +9,12 @@ local Settings = require("src.core.settings")
 local Sound = require("src.core.sound")
 local DebugPanel = require("src.ui.debug_panel")
 local Constants = require("src.core.constants")
+local LoadingScreen = require("src.ui.loading_screen")
 
 local UIManager
 local screen = "start"
 local startScreen
+local loadingScreen = LoadingScreen.new()
 
 local minFrameTime = 1 / Constants.TIMING.FPS_60
 local lastFrameTime = 0
@@ -23,6 +25,7 @@ local function configureInput()
         startScreen = startScreen,
         UIManager = UIManager,
         setScreen = love.setScreen,
+        loadingScreen = loadingScreen,
     })
 end
 
@@ -89,6 +92,8 @@ end
 
 function love.load()
     local Log = require('src/core/log')
+    Log.info("Game Identity:", love.filesystem.getIdentity())
+    Log.info("LÖVE Save Directory:", love.filesystem.getSaveDirectory())
     Log.setLevel('debug')
     Log.clearDebugWhitelist()
     seedRandom()
@@ -98,7 +103,7 @@ function love.load()
     local Log = require("src.core.log")
     Log.setLevel("warn")
     Log.setDebugWhitelist(nil)
-    Log.setInfoEnabled(false)
+    Log.setInfoEnabled(true) -- Enable info logs for better feedback
 
     local SettingsModule = require("src.core.settings")
     local km = SettingsModule.getKeymap() or {}
@@ -146,6 +151,9 @@ function love.update(dt)
   -- Update debug panel
   DebugPanel.update(dt)
   
+  -- Update loading screen
+  loadingScreen:update(dt)
+  
   if screen == "start" then
     if startScreen and startScreen.update then
       startScreen:update(dt)
@@ -166,6 +174,9 @@ function love.draw()
     Game.draw()
   end
   Viewport.finish()
+  
+  -- Draw loading screen on top of everything
+  loadingScreen:draw()
   
   -- Calculate and set draw time (in ms)
   local drawTime = (love.timer.getTime() - drawStart) * 1000

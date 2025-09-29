@@ -16,7 +16,8 @@ function SaveLoad:new(options)
     o.onClose = options and options.onClose
 
     o.saveSlots = SaveSlots:new({
-        onClose = o.onClose
+        onClose = o.onClose,
+        disableSave = options and options.disableSave or false
     })
 
     local preferredW, preferredH = o.saveSlots:getPreferredSize()

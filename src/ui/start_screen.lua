@@ -21,6 +21,10 @@ local startScreenHandler = function(self, x, y, button)
 
   -- Load Game button click
   if Theme.handleButtonClick(self.loadButton, x, y, function()
+    -- Explicitly refresh the save slots from disk before showing the UI
+    if self.loadSlotsUI and self.loadSlotsUI.saveSlots and self.loadSlotsUI.saveSlots._ensureCache then
+        self.loadSlotsUI.saveSlots:_ensureCache()
+    end
     self.showLoadUI = true
   end) then
     return false -- don't start game, show load UI
@@ -134,9 +138,11 @@ function Start.new()
   self.loadSlotsUI = SaveLoad:new({
     onClose = function()
       self.showLoadUI = false
-    end
+    end,
+    disableSave = true
   })
   self.showLoadUI = false
+  self.loadedSlot = nil -- Store the slot that was loaded
   -- Cache large title font (Press Start 2P)
   self.titleFont = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", 80)
   self.titleFont:setFilter('nearest', 'nearest', 1)
@@ -393,7 +399,27 @@ function Start:mousepressed(x, y, button)
     end
 
     -- Handle content area clicks
-    if self.loadSlotsUI:mousepressed(x, y, button) then
+    local loadResult = self.loadSlotsUI:mousepressed(x, y, button)
+    if loadResult then
+      if loadResult == "loaded" then
+        -- Game was successfully loaded, close the load UI and start the game
+        self.showLoadUI = false
+        -- Get the selected slot name and extract slot number
+        local selectedSlotName = self.loadSlotsUI.saveSlots:getSelectedSlotName()
+        if selectedSlotName then
+          local slotNumber = selectedSlotName:match("slot(%d+)")
+          if slotNumber then
+            self.loadedSlot = tonumber(slotNumber)
+            return "loadGame" -- Signal to load the game
+          end
+        end
+        return true -- Fallback to start new game
+      elseif loadResult == "autosaveLoaded" then
+        -- Auto-save was successfully loaded, close the load UI and start the game
+        self.showLoadUI = false
+        self.loadedSlot = "autosave" -- Special marker for autosave
+        return "loadGame" -- Signal to load the game
+      end
       return false -- Click was handled by the panel; do not start game
     end
 

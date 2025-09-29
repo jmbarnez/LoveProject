@@ -6,7 +6,8 @@ local StateManager = {}
 
 -- Configuration
 local SAVE_VERSION = "1.0.0"
-local SAVE_DIRECTORY = "saves"
+-- Use the proper Love2D save directory
+local SAVE_DIRECTORY = "saves/"
 local AUTO_SAVE_INTERVAL = 30 -- seconds
 local MAX_SAVE_SLOTS = 10
 local AUTO_SAVE_SLOT = "autosave"
@@ -17,6 +18,63 @@ local currentPlayer = nil
 local currentWorld = nil
 local saveEnabled = true
 
+-- Get current player
+function StateManager.getCurrentPlayer()
+  return currentPlayer
+end
+
+-- Validate save file structure
+function StateManager.validateSaveFile(saveData)
+  if not saveData or type(saveData) ~= "table" then
+    return false, "Save data is not a valid table"
+  end
+
+  -- Check required top-level fields
+  local requiredFields = {"version", "player", "metadata", "timestamp"}
+  for _, field in ipairs(requiredFields) do
+    if not saveData[field] then
+      return false, "Missing required field: " .. field
+    end
+  end
+
+  -- Validate version
+  if type(saveData.version) ~= "string" then
+    return false, "Version field must be a string"
+  end
+
+  -- Validate player data
+  if not saveData.player or type(saveData.player) ~= "table" then
+    return false, "Player data is missing or invalid"
+  end
+
+  -- Validate metadata
+  if not saveData.metadata or type(saveData.metadata) ~= "table" then
+    return false, "Metadata is missing or invalid"
+  end
+
+  -- Check for critical player data
+  local player = saveData.player
+  if not player or type(player) ~= "table" then
+    return false, "Player data is missing or invalid"
+  end
+
+  -- Check for essential player fields (the save format uses a flat structure, not components)
+  if not player.position or type(player.position) ~= "table" then
+    return false, "Player position data is missing"
+  end
+  
+  if not player.position.x or not player.position.y then
+    return false, "Player position coordinates are missing"
+  end
+
+  -- Validate timestamp
+  if type(saveData.timestamp) ~= "number" or saveData.timestamp <= 0 then
+    return false, "Timestamp is invalid"
+  end
+
+  return true
+end
+
 -- Initialize the state manager
 function StateManager.init(player, world)
   currentPlayer = player
@@ -24,7 +82,15 @@ function StateManager.init(player, world)
   
   -- Ensure save directory exists
   if not love.filesystem.getInfo(SAVE_DIRECTORY) then
-    love.filesystem.createDirectory(SAVE_DIRECTORY)
+    Log.info("StateManager: Creating save directory at '" .. SAVE_DIRECTORY .. "'")
+    local success, msg = love.filesystem.createDirectory(SAVE_DIRECTORY)
+    if not success then
+        Log.error("StateManager: FAILED to create save directory. Reason: " .. (msg or "unknown"))
+    else
+        Log.info("StateManager: Save directory created successfully.")
+    end
+  else
+    Log.info("StateManager: Save directory already exists at '" .. SAVE_DIRECTORY .. "'")
   end
   
   Log.debug("State Manager initialized")
@@ -241,9 +307,9 @@ local function createGameFromSave(state)
     return false
   end
 
-  -- Create basic player entity
-  local EntityFactory = require("src.templates.entity_factory")
-  local player = EntityFactory.createPlayer(playerData.shipId or "starter_frigate_basic", 0, 0)
+  -- Create player entity using the proper Player constructor
+  local Player = require("src.entities.player")
+  local player = Player.new(0, 0, playerData.shipId or "starter_frigate_basic")
   if not player then
     Log.error("Failed to create player entity")
     return false
@@ -335,6 +401,13 @@ function StateManager.saveGame(slotName, description)
   -- Serialize to JSON
   local json = require("src.libs.json")
   local saveData = json.encode(state)
+
+  if not saveData or saveData == "" then
+    Log.error("StateManager: Failed to save game because JSON encoding resulted in empty data.")
+    return nil
+  end
+  
+  Log.info("StateManager: Attempting to write save file to '" .. filename .. "'")
   
   -- Write to file
   local success, error = love.filesystem.write(filename, saveData)
@@ -356,10 +429,10 @@ function StateManager.saveGame(slotName, description)
       state = state
     })
     
-    return true
+    return state
   else
     Log.error("Failed to save game:", error)
-    return false
+    return nil
   end
 end
 
@@ -391,6 +464,20 @@ function StateManager.loadGame(slotName, createNewGame)
     return false
   end
 
+  -- Validate save file structure
+  local valid, error = StateManager.validateSaveFile(state)
+  if not valid then
+    Log.error("Save file validation failed:", error)
+    return false
+  end
+
+  -- Ensure content is loaded before creating entities
+  local Content = require("src.content.content")
+  if not Content.byId.ship or not next(Content.byId.ship) then
+    Log.debug("Loading content before creating game from save")
+    Content.load()
+  end
+
   -- If no current player/world exists, we need to create them from save data
   local loaded
   if not currentPlayer or not currentWorld or createNewGame then
@@ -414,18 +501,26 @@ function StateManager.getSaveSlots()
   local slots = {}
   local files = love.filesystem.getDirectoryItems(SAVE_DIRECTORY)
   
+  Log.info("StateManager: Checking for save files...")
+  
+  if #files == 0 then
+    Log.info("StateManager: No files found in save directory.")
+  end
+
   for _, file in ipairs(files) do
     if file:match("%.json$") then
       local slotName = file:gsub("%.json$", "")
       local filename = SAVE_DIRECTORY .. file
       
       -- Try to read save metadata
-      local saveData = love.filesystem.read(filename)
+      local saveData, size = love.filesystem.read(filename)
       if saveData then
+        Log.info("StateManager: Found file: " .. filename .. " (size: " .. (size or 0) .. "). Validating...")
         local json = require("src.libs.json")
         local success, state = pcall(json.decode, saveData)
         
         if success and state.metadata then
+          Log.info("StateManager: -> VALID. Adding '" .. slotName .. "' to list.")
           table.insert(slots, {
             name = slotName,
             description = state.metadata.description,
@@ -435,13 +530,19 @@ function StateManager.getSaveSlots()
             playerCredits = state.metadata.playerCredits,
             playTime = state.metadata.playTime
           })
+        else
+            Log.warn("StateManager: -> INVALID. Could not parse JSON or find metadata in " .. filename)
         end
+      else
+        Log.warn("StateManager: Found file, but could not read contents: " .. filename)
       end
     end
   end
   
+  Log.info("StateManager: Found " .. #slots .. " valid save slots.")
+  
   -- Sort by timestamp (newest first)
-  table.sort(slots, function(a, b) return a.timestamp > b.timestamp end)
+  table.sort(slots, function(a, b) return (a.timestamp or 0) > (b.timestamp or 0) end)
   
   return slots
 end

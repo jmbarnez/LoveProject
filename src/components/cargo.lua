@@ -38,9 +38,9 @@ end
 
 function Cargo:serialize()
     local data = {
-        capacity = self.capacity,
-        stackLimit = self.stackLimit,
-        massLimit = self.massLimit,
+        capacity = self.capacity == math.huge and "inf" or self.capacity,
+        stackLimit = self.stackLimit == math.huge and "inf" or self.stackLimit,
+        massLimit = self.massLimit == math.huge and "inf" or self.massLimit,
         currentMass = self.currentMass,
         order = Util.deepCopy(self.order),
         stacks = {}
@@ -57,9 +57,9 @@ end
 
 function Cargo.deserialize(data)
     local component = Cargo.new({
-        capacity = data and data.capacity,
-        stackLimit = data and data.stackLimit,
-        massLimit = data and data.massLimit
+        capacity = data and (data.capacity == "inf" and math.huge or data.capacity),
+        stackLimit = data and (data.stackLimit == "inf" and math.huge or data.stackLimit),
+        massLimit = data and (data.massLimit == "inf" and math.huge or data.massLimit)
     })
     component.currentMass = data and data.currentMass or 0
     if data and type(data.stacks) == "table" then

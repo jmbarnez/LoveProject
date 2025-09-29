@@ -7,9 +7,10 @@ local WreckageComponent = require("src.components.wreckage")
 
 local Wreckage = {}
 
-local function buildFragments(visuals)
+local function buildFragments(visuals, sizeScale)
   local frags = {}
   visuals = visuals or {}
+  sizeScale = sizeScale or 1.0
   local palette = {}
   -- Collect colors from ship visuals palette or shapes
   if visuals.hullColor then table.insert(palette, visuals.hullColor) end
@@ -26,13 +27,15 @@ local function buildFragments(visuals)
     }
   end
 
-  -- Create 1-3 shard polygons per piece
+  -- Create 1-3 shard polygons per piece, scaled by ship size
   local shardCount = 1 + math.random(0, 2)
   local totalR = 0
   local totalShards = 0
   for i = 1, shardCount do
     local c = palette[math.random(1, #palette)]
-    local r = 4 + math.random() * 8
+    -- Scale fragment size based on ship size
+    local baseR = 4 + math.random() * 8
+    local r = baseR * sizeScale
     totalR = totalR + r
     totalShards = totalShards + 1
     local a0 = math.random() * math.pi * 2
@@ -55,11 +58,11 @@ local function buildFragments(visuals)
     -- Outline
     table.insert(frags, { type = "polygon", mode = "line", color = {0,0,0,0.25}, points = pts })
   end
-  local avgR = (totalShards > 0) and (totalR / totalShards) or 6
+  local avgR = (totalShards > 0) and (totalR / totalShards) or (6 * sizeScale)
   return frags, avgR
 end
 
-local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals)
+local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, sizeScale)
   local e = { components = {} }
   e.components.position = Position.new({ x = px, y = py, angle = angle or 0 })
   e.components.physics = Physics.new({
@@ -70,11 +73,11 @@ local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals)
   e.components.physics.body.dragCoefficient = 0.995
   e.components.physics.body:setVelocity(vx, vy)
   e.components.physics.body.angularVel = angularVel or 0
-  local fragments, avgR = buildFragments(visuals)
+  local fragments, avgR = buildFragments(visuals, sizeScale)
   e.components.renderable = Renderable.new({
     type = "wreckage",
     props = {
-      size = (visuals and visuals.size) or 1.0,
+      size = ((visuals and visuals.size) or 1.0) * (sizeScale or 1.0),
       visuals = visuals,
       fragments = fragments
     }
@@ -85,8 +88,8 @@ local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals)
   e.radius = e.size * 10
   -- Provide ECS collidable radius to remove legacy fallbacks
   e.components.collidable = Collidable.new({ radius = e.radius })
-  -- Salvage fields and methods
-  local sizeHint = (avgR or 6) * ((visuals and visuals.size) or 1.0)
+  -- Salvage fields and methods - scale salvage amount with ship size
+  local sizeHint = (avgR or 6) * ((visuals and visuals.size) or 1.0) * (sizeScale or 1.0)
   e.components.wreckage = WreckageComponent.new({
       resourceType = "scraps",
       salvageAmount = math.max(5, math.floor(sizeHint)), -- Increased minimum and multiplier for more durability
@@ -145,7 +148,7 @@ function Wreckage.spawnFromEnemy(originPos, visuals, sizeScale)
     local lifetime = 600 -- seconds
     local px = ox
     local py = oy
-    table.insert(pieces, newPiece(px, py, vx, vy, math.random() * math.pi * 2, angularVel, lifetime, visuals))
+    table.insert(pieces, newPiece(px, py, vx, vy, math.random() * math.pi * 2, angularVel, lifetime, visuals, sizeScale))
     if pieceLoot then
       for _, stack in ipairs(pieceLoot) do
         local angle = math.random() * math.pi * 2

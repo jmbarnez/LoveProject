@@ -28,15 +28,50 @@ function PlayerSystem.init(world)
   
   Events.on('player_respawn', function(event)
     local player = event.player
+    Log.debug("PlayerSystem - player_respawn event received for player:", player and player.id or "unknown")
     player.docked = false
     player.weaponsDisabled = false
     player.iFrames = 0
     player.canWarp = false
+    -- Ensure player is not frozen or stuck
+    player.dead = false
+    player.frozen = false
+    Log.debug("PlayerSystem - Player respawned, state reset. docked:", player.docked, "frozen:", player.frozen)
   end)
 end
 
 function PlayerSystem.update(dt, player, input, world, hub)
-    if not player or player.docked then return end
+    if not player then 
+        Log.warn("PlayerSystem - No player entity provided")
+        return 
+    end
+    
+    -- Comprehensive debug logging for respawn issues
+    local debugInfo = {
+        docked = player.docked,
+        dead = player.dead,
+        frozen = player.frozen,
+        weaponsDisabled = player.weaponsDisabled,
+        hasPhysics = player.components and player.components.physics ~= nil,
+        hasBody = player.components and player.components.physics and player.components.physics.body ~= nil
+    }
+    
+    -- Log detailed state only if there's an issue
+    if debugInfo.docked or not debugInfo.hasBody then
+        Log.warn("PlayerSystem - Issue detected:", 
+            "docked=", debugInfo.docked,
+            "dead=", debugInfo.dead, 
+            "frozen=", debugInfo.frozen,
+            "weaponsDisabled=", debugInfo.weaponsDisabled,
+            "hasPhysics=", debugInfo.hasPhysics,
+            "hasBody=", debugInfo.hasBody
+        )
+    end
+    
+    if player.docked then 
+        Log.warn("PlayerSystem - Player is docked, skipping update")
+        return 
+    end
     
     -- Call the player's update method if it exists
     if type(player.update) == "function" then
@@ -66,6 +101,11 @@ function PlayerSystem.update(dt, player, input, world, hub)
     local ppos = player.components.position
     local body = player.components.physics and player.components.physics.body
     
+    -- Debug physics body state (only if missing)
+    if not body then
+        Log.warn("PlayerSystem - No physics body found for player after respawn!")
+    end
+    
     -- Reset thrust state tracking for visual effects
     player.thrusterState.forward = 0      -- W key thrust forward
     player.thrusterState.reverse = 0      -- S key reverse thrust  
@@ -76,6 +116,7 @@ function PlayerSystem.update(dt, player, input, world, hub)
     player.thrusterState.isThrusting = false  -- Overall thrusting state
     
     if not body then
+        Log.warn("PlayerSystem - No physics body found for player, skipping update")
         return
     end
     -- Block gameplay controls when a modal UI is active (e.g., escape menu)
@@ -106,6 +147,16 @@ function PlayerSystem.update(dt, player, input, world, hub)
     -- Boost is now an action hotkey: hold Shift = thrusters
     local braking = (not modalActive) and love.keyboard.isDown("space") or false
     local boostHeld = (not modalActive) and (love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift")) or false
+    
+    -- Debug input state (only log if input is detected but player is stuck)
+    if (w or s or a or d) and (body.vx == 0 and body.vy == 0) then
+        Log.warn("PlayerSystem - Input detected but player not moving! w=", w, "s=", s, "a=", a, "d=", d)
+        
+        -- Temporary test: force movement to see if physics body responds
+        Log.warn("PlayerSystem - Testing forced movement...")
+        body.vx = body.vx + 100
+        body.vy = body.vy + 100
+    end
 
     local h = player.components and player.components.health
     local boosting = (boostHeld and ((not h) or ((h.energy or 0) > 0))) or false
@@ -271,7 +322,20 @@ function PlayerSystem.update(dt, player, input, world, hub)
             player.components.position.x = b.x
             player.components.position.y = b.y
             player.components.position.angle = b.angle
+            
+            -- Debug physics body state only if there's an issue
+            if b.vx == 0 and b.vy == 0 and (w or s or a or d) then
+                Log.warn("PlayerSystem - Input detected but no movement:",
+                    "x=", b.x, "y=", b.y,
+                    "vx=", b.vx, "vy=", b.vy,
+                    "angle=", b.angle
+                )
+            end
+        else
+            Log.warn("PlayerSystem - Physics body is nil after update!")
         end
+    else
+        Log.warn("PlayerSystem - Physics component missing or no update method!")
     end
 
     -- World boundaries enforced globally in game.lua

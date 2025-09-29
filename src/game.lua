@@ -93,16 +93,32 @@ end
 -- All legacy update functions are being removed.
 -- Their logic will be handled by dedicated systems in the future.
 
-function Game.load(fromSave, saveSlot)
+function Game.load(fromSave, saveSlot, loadingScreen)
   Log.setInfoEnabled(true)
+  
+  local function updateProgress(step, description)
+    if loadingScreen then
+      loadingScreen:setProgress(step, description)
+    end
+  end
+  
+  -- Step 1: Load content
+  updateProgress(0.1, "Loading content...")
   Content.load()
+  
+  -- Step 2: Initialize systems
+  updateProgress(0.2, "Initializing systems...")
   HotbarSystem.load()
   NodeMarket.init()
   PortfolioManager.init()
+  
+  -- Step 3: Setup input
+  updateProgress(0.3, "Setting up input...")
   -- Use custom reticle instead of system cursor in-game
   if love and love.mouse and love.mouse.setVisible then love.mouse.setVisible(false) end
 
-  -- Initialize sound system
+  -- Step 4: Initialize sound system
+  updateProgress(0.4, "Loading sounds...")
   local soundConfig = require("content.sounds.sounds")
   for event, config in pairs(soundConfig.events) do
     if config.type == "sfx" then
@@ -111,17 +127,16 @@ function Game.load(fromSave, saveSlot)
       Sound.attachMusic(event, config.sound, {fadeIn = config.fadeIn})
     end
   end
-  -- Log.info("Sound system initialized") -- muted at warn level
 
-  -- Start ambient space music
-  Sound.triggerEvent('game_start')
-
+  -- Step 5: Create world
+  updateProgress(0.5, "Creating world...")
   world = World.new(Constants.WORLD.WIDTH, Constants.WORLD.HEIGHT)
   -- Add spawnProjectile function to world so turrets can spawn projectiles
   world.spawn_projectile = spawn_projectile
   camera = Camera.new()
 
-  -- Create the main hub station in the top-left safe quadrant
+  -- Step 6: Create stations
+  updateProgress(0.6, "Creating stations...")
   hub = EntityFactory.create("station", "hub_station", 5000, 5000)
   if hub then
     world:addEntity(hub)
@@ -129,7 +144,6 @@ function Game.load(fromSave, saveSlot)
     Log.error("Failed to create hub station")
     return false
   end
-
 
   -- Create a beacon station to protect the top-left quadrant from enemy spawning
   local beacon_station = EntityFactory.create("station", "beacon_station", 7500, 7500)
@@ -140,6 +154,8 @@ function Game.load(fromSave, saveSlot)
     return false
   end
 
+  -- Step 7: Create world objects
+  updateProgress(0.7, "Creating world objects...")
   -- Add a massive background planet at the world center
   do
     -- Place the planet at the center of the world (15000, 15000)
@@ -153,7 +169,8 @@ function Game.load(fromSave, saveSlot)
     end
   end
 
-  -- Create a single warp gate far from stations but within world bounds
+  -- Step 8: Create warp gate
+  updateProgress(0.8, "Creating warp gate...")
   do
     -- Place warp gate in a clear area away from all stations
     -- Hub is at (5000, 5000), beacon at (7500, 7500)
@@ -173,22 +190,38 @@ function Game.load(fromSave, saveSlot)
     end
   end
 
-  -- Spawn the player
+  -- Step 9: Spawn the player
+  updateProgress(0.9, "Spawning player...")
   local spawn_margin = assert(Config.SPAWN and Config.SPAWN.STATION_BUFFER, "Config.SPAWN.STATION_BUFFER is required") or Constants.SPAWNING.STATION_BUFFER
 
   -- Handle loading from save vs starting new game
   if fromSave and saveSlot then
     -- Load player from save data
     local StateManager = require("src.managers.state_manager")
-    local slotName = "slot" .. saveSlot
-    local success = StateManager.loadGame(slotName, true)
+    local slotName = (type(saveSlot) == "string") and saveSlot or ("slot" .. saveSlot)
+    
+    -- Use pcall for better error handling
+    local success, error = pcall(StateManager.loadGame, slotName, true)
     if not success then
-      Log.error("Failed to load game from slot " .. saveSlot)
+      Log.error("Save load failed with error:", error)
+      -- Show user-friendly error message
+      local Notifications = require("src.ui.notifications")
+      Notifications.add("Save file corrupted or incompatible", "error")
       return false
     end
-    player = StateManager.currentPlayer
+    
+    if not error then -- StateManager.loadGame returns the loaded state or false
+      Log.error("Failed to load game from " .. slotName)
+      local Notifications = require("src.ui.notifications")
+      Notifications.add("Save file not found or invalid", "error")
+      return false
+    end
+    
+    player = StateManager.getCurrentPlayer()
     if not player then
       Log.error("Failed to get player from save data")
+      local Notifications = require("src.ui.notifications")
+      Notifications.add("Save file missing player data", "error")
       return false
     end
   else
@@ -316,6 +349,14 @@ function Game.load(fromSave, saveSlot)
   
   -- Enable event debug logging temporarily
   -- Events.setDebug(true) -- Disabled to reduce console spam
+  
+  -- Step 10: Complete
+  updateProgress(1.0, "Complete!")
+  if loadingScreen then
+    loadingScreen:setComplete()
+  end
+  
+  return true
 end
 
 function Game.update(dt)
@@ -347,7 +388,7 @@ function Game.update(dt)
     collisionSystem:update(world, dt)
     -- Process deaths: spawn effects, wreckage, loot before cleanup
     local gameState = { bounty = bounty }
-    DestructionSystem.update(world, gameState)
+    DestructionSystem.update(world, gameState, hub)
     SpawningSystem.update(dt, player, hub, world)
     RepairSystem.update(dt, player, world)
     SpaceStationSystem.update(dt, hub)

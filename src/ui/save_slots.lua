@@ -1,7 +1,7 @@
 local Theme = require("src.core.theme")
 local StateManager = require("src.managers.state_manager")
 
-local DEFAULT_SLOT_COUNT = 6
+local DEFAULT_SLOT_COUNT = 3
 
 local SaveSlots = {}
 
@@ -12,6 +12,7 @@ function SaveSlots:new(options)
 
     o.slotCount = options and options.slotCount or DEFAULT_SLOT_COUNT
     o.onClose = options and options.onClose
+    o.disableSave = options and options.disableSave or false
     o.selectedSlot = nil -- numeric index (1-based)
     o._slotOrder = {}
     for i = 1, o.slotCount do
@@ -25,13 +26,45 @@ function SaveSlots:new(options)
     -- reflects changes performed elsewhere in the app (or by this panel).
     local Events = require("src.core.events")
     Events.on("game_saved", function(data)
-        -- If a save was written, refresh our cache so the new slot shows up
-        if data and data.slotName then
-            o._cacheDirty = true
-            o._slotLookup = nil
-            o._allSlots = nil
-            -- Safe pcall in case UI isn't ready for immediate refresh
-            pcall(function() o:_ensureCache() end)
+        if data and data.slotName and data.state and data.state.metadata then
+            -- To avoid filesystem race conditions, immediately inject the new save data
+            -- into the cache from the event payload. This makes the UI update instantly.
+            if not o._slotLookup then o._slotLookup = {} end
+            if not o._allSlots then o._allSlots = {} end
+
+            local newSlotData = {
+                name = data.slotName,
+                description = data.state.metadata.description,
+                timestamp = data.state.timestamp,
+                realTime = data.state.realTime,
+                playerLevel = data.state.metadata.playerLevel,
+                playerCredits = data.state.metadata.playerCredits,
+                playTime = data.state.metadata.playTime
+            }
+
+            -- Update or insert into the lookup table
+            o._slotLookup[data.slotName] = newSlotData
+            
+            -- Update or insert into the list of all slots
+            local found = false
+            for i, slot in ipairs(o._allSlots) do
+                if slot.name == data.slotName then
+                    o._allSlots[i] = newSlotData
+                    found = true
+                    break
+                end
+            end
+            if not found then
+                table.insert(o._allSlots, newSlotData)
+            end
+
+            -- Re-sort the list by timestamp to ensure the new save is at the top
+            table.sort(o._allSlots, function(a, b) return (a.timestamp or 0) > (b.timestamp or 0) end)
+
+            -- The cache is now clean because we've manually updated it.
+            -- This prevents _ensureCache from immediately overwriting our work
+            -- with stale data from the filesystem.
+            o._cacheDirty = false
         end
     end)
     Events.on("game_save_deleted", function(data)
@@ -39,7 +72,7 @@ function SaveSlots:new(options)
             o._cacheDirty = true
             o._slotLookup = nil
             o._allSlots = nil
-            pcall(function() o:_ensureCache() end)
+            -- Don't call _ensureCache() immediately - let the next draw call handle it
         end
     end)
 
@@ -47,6 +80,12 @@ function SaveSlots:new(options)
 end
 
 function SaveSlots:_ensureCache()
+    -- If we saved within the last second, don't immediately re-read from disk,
+    -- as the filesystem might not have caught up yet. The cache is already fresh.
+    if self._lastSaveTimestamp and (love.timer.getTime() - self._lastSaveTimestamp < 1) then
+        return
+    end
+
     if not self._cacheDirty and self._slotLookup then
         return
     end
@@ -193,11 +232,18 @@ function SaveSlots:draw(x, y, w, h)
     local hasSelectedSlot = selectedSlotName ~= nil
     local selectedSlotData = hasSelectedSlot and self._slotLookup[selectedSlotName] or nil
 
-    drawButtonRect(buttonFont, buttonPaddingX, buttonPaddingY, buttonRowX, currentY, saveButtonW, saveButtonH, Theme.colors.success, saveLabel, hasSelectedSlot)
+    local saveButtonEnabled = hasSelectedSlot and not self.disableSave
+    local saveButtonColor = self.disableSave and Theme.colors.textSecondary or Theme.colors.success
+    drawButtonRect(buttonFont, buttonPaddingX, buttonPaddingY, buttonRowX, currentY, saveButtonW, saveButtonH, saveButtonColor, saveLabel, saveButtonEnabled)
     layout.saveButton = { x = buttonRowX, y = currentY, w = saveButtonW, h = saveButtonH }
 
-    drawButtonRect(buttonFont, buttonPaddingX, buttonPaddingY, buttonRowX + saveButtonW + buttonSpacing, currentY, loadButtonW, loadButtonH, Theme.colors.info, loadLabel, selectedSlotData ~= nil)
+    local loadButtonEnabled = selectedSlotData ~= nil
+    local loadButtonColor = selectedSlotData and Theme.colors.info or Theme.colors.textSecondary
+    drawButtonRect(buttonFont, buttonPaddingX, buttonPaddingY, buttonRowX + saveButtonW + buttonSpacing, currentY, loadButtonW, loadButtonH, loadButtonColor, loadLabel, loadButtonEnabled)
     layout.loadButton = { x = buttonRowX + saveButtonW + buttonSpacing, y = currentY, w = loadButtonW, h = loadButtonH }
+    
+    -- Store the selected data in the layout for the mousepressed function
+    layout.selectedSlotData = selectedSlotData
 
     currentY = currentY + math.max(saveButtonH, loadButtonH) + lineHeight * 1.5
 
@@ -342,48 +388,90 @@ function SaveSlots:mousepressed(mx, my, button)
     local selectedData = selectedSlotName and self._slotLookup and self._slotLookup[selectedSlotName] or nil
 
     if pointInRect(mx, my, layout.saveButton) then
+        if self.disableSave then
+            return "noop" -- Save button is disabled
+        end
         if not selectedSlotName then
             return "noop"
         end
 
         local description = string.format("Manual save - %s", os.date("%Y-%m-%d %H:%M:%S"))
-        local success = StateManager.saveGame(selectedSlotName, description)
-        if success then
-            self._cacheDirty = true
-            -- Force refresh of the cached slot list so the UI reflects the new save immediately
-            self._slotLookup = nil
-            self._allSlots = nil
-            self:_ensureCache()
-            -- Show success notification
+        local savedState = StateManager.saveGame(selectedSlotName, description)
+        
+        if savedState then
+            -- Update the UI cache directly with the returned save data
+            local newSlotData = {
+                name = selectedSlotName,
+                description = savedState.metadata.description,
+                timestamp = savedState.timestamp,
+                realTime = savedState.realTime,
+                playerLevel = savedState.metadata.playerLevel,
+                playerCredits = savedState.metadata.playerCredits,
+                playTime = savedState.metadata.playTime
+            }
+            if not self._slotLookup then self._slotLookup = {} end
+            self._slotLookup[selectedSlotName] = newSlotData
+
+            if not self._allSlots then self._allSlots = {} end
+            local found = false
+            for i, slot in ipairs(self._allSlots) do
+                if slot.name == selectedSlotName then
+                    self._allSlots[i] = newSlotData
+                    found = true
+                    break
+                end
+            end
+            if not found then
+                table.insert(self._allSlots, newSlotData)
+            end
+            table.sort(self._allSlots, function(a, b) return (a.timestamp or 0) > (b.timestamp or 0) end)
+            
+            -- Cache is now clean, and we should not immediately re-read from disk
+            self._cacheDirty = false
+
+            -- Add a timestamp to prevent stale data from being loaded if the panel
+            -- is quickly closed and reopened before the filesystem write completes.
+            self._lastSaveTimestamp = love.timer.getTime()
+
             local Notifications = require("src.ui.notifications")
             Notifications.add("Game saved to slot " .. selectedSlotName, "action")
             return "saved"
+        else
+            local Notifications = require("src.ui.notifications")
+            Notifications.add("Failed to save game", "error")
+            return "saveFailed"
         end
-        -- Show failure notification
-        local Notifications = require("src.ui.notifications")
-        Notifications.add("Failed to save game", "error")
-        return "saveFailed"
     end
 
     if pointInRect(mx, my, layout.loadButton) then
-        if not selectedSlotName or not selectedData then
+        if not selectedSlotName then
+            local Notifications = require("src.ui.notifications")
+            Notifications.add("Please select a slot first", "warning")
             return "noop"
         end
-        local loaded = StateManager.loadGame(selectedSlotName)
-        if loaded then
+        if not layout.selectedSlotData then
+            local Notifications = require("src.ui.notifications")
+            Notifications.add("No save data in slot " .. selectedSlotName, "warning")
+            return "noop"
+        end
+        local success, error = pcall(StateManager.loadGame, selectedSlotName)
+        if success and error then
             self._cacheDirty = true
-            -- Ensure slot list is refreshed to reflect any metadata changes
+            -- Mark cache as dirty - it will refresh on next draw call
             self._slotLookup = nil
             self._allSlots = nil
-            self:_ensureCache()
             -- Show success notification
             local Notifications = require("src.ui.notifications")
             Notifications.add("Game loaded from slot " .. selectedSlotName, "info")
             return "loaded"
         end
-        -- Show failure notification
+        -- Show failure notification with better error details
         local Notifications = require("src.ui.notifications")
-        Notifications.add("Failed to load game", "error")
+        if not success then
+            Notifications.add("Load failed: " .. tostring(error), "error")
+        else
+            Notifications.add("Save file corrupted or incompatible", "error")
+        end
         return "loadFailed"
     end
 
@@ -398,10 +486,9 @@ function SaveSlots:mousepressed(mx, my, button)
                     else
                         self._cacheDirty = true
                     end
-                    -- Refresh slot cache so deleted slot is removed from the UI immediately
+                    -- Mark cache as dirty - it will refresh on next draw call
                     self._slotLookup = nil
                     self._allSlots = nil
-                    self:_ensureCache()
                     -- Show success notification
                     local Notifications = require("src.ui.notifications")
                     Notifications.add("Save slot " .. slotName .. " deleted", "info")
@@ -423,21 +510,24 @@ function SaveSlots:mousepressed(mx, my, button)
     end
 
     if pointInRect(mx, my, layout.autosaveLoad) then
-        local loaded = StateManager.loadGame("autosave")
-        if loaded then
-            -- Refresh cache so autosave state is shown
+        local success, error = pcall(StateManager.loadGame, "autosave")
+        if success and error then
+            -- Mark cache as dirty - it will refresh on next draw call
             self._cacheDirty = true
             self._slotLookup = nil
             self._allSlots = nil
-            self:_ensureCache()
             -- Show success notification
             local Notifications = require("src.ui.notifications")
             Notifications.add("Auto-save loaded", "info")
             return "autosaveLoaded"
         end
-        -- Show failure notification
+        -- Show failure notification with better error details
         local Notifications = require("src.ui.notifications")
-        Notifications.add("Failed to load auto-save", "error")
+        if not success then
+            Notifications.add("Auto-save load failed: " .. tostring(error), "error")
+        else
+            Notifications.add("Auto-save file corrupted or missing", "error")
+        end
         return "loadFailed"
     end
 

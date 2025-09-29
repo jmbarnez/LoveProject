@@ -57,6 +57,8 @@ local function getEntityRendererType(entity)
                     e._rendererType = nil
                 end
             end
+            -- Actually clear the renderer cache to prevent memory leak
+            cachedRenderers = {}
         end
     end
     return entity._rendererType
@@ -142,12 +144,13 @@ function EntityRenderers.planet(entity, player)
         for i = 0, ringLayers - 1 do
             local t = i / math.max(1, (ringLayers - 1))
             local rr = ringInner + (ringOuter - ringInner) * t
-            local a = (ringColor or 0.28) * (0.6 + 0.4 * (1 - math.abs(0.5 - t) * 2))
-            love.graphics.setColor(ringColor, ringColor, ringColor, a)
+            local baseAlpha = (type(ringColor) == "table" and ringColor[4]) or 0.28
+            local a = baseAlpha * (0.6 + 0.4 * (1 - math.abs(0.5 - t) * 2))
+            love.graphics.setColor(ringColor[1], ringColor[2], ringColor[3], a)
             love.graphics.ellipse('line', 0, 0, S(rr), S(rr * ringFlatten))
         end
         -- Subtle brighter edge
-        love.graphics.setColor(ringEdgeColor)
+        love.graphics.setColor(ringEdgeColor[1], ringEdgeColor[2], ringEdgeColor[3], ringEdgeColor[4])
         love.graphics.ellipse('line', 0, 0, S(ringOuter), S(ringOuter * ringFlatten))
         love.graphics.pop()
     end
@@ -157,11 +160,12 @@ function EntityRenderers.planet(entity, player)
     love.graphics.circle('fill', 0, 0, S(R))
 
     -- Subtle bands/accents to add depth
-    RenderUtils.setColor({accentColor, accentColor, accentColor, (accentColor or 1) * 0.6})
+    local accentAlpha = (type(accentColor) == "table" and accentColor[4]) or 1.0
+    RenderUtils.setColor({accentColor[1], accentColor[2], accentColor[3], accentAlpha * 0.6})
     for i = -2, 2 do
         local ry = S(R * (0.72 + i * 0.06))
         local alpha = 0.05 + (0.03 * (2 - math.abs(i)))
-        love.graphics.setColor(accentColor, accentColor, accentColor, alpha)
+        love.graphics.setColor(accentColor[1], accentColor[2], accentColor[3], alpha)
         love.graphics.ellipse('fill', 0, 0, S(R * 0.96), ry)
     end
 
@@ -190,13 +194,14 @@ function EntityRenderers.planet(entity, player)
     end
 
     -- Atmosphere glow (optional)
-    if showAtmosphere and (atmosphereColor or 0) > 0 then
+    local atmosphereAlpha = (type(atmosphereColor) == "table" and atmosphereColor[4]) or 0.14
+    if showAtmosphere and atmosphereAlpha > 0 then
         local gLayers = 5
         for i = 1, gLayers do
             local t = i / gLayers
             local rr = S(R * (1.02 + t * 0.06))
-            local a = (atmosphereColor or 0.14) * (1.1 - t)
-            love.graphics.setColor(atmosphereColor, atmosphereColor, atmosphereColor, a)
+            local a = atmosphereAlpha * (1.1 - t)
+            love.graphics.setColor(atmosphereColor[1], atmosphereColor[2], atmosphereColor[3], a)
             love.graphics.circle('line', 0, 0, rr)
         end
     end
