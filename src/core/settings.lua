@@ -77,6 +77,7 @@ local Settings = {}
 
 local Log = require("src.core.log")
 local Constants = require("src.core.constants")
+local Util = require("src.core.util")
 
 local IconRenderer = require("src.content.icon_renderer")
 local defaultSettings = {} -- Will be populated with the initial settings
@@ -170,18 +171,7 @@ do
     end
 end
 
-do
-    local function deepcopy(orig)
-        local t = type(orig)
-        if t ~= 'table' then return orig end
-        local copy = {}
-        for k, v in pairs(orig) do
-            copy[k] = deepcopy(v)
-        end
-        return copy
-    end
-    defaultSettings = deepcopy(settings)
-end
+defaultSettings = Util.deepCopy(settings)
 
 function Settings.getGraphicsSettings()
     return settings.graphics
