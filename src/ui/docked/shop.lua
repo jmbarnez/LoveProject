@@ -141,7 +141,8 @@ function Shop.drawBuybackItems(DockedUI, x, y, w, h, player)
     end
     if DockedUI.hoverTimer > 0.5 then
       local mx, my = Viewport.getMousePosition()
-      Tooltip.drawItemTooltip(currentHoveredItem.item, mx, my)
+      local TooltipManager = require("src.ui.tooltip_manager")
+      TooltipManager.setTooltip(currentHoveredItem.item, mx, my)
     end
   else
     if not DockedUI.hoveredItem or (DockedUI.hoveredItem and not DockedUI.hoveredItem.x) then
@@ -150,6 +151,9 @@ function Shop.drawBuybackItems(DockedUI, x, y, w, h, player)
       DockedUI.hoveredItem = nil
       DockedUI.hoverTimer = 0
     end
+    -- Clear tooltip when not hovering
+    local TooltipManager = require("src.ui.tooltip_manager")
+    TooltipManager.clearTooltip()
   end
 end
 
@@ -202,7 +206,8 @@ function Shop.drawPlayerInventoryForSale(DockedUI, x, y, w, h, player)
     end
     if DockedUI.hoverTimer > 0.5 then
       local mx, my = Viewport.getMousePosition()
-      Tooltip.drawItemTooltip(currentHoveredItem.item, mx, my)
+      local TooltipManager = require("src.ui.tooltip_manager")
+      TooltipManager.setTooltip(currentHoveredItem.item, mx, my)
     end
   else
     DockedUI.hoveredItem = nil
@@ -311,11 +316,15 @@ function Shop.drawShopItems(DockedUI, x, y, w, h, player)
     end
     if DockedUI.hoverTimer > 0.5 then
       local mx, my = Viewport.getMousePosition()
-      Tooltip.drawItemTooltip(currentHoveredItem.item, mx, my)
+      local TooltipManager = require("src.ui.tooltip_manager")
+      TooltipManager.setTooltip(currentHoveredItem.item, mx, my)
     end
   else
     DockedUI.hoveredItem = nil
     DockedUI.hoverTimer = 0
+    -- Clear tooltip when not hovering
+    local TooltipManager = require("src.ui.tooltip_manager")
+    TooltipManager.clearTooltip()
   end
   love.graphics.setScissor()
   love.graphics.pop()

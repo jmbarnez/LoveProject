@@ -624,12 +624,16 @@ function Inventory.drawContent(window, x, y, w, h)
     Theme.setColor(Theme.colors.accentGold)
     love.graphics.print(creditText, x + w - creditWidth - 8, infoBarY + 3)
 
-    -- Draw tooltip
+    -- Register tooltip with tooltip manager
+    local TooltipManager = require("src.ui.tooltip_manager")
     if Inventory.hoveredItem and Inventory.hoverTimer > 0.1 and not Inventory.contextMenu.visible then
         local def = Inventory.hoveredItem.turretData or Content.getItem(Inventory.hoveredItem.id) or Content.getTurret(Inventory.hoveredItem.id)
         if def then
-            Tooltip.drawItemTooltip(def, mx, my)
+            TooltipManager.setTooltip(def, mx, my)
         end
+    else
+        -- Clear tooltip if not hovering or context menu is visible
+        TooltipManager.clearTooltip()
     end
 
     -- Draw context menu

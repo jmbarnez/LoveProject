@@ -19,8 +19,8 @@ function SaveSlots:new(options)
     for i = 1, o.slotCount do
         o._slotOrder[i] = string.format("slot%d", i)
     end
-    o._slotLookup = nil
-    o._allSlots = nil
+    o._slotLookup = {}
+    o._allSlots = {}
     o._cacheDirty = true
 
     -- Listen for global save/load/delete events and refresh cache so the UI
@@ -30,8 +30,7 @@ function SaveSlots:new(options)
         if data and data.slotName and data.state and data.state.metadata then
             -- To avoid filesystem race conditions, immediately inject the new save data
             -- into the cache from the event payload. This makes the UI update instantly.
-            if not o._slotLookup then o._slotLookup = {} end
-            if not o._allSlots then o._allSlots = {} end
+            -- _slotLookup and _allSlots are now initialized as empty tables in constructor
 
             local newSlotData = {
                 name = data.slotName,
@@ -71,8 +70,8 @@ function SaveSlots:new(options)
     Events.on("game_save_deleted", function(data)
         if data and data.slotName then
             o._cacheDirty = true
-            o._slotLookup = nil
-            o._allSlots = nil
+            o._slotLookup = {}
+            o._allSlots = {}
             -- Don't call _ensureCache() immediately - let the next draw call handle it
         end
     end)
@@ -87,6 +86,7 @@ function SaveSlots:_ensureCache()
         return
     end
 
+    -- Only skip cache refresh if cache is not dirty AND slotLookup is already initialized
     if not self._cacheDirty and self._slotLookup then
         return
     end
@@ -108,7 +108,7 @@ function SaveSlots:_ensureCache()
     if not self.selectedSlot then
         -- Prefer first occupied slot, otherwise default to slot 1
         for index, slotName in ipairs(self._slotOrder) do
-            if self._slotLookup[slotName] then
+            if self._slotLookup and self._slotLookup[slotName] then
                 self.selectedSlot = index
                 break
             end
@@ -231,7 +231,7 @@ function SaveSlots:draw(x, y, w, h)
 
     local selectedSlotName = self:getSelectedSlotName()
     local hasSelectedSlot = selectedSlotName ~= nil
-    local selectedSlotData = hasSelectedSlot and self._slotLookup[selectedSlotName] or nil
+    local selectedSlotData = hasSelectedSlot and self._slotLookup and self._slotLookup[selectedSlotName] or nil
 
     local saveButtonEnabled = hasSelectedSlot and not self.disableSave
     local saveButtonColor = self.disableSave and Theme.colors.textSecondary or Theme.colors.success
@@ -263,7 +263,7 @@ function SaveSlots:draw(x, y, w, h)
     for index, slotName in ipairs(self._slotOrder) do
         local slotY = currentY
         local slotRect = { x = x + 10, y = slotY, w = w - 20, h = slotHeight }
-        local slotData = self._slotLookup[slotName]
+        local slotData = self._slotLookup and self._slotLookup[slotName] or nil
         local isSelected = (self.selectedSlot == index)
 
         local bgColor
@@ -405,10 +405,8 @@ function SaveSlots:mousepressed(mx, my, button)
                 playerCredits = savedState.metadata.playerCredits,
                 playTime = savedState.metadata.playTime
             }
-            if not self._slotLookup then self._slotLookup = {} end
+            -- _slotLookup and _allSlots are now initialized as empty tables in constructor
             self._slotLookup[selectedSlotName] = newSlotData
-
-            if not self._allSlots then self._allSlots = {} end
             local found = false
             for i, slot in ipairs(self._allSlots) do
                 if slot.name == selectedSlotName then
@@ -454,8 +452,8 @@ function SaveSlots:mousepressed(mx, my, button)
         if success and error then
             self._cacheDirty = true
             -- Mark cache as dirty - it will refresh on next draw call
-            self._slotLookup = nil
-            self._allSlots = nil
+            self._slotLookup = {}
+            self._allSlots = {}
             -- Show success notification
             local Notifications = require("src.ui.notifications")
             Notifications.add("Game loaded from slot " .. selectedSlotName, "info")
@@ -483,8 +481,8 @@ function SaveSlots:mousepressed(mx, my, button)
                         self._cacheDirty = true
                     end
                     -- Mark cache as dirty - it will refresh on next draw call
-                    self._slotLookup = nil
-                    self._allSlots = nil
+                    self._slotLookup = {}
+                    self._allSlots = {}
                     -- Show success notification
                     local Notifications = require("src.ui.notifications")
                     Notifications.add("Save slot " .. slotName .. " deleted", "info")
@@ -510,8 +508,8 @@ function SaveSlots:mousepressed(mx, my, button)
         if success and error then
             -- Mark cache as dirty - it will refresh on next draw call
             self._cacheDirty = true
-            self._slotLookup = nil
-            self._allSlots = nil
+            self._slotLookup = {}
+            self._allSlots = {}
             -- Show success notification
             local Notifications = require("src.ui.notifications")
             Notifications.add("Auto-save loaded", "info")

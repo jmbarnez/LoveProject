@@ -535,6 +535,10 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
 
   Notifications.draw()
 
+  -- Draw tooltips on top of everything (highest priority)
+  local TooltipManager = require("src.ui.tooltip_manager")
+  TooltipManager.draw()
+
   -- Draw UI cursor when mouse is over UI elements (on top of all UI)
   local overUI = false
   for _, comp in ipairs(Registry.visibleSortedDescending()) do
