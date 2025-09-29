@@ -112,19 +112,15 @@ local function seedRandom()
 end
 
 function love.load()
-    local Log = require('src/core/log')
+    local Log = require("src.core.log")
+    Log.setLevel("info")
+    Log.setInfoEnabled(true) -- Ensure info-level logs are emitted during startup
+    Log.clearDebugWhitelist()
     Log.info("Game Identity:", love.filesystem.getIdentity())
     Log.info("LÖVE Save Directory:", love.filesystem.getSaveDirectory())
-    Log.setLevel('debug')
-    Log.clearDebugWhitelist()
     seedRandom()
     Settings.load()
     Sound.applySettings()
-
-    local Log = require("src.core.log")
-    Log.setLevel("warn")
-    Log.setDebugWhitelist(nil)
-    Log.setInfoEnabled(true) -- Enable info logs for better feedback
 
     local SettingsModule = require("src.core.settings")
     local km = SettingsModule.getKeymap() or {}
