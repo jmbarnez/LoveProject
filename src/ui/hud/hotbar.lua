@@ -4,6 +4,7 @@ local Content = require("src.content.content")
 local HotbarSystem = require("src.systems.hotbar")
 local Constants = require("src.core.constants")
 local Config = require("src.content.config")
+local UIUtils = require("src.ui.common.utils")
 
 local Hotbar = {}
 
@@ -17,15 +18,6 @@ local function getCombatValue(key)
 end
 
 -- HotbarSelection removed - slot assignment disabled
-
-local function pointInRect(px, py, r)
-  -- Handle nil values gracefully
-  if px == nil or py == nil or r == nil or r.x == nil or r.y == nil or r.w == nil or r.h == nil then
-    return false
-  end
-  return px >= r.x and py >= r.y and px <= r.x + r.w and py <= r.y + r.h
-end
-
 
 local IconSystem = require("src.core.icon_system")
 
@@ -202,8 +194,9 @@ function Hotbar.draw(player)
             local fOld = love.graphics.getFont()
             if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
             local font = love.graphics.getFont()
-            local fw = font:getWidth(text)
-            local fh = font:getHeight()
+            local metrics = UIUtils.getCachedTextMetrics(text, font)
+            local fw = metrics.width
+            local fh = metrics.height
             local tx, ty = rx + (size - fw) * 0.5, ry + (size - fh) * 0.5
             -- shadow for readability
             local Theme = require("src.core.theme")
@@ -239,8 +232,9 @@ function Hotbar.draw(player)
                 local fOld = love.graphics.getFont()
                 if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
                 local font = love.graphics.getFont()
-                local fw = font:getWidth(text)
-                local fh = font:getHeight()
+                local metrics = UIUtils.getCachedTextMetrics(text, font)
+                local fw = metrics.width
+                local fh = metrics.height
                 local tx, ty = rx + (size - fw) * 0.5, ry + (size - fh) * 0.5
                 local Theme = require("src.core.theme")
                 Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.7))
@@ -287,8 +281,9 @@ function Hotbar.draw(player)
             local fOld = love.graphics.getFont()
             if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
             local font = love.graphics.getFont()
-            local fw = font:getWidth(text)
-            local fh = font:getHeight()
+            local metrics = UIUtils.getCachedTextMetrics(text, font)
+            local fw = metrics.width
+            local fh = metrics.height
             local tx, ty = rx + (size - fw) * 0.5, ry + (size - fh) * 0.5
             -- shadow for readability
             local Theme = require("src.core.theme")
