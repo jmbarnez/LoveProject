@@ -167,6 +167,20 @@ local function handleObjectiveEvent(player, eventName, data)
                 end
             end
         end
+    elseif eventName == Events.GAME_EVENTS.WRECKAGE_SALVAGED then
+        if not data or (data.player and data.player ~= player) then return end
+        local resourceId = data.resourceId or "scraps"
+        local amount = data.amount or 1
+        if amount <= 0 then return end
+
+        for _, quest in ipairs(questLog.active) do
+            local objective = quest.objective
+            if objective and objective.type == "salvage" then
+                if targetMatches(objective.target, { resourceId }) then
+                    QuestSystem.addProgress(player, quest.id, amount)
+                end
+            end
+        end
     end
 end
 
@@ -204,6 +218,7 @@ function QuestSystem.init(player)
 
         subscribe(Events.GAME_EVENTS.ENTITY_DESTROYED)
         subscribe(Events.GAME_EVENTS.ASTEROID_MINED)
+        subscribe(Events.GAME_EVENTS.WRECKAGE_SALVAGED)
     end
 end
 

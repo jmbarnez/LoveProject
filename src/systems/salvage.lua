@@ -1,6 +1,7 @@
 local SalvageSystem = {}
 local Skills = require("src.core.skills")
 local Notifications = require("src.ui.notifications")
+local Events = require("src.core.events")
 
 function SalvageSystem.update(dt, world, player)
   for _, entity in ipairs(world:get_entities_with_components("wreckage", "timed_life")) do
@@ -23,6 +24,14 @@ function SalvageSystem.update(dt, world, player)
                     math.random(-80, 80)
                 )
                 table.insert(world.entities, pickup)
+
+                Events.emit(Events.GAME_EVENTS.WRECKAGE_SALVAGED, {
+                    player = player,
+                    amount = 1,
+                    resourceId = wreckage.resourceType or "scraps",
+                    wreckage = entity,
+                    wreckageId = entity.id
+                })
 
                 local xpBase = 10 -- base XP per salvaged resource
                 local salvagingLevel = Skills.getLevel("salvaging")
