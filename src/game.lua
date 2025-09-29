@@ -1,3 +1,13 @@
+--[[
+    Core game loop module.
+
+    This module stitches together the content pipeline, world simulation, and
+    rendering subsystems. Love2D hands us the update/draw hooks in main.lua;
+    here we translate those hooks into system updates, entity spawning, and
+    high-level gameplay orchestration. Keeping the heavy lifting in this file
+    makes it easier for future maintainers to reason about load order and
+    lifecycle events.
+]]
 
 local Util = require("src.core.util")
 local Config = require("src.content.config")
@@ -53,7 +63,14 @@ local hoveredEntityType = nil
 local collisionSystem
 
 
--- Projectile spawner using the EntityFactory
+--[[
+    spawn_projectile
+
+    Helper used by turrets and weapons to create projectiles. Most callers only
+    know about simple concepts (angle, friendliness, optional overrides) so we
+    centralize the translation into EntityFactory options here. This keeps the
+    projectile templates flexible while avoiding duplicated glue code.
+]]
 local function spawn_projectile(x, y, angle, friendly, opts)
     local projectile_id = (opts and opts.projectile) or "gun_bullet"
     opts = opts or {}
@@ -93,9 +110,19 @@ end
 -- All legacy update functions are being removed.
 -- Their logic will be handled by dedicated systems in the future.
 
+--[[
+    Game.load
+
+    Boots the playable world, reporting progress back to the optional loading
+    screen overlay. The staged structure (content -> systems -> world ->
+    entities) is intentionally linear so future systems have an obvious place
+    to hook into without breaking save/load behaviour.
+]]
 function Game.load(fromSave, saveSlot, loadingScreen)
   Log.setInfoEnabled(true)
   
+  -- updateProgress provides a tiny abstraction so future steps can remain
+  -- focused on logic rather than remembering to null-check the loading screen.
   local function updateProgress(step, description)
     if loadingScreen then
       loadingScreen:setProgress(step, description)

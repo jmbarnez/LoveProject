@@ -1,8 +1,18 @@
+--[[
+    World module
+
+    Owns the authoritative list of entities and is responsible for maintaining
+    background visuals (starfields, nebulae) that give the game its sense of
+    scale. The simulation systems mutate entities, but this module provides the
+    scaffolding for queries, quadtree lookups, and utility drawing data.
+]]
+
 local Viewport = require("src.core.viewport")
 
 local World = {}
 World.__index = World
 
+-- Generate a set of parallax stars positioned in world space.
 local function genStars(w, h, count, parallax)
   local stars = {}
   for i = 1, count do
@@ -13,6 +23,7 @@ local function genStars(w, h, count, parallax)
 end
 
 -- Screen-space static sky stars (no parallax) to emphasize extreme distance
+-- Generate screen-space "sky" stars that never parallax with the camera.
 local function genSkyStars(sw, sh, count)
   local stars = {}
   for i = 1, count do
@@ -29,6 +40,7 @@ local function genSkyStars(sw, sh, count)
 end
 
 -- Screen-space parallax stars (move with camera by a small factor)
+-- Generate screen-space parallax stars that follow the camera subtly.
 local function genScreenStars(sw, sh, count)
   local stars = {}
   for i = 1, count do
@@ -38,6 +50,7 @@ local function genScreenStars(sw, sh, count)
 end
 
 -- Enhanced sci-fi nebula canvas with better visibility
+-- Build a reusable nebula canvas that can be tiled across the background.
 function World.buildNebulaCanvas(w, h, seed)
   if not love.graphics.newCanvas then return nil end
   local canvas = love.graphics.newCanvas(w, h)
@@ -133,6 +146,11 @@ function World.buildNebulaCanvas(w, h, seed)
 end
 
 
+--[[
+    Create a new world instance. Besides entity storage, we eagerly build the
+    procedural background caches so renderers can reuse them without triggering
+    extra allocations mid-frame.
+]]
 function World.new(width, height)
   local self = setmetatable({}, World)
   self.width = width
@@ -166,16 +184,23 @@ function World.new(width, height)
   self.backgroundUpdateCounter = 0
   return self
 end
+-- Attach a quadtree implementation for accelerated spatial queries.
 function World:setQuadtree(quadtree)
     self.quadtree = quadtree
 end
 
+-- A lightweight throttle for background animation work; avoids redundant math.
 function World:shouldUpdateBackground(frequency)
     frequency = frequency or 5 -- Update every 5 frames by default
     self.backgroundUpdateCounter = (self.backgroundUpdateCounter + 1) % frequency
     return self.backgroundUpdateCounter == 0
 end
 
+--[[
+    Retrieve all entities intersecting the provided bounds. Falls back to a
+    linear scan when a quadtree has not been injected, keeping the call site
+    behaviour consistent in both debug and production builds.
+]]
 function World:getEntitiesInRect(bounds)
     if not self.quadtree then
         -- Fallback to iterating all entities if quadtree is not available

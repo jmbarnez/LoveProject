@@ -11,6 +11,14 @@ local DebugPanel = require("src.ui.debug_panel")
 local Constants = require("src.core.constants")
 local LoadingScreen = require("src.ui.loading_screen")
 
+--[[
+    The main module is responsible for orchestrating high-level state changes
+    between the start menu, the async loading overlay, and the in-game UI
+    manager. It wires Love2D callbacks so that lower-level systems can focus on
+    their specific domains (input, rendering, UI, etc.) while keeping the
+    transition logic in one place.
+]]
+
 local UIManager
 local screen = "start"
 local startScreen
@@ -19,6 +27,14 @@ local loadingScreen = LoadingScreen.new()
 local minFrameTime = 1 / Constants.TIMING.FPS_60
 local lastFrameTime = 0
 
+--[[
+    configureInput
+
+    Rebuilds the input callback bindings whenever the active screen changes.
+    This keeps the Input module decoupled from the main Love2D callbacks while
+    still giving it the necessary context (current screen, UI references, and
+    the loading overlay).
+]]
 local function configureInput()
     Input.init_love_callbacks({
         screen = screen,
@@ -44,6 +60,11 @@ function love.setScreen(newScreen)
     configureInput()
 end
 
+--[[
+    Update the minimum frame time based on the user's graphics settings. The
+    value is consumed inside love.update to throttle the main loop and provide
+    a coarse frame limiter without pulling in an additional scheduler.
+]]
 function updateFPSLimit()
   local graphicsSettings = Settings.getGraphicsSettings()
   minFrameTime = (graphicsSettings.max_fps and graphicsSettings.max_fps > 0) and (1 / graphicsSettings.max_fps) or 0
@@ -139,6 +160,8 @@ function love.resize(w, h)
 end
 
 function love.update(dt)
+  -- Apply the coarse frame limiter before updating any subsystems so the rest
+  -- of the engine can assume the delta time stays within reasonable bounds.
   if minFrameTime > 0 then
     local currentTime = love.timer.getTime()
     local frameTime = currentTime - lastFrameTime
