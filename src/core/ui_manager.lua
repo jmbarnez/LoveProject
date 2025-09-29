@@ -1,3 +1,12 @@
+--[[
+    UIManager
+
+    Centralises all UI component lifecycles (open/close, layering, forwarding
+    input). Rather than letting each panel talk to Love2D directly, we keep the
+    routing logic here so features like z-ordering, modal focus, and shared
+    styling remain consistent across the project.
+]]
+
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local Registry = require("src.ui.core.registry")
@@ -103,6 +112,14 @@ UIManager.modalComponent = nil
 
 local unpack = table.unpack or unpack
 
+--[[
+    componentFallbacks
+
+    Provides default handlers for built-in UI panels. If a module fails to
+    load, these fallbacks keep the manager stable so the rest of the UI can
+    continue functioning (particularly useful in development when a panel might
+    be mid-refactor).
+]]
 local componentFallbacks = {
   inventory = {
     module = Inventory,
@@ -154,6 +171,14 @@ local componentFallbacks = {
 
 local EMPTY_ARGS = {}
 
+--[[
+    callComponentMethod
+
+    Looks up a UI component and executes the requested method, preferring the
+    version registered at runtime via Registry but falling back to the static
+    definitions above. This indirection is the heart of the dependency
+    injection used by the UI layer.
+]]
 local function callComponentMethod(componentId, methodName, registeredArgs, fallbackArgs)
   local argsForRegistered = registeredArgs or EMPTY_ARGS
   local argsForFallback = fallbackArgs or argsForRegistered
