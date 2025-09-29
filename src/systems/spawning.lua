@@ -22,6 +22,29 @@ local maxEnemies = getSpawnValue("MAX_ENEMIES") or 36 -- Significantly increased
 local maxBosses = 3   -- Hard cap on boss drones
 local maxAsteroids = 15
 
+local asteroidVariants = {
+  { id = "asteroid_small", weight = 3 },
+  { id = "asteroid_medium", weight = 4 },
+  { id = "asteroid_large", weight = 2 },
+}
+
+local function pickAsteroidId()
+  local totalWeight = 0
+  for _, variant in ipairs(asteroidVariants) do
+    totalWeight = totalWeight + (variant.weight or 1)
+  end
+
+  local roll = math.random() * totalWeight
+  for _, variant in ipairs(asteroidVariants) do
+    roll = roll - (variant.weight or 1)
+    if roll <= 0 then
+      return variant.id
+    end
+  end
+
+  return asteroidVariants[1] and asteroidVariants[1].id or "asteroid_medium"
+end
+
 -- Check if a position is within any custom no-spawn zones
 local function isPositionInNoSpawnZone(x, y)
   local zones = spawnOverrides.NO_SPAWN_ZONES
@@ -249,9 +272,8 @@ local function spawnAsteroid(hub, world)
     end
   until (ok_stations and ok_hub and ok_others) or attempts > 200
   
-  -- For now, we only have one type of asteroid defined.
-  -- This could be expanded to randomly select from different asteroid data files.
-  local asteroid = EntityFactory.create("world_object", "asteroid_medium", x, y)
+  local asteroidId = pickAsteroidId()
+  local asteroid = EntityFactory.create("world_object", asteroidId, x, y)
   if asteroid then
       world:addEntity(asteroid)
   end

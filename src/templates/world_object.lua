@@ -52,8 +52,12 @@ function WorldObject.new(x, y, angle, friendly, config)
     -- Special procedural generation for asteroid vertices
     if self.components.renderable and self.components.renderable.type == "asteroid" then
         local r = self.components.collidable and self.components.collidable.radius or 30
-        local vertsNested = Util.generateAsteroidVertices(r)
+        local geometry = Util.generateAsteroidGeometry(r, self.components.renderable.props.chunkOptions)
+        local vertsNested = geometry.vertices
         self.components.renderable.props.vertices = vertsNested
+        if geometry.chunks then
+            self.components.renderable.props.chunks = geometry.chunks
+        end
         -- Build a flat vertex list for polygon collisions
         local flat = {}
         for _, v in ipairs(vertsNested or {}) do
