@@ -18,6 +18,169 @@ local currentPlayer = nil
 local currentWorld = nil
 local saveEnabled = true
 
+-- Safely copy primitive values, avoiding circular references
+local function safeCopy(value, depth)
+  depth = depth or 0
+  if depth > 10 then return nil end -- Prevent deep recursion
+
+  local valueType = type(value)
+  if valueType == "table" then
+    local copy = {}
+    for k, v in pairs(value) do
+      -- Skip certain keys that might cause circular references
+      if k ~= "parent" and k ~= "world" and k ~= "entity" and k ~= "body" and k ~= "turret" then
+        local keyType = type(k)
+        local valType = type(v)
+
+        -- Only copy primitive keys and values, or shallow table values
+        if (keyType == "string" or keyType == "number") and
+           (valType == "string" or valType == "number" or valType == "boolean" or
+            (valType == "table" and depth < 3)) then
+          copy[k] = safeCopy(v, depth + 1)
+        end
+      end
+    end
+    return copy
+  elseif valueType == "string" or valueType == "number" or valueType == "boolean" then
+    return value
+  else
+    return nil -- Skip functions, userdata, etc.
+  end
+end
+
+local function serializeEquipment(player)
+  if not player or not player.components then return nil end
+
+  local equipment = player.components.equipment
+  if not equipment then return nil end
+
+  local state = { grid = {}, layout = equipment.layout and safeCopy(equipment.layout) or nil }
+
+  if equipment.grid then
+    for index, slot in ipairs(equipment.grid) do
+      local slotState = {
+        slot = slot.slot or index,
+        id = slot.id,
+        type = slot.type,
+        baseType = slot.baseType,
+        enabled = slot.enabled or false,
+        hotbarSlot = slot.hotbarSlot,
+      }
+
+      if slot.type == "turret" and slot.module then
+        slotState.turret = {
+          baseId = slot.module.baseId,
+          fireMode = slot.module.fireMode,
+          autoFire = slot.module.autoFire,
+          cooldown = slot.module.cooldown,
+          heat = slot.module.heat,
+          source = slot.module._sourceData and safeCopy(slot.module._sourceData) or nil,
+        }
+      end
+
+      table.insert(state.grid, slotState)
+    end
+  end
+
+  if equipment.turrets and #equipment.turrets > 0 then
+    state.turrets = {}
+    for _, turret in ipairs(equipment.turrets) do
+      table.insert(state.turrets, {
+        slot = turret.slot,
+        id = turret.id,
+        enabled = turret.enabled or false,
+      })
+    end
+  end
+
+  return state
+end
+
+local function restoreEquipment(player, equipmentState)
+  if not player or not equipmentState then return end
+  if not player.components or not player.components.equipment then return end
+
+  local equipment = player.components.equipment
+  local grid = equipment.grid or {}
+
+  for _, slot in ipairs(grid) do
+    slot.id = nil
+    slot.module = nil
+    slot.enabled = false
+    slot.type = slot.baseType or nil
+    slot.hotbarSlot = nil
+  end
+
+  local Content = require("src.content.content")
+  local Util = require("src.core.util")
+  local Turret = require("src.systems.turret.core")
+
+  for _, savedSlot in ipairs(equipmentState.grid or {}) do
+    local slotIndex = savedSlot.slot and tonumber(savedSlot.slot) or nil
+    local slot = slotIndex and grid[slotIndex] or nil
+    if slot then
+      slot.id = savedSlot.id
+      slot.type = savedSlot.type or slot.type or slot.baseType
+      slot.baseType = slot.baseType or savedSlot.baseType
+      slot.enabled = not not savedSlot.enabled
+      slot.hotbarSlot = savedSlot.hotbarSlot
+
+      if savedSlot.id then
+        if slot.type == "turret" then
+          local source = savedSlot.turret and savedSlot.turret.source and Util.deepCopy(savedSlot.turret.source) or nil
+          local turretDef = source or Content.getTurret(savedSlot.id)
+          if turretDef then
+            local params = Util.deepCopy(turretDef)
+            local turretInstance = Turret.new(player, params)
+            turretInstance.id = savedSlot.id
+            turretInstance.slot = slotIndex
+            turretInstance.baseId = (savedSlot.turret and savedSlot.turret.baseId) or params.baseId or params.id or savedSlot.id
+            turretInstance._sourceData = source or Util.deepCopy(turretDef)
+            if savedSlot.turret then
+              if savedSlot.turret.fireMode then turretInstance.fireMode = savedSlot.turret.fireMode end
+              turretInstance.autoFire = not not savedSlot.turret.autoFire
+              if savedSlot.turret.cooldown then turretInstance.cooldown = savedSlot.turret.cooldown end
+              if savedSlot.turret.heat then turretInstance.heat = savedSlot.turret.heat end
+            end
+            slot.module = turretInstance
+          else
+            Log.warn("StateManager: Missing turret definition for", savedSlot.id)
+          end
+        else
+          local moduleItem = Content.getItem(savedSlot.id)
+          if moduleItem then
+            slot.module = moduleItem
+          else
+            Log.warn("StateManager: Missing module definition for", savedSlot.id)
+          end
+        end
+      end
+    end
+  end
+
+  if equipmentState.turrets and equipment.turrets then
+    equipment.turrets = {}
+    for _, saved in ipairs(equipmentState.turrets) do
+      table.insert(equipment.turrets, {
+        slot = saved.slot,
+        id = saved.id,
+        enabled = saved.enabled,
+      })
+    end
+  end
+
+  if equipmentState.layout then
+    equipment.layout = equipmentState.layout
+  end
+
+  if player.updateShieldHP then
+    player:updateShieldHP()
+  end
+  if player.updateHotbar then
+    player:updateHotbar()
+  end
+end
+
 -- Get current player
 function StateManager.getCurrentPlayer()
   return currentPlayer
@@ -96,36 +259,6 @@ function StateManager.init(player, world)
   Log.debug("State Manager initialized")
 end
 
--- Safely copy primitive values, avoiding circular references
-local function safeCopy(value, depth)
-  depth = depth or 0
-  if depth > 10 then return nil end -- Prevent deep recursion
-  
-  local valueType = type(value)
-  if valueType == "table" then
-    local copy = {}
-    for k, v in pairs(value) do
-      -- Skip certain keys that might cause circular references
-      if k ~= "parent" and k ~= "world" and k ~= "entity" and k ~= "body" and k ~= "turret" then
-        local keyType = type(k)
-        local valType = type(v)
-        
-        -- Only copy primitive keys and values, or shallow table values
-        if (keyType == "string" or keyType == "number") and 
-           (valType == "string" or valType == "number" or valType == "boolean" or 
-            (valType == "table" and depth < 3)) then
-          copy[k] = safeCopy(v, depth + 1)
-        end
-      end
-    end
-    return copy
-  elseif valueType == "string" or valueType == "number" or valueType == "boolean" then
-    return value
-  else
-    return nil -- Skip functions, userdata, etc.
-  end
-end
-
 -- Get current game state for saving
 local function getGameState()
   if not currentPlayer or not currentWorld then
@@ -156,20 +289,23 @@ local function getGameState()
         hp = currentPlayer.components.health.hp or 100,
         maxHp = currentPlayer.components.health.maxHP or 100,
         shield = currentPlayer.components.health.shield or 0,
-        maxShield = currentPlayer.components.health.maxShield or 0
-      } or {hp = 100, maxHp = 100, shield = 0, maxShield = 0},
-      
+        maxShield = currentPlayer.components.health.maxShield or 0,
+        energy = currentPlayer.components.health.energy or 0,
+        maxEnergy = currentPlayer.components.health.maxEnergy or 0
+      } or {hp = 100, maxHp = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0},
+
       -- Inventory (safe copy)
       cargo = currentPlayer.components and currentPlayer.components.cargo and currentPlayer.components.cargo:serialize() or nil,
-      
+
       -- Quest progress (safe copy)
       active_quests = safeCopy(currentPlayer.active_quests) or {},
       quest_progress = safeCopy(currentPlayer.quest_progress) or {},
       quest_start_times = safeCopy(currentPlayer.quest_start_times) or {},
-      
+
       -- Ship configuration
       shipId = currentPlayer.shipId or "starter_frigate_basic",
-      
+      equipment = serializeEquipment(currentPlayer),
+
       -- Status flags
       docked = currentPlayer.docked or false,
       progression = currentPlayer.components and currentPlayer.components.progression and currentPlayer.components.progression:serialize() or nil,
@@ -243,8 +379,14 @@ local function applyGameState(state, player, world)
     player.components.health.maxHP = playerData.health.maxHp
     player.components.health.shield = playerData.health.shield
     player.components.health.maxShield = playerData.health.maxShield
+    if playerData.health.energy ~= nil then
+      player.components.health.energy = playerData.health.energy
+    end
+    if playerData.health.maxEnergy ~= nil then
+      player.components.health.maxEnergy = playerData.health.maxEnergy
+    end
   end
-  
+
   if player.components and player.components.cargo then
     if playerData.cargo then
       player.components.cargo = require("src.components.cargo").deserialize(playerData.cargo)
@@ -263,7 +405,11 @@ local function applyGameState(state, player, world)
   player.active_quests = playerData.active_quests or {}
   player.quest_progress = playerData.quest_progress or {}
   player.quest_start_times = playerData.quest_start_times or {}
-  
+
+  if playerData.equipment then
+    restoreEquipment(player, playerData.equipment)
+  end
+
   -- Restore status flags
   -- Restore portfolio
   if state.portfolio then
@@ -349,6 +495,12 @@ local function createGameFromSave(state)
       player.components.health.maxHP = playerData.health.maxHp
       player.components.health.shield = playerData.health.shield
       player.components.health.maxShield = playerData.health.maxShield
+      if playerData.health.energy ~= nil then
+        player.components.health.energy = playerData.health.energy
+      end
+      if playerData.health.maxEnergy ~= nil then
+        player.components.health.maxEnergy = playerData.health.maxEnergy
+      end
     end
   end
 
