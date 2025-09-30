@@ -1,9 +1,56 @@
 local CollisionHelpers = require("src.systems.turret.collision_helpers")
 local HeatManager = require("src.systems.turret.heat_manager")
 local TurretEffects = require("src.systems.turret.effects")
+local CollisionEffects = require("src.systems.collision.effects")
+local Effects = require("src.systems.effects")
 
 local UtilityBeams = {}
 local IMPACT_INTERVAL = 0.18
+
+local function triggerHotspot(target, hotspot, source, impactX, impactY)
+    if not hotspot then
+        return
+    end
+
+    hotspot.cooldown = (hotspot.burstInterval or 0.75)
+    hotspot.pulse = 0.35
+    hotspot.lastHit = 0.35
+
+    if source then
+        CollisionEffects.applyDamage(source, hotspot.damage or 8, target)
+    end
+
+    if Effects and Effects.spawnImpact and target and target.components then
+        local pos = target.components.position
+        local collidable = target.components.collidable
+        if pos and impactX and impactY then
+            local radius = (collidable and collidable.radius) or 30
+            local angle = math.atan2(impactY - pos.y, impactX - pos.x)
+            Effects.spawnImpact('hull', pos.x, pos.y, radius, impactX, impactY, angle, nil, 'mining_hotspot', target)
+        end
+    end
+end
+
+local function handleHotspotImpact(target, mineable, source, impactX, impactY)
+    if not mineable or not mineable.hotspots or not impactX or not impactY then
+        return
+    end
+
+    local radiusBase = mineable.hotspotRadius or 10
+    for _, hotspot in ipairs(mineable.hotspots) do
+        local hx = hotspot.worldX or 0
+        local hy = hotspot.worldY or 0
+        local radius = hotspot.radius or radiusBase
+        local dx = impactX - hx
+        local dy = impactY - hy
+        if (dx * dx + dy * dy) <= radius * radius then
+            hotspot.lastHit = 0.25
+            if (hotspot.warmup or 0) <= 0 and (hotspot.cooldown or 0) <= 0 then
+                triggerHotspot(target, hotspot, source, impactX, impactY)
+            end
+        end
+    end
+end
 
 local function spawnSalvagePickup(target, amount, world)
     if not world or amount <= 0 then
@@ -80,7 +127,7 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     if hitTarget then
         if hitTarget.components and hitTarget.components.mineable then
             local damageValue = damageRate * dt
-            UtilityBeams.applyMiningDamage(hitTarget, damageValue, turret.owner, world)
+            UtilityBeams.applyMiningDamage(hitTarget, damageValue, turret.owner, world, hitX, hitY)
 
             if turret._beamImpactTimer <= 0 then
                 TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "mining")
@@ -105,13 +152,17 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 end
 
 -- Apply mining damage to asteroid durability
-function UtilityBeams.applyMiningDamage(target, damage, source, world)
+function UtilityBeams.applyMiningDamage(target, damage, source, world, impactX, impactY)
     if not target.components or not target.components.mineable then
         return
     end
 
     local mineable = target.components.mineable
     local oldDurability = mineable.durability or 5.0
+
+    if impactX and impactY then
+        handleHotspotImpact(target, mineable, source, impactX, impactY)
+    end
 
     -- Initialize maxDurability if not set
     if not mineable.maxDurability then
@@ -126,6 +177,7 @@ function UtilityBeams.applyMiningDamage(target, damage, source, world)
 
     -- Check if asteroid is completely mined
     if mineable.durability <= 0 then
+        mineable.hotspots = {}
         UtilityBeams.completeMining(nil, target, world)
         target.dead = true
     end
@@ -138,6 +190,7 @@ function UtilityBeams.completeMining(turret, target, world)
     end
 
     local mineable = target.components.mineable
+    mineable.hotspots = {}
     local resourceType = mineable.resourceType or "stones"
     local resourceAmount = math.max(1, mineable.amount or mineable.resources or 1)
 
@@ -169,7 +222,6 @@ function UtilityBeams.completeMining(turret, target, world)
         end
     end
 
-    local Effects = require("src.systems.effects")
     local Sound = require("src.core.sound")
     local x = target.components.position.x
     local y = target.components.position.y

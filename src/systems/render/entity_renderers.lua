@@ -333,9 +333,41 @@ function EntityRenderers.asteroid(entity, player)
             end
         end
 
+        local mineable = entity.components.mineable
+        local hotspots = mineable and mineable.hotspots
+        if hotspots and #hotspots > 0 then
+            local prevLineWidth = love.graphics.getLineWidth()
+            local baseWarmup = mineable.hotspotWarmup or 0.35
+            local radiusBase = mineable.hotspotRadius or 10
+            for _, hotspot in ipairs(hotspots) do
+                local hx = hotspot.offsetX or 0
+                local hy = hotspot.offsetY or 0
+                local radius = hotspot.radius or radiusBase
+                local warmup = hotspot.warmup or 0
+                local warmupDenom = math.max(0.0001, baseWarmup)
+                local warmupPct = 1 - math.min(1, warmup / warmupDenom)
+                local lifePct = 1
+                if hotspot.maxLife and hotspot.maxLife > 0 then
+                    lifePct = math.max(0, math.min(1, (hotspot.life or 0) / hotspot.maxLife))
+                end
+                local pulse = hotspot.pulse or 0
+                local hit = hotspot.lastHit or 0
+                local fillAlpha = math.min(0.85, (0.2 + warmupPct * 0.5 + pulse * 0.9)) * lifePct
+                local ringAlpha = math.min(1.0, 0.3 + warmupPct * 0.55 + hit * 1.2) * lifePct
+
+                RenderUtils.setColor({1.0, 0.38 + warmupPct * 0.5, 0.2 + hit * 0.3, fillAlpha})
+                love.graphics.circle("fill", hx, hy, radius)
+
+                RenderUtils.setColor({1.0, 0.6 + warmupPct * 0.25, 0.18 + hit * 0.4, ringAlpha})
+                love.graphics.setLineWidth(2)
+                love.graphics.circle("line", hx, hy, radius)
+            end
+            love.graphics.setLineWidth(prevLineWidth)
+        end
+
         RenderUtils.setColor(outlineColor)
         love.graphics.polygon("line", flatVertices)
-        
+
         -- No hover glow ring; visible effects only when laser is cutting
 
         ResourceNodeBars.drawMiningBar(entity, {
