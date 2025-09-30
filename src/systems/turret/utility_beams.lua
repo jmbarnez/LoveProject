@@ -6,6 +6,7 @@ local Effects = require("src.systems.effects")
 local Skills = require("src.core.skills")
 local Notifications = require("src.ui.notifications")
 local Events = require("src.core.events")
+local ExperiencePickup = require("src.entities.xp_pickup")
 
 local UtilityBeams = {}
 local IMPACT_INTERVAL = 0.18
@@ -25,6 +26,30 @@ local function spawnSalvagePickup(target, amount, world)
         target.components.position.y,
         "scraps",
         amount
+    )
+
+    if pickup then
+        world:addEntity(pickup)
+    end
+end
+
+local function spawnExperiencePickup(world, x, y, amount)
+    if not world or not amount or amount <= 0 then
+        return
+    end
+
+    local angle = math.random() * math.pi * 2
+    local offset = 8 + math.random() * 18
+    local speed = 40 + math.random() * 55
+    local spawnX = x + math.cos(angle) * offset
+    local spawnY = y + math.sin(angle) * offset
+    local pickup = ExperiencePickup.new(
+        spawnX,
+        spawnY,
+        amount,
+        1.0,
+        math.cos(angle) * speed,
+        math.sin(angle) * speed
     )
 
     if pickup then
@@ -476,12 +501,15 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
         spawnSalvagePickup(target, whole, world)
         
         -- Give XP and skill progression for salvaged resources
-        if source and source.addXP then
+        if source then
             local xpBase = 10 -- base XP per salvaged resource
             local salvagingLevel = Skills.getLevel("salvaging")
             local xpGain = xpBase * (1 + salvagingLevel * 0.06) -- mild scaling per level
             local leveledUp = Skills.addXp("salvaging", xpGain)
-            source:addXP(xpGain)
+            local pos = target.components and target.components.position
+            local px = pos and pos.x or 0
+            local py = pos and pos.y or 0
+            spawnExperiencePickup(world, px, py, xpGain)
 
             if leveledUp then
                 Notifications.action("Salvaging level up!")
@@ -506,12 +534,15 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
             spawnSalvagePickup(target, remainingToDrop, world)
             
             -- Give XP for remaining resources
-            if source and source.addXP then
+            if source then
                 local xpBase = 10
                 local salvagingLevel = Skills.getLevel("salvaging")
                 local xpGain = xpBase * (1 + salvagingLevel * 0.06) * remainingToDrop
                 local leveledUp = Skills.addXp("salvaging", xpGain)
-                source:addXP(xpGain)
+                local pos = target.components and target.components.position
+                local px = pos and pos.x or 0
+                local py = pos and pos.y or 0
+                spawnExperiencePickup(world, px, py, xpGain)
 
                 if leveledUp then
                     Notifications.action("Salvaging level up!")

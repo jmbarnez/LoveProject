@@ -137,10 +137,12 @@ function SkillXpPopup.draw()
     end
 
     local sw, sh = Viewport.getDimensions()
-    local width = math.min(360, sw - 40)
-    local height = 94
-    local x = (sw - width) * 0.5 -- Center horizontally
-    local y = 60 + SkillXpPopup.slideY -- Top middle with slide animation
+
+    local width = math.min(320, sw - 32)
+    local height = 72
+    local margin = 16
+    local x = sw - width - margin
+    local y = 36
 
     local alpha = SkillXpPopup.alpha
     local scale = SkillXpPopup.scale
@@ -177,10 +179,10 @@ function SkillXpPopup.draw()
     Theme.setColor(Theme.withAlpha(Theme.colors.accent, alpha))
     love.graphics.print(xpGainText, width - xpGainMetrics.width - 16, 14)
 
-    local barX = 16
-    local barY = height - 36
-    local barW = width - 32
-    local barH = 14
+    local barX = x + 14
+    local barY = y + height - 28
+    local barW = width - 28
+    local barH = 12
 
     drawProgressBar(barX, barY, barW, barH, SkillXpPopup.state.progress, alpha)
 
@@ -197,7 +199,7 @@ function SkillXpPopup.draw()
     end
 
     Theme.setColor(Theme.withAlpha(Theme.colors.textSecondary or Theme.colors.text, alpha))
-    love.graphics.print(infoText, barX, barY + barH + 6)
+    love.graphics.print(infoText, barX, barY + barH + 4)
 
     if oldFont then
         love.graphics.setFont(oldFont)
