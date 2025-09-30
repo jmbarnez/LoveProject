@@ -62,6 +62,7 @@ local bounty = { uncollected = 0, entries = {} }
 local hoveredEntity = nil
 local hoveredEntityType = nil
 local collisionSystem
+local refreshDockingState
 
 -- Make world accessible
 Game.world = world
@@ -354,30 +355,76 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   end)
 
   Events.on(Events.GAME_EVENTS.CAN_DOCK, function(data)
-    player.canDock = data.canDock
+    if not data then return end
+    player.canDock = data.canDock and true or false
+    player.nearbyStation = data.station
   end)
-  
+
   Events.on(Events.GAME_EVENTS.DOCK_REQUESTED, function()
-    if player.canDock then
-      if player.docked then
-        player:undock()
-      else
-        player:dock(hub)
-      end
+    if not player.canDock then return end
+    if player.docked then
+      player:undock()
+      return
+    end
+    local target = player.nearbyStation or hub
+    if target then
+      player:dock(target)
     end
   end)
 
-  -- Initial docking state check to ensure canDock is properly set
-  if hub and player and player.components and player.components.position then
-    local playerPos = player.components.position
-    local hubPos = hub.components and hub.components.position
-    if hubPos then
-      local distance = Util.distance(playerPos.x, playerPos.y, hubPos.x, hubPos.y)
-      local dockRadius = hub.radius or 100
-      player.canDock = distance <= dockRadius
-      Log.debug("Initial docking check: distance=", distance, "dockRadius=", dockRadius, "canDock=", player.canDock)
+  refreshDockingState = function()
+    if not player or not world then return end
+    local position = player.components and player.components.position
+    if not position then return end
+
+    if player.docked then
+      if player.canDock or player.nearbyStation then
+        Events.emit(Events.GAME_EVENTS.CAN_DOCK, { canDock = false, station = nil })
+      end
+      return
+    end
+
+    local stations = {}
+    local worldStations = world.get_entities_with_components and world:get_entities_with_components("station") or {}
+    for _, station in ipairs(worldStations) do
+      table.insert(stations, station)
+    end
+    if hub then
+      local found = false
+      for _, station in ipairs(stations) do
+        if station == hub then
+          found = true
+          break
+        end
+      end
+      if not found then
+        table.insert(stations, hub)
+      end
+    end
+
+    local px, py = position.x, position.y
+    local nearestStation = nil
+    local nearestDist = math.huge
+
+    for _, station in ipairs(stations) do
+      local stationPos = station.components and station.components.position
+      if stationPos then
+        local radius = station.radius or 100
+        local dist = Util.distance(px, py, stationPos.x, stationPos.y)
+        if dist <= radius and dist < nearestDist then
+          nearestDist = dist
+          nearestStation = station
+        end
+      end
+    end
+
+    local canDockNow = nearestStation ~= nil
+    if canDockNow ~= (player.canDock or false) or nearestStation ~= player.nearbyStation then
+      Events.emit(Events.GAME_EVENTS.CAN_DOCK, { canDock = canDockNow, station = nearestStation })
     end
   end
+
+  refreshDockingState()
 
 
   Events.on(Events.GAME_EVENTS.WARP_REQUESTED, function()
@@ -482,22 +529,9 @@ function Game.update(dt)
     -- Update state manager (handles auto-saving)
     StateManager.update(dt)
 
-    -- Docking proximity check
-    if player and hub and hub.components and hub.components.position then
-        local playerPos = player.components.position
-        local hubPos = hub.components.position
-        local distance = Util.distance(playerPos.x, playerPos.y, hubPos.x, hubPos.y)
-        
-        -- Use the station's base radius for docking.
-        local dockRadius = hub.radius or 100 -- Fallback, but should be defined on the station template.
-        
-        local canDockNow = distance <= dockRadius
-        
-        -- Check if docking state has changed
-        if canDockNow ~= player.canDock then
-            player.canDock = canDockNow
-            Events.emit(Events.GAME_EVENTS.CAN_DOCK, { canDock = canDockNow })
-        end
+    -- Docking proximity check (supports multiple stations)
+    if refreshDockingState then
+        refreshDockingState()
     end
 
     -- Process queued events each frame

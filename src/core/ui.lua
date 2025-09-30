@@ -60,6 +60,9 @@ end
 function UI.drawHelpers(player, world, hub, camera)
   dockPromptState.visible = false
   dockPromptState.dockRect = nil
+  dockPromptState.toggleRect = nil
+  dockPromptState.station = nil
+  dockPromptState.stationName = nil
   warpPromptState.visible = false
   warpPromptState.warpRect = nil
 
@@ -140,11 +143,13 @@ function UI.drawHelpers(player, world, hub, camera)
             end
             table.insert(lines, "Automated refinery operations active")
             text = table.concat(lines, "\n")
-          elseif station == hub then
+          elseif player.canDock and player.nearbyStation == station then
+            dockPromptState.visible = true
+            dockPromptState.station = station
+            dockPromptState.stationName = (station.components and station.components.station and station.components.station.name) or "Station"
             if player.canDock then
               local sw, sh = Viewport.getDimensions()
               local mouseX, mouseY = Viewport.getMousePosition()
-              dockPromptState.visible = true
 
               -- Simple dock button - no minimized/expanded states
               local buttonW, buttonH = 80, 36
