@@ -2,6 +2,8 @@ local Util = require("src.core.util")
 local Theme = require("src.core.theme")
 local Content = require("src.content.content")
 local Viewport = require("src.core.viewport")
+local UIUtils = require("src.ui.common.utils")
+local Events = require("src.core.events")
 
 -- Import modular HUD components
 local StatusBars = require("src.ui.hud.status_bars")
@@ -11,6 +13,13 @@ local Reticle = require("src.ui.hud.reticle")
 local ExperienceNotification = require("src.ui.hud.experience_notification")
 
 local UI = {}
+
+local dockPromptState = {
+  minimized = false,
+  visible = false,
+  dockRect = nil,
+  toggleRect = nil,
+}
 
 -- Helper function to check if player has required turret type
 local function hasRequiredTurret(player, requiredType)
@@ -46,6 +55,10 @@ end
 
 
 function UI.drawHelpers(player, world, hub, camera)
+  dockPromptState.visible = false
+  dockPromptState.dockRect = nil
+  dockPromptState.toggleRect = nil
+
   -- Helper tooltip above stations (docking prompt and repair requirements)
   do
     local Settings = require("src.core.settings")
@@ -77,7 +90,6 @@ function UI.drawHelpers(player, world, hub, camera)
           helperRange = math.max(helperRange, station.radius + 150)
         end
         if distance < helperRange then
-          local keymap = Settings.getKeymap()
           local text = nil
 
           -- Check station type and show appropriate tooltip
@@ -112,12 +124,109 @@ function UI.drawHelpers(player, world, hub, camera)
               text = "Beacon Array - OPERATIONAL"
             end
           elseif station == hub then
-            -- Show docking prompt only for hub station
-            local dockKey = (keymap and keymap.dock or "space"):upper()
             if player.canDock then
-              text = "Press [" .. dockKey .. "] to Dock"
-            else
-              text = "Move closer to the station to dock"
+              local sw, sh = Viewport.getDimensions()
+              local mouseX, mouseY = Viewport.getMousePosition()
+              dockPromptState.visible = true
+
+              if dockPromptState.minimized then
+                local buttonW, buttonH = 72, 36
+                local buttonX = math.floor(screenX - buttonW * 0.5 + 0.5)
+                local buttonY = math.floor(screenY - buttonH - 48 + 0.5)
+                buttonX = math.max(8, math.min(sw - buttonW - 8, buttonX))
+                buttonY = math.max(8, math.min(sh - buttonH - 8, buttonY))
+
+                local hover = UIUtils.pointInRect(mouseX, mouseY, {
+                  x = buttonX,
+                  y = buttonY,
+                  w = buttonW,
+                  h = buttonH,
+                })
+
+                local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
+                local previousFont = love.graphics.getFont()
+                dockPromptState.toggleRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "...", hover, false, {
+                  font = buttonFont,
+                })
+                dockPromptState.dockRect = nil
+
+                local triCx = math.floor(screenX + 0.5)
+                local triY = dockPromptState.toggleRect.y + dockPromptState.toggleRect.h
+                Theme.setColor(Theme.colors.bg2)
+                love.graphics.polygon('fill', triCx - 6, triY, triCx + 6, triY, triCx, triY + 8)
+                Theme.setColor(Theme.colors.border)
+                love.graphics.line(triCx - 6, triY, triCx, triY + 8)
+                love.graphics.line(triCx + 6, triY, triCx, triY + 8)
+
+                if previousFont then
+                  love.graphics.setFont(previousFont)
+                end
+              else
+                local panelW, panelH = 220, 96
+                local padding = 12
+                local panelX = math.floor(screenX - panelW * 0.5 + 0.5)
+                local panelY = math.floor(screenY - panelH - 70 + 0.5)
+                panelX = math.max(8, math.min(sw - panelW - 8, panelX))
+                panelY = math.max(8, math.min(sh - panelH - 8, panelY))
+
+                Theme.drawGradientGlowRect(panelX, panelY, panelW, panelH, 6,
+                  Theme.colors.bg2, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak * 0.4)
+                Theme.drawEVEBorder(panelX, panelY, panelW, panelH, 6, Theme.colors.border, 2)
+
+                local triCx = math.floor(screenX + 0.5)
+                local triY = panelY + panelH
+                Theme.setColor(Theme.colors.bg2)
+                love.graphics.polygon('fill', triCx - 6, triY, triCx + 6, triY, triCx, triY + 10)
+                Theme.setColor(Theme.colors.border)
+                love.graphics.line(triCx - 6, triY, triCx, triY + 10)
+                love.graphics.line(triCx + 6, triY, triCx, triY + 10)
+
+                local previousFont = love.graphics.getFont()
+                local labelFont = (Theme.fonts and Theme.fonts.small) or previousFont
+                if labelFont then
+                  love.graphics.setFont(labelFont)
+                end
+                Theme.setColor(Theme.colors.text)
+                love.graphics.print("Docking Available", panelX + padding, panelY + padding)
+                if previousFont then
+                  love.graphics.setFont(previousFont)
+                end
+
+                local dockButtonW = panelW - padding * 2
+                local dockButtonH = 36
+                local dockButtonX = panelX + padding
+                local dockButtonY = panelY + panelH - dockButtonH - padding
+                local dockHover = UIUtils.pointInRect(mouseX, mouseY, {
+                  x = dockButtonX,
+                  y = dockButtonY,
+                  w = dockButtonW,
+                  h = dockButtonH,
+                })
+
+                local buttonFont = (Theme.fonts and Theme.fonts.normal) or previousFont
+                dockPromptState.dockRect = UIUtils.drawButton(dockButtonX, dockButtonY, dockButtonW, dockButtonH, "Dock", dockHover, false, {
+                  font = buttonFont,
+                })
+
+                local toggleSize = 28
+                local toggleX = panelX + panelW - toggleSize - padding
+                local toggleY = panelY + padding
+                local toggleHover = UIUtils.pointInRect(mouseX, mouseY, {
+                  x = toggleX,
+                  y = toggleY,
+                  w = toggleSize,
+                  h = toggleSize,
+                })
+
+                local toggleFont = (Theme.fonts and Theme.fonts.small) or buttonFont
+                dockPromptState.toggleRect = UIUtils.drawButton(toggleX, toggleY, toggleSize, toggleSize, "...", toggleHover, false, {
+                  font = toggleFont,
+                })
+
+                if previousFont then
+                  love.graphics.setFont(previousFont)
+                end
+              end
             end
           end
 
@@ -419,6 +528,26 @@ end
 local IconSystem = require("src.core.icon_system")
 UI.drawIcon = IconSystem.drawIconAny
 UI.drawTurretIcon = IconSystem.drawIconAny
+
+function UI.handleHelperMousePressed(x, y, button, player)
+  if button ~= 1 then return false end
+  if not dockPromptState.visible then return false end
+  if not player or player.docked then return false end
+
+  if dockPromptState.toggleRect and UIUtils.pointInRect(x, y, dockPromptState.toggleRect) then
+    dockPromptState.minimized = not dockPromptState.minimized
+    return true
+  end
+
+  if not dockPromptState.minimized and dockPromptState.dockRect and UIUtils.pointInRect(x, y, dockPromptState.dockRect) then
+    if player.canDock then
+      Events.emit(Events.GAME_EVENTS.DOCK_REQUESTED)
+      return true
+    end
+  end
+
+  return false
+end
 
 return UI
 

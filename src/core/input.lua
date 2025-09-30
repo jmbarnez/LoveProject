@@ -13,6 +13,7 @@ local SkillsPanel = require("src.ui.skills")
 local Util = require("src.core.util")
 local Hotbar = require("src.systems.hotbar")
 local RepairSystem = require("src.systems.repair_system")
+local UI = require("src.core.ui")
 
 local Input = {}
 
@@ -298,6 +299,11 @@ function Input.love_mousepressed(x, y, button)
     if mainState.UIManager and mainState.UIManager.mousepressed(vx, vy, button) then
       return
     end
+
+    if UI.handleHelperMousePressed and UI.handleHelperMousePressed(vx, vy, button, gameState.player) then
+      return
+    end
+
     Input.mousepressed(vx, vy, button)
   end
 end
