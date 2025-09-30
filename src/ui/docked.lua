@@ -10,6 +10,7 @@ local Nodes = require("src.ui.nodes")
 local IconSystem = require("src.core.icon_system")
 local Window = require("src.ui.common.window")
 local UITabs = require("src.ui.common.tabs")
+local UIUtils = require("src.ui.common.utils")
 local Shop = require("src.ui.docked.shop")
 local Dropdown = require("src.ui.common.dropdown")
 -- Ship UI is standalone; do not require it here
@@ -47,10 +48,354 @@ DockedUI.drag = nil
 DockedUI.contextMenu = { visible = false, x = 0, y = 0, item = nil, quantity = "1", type = "buy" }
 DockedUI.contextMenuActive = false -- For text input focus
 DockedUI._bountyRef = nil
+DockedUI.stationType = nil
 
 -- New Tabbed Interface State
 DockedUI.tabs = {"Shop", "Quests", "Nodes"}
 DockedUI.activeTab = "Shop"
+
+DockedUI.furnaceState = {
+    slots = {},
+    selectedOreId = nil,
+    selectedOre = nil,
+    amountText = "1",
+    inputActive = false,
+    inputRect = nil,
+    smeltButtonRect = nil,
+    infoText = nil,
+}
+
+local function isFurnaceStation()
+    return DockedUI.stationType == "ore_furnace_station"
+end
+
+local function resetFurnaceState()
+    DockedUI.furnaceState.slots = {}
+    DockedUI.furnaceState.selectedOre = nil
+    DockedUI.furnaceState.selectedOreId = nil
+    DockedUI.furnaceState.canSmelt = false
+    DockedUI.furnaceState.inputRect = nil
+    DockedUI.furnaceState.smeltButtonRect = nil
+    DockedUI.furnaceState.infoText = nil
+    if DockedUI.furnaceState.inputActive and love and love.keyboard and love.keyboard.setTextInput then
+        love.keyboard.setTextInput(false)
+    end
+    DockedUI.furnaceState.inputActive = false
+    DockedUI.furnaceState.amountText = "1"
+end
+
+local function collectFurnaceOres(player)
+    local oresById = {}
+    local order = {}
+    if not player or not player.components or not player.components.cargo then
+        return order
+    end
+
+    local cargo = player.components.cargo
+    cargo:iterate(function(_, entry)
+        if entry and entry.id then
+            local item = Content.getItem(entry.id)
+            if item and item.tags then
+                local hasOreTag = false
+                for _, tag in ipairs(item.tags) do
+                    if tag == "ore" then
+                        hasOreTag = true
+                        break
+                    end
+                end
+                if hasOreTag then
+                    local existing = oresById[entry.id]
+                    if existing then
+                        existing.quantity = existing.quantity + (entry.qty or 0)
+                    elseif (entry.qty or 0) > 0 then
+                        local data = {
+                            id = entry.id,
+                            quantity = entry.qty or 0,
+                            item = item,
+                            name = item.name or entry.id,
+                        }
+                        oresById[entry.id] = data
+                        table.insert(order, data)
+                    end
+                end
+            end
+        end
+    end)
+
+    table.sort(order, function(a, b)
+        return (a.name or a.id) < (b.name or b.id)
+    end)
+
+    return order
+end
+
+local function ensureFurnaceSelection(ores)
+    local state = DockedUI.furnaceState
+    if not ores or #ores == 0 then
+        state.selectedOre = nil
+        state.selectedOreId = nil
+        return
+    end
+
+    if state.selectedOreId then
+        for _, ore in ipairs(ores) do
+            if ore.id == state.selectedOreId then
+                state.selectedOre = ore
+                return
+            end
+        end
+    end
+
+    state.selectedOre = ores[1]
+    state.selectedOreId = state.selectedOre and state.selectedOre.id or nil
+    if state.selectedOre then
+        if not state.amountText or state.amountText == "" then
+            if (state.selectedOre.quantity or 0) <= 0 then
+                state.amountText = "0"
+            else
+                state.amountText = tostring(math.min(state.selectedOre.quantity, 1))
+            end
+        end
+        clampAmountText(state.selectedOre.quantity)
+    end
+end
+
+local function clampAmountText(maxAmount)
+    local text = DockedUI.furnaceState.amountText or "1"
+    local amount = tonumber(text)
+    if not amount or amount < 1 then
+        amount = 1
+    else
+        amount = math.floor(amount)
+    end
+    if maxAmount then
+        if maxAmount <= 0 then
+            amount = 0
+        else
+            amount = math.min(amount, maxAmount)
+        end
+    end
+    DockedUI.furnaceState.amountText = tostring(amount)
+    return amount
+end
+
+local function drawFurnaceSlot(ore, rect, selected)
+    local hover = false
+    local mx, my = Viewport.getMousePosition()
+    if mx >= rect.x and mx <= rect.x + rect.w and my >= rect.y and my <= rect.y + rect.h then
+        hover = true
+    end
+
+    local bg1 = selected and Theme.colors.bg3 or Theme.colors.bg2
+    local bg2 = selected and Theme.colors.bg2 or Theme.colors.bg1
+    local border = selected and Theme.colors.accent or Theme.colors.border
+
+    Theme.drawGradientGlowRect(rect.x, rect.y, rect.w, rect.h, 4, bg1, bg2, border,
+        hover and Theme.effects.glowMedium or Theme.effects.glowWeak)
+
+    local iconSize = rect.w - 16
+    local iconX = rect.x + (rect.w - iconSize) * 0.5
+    local iconY = rect.y + 10
+    IconSystem.drawIconAny({ ore.item, ore.id }, iconX, iconY, iconSize, 1.0)
+
+    local quantity = ore.quantity or 0
+    Theme.setColor(quantity > 0 and Theme.colors.textHighlight or Theme.colors.textSecondary)
+    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+    local qtyText = Util.formatNumber and Util.formatNumber(quantity) or tostring(quantity)
+    love.graphics.printf(qtyText, rect.x + 6, rect.y + rect.h - 26, rect.w - 12, "right")
+
+    Theme.setColor(Theme.colors.text)
+    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+    love.graphics.printf(ore.name or ore.id, rect.x + 4, rect.y + rect.h - 16, rect.w - 8, "center")
+end
+
+local function drawNoOreMessage(areaX, areaY, areaW, areaH)
+    Theme.setColor(Theme.colors.textSecondary)
+    love.graphics.setFont(Theme.fonts and Theme.fonts.normal or love.graphics.getFont())
+    love.graphics.printf("No ores available for smelting", areaX, areaY + areaH * 0.5 - 12, areaW, "center")
+end
+
+local function drawFurnaceBottomBar(x, y, w, h, selectedOre)
+    Theme.drawGradientGlowRect(x, y, w, h, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+
+    local pad = 16
+    local textY = y + pad
+    local font = Theme.fonts and Theme.fonts.normal or love.graphics.getFont()
+    love.graphics.setFont(font)
+    Theme.setColor(Theme.colors.text)
+
+    local label
+    if selectedOre then
+        label = string.format("Selected: %s", selectedOre.name or selectedOre.id)
+    else
+        label = "Select an ore to smelt"
+    end
+    love.graphics.print(label, x + pad, textY)
+
+    if selectedOre then
+        local qtyText = string.format("In cargo: %s", Util.formatNumber and Util.formatNumber(selectedOre.quantity) or tostring(selectedOre.quantity))
+        Theme.setColor(Theme.colors.textSecondary)
+        love.graphics.print(qtyText, x + pad, textY + font:getHeight() + 4)
+    end
+
+    local inputWidth = 140
+    local inputHeight = 34
+    local inputX = x + pad
+    local inputY = y + h - inputHeight - pad
+    local placeholder = selectedOre and "Amount" or "--"
+    local focused = DockedUI.furnaceState.inputActive
+    DockedUI.furnaceState.inputRect = UIUtils.drawTextInput(inputX, inputY, inputWidth, inputHeight,
+        selectedOre and DockedUI.furnaceState.amountText or "", focused, placeholder)
+
+    local buttonWidth = 160
+    local buttonHeight = 40
+    local buttonX = x + w - buttonWidth - pad
+    local buttonY = y + h - buttonHeight - pad
+    local amount = tonumber(DockedUI.furnaceState.amountText) or 0
+    local hasOre = selectedOre and (selectedOre.quantity or 0) > 0
+    local canSmelt = hasOre and amount > 0 and amount <= (selectedOre.quantity or 0)
+    DockedUI.furnaceState.canSmelt = canSmelt
+    local mx, my = Viewport.getMousePosition()
+    local hover = canSmelt and mx >= buttonX and mx <= buttonX + buttonWidth and my >= buttonY and my <= buttonY + buttonHeight
+    local buttonText = "Smelt"
+    local options = {
+        textColor = canSmelt and Theme.colors.text or Theme.colors.textDisabled,
+        bg = canSmelt and Theme.colors.bg2 or Theme.colors.bg1,
+        hoverBg = Theme.colors.bg3,
+        border = Theme.colors.border,
+    }
+    DockedUI.furnaceState.smeltButtonRect = UIUtils.drawButton(buttonX, buttonY, buttonWidth, buttonHeight,
+        buttonText, hover, false, options)
+
+    return inputY + inputHeight
+end
+
+function DockedUI.drawFurnaceContent(window, x, y, w, h)
+    local pad = (Theme.ui and Theme.ui.contentPadding) or 12
+    local bottomBarHeight = 110
+    local gridY = y + pad
+    local gridHeight = h - bottomBarHeight - pad
+
+    local ores = collectFurnaceOres(DockedUI.player)
+    DockedUI.furnaceState.slots = {}
+    ensureFurnaceSelection(ores)
+
+    if #ores == 0 then
+        drawNoOreMessage(x, gridY, w, gridHeight)
+    else
+        local slotSize = 120
+        local spacing = 12
+        local cols = math.max(1, math.floor((w - pad * 2 + spacing) / (slotSize + spacing)))
+        local totalWidth = cols * slotSize + (cols - 1) * spacing
+        local startX = x + (w - totalWidth) * 0.5
+        local startY = gridY
+
+        for index, ore in ipairs(ores) do
+            local zeroBased = index - 1
+            local row = math.floor(zeroBased / cols)
+            local col = zeroBased % cols
+            local slotX = math.floor(startX + col * (slotSize + spacing) + 0.5)
+            local slotY = math.floor(startY + row * (slotSize + spacing) + 0.5)
+            if slotY + slotSize <= gridY + gridHeight then
+                local rect = { x = slotX, y = slotY, w = slotSize, h = slotSize }
+                drawFurnaceSlot(ore, rect, DockedUI.furnaceState.selectedOreId == ore.id)
+                table.insert(DockedUI.furnaceState.slots, { rect = rect, ore = ore })
+            end
+        end
+    end
+
+    drawFurnaceBottomBar(x + pad, y + h - bottomBarHeight, w - pad * 2, bottomBarHeight - pad, DockedUI.furnaceState.selectedOre)
+end
+
+local function furnaceClickInside(rect, x, y)
+    return rect and UIUtils.pointInRect(x, y, rect)
+end
+
+local function executeFurnaceSmelt()
+    local state = DockedUI.furnaceState
+    local ore = state.selectedOre
+    if not ore then
+        Notifications.info("Select an ore to smelt first")
+        return
+    end
+    local amount = clampAmountText(ore.quantity)
+    if amount <= 0 then
+        Notifications.info("Enter a valid amount to smelt")
+        return
+    end
+
+    local itemName = ore.name or ore.id
+    Notifications.action(string.format("Queued smelting of %d %s", amount, itemName))
+    state.inputActive = false
+    if love and love.keyboard and love.keyboard.setTextInput then
+        love.keyboard.setTextInput(false)
+    end
+end
+
+local function setFurnaceInputActive(active)
+    local state = DockedUI.furnaceState
+    if state.inputActive == active then return end
+    state.inputActive = active and true or false
+    if love and love.keyboard and love.keyboard.setTextInput then
+        love.keyboard.setTextInput(state.inputActive)
+    end
+    if not state.inputActive then
+        local amount = tonumber(state.amountText)
+        local minValue = 1
+        if state.selectedOre and (state.selectedOre.quantity or 0) <= 0 then
+            minValue = 0
+        end
+        if not amount or amount < minValue then
+            state.amountText = tostring(minValue)
+        end
+    end
+end
+
+local function handleFurnaceSlotClick(x, y)
+    local state = DockedUI.furnaceState
+    for _, slot in ipairs(state.slots or {}) do
+        if furnaceClickInside(slot.rect, x, y) then
+            state.selectedOreId = slot.ore.id
+            state.selectedOre = slot.ore
+            clampAmountText(slot.ore.quantity)
+            return true
+        end
+    end
+    return false
+end
+
+function DockedUI.handleFurnaceMousePressed(x, y, button)
+    if not DockedUI.window then return false, false end
+
+    if DockedUI.window:mousepressed(x, y, button) then
+        return true, false
+    end
+
+    if button ~= 1 then
+        setFurnaceInputActive(false)
+        return false, false
+    end
+
+    if handleFurnaceSlotClick(x, y) then
+        setFurnaceInputActive(false)
+        return true, false
+    end
+
+    local state = DockedUI.furnaceState
+    if furnaceClickInside(state.inputRect, x, y) and state.selectedOre then
+        setFurnaceInputActive(true)
+        return true, false
+    end
+
+    setFurnaceInputActive(false)
+
+    if state.canSmelt and furnaceClickInside(state.smeltButtonRect, x, y) then
+        executeFurnaceSmelt()
+        return true, false
+    end
+
+    return false, false
+end
 
 -- Window properties
 -- Initialize the docked window
@@ -99,8 +444,24 @@ function DockedUI.show(player, station)
   end
   DockedUI.player = player
   DockedUI.station = station
+  DockedUI.stationType = station and station.components and station.components.station and station.components.station.type or nil
+  if DockedUI.window then
+    if isFurnaceStation() then
+      local name = (station and station.components and station.components.station and station.components.station.name) or "Furnace Station"
+      DockedUI.window.title = string.format("%s — Furnace Operations", name)
+    else
+      DockedUI.window.title = "Station Services"
+    end
+  end
   if DockedUI.quests then
     DockedUI.quests.station = station
+  end
+
+  if isFurnaceStation() then
+    resetFurnaceState()
+    DockedUI.activeTab = "Furnace"
+  elseif DockedUI.activeTab == "Furnace" then
+    DockedUI.activeTab = "Shop"
   end
 
   -- Ship UI is standalone. Refresh of ship UI should happen when the Ship window is opened.
@@ -118,6 +479,9 @@ function DockedUI.hide()
   DockedUI.visible = false
   DockedUI.player = nil
   DockedUI.searchActive = false
+  DockedUI.stationType = nil
+  DockedUI.station = nil
+  resetFurnaceState()
   Shop.hideContextMenu(DockedUI)
 end
 
@@ -138,7 +502,7 @@ function DockedUI.draw(player)
     DockedUI.window:draw()
     
     -- Draw context menu on top of everything else
-    if DockedUI.activeTab == "Shop" then
+    if DockedUI.activeTab == "Shop" and not isFurnaceStation() then
         local mx, my = Viewport.getMousePosition()
         Shop.drawContextMenu(DockedUI, mx, my)
     end
@@ -147,6 +511,11 @@ end
 function DockedUI.drawContent(window, x, y, w, h)
     local player = DockedUI.player
     local mx, my = Viewport.getMousePosition()
+
+    if isFurnaceStation() then
+        DockedUI.drawFurnaceContent(window, x, y, w, h)
+        return
+    end
 
     -- Main tabs
     local pad = (Theme.ui and Theme.ui.contentPadding) or 12
@@ -337,6 +706,10 @@ function DockedUI.mousepressed(x, y, button, player)
     end
     local currentPlayer = DockedUI.player
 
+    if isFurnaceStation() then
+        return DockedUI.handleFurnaceMousePressed(x, y, button)
+    end
+
     if DockedUI.window:mousepressed(x, y, button) then
         return true, false
     end
@@ -388,6 +761,13 @@ function DockedUI.mousereleased(x, y, button, player)
     end
     local currentPlayer = DockedUI.player
 
+    if isFurnaceStation() then
+        if DockedUI.window:mousereleased(x, y, button) then
+            return true, false
+        end
+        return false, false
+    end
+
     if DockedUI.window:mousereleased(x, y, button) then
         return true, false
     end
@@ -418,6 +798,13 @@ function DockedUI.mousemoved(x, y, dx, dy, player)
     end
     local currentPlayer = DockedUI.player
 
+    if isFurnaceStation() then
+        if DockedUI.window:mousemoved(x, y, dx, dy) then
+            return true, false
+        end
+        return false, false
+    end
+
     if DockedUI.window:mousemoved(x, y, dx, dy) then
         return true, false
     end
@@ -444,6 +831,9 @@ end
 -- Handle mouse wheel
 function DockedUI.wheelmoved(dx, dy, player)
   if not DockedUI.visible then return false end
+  if isFurnaceStation() then
+    return false
+  end
   if player then
     DockedUI.player = player
   end
@@ -462,6 +852,31 @@ function DockedUI.keypressed(key, scancode, isrepeat, player)
     DockedUI.player = player
   end
   local currentPlayer = DockedUI.player
+
+  if isFurnaceStation() then
+    local state = DockedUI.furnaceState
+    if key == "escape" then
+      setFurnaceInputActive(false)
+      return true, true
+    end
+
+    if state.inputActive and key == "backspace" then
+      local text = state.amountText or ""
+      state.amountText = text:sub(1, -2)
+      return true, false
+    end
+
+    if key == "return" or key == "kpenter" then
+      if state.canSmelt then
+        executeFurnaceSmelt()
+      elseif state.selectedOre then
+        clampAmountText(state.selectedOre.quantity)
+      end
+      return true, false
+    end
+
+    return true, false
+  end
 
   if DockedUI.activeTab == "Shop" then
     local consumed, shouldClose = Shop.keypressed(DockedUI, key, scancode, isrepeat, currentPlayer)
@@ -488,6 +903,24 @@ function DockedUI.textinput(text, player)
 
   if player then
     DockedUI.player = player
+  end
+
+  if isFurnaceStation() then
+    local state = DockedUI.furnaceState
+    if state.inputActive and state.selectedOre then
+      local digits = text:gsub("%D", "")
+      if digits ~= "" then
+        local base = state.amountText or ""
+        if base == "0" then base = "" end
+        local combined = base .. digits
+        if #combined > 6 then
+          combined = combined:sub(1, 6)
+        end
+        state.amountText = combined
+      end
+      return true
+    end
+    return false
   end
 
   if DockedUI.activeTab == "Shop" then

@@ -58,6 +58,8 @@ function UI.drawHelpers(player, world, hub, camera)
   dockPromptState.visible = false
   dockPromptState.dockRect = nil
   dockPromptState.toggleRect = nil
+  dockPromptState.station = nil
+  dockPromptState.stationName = nil
 
   -- Helper tooltip above stations (docking prompt and repair requirements)
   do
@@ -136,11 +138,13 @@ function UI.drawHelpers(player, world, hub, camera)
             end
             table.insert(lines, "Automated refinery operations active")
             text = table.concat(lines, "\n")
-          elseif station == hub then
+          elseif player.canDock and player.nearbyStation == station then
+            dockPromptState.visible = true
+            dockPromptState.station = station
+            dockPromptState.stationName = (station.components and station.components.station and station.components.station.name) or "Station"
             if player.canDock then
               local sw, sh = Viewport.getDimensions()
               local mouseX, mouseY = Viewport.getMousePosition()
-              dockPromptState.visible = true
 
               if dockPromptState.minimized then
                 local buttonW, buttonH = 72, 36
@@ -200,7 +204,9 @@ function UI.drawHelpers(player, world, hub, camera)
                   love.graphics.setFont(labelFont)
                 end
                 Theme.setColor(Theme.colors.text)
-                love.graphics.print("Docking Available", panelX + padding, panelY + padding)
+                local stationName = dockPromptState.stationName or "Station"
+                love.graphics.print(stationName, panelX + padding, panelY + padding)
+                love.graphics.print("Docking Available", panelX + padding, panelY + padding + labelFont:getHeight() + 4)
                 if previousFont then
                   love.graphics.setFont(previousFont)
                 end

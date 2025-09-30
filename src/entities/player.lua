@@ -44,6 +44,8 @@ function Player.new(x, y, shipId)
   self.weaponsDisabled = false
   self.wasInHub = false
   self.canDock = false
+  self.nearbyStation = nil
+  self.dockedStation = nil
 
   -- Ensure progression component exists
   if not self.components.progression then
@@ -134,6 +136,9 @@ end
 
 function Player:dock(station)
     self.docked = true
+    self.dockedStation = station
+    self.canDock = false
+    self.nearbyStation = nil
     if self.components and self.components.physics and self.components.physics.body then
         self.components.physics.body.vx, self.components.physics.body.vy = 0, 0
     end
@@ -159,6 +164,8 @@ function Player:undock()
 
     local Hotbar = require("src.systems.hotbar")
     Hotbar.state.active.turret_slots = {}
+    self.dockedStation = nil
+    self.nearbyStation = nil
 end
 
 function Player:resetDurability()
