@@ -40,7 +40,7 @@ local settings = {
         toggle_bounty = { primary = "b" },
         toggle_skills = { primary = "p" },
         toggle_map = { primary = "m" },
-        dock = { primary = "space" },
+        -- dock key removed - no hotkey for docking
         repair_beacon = { primary = "r" },
         -- Combat actions
         dash = { primary = "lshift" },

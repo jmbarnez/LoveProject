@@ -178,8 +178,8 @@ function Game.load(fromSave, saveSlot, loadingScreen)
     return false
   end
 
-  -- Create an industrial furnace station near the hub for ore processing logistics
-  local furnace_station = EntityFactory.create("station", "ore_furnace_station", 6800, 5000)
+  -- Create an industrial furnace station northeast of the hub for ore processing logistics
+  local furnace_station = EntityFactory.create("station", "ore_furnace_station", 7200, 7200)
   if furnace_station then
     world:addEntity(furnace_station)
   else

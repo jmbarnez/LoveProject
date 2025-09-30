@@ -174,60 +174,7 @@ toggleAction("toggle_bounty", "toggle_bounty", "bounty")
 toggleAction("toggle_skills", "toggle_skills", "skills")
 toggleAction("toggle_map", "toggle_map", "map")
 
-ActionMap.registerAction({
-    name = "dock",
-    priority = 10,
-    getKeys = function()
-        return ActionMap.bindingKeys("dock", "space")
-    end,
-    enabled = function(ctx)
-        return ctx and ctx.player ~= nil and ctx.world ~= nil
-    end,
-    callback = function(ctx)
-        if not ctx then return false end
-        local player = ctx.player
-        local world = ctx.world
-        local Util = ctx.util
-        if not (player and world and Util) then return false end
-        local position = player.components and player.components.position
-        if not position then return false end
-
-        local px, py = position.x, position.y
-        local nearest, nearestDist
-        local interactables = world.get_entities_with_components and world:get_entities_with_components("interactable")
-        if interactables then
-            for _, entity in ipairs(interactables) do
-                local inter = entity.components and entity.components.interactable
-                local pos = entity.components and entity.components.position
-                local range = inter and inter.range
-                if inter and inter.activate and pos and type(range) == "number" then
-                    local d = Util.distance(px, py, pos.x, pos.y)
-                    if d <= range and (not nearestDist or d < nearestDist) then
-                        nearest = entity
-                        nearestDist = d
-                    end
-                end
-            end
-        end
-
-        if nearest then
-            local ok = nearest.components.interactable.activate(player)
-            if ok ~= false then
-                return true
-            end
-        end
-
-        if player.canDock then
-            local eventBus = ctx.Events or Events
-            if eventBus and eventBus.emit and Events and Events.GAME_EVENTS then
-                eventBus.emit(Events.GAME_EVENTS.DOCK_REQUESTED)
-                return true
-            end
-        end
-
-        return false
-    end,
-})
+-- Docking action removed - no hotkey for docking
 
 ActionMap.registerAction({
     name = "repair_beacon",

@@ -15,10 +15,13 @@ local ExperienceNotification = require("src.ui.hud.experience_notification")
 local UI = {}
 
 local dockPromptState = {
-  minimized = false,
   visible = false,
   dockRect = nil,
-  toggleRect = nil,
+}
+
+local warpPromptState = {
+  visible = false,
+  warpRect = nil,
 }
 
 -- Helper function to check if player has required turret type
@@ -57,7 +60,8 @@ end
 function UI.drawHelpers(player, world, hub, camera)
   dockPromptState.visible = false
   dockPromptState.dockRect = nil
-  dockPromptState.toggleRect = nil
+  warpPromptState.visible = false
+  warpPromptState.warpRect = nil
 
   -- Helper tooltip above stations (docking prompt and repair requirements)
   do
@@ -142,103 +146,37 @@ function UI.drawHelpers(player, world, hub, camera)
               local mouseX, mouseY = Viewport.getMousePosition()
               dockPromptState.visible = true
 
-              if dockPromptState.minimized then
-                local buttonW, buttonH = 72, 36
-                local buttonX = math.floor(screenX - buttonW * 0.5 + 0.5)
-                local buttonY = math.floor(screenY - buttonH - 48 + 0.5)
-                buttonX = math.max(8, math.min(sw - buttonW - 8, buttonX))
-                buttonY = math.max(8, math.min(sh - buttonH - 8, buttonY))
+              -- Simple dock button - no minimized/expanded states
+              local buttonW, buttonH = 80, 36
+              local buttonX = math.floor(screenX - buttonW * 0.5 + 0.5)
+              local buttonY = math.floor(screenY - buttonH - 48 + 0.5)
+              buttonX = math.max(8, math.min(sw - buttonW - 8, buttonX))
+              buttonY = math.max(8, math.min(sh - buttonH - 8, buttonY))
 
-                local hover = UIUtils.pointInRect(mouseX, mouseY, {
-                  x = buttonX,
-                  y = buttonY,
-                  w = buttonW,
-                  h = buttonH,
-                })
+              local hover = UIUtils.pointInRect(mouseX, mouseY, {
+                x = buttonX,
+                y = buttonY,
+                w = buttonW,
+                h = buttonH,
+              })
 
-                local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
-                local previousFont = love.graphics.getFont()
-                dockPromptState.toggleRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "...", hover, false, {
-                  font = buttonFont,
-                })
-                dockPromptState.dockRect = nil
+              local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
+              local previousFont = love.graphics.getFont()
+              dockPromptState.dockRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "Dock", hover, false, {
+                font = buttonFont,
+              })
+              dockPromptState.toggleRect = nil
 
-                local triCx = math.floor(screenX + 0.5)
-                local triY = dockPromptState.toggleRect.y + dockPromptState.toggleRect.h
-                Theme.setColor(Theme.colors.bg2)
-                love.graphics.polygon('fill', triCx - 6, triY, triCx + 6, triY, triCx, triY + 8)
-                Theme.setColor(Theme.colors.border)
-                love.graphics.line(triCx - 6, triY, triCx, triY + 8)
-                love.graphics.line(triCx + 6, triY, triCx, triY + 8)
+              local triCx = math.floor(screenX + 0.5)
+              local triY = dockPromptState.dockRect.y + dockPromptState.dockRect.h
+              Theme.setColor(Theme.colors.bg2)
+              love.graphics.polygon('fill', triCx - 6, triY, triCx + 6, triY, triCx, triY + 8)
+              Theme.setColor(Theme.colors.border)
+              love.graphics.line(triCx - 6, triY, triCx, triY + 8)
+              love.graphics.line(triCx + 6, triY, triCx, triY + 8)
 
-                if previousFont then
-                  love.graphics.setFont(previousFont)
-                end
-              else
-                local panelW, panelH = 220, 96
-                local padding = 12
-                local panelX = math.floor(screenX - panelW * 0.5 + 0.5)
-                local panelY = math.floor(screenY - panelH - 70 + 0.5)
-                panelX = math.max(8, math.min(sw - panelW - 8, panelX))
-                panelY = math.max(8, math.min(sh - panelH - 8, panelY))
-
-                Theme.drawGradientGlowRect(panelX, panelY, panelW, panelH, 6,
-                  Theme.colors.bg2, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak * 0.4)
-                Theme.drawEVEBorder(panelX, panelY, panelW, panelH, 6, Theme.colors.border, 2)
-
-                local triCx = math.floor(screenX + 0.5)
-                local triY = panelY + panelH
-                Theme.setColor(Theme.colors.bg2)
-                love.graphics.polygon('fill', triCx - 6, triY, triCx + 6, triY, triCx, triY + 10)
-                Theme.setColor(Theme.colors.border)
-                love.graphics.line(triCx - 6, triY, triCx, triY + 10)
-                love.graphics.line(triCx + 6, triY, triCx, triY + 10)
-
-                local previousFont = love.graphics.getFont()
-                local labelFont = (Theme.fonts and Theme.fonts.small) or previousFont
-                if labelFont then
-                  love.graphics.setFont(labelFont)
-                end
-                Theme.setColor(Theme.colors.text)
-                love.graphics.print("Docking Available", panelX + padding, panelY + padding)
-                if previousFont then
-                  love.graphics.setFont(previousFont)
-                end
-
-                local dockButtonW = panelW - padding * 2
-                local dockButtonH = 36
-                local dockButtonX = panelX + padding
-                local dockButtonY = panelY + panelH - dockButtonH - padding
-                local dockHover = UIUtils.pointInRect(mouseX, mouseY, {
-                  x = dockButtonX,
-                  y = dockButtonY,
-                  w = dockButtonW,
-                  h = dockButtonH,
-                })
-
-                local buttonFont = (Theme.fonts and Theme.fonts.normal) or previousFont
-                dockPromptState.dockRect = UIUtils.drawButton(dockButtonX, dockButtonY, dockButtonW, dockButtonH, "Dock", dockHover, false, {
-                  font = buttonFont,
-                })
-
-                local toggleSize = 28
-                local toggleX = panelX + panelW - toggleSize - padding
-                local toggleY = panelY + padding
-                local toggleHover = UIUtils.pointInRect(mouseX, mouseY, {
-                  x = toggleX,
-                  y = toggleY,
-                  w = toggleSize,
-                  h = toggleSize,
-                })
-
-                local toggleFont = (Theme.fonts and Theme.fonts.small) or buttonFont
-                dockPromptState.toggleRect = UIUtils.drawButton(toggleX, toggleY, toggleSize, toggleSize, "...", toggleHover, false, {
-                  font = toggleFont,
-                })
-
-                if previousFont then
-                  love.graphics.setFont(previousFont)
-                end
+              if previousFont then
+                love.graphics.setFont(previousFont)
               end
             end
           end
@@ -332,47 +270,40 @@ function UI.drawHelpers(player, world, hub, camera)
 
         -- Only draw if on-screen and close enough
         if distance <= range then
-          local keymap = Settings.getKeymap()
-          local dockKey = (keymap and keymap.dock or "space"):upper()
-          local text = string.format("Press [%s] to Use Warp Gate", dockKey)
+          local mouseX, mouseY = Viewport.getMousePosition()
+          warpPromptState.visible = true
 
-          -- Style and layout (same as station helper)
-          local paddingX, paddingY = 10, 6
-          local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
-          local oldFont = love.graphics.getFont()
-          love.graphics.setFont(font)
+          -- Simple warp button - similar to dock button
+          local buttonW, buttonH = 80, 36
+          local buttonX = math.floor(screenX - buttonW * 0.5 + 0.5)
+          local buttonY = math.floor(screenY - buttonH - 48 + 0.5)
+          buttonX = math.max(8, math.min(sw - buttonW - 8, buttonX))
+          buttonY = math.max(8, math.min(sh - buttonH - 8, buttonY))
 
-          local lines = { text }
-          local maxWidth = font:getWidth(text)
-          local totalHeight = font:getHeight()
+          local hover = UIUtils.pointInRect(mouseX, mouseY, {
+            x = buttonX,
+            y = buttonY,
+            w = buttonW,
+            h = buttonH,
+          })
 
-          local boxW = maxWidth + paddingX * 2
-          local boxH = totalHeight + paddingY * 2
-          local boxX = math.floor(screenX - boxW * 0.5 + 0.5)
-          local boxY = math.floor(screenY - boxH - 50 + 0.5) -- 50px above gate
-          -- Keep on-screen
-          boxX = math.max(8, math.min(sw - boxW - 8, boxX))
-          boxY = math.max(8, math.min(sh - boxH - 8, boxY))
+          local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
+          local previousFont = love.graphics.getFont()
+          warpPromptState.warpRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "Warp", hover, false, {
+            font = buttonFont,
+          })
 
-          -- Background and border
-          Theme.drawGradientGlowRect(boxX, boxY, boxW, boxH, 4,
-            Theme.colors.bg2, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak * 0.2)
-          Theme.drawEVEBorder(boxX, boxY, boxW, boxH, 4, Theme.colors.border, 2)
-
-          -- Pointer triangle
           local triCx = math.floor(screenX + 0.5)
-          local triY = boxY + boxH
+          local triY = warpPromptState.warpRect.y + warpPromptState.warpRect.h
           Theme.setColor(Theme.colors.bg2)
           love.graphics.polygon('fill', triCx - 6, triY, triCx + 6, triY, triCx, triY + 8)
           Theme.setColor(Theme.colors.border)
           love.graphics.line(triCx - 6, triY, triCx, triY + 8)
           love.graphics.line(triCx + 6, triY, triCx, triY + 8)
 
-          -- Text
-          Theme.setColor(Theme.colors.text)
-          love.graphics.print(text, boxX + paddingX, boxY + paddingY)
-
-          if oldFont then love.graphics.setFont(oldFont) end
+          if previousFont then
+            love.graphics.setFont(previousFont)
+          end
         end
       end
     end
@@ -544,19 +475,19 @@ UI.drawTurretIcon = IconSystem.drawIconAny
 
 function UI.handleHelperMousePressed(x, y, button, player)
   if button ~= 1 then return false end
-  if not dockPromptState.visible then return false end
+  if not dockPromptState.visible and not warpPromptState.visible then return false end
   if not player or player.docked then return false end
 
-  if dockPromptState.toggleRect and UIUtils.pointInRect(x, y, dockPromptState.toggleRect) then
-    dockPromptState.minimized = not dockPromptState.minimized
-    return true
-  end
-
-  if not dockPromptState.minimized and dockPromptState.dockRect and UIUtils.pointInRect(x, y, dockPromptState.dockRect) then
+  if dockPromptState.dockRect and UIUtils.pointInRect(x, y, dockPromptState.dockRect) then
     if player.canDock then
       Events.emit(Events.GAME_EVENTS.DOCK_REQUESTED)
       return true
     end
+  end
+
+  if warpPromptState.warpRect and UIUtils.pointInRect(x, y, warpPromptState.warpRect) then
+    Events.emit(Events.GAME_EVENTS.WARP_REQUESTED)
+    return true
   end
 
   return false

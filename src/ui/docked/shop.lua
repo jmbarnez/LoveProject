@@ -287,7 +287,7 @@ function Shop.drawShopItems(DockedUI, x, y, w, h, player)
       IconSystem.drawIconAny({ subject, item.id }, dx + iconPad, dy + iconPad, iconSize, 1.0)
       Theme.setColor(Theme.colors.accent)
       love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-      love.graphics.printf("∞", dx + 4, dy + 2, slotW - 4, "left")
+      love.graphics.printf("∞", dx + 4, dy + slotH - 14, slotW - 4, "left")
       local qtyOwned = 0
       if player and player.components and player.components.cargo and player.components.cargo.getQuantity then
         qtyOwned = player.components.cargo:getQuantity(item.id)

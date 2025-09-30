@@ -178,13 +178,8 @@ function WarpGate:getInteractionHint()
         return "Warp Gate (No Power)", {1, 0.5, 0.5}
     end
 
-    -- Show the configured interaction key (defaults to space via Settings keymap.dock)
-    local interactKey = "space"
-    local ok, Settings = pcall(require, "src.core.settings")
-    if ok and Settings and Settings.getKeymap then
-        local km = Settings.getKeymap()
-        if km and km.dock then interactKey = km.dock end
-    end
+    -- No hotkey for docking - use click instead
+    local interactKey = "CLICK"
 
     if self.activationCost > 0 then
         return string.format("Press %s to use Warp Gate (%d GC)", string.upper(interactKey), self.activationCost), {0.5, 1, 0.8}
