@@ -74,6 +74,7 @@ return {
     
     -- Pickup events
     loot_collected = {type = "sfx", sound = "loot_pickup", volume = 0.5},
+    xp_collected = {type = "sfx", sound = "loot_pickup", volume = 0.55, pitch = 1.1},
     asteroid_shatter = {type = "sfx", sound = "asteroid_shatter", volume = 0.65},
     
     -- UI events

@@ -1,6 +1,7 @@
 local Notifications = require("src.ui.notifications")
 local Skills = require("src.core.skills")
 local Events = require("src.core.events")
+local ExperiencePickup = require("src.entities.xp_pickup")
 
 local MiningSystem = {}
 
@@ -28,6 +29,31 @@ local function ensureHotspotDefaults(entity, mineable)
         mineable.hotspots:setRadius(mineable.hotspotRadius)
     end
     return radius
+end
+
+local function spawnExperiencePickup(world, x, y, amount)
+    if not world or not amount or amount <= 0 then
+        return
+    end
+
+    local angle = math.random() * math.pi * 2
+    local offset = 6 + math.random() * 14
+    local speed = 30 + math.random() * 45
+    local spawnX = x + math.cos(angle) * offset
+    local spawnY = y + math.sin(angle) * offset
+
+    local pickup = ExperiencePickup.new(
+        spawnX,
+        spawnY,
+        amount,
+        0.9,
+        math.cos(angle) * speed,
+        math.sin(angle) * speed
+    )
+
+    if pickup then
+        table.insert(world.entities, pickup)
+    end
 end
 
 -- Old array-based hotspot system removed - now using Hotspots class
@@ -111,7 +137,10 @@ function MiningSystem.update(dt, world, player)
                                 local miningLevel = Skills.getLevel("mining")
                                 local xpGain = xpBase * (1 + miningLevel * 0.06)
                                 local leveledUp = Skills.addXp("mining", xpGain)
-                                player:addXP(xpGain)
+                                local pos = e.components.position
+                                local px = pos and pos.x or 0
+                                local py = pos and pos.y or 0
+                                spawnExperiencePickup(world, px, py, xpGain)
 
                                 if leveledUp then
                                     Notifications.action("Mining level up!")
