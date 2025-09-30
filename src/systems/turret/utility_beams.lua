@@ -79,6 +79,15 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     if locked or not turret:canFire() then
         turret.beamActive = false
         turret.beamTarget = nil
+        -- Clear mining flags when beam is not active
+        if world then
+            local entities = world:get_entities_with_components("mineable")
+            for _, entity in ipairs(entities) do
+                if entity.components and entity.components.mineable then
+                    entity.components.mineable.isBeingMined = false
+                end
+            end
+        end
         return
     end
 
@@ -126,6 +135,12 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     if hitTarget then
         if hitTarget.components and hitTarget.components.mineable then
+            -- Set mining flag to enable hotspot generation
+            if not hitTarget.components.mineable.isBeingMined then
+                print("Mining started on asteroid!")
+            end
+            hitTarget.components.mineable.isBeingMined = true
+            
             local damageValue = damageRate * dt
             UtilityBeams.applyMiningDamage(hitTarget, damageValue, turret.owner, world, hitX, hitY)
 
@@ -137,6 +152,14 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
             if turret._beamImpactTimer <= 0 then
                 TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
                 turret._beamImpactTimer = IMPACT_INTERVAL
+            end
+        end
+    else
+        -- No target hit, clear mining flags on all asteroids
+        local entities = world:get_entities_with_components("mineable")
+        for _, entity in ipairs(entities) do
+            if entity.components and entity.components.mineable then
+                entity.components.mineable.isBeingMined = false
             end
         end
     end
@@ -169,8 +192,29 @@ function UtilityBeams.applyMiningDamage(target, damage, source, world, impactX, 
         mineable.maxDurability = oldDurability
     end
 
-    -- Apply damage to durability
-    mineable.durability = math.max(0, mineable.durability - damage)
+    -- Check for hotspot burst damage
+    local burstDamage = 0
+    local hotspotConsumed = false
+    if mineable.hotspots and source and source.cursorWorldPos then
+        -- Try to consume a hotspot for burst damage
+        burstDamage = mineable.hotspots:consumeHotspot(
+            source.cursorWorldPos.x, 
+            source.cursorWorldPos.y
+        )
+        hotspotConsumed = (burstDamage > 0)
+    end
+
+    -- Apply base damage plus burst damage
+    local finalDamage = damage + burstDamage
+    
+    -- Create visual effect for hotspot consumption
+    if hotspotConsumed then
+        local TurretEffects = require("src.systems.turret.effects")
+        if TurretEffects and TurretEffects.createImpactEffect then
+            TurretEffects.createImpactEffect(nil, source.cursorWorldPos.x, source.cursorWorldPos.y, target, "hotspot_burst")
+        end
+    end
+    mineable.durability = math.max(0, mineable.durability - finalDamage)
 
     -- Update progress for cracking visual effects
     mineable._durabilityProgress = mineable.maxDurability - mineable.durability

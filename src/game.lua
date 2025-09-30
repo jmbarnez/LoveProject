@@ -314,6 +314,9 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   
   QuestLogHUD = QuestLogHUD or require("src.ui.hud.quest_log")
   
+  -- Clear any existing event listeners to prevent conflicts
+  Events.clear()
+  
   -- Set up event listeners for automatic sound effects
   Events.on(Events.GAME_EVENTS.PLAYER_DAMAGED, function(data)
     Sound.playSFX("hit")
@@ -340,6 +343,18 @@ function Game.load(fromSave, saveSlot, loadingScreen)
       end
     end
   end)
+
+  -- Initial docking state check to ensure canDock is properly set
+  if hub and player and player.components and player.components.position then
+    local playerPos = player.components.position
+    local hubPos = hub.components and hub.components.position
+    if hubPos then
+      local distance = Util.distance(playerPos.x, playerPos.y, hubPos.x, hubPos.y)
+      local dockRadius = hub.radius or 100
+      player.canDock = distance <= dockRadius
+      Log.debug("Initial docking check: distance=", distance, "dockRadius=", dockRadius, "canDock=", player.canDock)
+    end
+  end
 
 
   Events.on(Events.GAME_EVENTS.WARP_REQUESTED, function()
@@ -454,7 +469,9 @@ function Game.update(dt)
         
         local canDockNow = distance <= dockRadius
         
+        -- Check if docking state has changed
         if canDockNow ~= player.canDock then
+            player.canDock = canDockNow
             Events.emit(Events.GAME_EVENTS.CAN_DOCK, { canDock = canDockNow })
         end
     end

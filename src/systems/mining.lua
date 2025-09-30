@@ -130,7 +130,24 @@ function MiningSystem.update(dt, world, player)
                 local jitter = m.hotspotIntervalJitter or 1.4
                 m.hotspotTimer = interval + math.random() * jitter
             end
-
+      
+            -- Update hotspots
+            if m.hotspots then
+                m.hotspots:update(dt)
+                
+                -- Try to generate new hotspots during mining
+                local currentTime = love.timer.getTime()
+                if currentTime - (m.hotspots.lastHotspotSpawn or 0) >= m.hotspots.hotspotSpawnInterval then
+                    if math.random() < m.hotspots.hotspotSpawnChance then
+                        local success = m.hotspots:generateHotspot(e)
+                        if success then
+                            print("Hotspot generated! Total hotspots: " .. m.hotspots:getCount())
+                        end
+                    end
+                    m.hotspots.lastHotspotSpawn = currentTime
+                end
+            end
+            
             -- Advance per-cycle progress
             m.mineProgress = (m.mineProgress or 0) + dt
             local cycleTime = m.mineCycleTime or 1.0

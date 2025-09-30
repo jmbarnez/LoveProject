@@ -1,3 +1,5 @@
+local Hotspots = require("src.components.hotspots")
+
 local Mineable = {}
 Mineable.__index = Mineable
 
@@ -31,6 +33,17 @@ function Mineable.new(values)
     instance.hotspotWarmup = values.hotspotWarmup or 0.35
     instance.hotspotBurstInterval = values.hotspotBurstInterval or 0.75
     instance.hotspotDamage = values.hotspotDamage or 8
+    
+    -- Hotspot system for enhanced mining
+    instance.hotspots = Hotspots.new({
+        maxHotspots = values.maxHotspots or 3,
+        hotspotRadius = values.hotspotRadius or 15,
+        hotspotDamageMultiplier = values.hotspotDamageMultiplier or 2.0,
+        hotspotLifetime = values.hotspotLifetime or 8.0,
+        hotspotSpawnChance = values.hotspotSpawnChance or 0.3,
+        hotspotSpawnInterval = values.hotspotSpawnInterval or 2.0
+    })
+
     return instance
 end
 

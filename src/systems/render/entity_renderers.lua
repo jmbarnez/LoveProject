@@ -306,32 +306,7 @@ function EntityRenderers.asteroid(entity, player)
         RenderUtils.setColor(fillColor)
         love.graphics.polygon("fill", flatVertices)
 
-        -- Draw protruding chunks sitting on top of the base rock
-        local chunks = props.chunks or {}
-        local chunkOutlineColor = colors.chunkOutline or outlineColor
-        local chunkPalette = colors.chunkPalette or colors.chunks
-        for _, chunk in ipairs(chunks) do
-            local chunkColor = chunk.color or (chunkPalette and chunkPalette[1]) or fillColor
-            RenderUtils.setColor(chunkColor)
-            if chunk.shape == "ellipse" then
-                love.graphics.ellipse("fill", chunk.x or 0, chunk.y or 0, chunk.rx or 4, chunk.ry or chunk.rx or 4)
-                RenderUtils.setColor(chunk.outlineColor or chunkOutlineColor)
-                love.graphics.ellipse("line", chunk.x or 0, chunk.y or 0, chunk.rx or 4, chunk.ry or chunk.rx or 4)
-            elseif chunk.shape == "circle" then
-                love.graphics.circle("fill", chunk.x or 0, chunk.y or 0, chunk.r or 4)
-                RenderUtils.setColor(chunk.outlineColor or chunkOutlineColor)
-                love.graphics.circle("line", chunk.x or 0, chunk.y or 0, chunk.r or 4)
-            elseif chunk.shape == "polygon" and chunk.vertices then
-                local flat = {}
-                for _, v in ipairs(chunk.vertices) do
-                    table.insert(flat, v[1])
-                    table.insert(flat, v[2])
-                end
-                love.graphics.polygon("fill", flat)
-                RenderUtils.setColor(chunk.outlineColor or chunkOutlineColor)
-                love.graphics.polygon("line", flat)
-            end
-        end
+        -- Chunks removed - hotspots now provide visual variety during mining
 
         local mineable = entity.components.mineable
         local hotspots = mineable and mineable.hotspots
@@ -367,7 +342,36 @@ function EntityRenderers.asteroid(entity, player)
 
         RenderUtils.setColor(outlineColor)
         love.graphics.polygon("line", flatVertices)
-
+        
+        -- Draw mining hotspots
+        if entity.components.mineable and entity.components.mineable.hotspots then
+            local hotspots = entity.components.mineable.hotspots:getHotspots()
+            for _, hotspot in ipairs(hotspots) do
+                if hotspot.active then
+                    -- Calculate pulsing effect
+                    local pulse = 0.8 + 0.2 * math.sin(hotspot.pulsePhase)
+                    local alpha = (hotspot.lifetime / hotspot.maxLifetime) * pulse
+                    
+                    -- Draw hotspot glow
+                    local glowColor = {1.0, 0.8, 0.2, alpha * 0.6} -- Orange glow
+                    RenderUtils.setColor(glowColor)
+                    love.graphics.circle("fill", hotspot.x, hotspot.y, hotspot.radius * pulse)
+                    
+                    -- Draw hotspot border
+                    local borderColor = {1.0, 0.6, 0.0, alpha} -- Brighter orange border
+                    RenderUtils.setColor(borderColor)
+                    love.graphics.setLineWidth(2)
+                    love.graphics.circle("line", hotspot.x, hotspot.y, hotspot.radius * pulse)
+                    love.graphics.setLineWidth(1)
+                    
+                    -- Draw inner core
+                    local coreColor = {1.0, 1.0, 0.4, alpha * 0.8} -- Bright yellow core
+                    RenderUtils.setColor(coreColor)
+                    love.graphics.circle("fill", hotspot.x, hotspot.y, hotspot.radius * 0.4 * pulse)
+                end
+            end
+        end
+       
         -- No hover glow ring; visible effects only when laser is cutting
 
         ResourceNodeBars.drawMiningBar(entity, {
