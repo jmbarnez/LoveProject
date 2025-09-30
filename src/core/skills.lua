@@ -32,6 +32,34 @@ Skills.definitions = {
             end
         end
     },
+    gunnery = {
+        id = "gunnery",
+        name = "Gunnery",
+        maxLevel = 99,
+        xpPerLevel = function(level)
+            if level <= 15 then return 8 * level
+            elseif level <= 30 then return 80 + 15 * (level - 15)
+            elseif level <= 45 then return 305 + 25 * (level - 30)
+            elseif level <= 60 then return 680 + 35 * (level - 45)
+            elseif level <= 75 then return 1205 + 45 * (level - 60)
+            else return 1880 + 65 * (level - 75)
+            end
+        end
+    },
+    missiles = {
+        id = "missiles",
+        name = "Missiles",
+        maxLevel = 99,
+        xpPerLevel = function(level)
+            if level <= 15 then return 15 * level
+            elseif level <= 30 then return 150 + 30 * (level - 15)
+            elseif level <= 45 then return 600 + 40 * (level - 30)
+            elseif level <= 60 then return 1200 + 50 * (level - 45)
+            elseif level <= 75 then return 1950 + 60 * (level - 60)
+            else return 2850 + 85 * (level - 75)
+            end
+        end
+    },
 }
 
 -- Player skills data structure
@@ -42,6 +70,16 @@ Skills.playerSkills = {
         totalXp = 0
     },
     salvaging = {
+        level = 1,
+        xp = 0,
+        totalXp = 0
+    },
+    gunnery = {
+        level = 1,
+        xp = 0,
+        totalXp = 0
+    },
+    missiles = {
         level = 1,
         xp = 0,
         totalXp = 0

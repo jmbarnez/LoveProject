@@ -6,6 +6,7 @@ local Events = require("src.core.events")
 local Content = require("src.content.content")
 local ProceduralGen = require("src.core.procedural_gen")
 local Util = require("src.core.util")
+local Skills = require("src.core.skills")
 
 local DestructionSystem = {}
 
@@ -231,6 +232,25 @@ function DestructionSystem.update(world, gameState, hub)
             local players = world:get_entities_with_components("player")
             if players and #players > 0 and e.xpReward then
               players[1]:addXP(e.xpReward)
+            end
+            
+            -- Award weapon XP based on the weapon type that dealt the final blow
+            if e._killedBy and e._killedBy.isPlayer and e._killedByWeaponType then
+              local weaponType = e._killedByWeaponType
+              local xpAmount = 0
+              
+              if weaponType == "gun" then
+                xpAmount = 5
+                Skills.addXp("gunnery", xpAmount)
+              elseif weaponType == "missile" then
+                xpAmount = 8
+                Skills.addXp("missiles", xpAmount)
+              end
+              
+              -- Log weapon XP gain for debugging
+              if xpAmount > 0 then
+                Log.debug("Awarded " .. xpAmount .. " " .. weaponType .. " XP for killing " .. enemyName)
+              end
             end
           end
 

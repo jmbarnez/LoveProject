@@ -153,6 +153,22 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         entity.dead = true
         entity._killedBy = source
         entity._finalDamage = damageValue
+        
+        -- Track weapon type for XP rewards
+        if source and source.components and source.components.equipment then
+            -- Find the turret that fired this projectile
+            local bullet = source.components.bullet
+            if bullet and bullet.slot then
+                local turret = source:getTurretInSlot(bullet.slot)
+                if turret and turret.type then
+                    entity._killedByWeaponType = turret.type
+                end
+            end
+        elseif source and source.type then
+            -- Direct turret damage (beam weapons)
+            entity._killedByWeaponType = source.type
+        end
+        
         -- Do NOT emit destruction here; DestructionSystem will emit exactly once
     end
 

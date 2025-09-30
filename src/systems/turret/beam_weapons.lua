@@ -172,6 +172,10 @@ function BeamWeapons.applyLaserDamage(target, damage, source)
         if health.hp <= 0 then
             target.dead = true
             target._killedBy = source
+            -- Track weapon type for XP rewards
+            if source and source.type then
+                target._killedByWeaponType = source.type
+            end
         end
     end
 end

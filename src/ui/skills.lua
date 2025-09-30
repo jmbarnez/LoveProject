@@ -11,7 +11,7 @@ local Window = require("src.ui.common.window")
 local UIUtils = require("src.ui.common.utils")
 
 local function drawSkillBar(x, y, w, h, progress, skillName, level, xp, xpToNext)
-    -- Compact single-line layout
+    -- Layout with skill name outside progress bar
     local font = Theme.fonts.small
     local skillText = string.format("%s Lv.%d", skillName, level)
     local percentValue = math.max(0, math.min(100, progress * 100))
@@ -23,13 +23,15 @@ local function drawSkillBar(x, y, w, h, progress, skillName, level, xp, xpToNext
     local skillW = skillMetrics.width
     local percentW = percentMetrics.width
     
-    -- Calculate layout
+    -- Calculate layout - skill name on left, progress bar in middle, percentage on right
     local textPadding = 12
     local barPadding = 8
-    local barW = w - skillW - percentW - textPadding * 2 - barPadding * 2
+    local skillX = x + 8
     local barX = x + skillW + textPadding
+    local barW = w - skillW - percentW - textPadding * 2 - barPadding * 2
     local barY = y + (h - 8) / 2
     local barH = 8
+    local percentX = x + w - percentW - 8
     
     -- Background
     Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.8))
@@ -59,13 +61,13 @@ local function drawSkillBar(x, y, w, h, progress, skillName, level, xp, xpToNext
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", x, y, w, h, 4, 4)
     
-    -- Skill name and level
+    -- Skill name and level (outside progress bar)
     Theme.setColor(Theme.colors.text)
-    love.graphics.print(skillText, x + 8, y + (h - skillMetrics.height) / 2)
+    love.graphics.print(skillText, skillX, y + (h - skillMetrics.height) / 2)
     
-    -- Progress percentage (centered in progress bar)
+    -- Progress percentage (on the right)
     Theme.setColor(Theme.colors.accent)
-    love.graphics.print(percentText, barX + (barW - percentW) / 2, barY + (barH - percentMetrics.height) / 2)
+    love.graphics.print(percentText, percentX, y + (h - percentMetrics.height) / 2)
 end
 
 function SkillsPanel.init()
