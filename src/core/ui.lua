@@ -8,6 +8,7 @@ local StatusBars = require("src.ui.hud.status_bars")
 local Minimap = require("src.ui.hud.minimap")
 local Hotbar = require("src.ui.hud.hotbar")
 local Reticle = require("src.ui.hud.reticle")
+local SkillXpPopup = require("src.ui.hud.skill_xp_popup")
 
 local UI = {}
 
@@ -40,6 +41,7 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
   end
   Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, world:get_entities_with_components("mineable"))
   Hotbar.draw(player)
+  SkillXpPopup.draw()
 end
 
 
