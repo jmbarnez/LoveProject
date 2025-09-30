@@ -276,6 +276,41 @@ function UtilityBeams.completeMining(turret, target, world)
         target.components.position.x,
         target.components.position.y
     )
+
+    -- Award mining XP for completing the asteroid
+    local Skills = require("src.core.skills")
+    local Notifications = require("src.ui.notifications")
+    local Events = require("src.core.events")
+    
+    -- Find the player to award XP to
+    local player = nil
+    if world and world.entities then
+        for _, entity in ipairs(world.entities) do
+            if entity.components and entity.components.player then
+                player = entity
+                break
+            end
+        end
+    end
+    
+    if player then
+        local xpBase = 12
+        local miningLevel = Skills.getLevel("mining")
+        local xpGain = xpBase * (1 + miningLevel * 0.06)
+        local leveledUp = Skills.addXp("mining", xpGain)
+        player:addXP(xpGain)
+
+        if leveledUp then
+            Notifications.action("Mining level up!")
+        end
+
+        Events.emit(Events.GAME_EVENTS.ASTEROID_MINED, {
+            item = { id = "ore_tritanium", name = "Tritanium Ore" },
+            amount = 1,
+            player = player,
+            asteroid = target
+        })
+    end
 end
 
 -- Handle salvaging laser operation (continuous beam with ticking damage)

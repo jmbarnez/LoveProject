@@ -67,6 +67,38 @@ function Hotbar.draw(player)
   local x = math.floor((sw - w) * 0.5)
   local y = sh - size - 42
 
+  -- Draw speed display above hotbar
+  if player and player.components and player.components.physics and player.components.physics.body then
+    local body = player.components.physics.body
+    local speed = math.sqrt(body.vx * body.vx + body.vy * body.vy)
+    local speedText = string.format("Speed: %.1f", speed)
+
+    local oldFont = love.graphics.getFont()
+    if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
+
+    local font = love.graphics.getFont()
+    local metrics = UIUtils.getCachedTextMetrics(speedText, font)
+    local speedX = (sw - metrics.width) * 0.5 -- Center horizontally
+    local speedY = y - 30 -- Above hotbar
+
+    -- Draw speed background
+    local bgWidth = metrics.width + 16
+    local bgHeight = metrics.height + 8
+    local bgX = speedX - 8
+    local bgY = speedY - 4
+    
+    Theme.setColor(Theme.withAlpha(Theme.colors.bg2, 0.8))
+    love.graphics.rectangle("fill", bgX, bgY, bgWidth, bgHeight, 4, 4)
+    Theme.setColor(Theme.withAlpha(Theme.colors.borderBright, 0.6))
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", bgX, bgY, bgWidth, bgHeight, 4, 4)
+
+    Theme.setColor(Theme.colors.text)
+    love.graphics.print(speedText, speedX, speedY)
+
+    if oldFont then love.graphics.setFont(oldFont) end
+  end
+
   -- Mouse position tracking removed - no hover effects
 
   for i, slot in ipairs(HotbarSystem.slots) do

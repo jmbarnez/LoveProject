@@ -324,6 +324,9 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   -- Clear any existing event listeners to prevent conflicts
   Events.clear()
   
+  -- Re-subscribe SkillXpPopup to events after clearing
+  SkillXpPopup.resubscribe()
+  
   -- Set up event listeners for automatic sound effects
   Events.on(Events.GAME_EVENTS.PLAYER_DAMAGED, function(data)
     Sound.playSFX("hit")

@@ -275,37 +275,6 @@ function HUDStatusBars.draw(player)
     local barWidth = 250
     local barHeight, gap = math.floor(18 * s), math.floor(4 * s)
 
-    -- Circular cyan liquid energy display at top center
-    local energySize = 120 * s -- Double the size
-    local energyX = (sw - energySize) * 0.5 -- Center horizontally
-    local energyY = gap -- Top of screen
-    
-    -- Use animated energy percentage for smooth filling
-    local energyPct = energyAnimation.current
-    
-    drawLiquidSpiralEnergy(energyX, energyY, energySize, energyPct, love.timer.getTime())
-    
-    -- Player speed display underneath energy spiral
-    if player and player.components and player.components.physics and player.components.physics.body then
-        local body = player.components.physics.body
-
-        -- Calculate speed in real-time for immediate feedback
-        local speed = math.sqrt(body.vx * body.vx + body.vy * body.vy)
-        local speedText = string.format("Speed: %.1f", speed)
-
-        local oldFont = love.graphics.getFont()
-        if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
-
-        local font = love.graphics.getFont()
-        local metrics = UIUtils.getCachedTextMetrics(speedText, font)
-        local speedX = (sw - metrics.width) * 0.5 -- Center horizontally
-        local speedY = energyY + energySize + gap -- Below energy spiral
-
-        Theme.setColor(Theme.colors.text)
-        love.graphics.print(speedText, speedX, speedY)
-
-        if oldFont then love.graphics.setFont(oldFont) end
-    end
 
     -- Hull and Shield at bottom-center
     local centerX = sw / 2
