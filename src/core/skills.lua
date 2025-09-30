@@ -107,11 +107,14 @@ function Skills.getProgressToNext(skillId)
         return 1
     end
 
-    local currentLevelXp = Skills.getXpForLevel(skillId, skillData.level)
-    local nextLevelXp = Skills.getXpForLevel(skillId, skillData.level + 1)
-    local currentXpInLevel = skillData.totalXp - currentLevelXp
+    -- Get XP needed for current level (not total XP to reach current level)
+    local currentLevelXp = skillDef.xpPerLevel(skillData.level)
+    local nextLevelXp = skillDef.xpPerLevel(skillData.level + 1)
+    
+    -- Current XP in this level is the stored xp value
+    local currentXpInLevel = skillData.xp
 
-    local xpNeeded = nextLevelXp - currentLevelXp
+    local xpNeeded = nextLevelXp
     return math.min(1, currentXpInLevel / xpNeeded)
 end
 
@@ -143,8 +146,9 @@ function Skills.addXp(skillId, amount)
     end
 
     -- Update current level XP
-    local currentLevelXp = Skills.getXpForLevel(skillId, skillData.level)
-    skillData.xp = skillData.totalXp - currentLevelXp
+    -- Calculate XP in current level by finding how much XP we have beyond the previous level
+    local previousLevelTotalXp = skillData.level > 1 and Skills.getXpForLevel(skillId, skillData.level - 1) or 0
+    skillData.xp = skillData.totalXp - previousLevelTotalXp
 
     local xpToNext = Skills.getXpToNext(skillId)
     local progress = Skills.getProgressToNext(skillId)
@@ -168,6 +172,13 @@ function Skills.addXp(skillId, amount)
 end
 
 
+
+-- Test function to add XP for testing
+function Skills.testAddXp(skillId, amount)
+    amount = amount or 10
+    skillId = skillId or "mining"
+    return Skills.addXp(skillId, amount)
+end
 
 -- Get all skills data for UI
 function Skills.getAllSkills()
@@ -201,6 +212,15 @@ end
 -- Save skills data
 function Skills.save()
     return Skills.playerSkills
+end
+
+-- Reset all skills to level 1 with 0 XP
+function Skills.reset()
+    for skillId, skillData in pairs(Skills.playerSkills) do
+        skillData.level = 1
+        skillData.xp = 0
+        skillData.totalXp = 0
+    end
 end
 
 return Skills

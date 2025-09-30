@@ -11,61 +11,70 @@ local Window = require("src.ui.common.window")
 local UIUtils = require("src.ui.common.utils")
 
 local function drawSkillBar(x, y, w, h, progress, skillName, level, xp, xpToNext)
-    -- Enhanced background
-    Theme.drawGradientGlowRect(x, y, w, h, 4,
-        Theme.colors.bg2, Theme.colors.bg1,
-        Theme.colors.border, Theme.effects.glowWeak * 0.5)
-
-    -- Enhanced progress fill with animation
-    if progress > 0 then
-        local fillW = w * progress
-        local time = love.timer.getTime()
-        local shimmerOffset = (time * 50) % (fillW + 20)
-        
-        Theme.drawGradientGlowRect(x, y, fillW, h, 4,
-            Theme.colors.primary, Theme.colors.accent,
-            Theme.colors.accent, Theme.effects.glowWeak * 1.2)
-        
-        -- Shimmer effect
-        if fillW > 10 then
-            local shimmerX = x + shimmerOffset - 10
-            if shimmerX >= x and shimmerX <= x + fillW - 10 then
-                Theme.setColor(Theme.withAlpha(Theme.colors.textHighlight, 0.3))
-                love.graphics.rectangle("fill", shimmerX, y, 10, h)
-            end
-        end
-    end
-
-    -- Border
-    Theme.drawEVEBorder(x, y, w, h, 0, Theme.colors.border, 0)
-
-    -- Text
+    -- Compact single-line layout
     local font = Theme.fonts.small
-    local levelText = string.format("%s - Lvl %d", skillName, level)
-
-    Theme.setColor(Theme.colors.text)
-    love.graphics.print(levelText, x + 8, y + 4)
-
-    -- Modern progress bar
-    local barY = y + h - 18
-    Theme.drawModernBar(x + 8, barY, w - 16, 10, progress, Theme.semantic.modernStatusXP)
-
-    -- Progress percentage
+    local skillText = string.format("%s Lv.%d", skillName, level)
     local percentValue = math.max(0, math.min(100, progress * 100))
     local percentText = string.format("%.1f%%", percentValue)
+    
+    -- Get text metrics
+    local skillMetrics = UIUtils.getCachedTextMetrics(skillText, font)
     local percentMetrics = UIUtils.getCachedTextMetrics(percentText, font)
+    local skillW = skillMetrics.width
     local percentW = percentMetrics.width
+    
+    -- Calculate layout
+    local textPadding = 12
+    local barPadding = 8
+    local barW = w - skillW - percentW - textPadding * 2 - barPadding * 2
+    local barX = x + skillW + textPadding
+    local barY = y + (h - 8) / 2
+    local barH = 8
+    
+    -- Background
+    Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.8))
+    love.graphics.rectangle("fill", x, y, w, h, 4, 4)
+    
+    -- Progress bar background
+    Theme.setColor(Theme.withAlpha(Theme.colors.bg2, 0.6))
+    love.graphics.rectangle("fill", barX, barY, barW, barH, 4, 4)
+    
+    -- Progress bar fill
+    if progress > 0 then
+        local fillW = barW * progress
+        Theme.setColor(Theme.semantic.modernStatusXP)
+        love.graphics.rectangle("fill", barX, barY, fillW, barH, 4, 4)
+        
+        -- Subtle shimmer effect
+        local time = love.timer.getTime()
+        local shimmerOffset = (time * 30) % (fillW + 15)
+        if fillW > 5 and shimmerOffset >= 0 and shimmerOffset <= fillW - 5 then
+            Theme.setColor(Theme.withAlpha(Theme.colors.textHighlight, 0.4))
+            love.graphics.rectangle("fill", barX + shimmerOffset, barY, 5, barH, 2, 2)
+        end
+    end
+    
+    -- Border
+    Theme.setColor(Theme.withAlpha(Theme.colors.border, 0.6))
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", x, y, w, h, 4, 4)
+    
+    -- Skill name and level
+    Theme.setColor(Theme.colors.text)
+    love.graphics.print(skillText, x + 8, y + (h - skillMetrics.height) / 2)
+    
+    -- Progress percentage (centered in progress bar)
     Theme.setColor(Theme.colors.accent)
-    love.graphics.print(percentText, x + w - percentW - 8, y + 4)
+    love.graphics.print(percentText, barX + (barW - percentW) / 2, barY + (barH - percentMetrics.height) / 2)
 end
 
 function SkillsPanel.init()
     SkillsPanel.window = Window.new({
         title = "Skills",
-        width = 900,
-        height = 750,
-        minWidth = 750,
-        minHeight = 600,
+        width = 600,
+        height = 400,
+        minWidth = 500,
+        minHeight = 300,
         useLoadPanelTheme = true,
         draggable = true,
         closable = true,
@@ -89,21 +98,22 @@ function SkillsPanel.drawContent(window, x, y, w, h)
     local cx, cy = x + pad, y + pad
     local skills = Skills.getAllSkills()
 
-    -- Draw each skill
-    local numColumns = 3
-    local columnWidth = (w - pad * (numColumns + 1)) / numColumns
-    local barH = 40
+    -- Compact single-column layout
+    local barH = 24
+    local barSpacing = 4
+    local barW = w - pad * 2
+    
+    -- Draw each skill in a single column
     for i, skill in ipairs(skills) do
-        local col = (i - 1) % numColumns
-        local row = math.floor((i - 1) / numColumns)
-        local skillX = cx + col * (columnWidth + pad)
-        local skillY = cy + row * (barH + 15)
-
-        -- Progress bar
-        drawSkillBar(skillX, skillY, columnWidth, barH, skill.progress, skill.name, skill.level, skill.xp, skill.xpToNext)
+        local skillY = cy + (i - 1) * (barH + barSpacing)
+        
+        -- Only draw if within visible area
+        if skillY + barH > y and skillY < y + h then
+            drawSkillBar(cx, skillY, barW, barH, skill.progress, skill.name, skill.level, skill.xp, skill.xpToNext)
+        end
     end
 
-    -- Total skills summary at bottom
+    -- Compact summary at bottom
     local totalLevels = 0
     local totalXp = 0
     for _, skill in ipairs(skills) do
@@ -111,9 +121,14 @@ function SkillsPanel.drawContent(window, x, y, w, h)
         totalXp = totalXp + skill.totalXp
     end
 
-    local summaryY = y + h - 30
-    Theme.setColor(Theme.colors.textHighlight)
-    love.graphics.print(string.format("Total Lvl: %d | Total XP: %d", totalLevels, totalXp), cx, summaryY)
+    local summaryY = y + h - 20
+    local summaryText = string.format("Total: Lv.%d | %d XP", totalLevels, totalXp)
+    local font = Theme.fonts.small
+    local summaryMetrics = UIUtils.getCachedTextMetrics(summaryText, font)
+    local summaryX = x + (w - summaryMetrics.width) / 2
+    
+    Theme.setColor(Theme.withAlpha(Theme.colors.textHighlight, 0.8))
+    love.graphics.print(summaryText, summaryX, summaryY)
 end
 
 function SkillsPanel.mousepressed(x, y, button)
