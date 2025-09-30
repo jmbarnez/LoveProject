@@ -9,6 +9,15 @@ local function copy(t)
   return o
 end
 
+local function deepCopy(value)
+  if type(value) ~= "table" then return value end
+  local result = {}
+  for k, v in pairs(value) do
+    result[k] = deepCopy(v)
+  end
+  return result
+end
+
 -- Ensure visuals table exists with defaults
 local function normVisuals(v)
   v = v or {}
@@ -23,10 +32,10 @@ function Normalizer.normalizeShip(def)
   out.name = def.name or def.id or "Unknown Ship"
   out.class = def.class or "Ship"
   out.description = def.description or def.desc or ""
-  out.visuals = normVisuals(copy(def.visuals))
+  out.visuals = normVisuals(deepCopy(def.visuals))
   -- AI configuration passthrough
   if def.ai then
-    out.ai = copy(def.ai)
+    out.ai = deepCopy(def.ai)
   end
 
   -- Hull
@@ -44,17 +53,17 @@ function Normalizer.normalizeShip(def)
   }
   -- Signature, cargo
   out.sig = def.sig or (def.collidable and def.collidable.signature) or 100
-  out.cargo = def.cargo and copy(def.cargo) or { capacity = 100 }
+  out.cargo = def.cargo and deepCopy(def.cargo) or { capacity = 100 }
   out.equipmentSlots = def.equipmentSlots or def.equipment_slots or def.gridSlots
   if type(def.equipmentLayout) == 'table' then
     out.equipmentLayout = {}
     for i, slotDef in ipairs(def.equipmentLayout) do
-      out.equipmentLayout[i] = copy(slotDef)
+      out.equipmentLayout[i] = deepCopy(slotDef)
     end
   end
   -- Hardpoints: accept direct hardpoints or simple turrets list
   if type(def.hardpoints) == 'table' then
-    out.hardpoints = def.hardpoints
+    out.hardpoints = deepCopy(def.hardpoints)
   elseif type(def.turrets) == 'table' then
     out.hardpoints = {}
     for i, tid in ipairs(def.turrets) do out.hardpoints[i] = { turret = tid } end
@@ -63,8 +72,21 @@ function Normalizer.normalizeShip(def)
   end
   -- Loot settings passthrough
   if def.loot and type(def.loot.drops) == 'table' then
-    out.loot = { drops = def.loot.drops }
+    out.loot = { drops = deepCopy(def.loot.drops) }
   end
+  if def.enemy then
+    out.enemy = deepCopy(def.enemy)
+  end
+  if def.variants then
+    out.variants = deepCopy(def.variants)
+  end
+  if def.bounty ~= nil then out.bounty = def.bounty end
+  if def.xpReward ~= nil then out.xpReward = def.xpReward end
+  if def.energyRegen ~= nil or def.energy_regen ~= nil then
+    out.energyRegen = def.energyRegen or def.energy_regen
+  end
+  if def.isEnemy ~= nil then out.isEnemy = def.isEnemy end
+  if def.isBoss ~= nil then out.isBoss = def.isBoss end
   return out
 end
 

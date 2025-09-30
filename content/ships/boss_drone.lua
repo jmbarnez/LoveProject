@@ -222,6 +222,18 @@ return {
   bounty = 60,
   xpReward = 100,
 
+  enemy = {
+    isBoss = true,
+    sizeMultiplier = 5.0,
+    collidableRadiusMultiplier = 5.0,
+    physicsRadiusMultiplier = 5.0,
+    energyRegen = 40,
+    turretBehavior = {
+      fireMode = "automatic",
+      autoFire = true,
+    },
+  },
+
   loot = {
     drops = {
       { id = "ore_tritanium", min = 3, max = 6, chance = 0.9 },

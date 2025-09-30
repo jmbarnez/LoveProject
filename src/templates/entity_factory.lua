@@ -108,88 +108,134 @@ end
 -- Create an enemy ship
 function EntityFactory.createEnemy(shipId, x, y)
     local shipConfig = Content.getShip(shipId)
-    local config = {
-        isEnemy = true,
-        bounty = (shipConfig and shipConfig.bounty) or 25,
-        xpReward = (shipConfig and shipConfig.xpReward) or 50,
-        energyRegen = 35, -- Faster regen than player (20) for aggressive firing,
-        shipId = shipId, -- Store ship ID for quest tracking
-    }
+    local enemySettings = {}
+    if shipConfig and shipConfig.enemy then
+        enemySettings = Util.deepCopy(shipConfig.enemy)
+    end
+
+    local config = {}
+    if type(enemySettings.entity) == "table" then
+        for k, v in pairs(enemySettings.entity) do
+            config[k] = Util.deepCopy(v)
+        end
+    end
+
+    config.isEnemy = true
+    config.shipId = shipId -- Store ship ID for quest tracking
+
+    if config.bounty == nil then
+        config.bounty = enemySettings.bounty or (shipConfig and shipConfig.bounty) or 25
+    end
+    if config.xpReward == nil then
+        config.xpReward = enemySettings.xpReward or (shipConfig and shipConfig.xpReward) or 50
+    end
+    if config.energyRegen == nil then
+        config.energyRegen = enemySettings.energyRegen or (shipConfig and shipConfig.energyRegen) or 35
+    end
+
     local enemy = EntityFactory.create("ship", shipId, x, y, config)
     if enemy and enemy.components then
-        -- Ensure enemy ships spawn with their configured turrets equipped
-        local hardpoints = shipConfig and shipConfig.hardpoints
-        local equipment = enemy.components.equipment
-        if hardpoints and equipment and equipment.grid then
-            local grid = equipment.grid
-            local function getSlot(index)
-                if not grid[index] then
-                    grid[index] = { slot = index, id = nil, module = nil, enabled = false, type = nil }
-                end
-                return grid[index]
-            end
+        enemy.enemyConfig = Util.deepCopy(enemySettings)
 
-            local nextSlot = 1
-            for _, hardpoint in ipairs(hardpoints) do
-                local turretId = hardpoint.turret or hardpoint.id
-                local turretDef = nil
-                
-                -- Check if turret is embedded (table) or external (string ID)
-                if type(turretId) == "table" then
-                    -- Embedded turret definition
-                    turretDef = turretId
-                    turretId = turretDef.id or "embedded_turret_" .. nextSlot
-                else
-                    -- External turret definition
-                    turretDef = Content.getTurret(turretId)
-                end
-                
-                if turretDef then
-                    local turretParams = Util.deepCopy(turretDef)
-                    turretParams.fireMode = turretParams.fireMode or "automatic"
-                    local turretInstance = TurretCore.new(enemy, turretParams)
-                    turretInstance.fireMode = "automatic"
-                    turretInstance.autoFire = true
-
-                    local slotIndex = hardpoint.slot or nextSlot
-                    local slot = getSlot(slotIndex)
-                    slot.id = turretId
-                    slot.module = turretInstance
-                    slot.enabled = true
-                    slot.type = "turret"
-
-                    nextSlot = math.max(nextSlot, slotIndex + 1)
-                else
-                    Log.warn("EntityFactory - Missing turret definition for", tostring(turretId))
-                end
+        if type(enemySettings.entity) == "table" then
+            for k, v in pairs(enemySettings.entity) do
+                enemy[k] = Util.deepCopy(v)
             end
         end
 
-        -- Mark bosses for special handling
-        if shipId == 'boss_drone' then
+        if enemySettings.isBoss ~= nil then
+            enemy.isBoss = enemySettings.isBoss
+        elseif shipConfig and shipConfig.isBoss ~= nil then
+            enemy.isBoss = shipConfig.isBoss
+        elseif shipId == 'boss_drone' then
             enemy.isBoss = true
         end
-        -- Make enemy drones a bit larger than base (boss drones scale up further)
+
+        local sizeMultiplier = enemySettings.sizeMultiplier or 1.0
+        local collidableMultiplier = enemySettings.collidableRadiusMultiplier or sizeMultiplier
+        local physicsMultiplier = enemySettings.physicsRadiusMultiplier or sizeMultiplier
+
         local rend = enemy.components.renderable
-        if rend and rend.props and rend.props.visuals then
+        if rend and rend.props and rend.props.visuals and sizeMultiplier ~= 1.0 then
             local visuals = rend.props.visuals
-            local baseSize = visuals.size or 1.0
-            local sizeMultiplier = shipId == 'boss_drone' and 5.0 or 1.5
-            visuals.size = baseSize * sizeMultiplier
+            visuals.size = (visuals.size or 1.0) * sizeMultiplier
         end
-        if enemy.components.collidable then
+        if enemy.components.collidable and collidableMultiplier ~= 1.0 then
             local baseRadius = enemy.components.collidable.radius or 10
-            local radiusMultiplier = shipId == 'boss_drone' and 5.0 or 1.5
-            enemy.components.collidable.radius = baseRadius * radiusMultiplier
+            enemy.components.collidable.radius = baseRadius * collidableMultiplier
         end
-        if enemy.components.physics and enemy.components.physics.body then
+        if enemy.components.physics and enemy.components.physics.body and physicsMultiplier ~= 1.0 then
             local baseBodyRadius = enemy.components.physics.body.radius or 10
-            local bodyMultiplier = shipId == 'boss_drone' and 5.0 or 1.5
-            enemy.components.physics.body.radius = baseBodyRadius * bodyMultiplier
+            enemy.components.physics.body.radius = baseBodyRadius * physicsMultiplier
         end
-        -- Clear any cached shield radius so it recomputes using new visuals size
+
         enemy.shieldRadius = nil
         enemy._shieldRadiusVisualSize = nil
+
+        local autoEquipTurrets = enemySettings.autoEquipTurrets
+        if autoEquipTurrets == nil then autoEquipTurrets = true end
+
+        if autoEquipTurrets then
+            local hardpoints = shipConfig and shipConfig.hardpoints
+            local equipment = enemy.components.equipment
+            if hardpoints and equipment and equipment.grid then
+                local turretBehavior = enemySettings.turretBehavior or {}
+                local defaultFireMode = turretBehavior.fireMode or "automatic"
+                local defaultAutoFire = turretBehavior.autoFire
+                if defaultAutoFire == nil then
+                    defaultAutoFire = true
+                end
+
+                local grid = equipment.grid
+                local function getSlot(index)
+                    if not grid[index] then
+                        grid[index] = { slot = index, id = nil, module = nil, enabled = false, type = nil }
+                    end
+                    return grid[index]
+                end
+
+                local nextSlot = 1
+                for _, hardpoint in ipairs(hardpoints) do
+                    local turretId = hardpoint.turret or hardpoint.id
+                    local turretDef = nil
+
+                    if type(turretId) == "table" then
+                        turretDef = turretId
+                        turretId = turretDef.id or ("embedded_turret_" .. nextSlot)
+                    else
+                        turretDef = Content.getTurret(turretId)
+                    end
+
+                    if turretDef then
+                        local turretParams = Util.deepCopy(turretDef)
+                        turretParams.fireMode = turretParams.fireMode or defaultFireMode
+                        local turretInstance = TurretCore.new(enemy, turretParams)
+
+                        turretInstance.fireMode = turretInstance.fireMode or defaultFireMode
+                        if turretInstance.fireMode == "automatic" then
+                            if defaultAutoFire ~= nil then
+                                turretInstance.autoFire = defaultAutoFire
+                            elseif turretInstance.autoFire == nil then
+                                turretInstance.autoFire = true
+                            end
+                        elseif defaultAutoFire ~= nil then
+                            turretInstance.autoFire = defaultAutoFire
+                        end
+
+                        local slotIndex = hardpoint.slot or nextSlot
+                        local slot = getSlot(slotIndex)
+                        slot.id = turretId
+                        slot.module = turretInstance
+                        slot.enabled = true
+                        slot.type = "turret"
+
+                        nextSlot = math.max(nextSlot, slotIndex + 1)
+                    else
+                        Log.warn("EntityFactory - Missing turret definition for", tostring(turretId))
+                    end
+                end
+            end
+        end
     end
     return enemy
 end
