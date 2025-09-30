@@ -901,10 +901,40 @@ function Inventory.dropItem(player, itemId)
   local def = Content.getItem(itemId) or Content.getTurret(itemId)
   local itemName = def and def.name or itemId
   cargo:remove(itemId, 1)
-  local mouseX, mouseY = Viewport.getMousePosition()
-  for i = 1, 3 do
-    Theme.createParticle(mouseX + math.random(-8, 8), mouseY + math.random(-8, 8), {0.6, 0.6, 0.6, 1.0}, (math.random() * 2 - 1) * 20, (math.random() * 2 - 1) * 20, nil, 0.7)
+  
+  -- Drop item around player just outside magnet range
+  local playerX, playerY = player.components.position.x, player.components.position.y
+  local ATTRACT_RADIUS = 600  -- Magnet range from pickups.lua
+  local dropDistance = ATTRACT_RADIUS + 50  -- Just outside magnet range
+  
+  -- Random angle around player
+  local angle = math.random() * math.pi * 2
+  local dropX = playerX + math.cos(angle) * dropDistance
+  local dropY = playerY + math.sin(angle) * dropDistance
+  
+  -- Create item pickup entity
+  local ItemPickup = require("src.entities.item_pickup")
+  local pickup = ItemPickup.new(
+    dropX, 
+    dropY, 
+    itemId, 
+    1, 
+    0.3,  -- Smaller size scale
+    math.random(-50, 50),  -- Small random velocity
+    math.random(-50, 50)
+  )
+  
+  -- Add to world directly
+  local Game = require("src.game")
+  if Game.world and pickup then
+    Game.world:addEntity(pickup)
   end
+  
+  -- Visual effect at drop location
+  for i = 1, 3 do
+    Theme.createParticle(dropX + math.random(-8, 8), dropY + math.random(-8, 8), {0.6, 0.6, 0.6, 1.0}, (math.random() * 2 - 1) * 20, (math.random() * 2 - 1) * 20, nil, 0.7)
+  end
+  
   local Notifications = require("src.ui.notifications")
   Notifications.add("Dropped " .. itemName, "info")
   return true

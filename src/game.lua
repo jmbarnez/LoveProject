@@ -62,6 +62,9 @@ local hoveredEntity = nil
 local hoveredEntityType = nil
 local collisionSystem
 
+-- Make world accessible
+Game.world = world
+
 
 --[[
     spawn_projectile
@@ -160,6 +163,8 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   world = World.new(Constants.WORLD.WIDTH, Constants.WORLD.HEIGHT)
   -- Add spawnProjectile function to world so turrets can spawn projectiles
   world.spawn_projectile = spawn_projectile
+  -- Update the accessible world reference
+  Game.world = world
   camera = Camera.new()
 
   -- Step 6: Create stations
@@ -294,6 +299,7 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   -- Refresh inventory display
   local Inventory = require("src.ui.inventory")
   if Inventory.refresh then Inventory.refresh() end
+
 
   Input.init({
     camera = camera,

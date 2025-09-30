@@ -212,7 +212,7 @@ function EntityRenderers.item_pickup(entity, player)
     local props = entity.components.renderable.props or {}
     local itemId = props.itemId or "stones"
     local qty = props.qty or 1
-    local s = (props.sizeScale or 0.7) * 1.5  -- Base size factor
+    local s = (props.sizeScale or 0.7) * 1.2  -- Slightly smaller than original (reduced from 1.5 to 1.2)
 
     -- Fetch item or turret definition for correct model
     local itemDef = Content.getItem(itemId) or Content.getTurret(itemId)
@@ -229,17 +229,25 @@ function EntityRenderers.item_pickup(entity, player)
         -- Render small icon
         local icon = itemDef.icon
         local iconW, iconH = icon:getDimensions()
-        local scale = s * 0.15  -- Even smaller icon size
+        local scale = s * 0.18  -- Larger icon size for better visibility (increased from 0.12 to 0.18)
         local drawW = iconW * scale
         local drawH = iconH * scale
         love.graphics.draw(icon, -drawW/2, -drawH/2, 0, scale, scale)
 
-        -- Label below: name and qty
+        -- Label below: name and qty (smaller and crisper)
         local label = (itemDef.name or itemId) .. " x" .. qty
         local font = love.graphics.getFont()
         local textW = font:getWidth(label)
         local textH = font:getHeight()
-        love.graphics.print(label, -textW/2, drawH/2 + 2)
+        -- Scale down the text to fit better with smaller items
+        local textScale = 0.6
+        local scaledTextW = textW * textScale
+        local scaledTextH = textH * textScale
+        love.graphics.push()
+        love.graphics.scale(textScale, textScale)
+        -- Center the label under the icon (accounting for scaling)
+        love.graphics.print(label, -textW/2, (drawH/2 + 2)/textScale)
+        love.graphics.pop()
     else
         -- Fallback: simple circle with generic label
         local size = 2 * s
@@ -249,13 +257,19 @@ function EntityRenderers.item_pickup(entity, player)
         love.graphics.setLineWidth(1)
         love.graphics.circle('line', 0, 0, size)
 
-        -- Generic label
+        -- Generic label (smaller and crisper)
         local label = "Item x" .. qty
         local font = love.graphics.getFont()
         local textW = font:getWidth(label)
         local textH = font:getHeight()
         love.graphics.setColor(1.0, 1.0, 1.0, 1.0)
-        love.graphics.print(label, -textW/2, size + 2)
+        -- Scale down the text to fit better with smaller items
+        local textScale = 0.6
+        love.graphics.push()
+        love.graphics.scale(textScale, textScale)
+        -- Center the label under the circle (accounting for scaling)
+        love.graphics.print(label, -textW/2, (size + 2)/textScale)
+        love.graphics.pop()
     end
 
     if oldFont then
