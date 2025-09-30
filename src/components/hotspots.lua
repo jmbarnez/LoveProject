@@ -33,10 +33,29 @@ function Hotspots:setRadius(radius)
     end
 end
 
+local function getAsteroidRadius(collidable, hotspotRadius)
+    if collidable then
+        if collidable.effectiveRadius and collidable.effectiveRadius > 0 then
+            return collidable.effectiveRadius
+        end
+        if collidable.radius and collidable.radius > 0 then
+            return collidable.radius
+        end
+    end
+
+    local fallback = (hotspotRadius or 12) * 2.5
+    return math.max(24, fallback)
+end
+
 local function generatePositionOnAsteroid(asteroid, radius)
     local pos = asteroid.components.position
     local collidable = asteroid.components.collidable
     local hotspotRadius = radius or 12
+    local asteroidRadius = getAsteroidRadius(collidable, hotspotRadius)
+
+    local desiredDistance = asteroidRadius + hotspotRadius * 0.35
+    local baseDistance = asteroidRadius + hotspotRadius * 0.05
+    local angle
 
     if collidable and collidable.shape == "polygon" and collidable.vertices and #collidable.vertices >= 6 then
         local vertexCount = math.floor(#collidable.vertices / 2)
@@ -53,29 +72,27 @@ local function generatePositionOnAsteroid(asteroid, radius)
             local edgeX = vx + (nx - vx) * t
             local edgeY = vy + (ny - vy) * t
 
-            local length = math.sqrt(edgeX * edgeX + edgeY * edgeY)
-            local dirX, dirY = 0, -1
-            if length > 0 then
-                dirX = edgeX / length
-                dirY = edgeY / length
-            end
-
-            local offset = hotspotRadius * 0.6
-            local jitter = (math.random() - 0.5) * hotspotRadius * 0.1
-
-            local x = pos.x + edgeX + dirX * (hotspotRadius + offset) + (-dirY) * jitter
-            local y = pos.y + edgeY + dirY * (hotspotRadius + offset) + dirX * jitter
-
-            return x, y
+            angle = math.atan2(edgeY, edgeX)
         end
     end
 
-    local bodyRadius = (collidable and collidable.radius) or hotspotRadius or 24
-    local angle = math.random() * math.pi * 2
-    local distance = bodyRadius + hotspotRadius * 0.65
+    if not angle then
+        angle = math.random() * math.pi * 2
+    end
 
-    local x = pos.x + math.cos(angle) * distance
-    local y = pos.y + math.sin(angle) * distance
+    local radialJitter = (math.random() - 0.5) * hotspotRadius * 0.2
+    local distance = math.min(baseDistance + radialJitter, desiredDistance - hotspotRadius * 0.1)
+    if distance < 0 then
+        distance = baseDistance
+    end
+    distance = math.min(distance, desiredDistance - hotspotRadius * 0.1)
+
+    local tangentJitter = (math.random() - 0.5) * hotspotRadius * 0.6
+    local cosAngle = math.cos(angle)
+    local sinAngle = math.sin(angle)
+
+    local x = pos.x + cosAngle * distance + (-sinAngle) * tangentJitter
+    local y = pos.y + sinAngle * distance + (cosAngle) * tangentJitter
 
     return x, y
 end
