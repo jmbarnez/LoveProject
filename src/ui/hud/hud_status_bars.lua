@@ -241,24 +241,29 @@ local BOSS_BAR_FADE_TIME = 0.4
 
 local function drawBossMeter(x, y, w, h, pct, color, text, alpha)
     local clampedPct = math.max(0, math.min(1, pct or 0))
-    Theme.setColor({0.06, 0.01, 0.06, 0.75 * alpha})
-    love.graphics.rectangle('fill', x, y, w, h, 14, 14)
+    
+    -- Background - black with cyan border
+    Theme.setColor({0.0, 0.0, 0.0, 0.8 * alpha})
+    love.graphics.rectangle('fill', x, y, w, h, 8, 8)
 
+    -- Fill bar - normal health/shield colors
     local fillColor = {color[1], color[2], color[3], (color[4] or 1) * alpha}
     Theme.setColor(fillColor)
-    love.graphics.rectangle('fill', x, y, w * clampedPct, h, 14, 14)
+    love.graphics.rectangle('fill', x, y, w * clampedPct, h, 8, 8)
 
-    Theme.setColor({1.0, 0.85, 0.98, 0.9 * alpha})
+    -- Border - cyan theme color
+    Theme.setColor({0.5, 0.7, 0.9, 0.8 * alpha})
     love.graphics.setLineWidth(2)
-    love.graphics.rectangle('line', x, y, w, h, 14, 14)
+    love.graphics.rectangle('line', x, y, w, h, 8, 8)
     love.graphics.setLineWidth(1)
 
+    -- Text - white for readability
     local prevFont = love.graphics.getFont()
     if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
     local font = love.graphics.getFont()
     local textWidth = font:getWidth(text)
     local textHeight = font:getHeight()
-    Theme.setColor({1.0, 0.95, 0.99, alpha})
+    Theme.setColor({1.0, 1.0, 1.0, alpha})
     love.graphics.print(text, x + (w - textWidth) / 2, y + (h - textHeight) / 2)
     if prevFont then love.graphics.setFont(prevFont) end
 end
@@ -316,9 +321,26 @@ local function updateBossBar(dt, player, world)
             bossState.displayTimer = BOSS_BAR_HOLD_TIME
         end
     elseif bossState.entity then
-        local h = bossState.entity.components and bossState.entity.components.health
-        if (not h) or (h.hp or h.current or 0) <= 0 or bossState.entity.dead then
+        -- Check if current boss is still in range
+        local currentBossPos = bossState.entity.components and bossState.entity.components.position
+        local inRange = false
+        if currentBossPos then
+            local dx = currentBossPos.x - playerPos.x
+            local dy = currentBossPos.y - playerPos.y
+            local distSq = dx * dx + dy * dy
+            inRange = distSq <= BOSS_BAR_RANGE_SQ
+        end
+        
+        if not inRange then
+            -- Player is outside range, hide boss HUD immediately
             bossState.entity = nil
+            bossState.label = nil
+            bossState.displayTimer = 0
+        else
+            local h = bossState.entity.components and bossState.entity.components.health
+            if (not h) or (h.hp or h.current or 0) <= 0 or bossState.entity.dead then
+                bossState.entity = nil
+            end
         end
     end
 
@@ -347,46 +369,47 @@ local function drawBossBar()
     end
 
     local sw, sh = Viewport.getDimensions()
-    local barWidth = math.min(sw - 160, 720)
-    local panelPadding = 28
-    local barHeight = 24
+    local barWidth = math.min(sw - 160, 360) -- Half the original width (720 -> 360)
+    local panelPadding = 14 -- Half the original padding (28 -> 14)
+    local barHeight = 12 -- Half the original height (24 -> 12)
     local barCount = (bossState.maxShield or 0) > 0 and 2 or 1
-    local panelHeight = barCount * (barHeight + 14) + 56
+    local panelHeight = barCount * (barHeight + 7) + 28 -- Half the original spacing and padding
     local panelWidth = barWidth + panelPadding * 2
     local panelX = math.floor((sw - panelWidth) * 0.5)
-    local panelY = math.max(24, math.floor(sh * 0.08))
+    local panelY = math.max(12, math.floor(sh * 0.02)) -- Much closer to top (0.08 -> 0.02)
 
-    Theme.setColor({0.05, 0.0, 0.06, 0.82 * alpha})
-    love.graphics.rectangle('fill', panelX, panelY, panelWidth, panelHeight, 18, 18)
-    Theme.setColor({1.0, 0.65, 0.95, 0.75 * alpha})
+    -- Panel background - black with cyan border
+    Theme.setColor({0.0, 0.0, 0.0, 0.85 * alpha})
+    love.graphics.rectangle('fill', panelX, panelY, panelWidth, panelHeight, 6, 6)
+    Theme.setColor({0.5, 0.7, 0.9, 0.8 * alpha})
     love.graphics.setLineWidth(2)
-    love.graphics.rectangle('line', panelX, panelY, panelWidth, panelHeight, 18, 18)
+    love.graphics.rectangle('line', panelX, panelY, panelWidth, panelHeight, 6, 6)
     love.graphics.setLineWidth(1)
 
     local label = bossState.label or "Boss Threat"
     local prevFont = love.graphics.getFont()
-    local titleFont = (Theme.fonts and (Theme.fonts.large or Theme.fonts.medium)) or prevFont
+    local titleFont = (Theme.fonts and (Theme.fonts.small or Theme.fonts.normal)) or prevFont -- Use smaller font
     if titleFont then love.graphics.setFont(titleFont) end
     local font = love.graphics.getFont()
     local labelWidth = font:getWidth(label)
     local labelHeight = font:getHeight()
-    Theme.setColor({1.0, 0.88, 0.98, alpha})
-    love.graphics.print(label, panelX + (panelWidth - labelWidth) / 2, panelY + 12)
+    Theme.setColor({1.0, 1.0, 1.0, alpha})
+    love.graphics.print(label, panelX + (panelWidth - labelWidth) / 2, panelY + 6) -- Reduced padding
     if prevFont then love.graphics.setFont(prevFont) end
 
     local barX = panelX + panelPadding
-    local barY = panelY + labelHeight + 24
+    local barY = panelY + labelHeight + 12 -- Reduced spacing
     local hullPct = (bossState.maxHp or 1) > 0 and math.max(0, math.min(1, (bossState.smoothHp or 0) / bossState.maxHp)) or 0
     local shieldPct = (bossState.maxShield or 0) > 0 and math.max(0, math.min(1, (bossState.smoothShield or 0) / math.max(1, bossState.maxShield))) or 0
 
     if (bossState.maxShield or 0) > 0 then
         local shieldText = string.format("Shield %d / %d", math.floor(math.max(0, bossState.shield or 0)), math.floor(math.max(0, bossState.maxShield or 0)))
-        drawBossMeter(barX, barY, barWidth, barHeight, shieldPct, {0.75, 0.55, 1.0, 1.0}, shieldText, alpha)
-        barY = barY + barHeight + 14
+        drawBossMeter(barX, barY, barWidth, barHeight, shieldPct, {0.5, 0.7, 0.9, 1.0}, shieldText, alpha)
+        barY = barY + barHeight + 7 -- Half the original spacing (14 -> 7)
     end
 
     local hullText = string.format("Hull %d / %d", math.floor(math.max(0, bossState.hp or 0)), math.floor(math.max(1, bossState.maxHp or 1)))
-    drawBossMeter(barX, barY, barWidth, barHeight, hullPct, {1.0, 0.35, 0.8, 1.0}, hullText, alpha)
+    drawBossMeter(barX, barY, barWidth, barHeight, hullPct, {0.9, 0.4, 0.6, 1.0}, hullText, alpha)
 end
 
 local function initialize()

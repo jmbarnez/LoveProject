@@ -1,7 +1,7 @@
 -- Boss Drone: heavier drone that sprays 4-shot cone volleys
 return {
   id = "boss_drone",
-  name = "Boss Drone",
+  name = "MILA",
   class = "Drone",
   description = "Heavily armed drone that fires a cone spray.",
 
@@ -59,7 +59,7 @@ return {
   },
 
   hull = {
-    hp = 10,
+    hp = 20,
     shield = 10,
     cap = 0, -- No energy system for basic enemies
   },
@@ -178,8 +178,8 @@ return {
             radius = 5,
           },
           damage = {
-            min = 10,
-            max = 16,
+            min = 1,
+            max = 1,
           },
           timed_life = {
             duration = 0.22,
@@ -196,7 +196,7 @@ return {
           hull = { spark = {1.0, 0.45, 0.85, 0.8}, ring = {0.85, 0.25, 0.7, 0.6} },
         },
         optimal = 1400, falloff = 400,
-        damage_range = { min = 10, max = 16 },
+        damage_range = { min = 1, max = 1 },
         cycle = 5.0, capCost = 0,
         projectileSpeed = 0,
         maxRange = 2000,

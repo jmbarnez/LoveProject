@@ -105,7 +105,7 @@ return {
                     collidable = {
                         radius = 2, -- small collision radius so the beam is included in collision queries
                     },
-                    damage = { min = 1, max = 3 }, -- Low damage range
+                    damage = { min = 1, max = 1 }, -- Low damage range
                     timed_life = {
                         duration = 0.12, -- Short beam duration
                     },
@@ -122,7 +122,7 @@ return {
                     hull = { spark = {1.0, 0.2, 0.2, 0.5}, ring = {1.0, 0.1, 0.1, 0.4} },
                 },
                 optimal = 600, falloff = 300, -- Shorter range than player lasers
-                damage_range = { min = 2, max = 4 },
+                damage_range = { min = 1, max = 1 },
                 cycle = 1.5, capCost = 0, -- No energy cost for basic enemies
                 spread = { minDeg = 0.1, maxDeg = 0.3, decay = 600 },
                 maxRange = 800, -- Shorter range
