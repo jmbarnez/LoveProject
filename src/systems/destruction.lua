@@ -227,29 +227,24 @@ function DestructionSystem.update(world, gameState, hub)
             -- Enemy death: add bounty rewards and use configured loot table
             local enemyName = e.name or "Unknown Enemy"
             addBountyReward(gameState, e, enemyName)
-            
+
             -- Grant XP to the player
             local players = world:get_entities_with_components("player")
             if players and #players > 0 and e.xpReward then
               players[1]:addXP(e.xpReward)
             end
-            
-            -- Award weapon XP based on the weapon type that dealt the final blow
-            if e._killedBy and e._killedBy.isPlayer and e._killedByWeaponType then
-              local weaponType = e._killedByWeaponType
-              local xpAmount = 0
-              
-              if weaponType == "gun" then
-                xpAmount = 5
-                Skills.addXp("gunnery", xpAmount)
-              elseif weaponType == "missile" then
-                xpAmount = 8
-                Skills.addXp("missiles", xpAmount)
-              end
-              
-              -- Log weapon XP gain for debugging
-              if xpAmount > 0 then
-                Log.debug("Awarded " .. xpAmount .. " " .. weaponType .. " XP for killing " .. enemyName)
+
+            -- Grant relevant weapon skill XP if the player landed the killing blow
+            local killer = e._killedBy
+            if killer and (killer.isPlayer or (killer.components and killer.components.player)) then
+              local finalDamage = e._finalDamage
+              if type(finalDamage) == "table" and finalDamage.skill then
+                local skillId = finalDamage.skill
+                if Skills and Skills.addXp and Skills.definitions[skillId] then
+                  local xpReward = e.xpReward or 0
+                  local xpGain = xpReward > 0 and math.max(1, math.floor(xpReward * 0.5)) or 5
+                  Skills.addXp(skillId, xpGain)
+                end
               end
             end
           end

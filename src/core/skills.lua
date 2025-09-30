@@ -4,6 +4,20 @@ local Events = require("src.core.events")
 
 -- Skill definitions with XP requirements
 Skills.definitions = {
+    gunnery = {
+        id = "gunnery",
+        name = "Gunnery",
+        description = "Improves accuracy and damage with ship-mounted weapons.",
+        maxLevel = 99,
+        xpPerLevel = function(level)
+            if level <= 20 then return 18 * level
+            elseif level <= 40 then return 360 + 28 * (level - 20)
+            elseif level <= 60 then return 920 + 40 * (level - 40)
+            elseif level <= 80 then return 1720 + 55 * (level - 60)
+            else return 2820 + 75 * (level - 80)
+            end
+        end
+    },
     mining = {
         id = "mining",
         name = "Mining",
@@ -64,6 +78,11 @@ Skills.definitions = {
 
 -- Player skills data structure
 Skills.playerSkills = {
+    gunnery = {
+        level = 1,
+        xp = 0,
+        totalXp = 0
+    },
     mining = {
         level = 1,
         xp = 0,
@@ -86,6 +105,22 @@ Skills.playerSkills = {
     },
 }
 
+local function ensureSkillData(skillId)
+    if not skillId or not Skills.definitions[skillId] then
+        return nil
+    end
+
+    if not Skills.playerSkills[skillId] then
+        Skills.playerSkills[skillId] = {
+            level = 1,
+            xp = 0,
+            totalXp = 0
+        }
+    end
+
+    return Skills.playerSkills[skillId]
+end
+
 -- Calculate XP needed for next level
 function Skills.getXpForLevel(skillId, level)
     local skill = Skills.definitions[skillId]
@@ -100,25 +135,25 @@ end
 
 -- Get current level for a skill
 function Skills.getLevel(skillId)
-    local skillData = Skills.playerSkills[skillId]
+    local skillData = ensureSkillData(skillId)
     return skillData and skillData.level or 1
 end
 
 -- Get current XP for a skill
 function Skills.getXp(skillId)
-    local skillData = Skills.playerSkills[skillId]
+    local skillData = ensureSkillData(skillId)
     return skillData and skillData.xp or 0
 end
 
 -- Get total XP for a skill
 function Skills.getTotalXp(skillId)
-    local skillData = Skills.playerSkills[skillId]
+    local skillData = ensureSkillData(skillId)
     return skillData and skillData.totalXp or 0
 end
 
 -- Get XP needed for next level
 function Skills.getXpToNext(skillId)
-    local skillData = Skills.playerSkills[skillId]
+    local skillData = ensureSkillData(skillId)
     if not skillData then return 0 end
 
     local skillDef = Skills.definitions[skillId]
@@ -135,7 +170,7 @@ end
 
 -- Get current progress to next level (0-1)
 function Skills.getProgressToNext(skillId)
-    local skillData = Skills.playerSkills[skillId]
+    local skillData = ensureSkillData(skillId)
     if not skillData then return 0 end
 
     local skillDef = Skills.definitions[skillId]
@@ -158,7 +193,7 @@ end
 
 -- Add XP to a skill
 function Skills.addXp(skillId, amount)
-    local skillData = Skills.playerSkills[skillId]
+    local skillData = ensureSkillData(skillId)
     if not skillData then return false end
 
     local skillDef = Skills.definitions[skillId]
@@ -222,7 +257,7 @@ end
 function Skills.getAllSkills()
     local skills = {}
     for skillId, skillDef in pairs(Skills.definitions) do
-        local skillData = Skills.playerSkills[skillId]
+        local skillData = ensureSkillData(skillId)
         if skillData then
             table.insert(skills, {
                 id = skillId,
@@ -244,6 +279,9 @@ end
 function Skills.load(data)
     if data then
         Skills.playerSkills = data
+    end
+    for skillId, _ in pairs(Skills.definitions) do
+        ensureSkillData(skillId)
     end
 end
 

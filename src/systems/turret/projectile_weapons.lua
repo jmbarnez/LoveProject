@@ -75,6 +75,17 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
             local vx = math.cos(finalAngle) * projSpeed
             local vy = math.sin(finalAngle) * projSpeed
 
+            local damageConfig
+            if turret.damage_range then
+                damageConfig = {
+                    min = turret.damage_range.min,
+                    max = turret.damage_range.max,
+                    skill = turret.skillId
+                }
+            else
+                damageConfig = { min = 1, max = 2, skill = turret.skillId }
+            end
+
             -- Use world's spawn_projectile function to avoid circular dependency
             if world and world.spawn_projectile then
                 world.spawn_projectile(sx, sy, finalAngle, turret.owner.isPlayer or turret.owner.isFriendly, {
@@ -82,10 +93,7 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
                     vx = vx,
                     vy = vy,
                     source = turret.owner,
-                    damage = turret.damage_range and {
-                        min = turret.damage_range.min,
-                        max = turret.damage_range.max
-                    } or {min = 1, max = 2}
+                    damage = damageConfig
                 })
             end
         end
@@ -160,6 +168,17 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         local vx = math.cos(angle) * projSpeed
         local vy = math.sin(angle) * projSpeed
 
+        local damageConfig
+        if turret.damage_range then
+            damageConfig = {
+                min = turret.damage_range.min,
+                max = turret.damage_range.max,
+                skill = turret.skillId
+            }
+        else
+            damageConfig = { min = 2, max = 4, skill = turret.skillId }
+        end
+
         -- Use world's spawn_projectile function to avoid circular dependency
         if world and world.spawn_projectile then
             world.spawn_projectile(sx, sy, angle, turret.owner.isPlayer or turret.owner.isFriendly, {
@@ -167,10 +186,7 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
                 vx = vx,
                 vy = vy,
                 source = turret.owner,
-                damage = turret.damage_range and {
-                    min = turret.damage_range.min,
-                    max = turret.damage_range.max
-                } or {min = 2, max = 4},
+                damage = damageConfig,
                 target = missileTarget,
                 homing = isHoming,
                 homingStrength = isHoming and (turret.homingStrength or 0.8) or 0,
@@ -222,10 +238,16 @@ function ProjectileWeapons.fireSecondaryProjectile(turret, target, primaryAngle,
     local vx = math.cos(angle) * secondarySpeed
     local vy = math.sin(angle) * secondarySpeed
 
-    local dmg = turret.damage_range and {
-        min = turret.damage_range.min,
-        max = turret.damage_range.max
-    } or {min = 1, max = 2}
+    local dmg
+    if turret.damage_range then
+        dmg = {
+            min = turret.damage_range.min,
+            max = turret.damage_range.max,
+            skill = turret.skillId
+        }
+    else
+        dmg = { min = 1, max = 2, skill = turret.skillId }
+    end
 
     -- Use world's spawn_projectile function to avoid circular dependency
     if world and world.spawn_projectile then
