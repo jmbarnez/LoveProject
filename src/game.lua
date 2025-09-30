@@ -178,6 +178,15 @@ function Game.load(fromSave, saveSlot, loadingScreen)
     return false
   end
 
+  -- Create an industrial furnace station near the hub for ore processing logistics
+  local furnace_station = EntityFactory.create("station", "ore_furnace_station", 6800, 5000)
+  if furnace_station then
+    world:addEntity(furnace_station)
+  else
+    Log.error("Failed to create ore furnace station")
+    return false
+  end
+
   -- Create a beacon station to protect the top-left quadrant from enemy spawning
   local beacon_station = EntityFactory.create("station", "beacon_station", 7500, 7500)
   if beacon_station then
