@@ -2,6 +2,7 @@ local Constants = require("src.core.constants")
 local Config = require("src.content.config")
 local Effects = require("src.systems.effects")
 local Radius = require("src.systems.collision.radius")
+local Geometry = require("src.systems.collision.geometry")
 local StationShields = require("src.systems.collision.station_shields")
 local CollisionEffects = require("src.systems.collision.effects")
 
@@ -16,25 +17,68 @@ local function getCombatValue(key)
     return combatConstants[key]
 end
 
--- Check if two entities collide (using effective radius that includes shields)
+local function hasActiveShield(entity)
+    local health = entity.components and entity.components.health
+    return (health and (health.shield or 0) > 0) or StationShields.hasActiveShield(entity)
+end
+
+local function worldPolygon(entity)
+    local collidable = entity.components and entity.components.collidable
+    if not collidable or collidable.shape ~= "polygon" or not collidable.vertices then
+        return nil
+    end
+
+    local pos = entity.components.position
+    local angle = (pos and pos.angle) or 0
+    return Geometry.transformPolygon(pos.x, pos.y, angle, collidable.vertices)
+end
+
+local function getCollisionShape(entity)
+    local pos = entity.components.position
+
+    if hasActiveShield(entity) then
+        return {
+            type = "circle",
+            x = pos.x,
+            y = pos.y,
+            radius = Radius.getShieldRadius(entity)
+        }
+    end
+
+    local verts = worldPolygon(entity)
+    if verts then
+        return { type = "polygon", vertices = verts }
+    end
+
+    return {
+        type = "circle",
+        x = pos.x,
+        y = pos.y,
+        radius = Radius.getHullRadius(entity)
+    }
+end
+
+local function polygonVsCircle(polygon, circle)
+    return Geometry.polygonVsCircle(polygon.vertices, circle.x, circle.y, circle.radius)
+end
+
 local function checkEntityCollision(entity1, entity2)
-    local e1x = entity1.components.position.x
-    local e1y = entity1.components.position.y
+    local shape1 = getCollisionShape(entity1)
+    local shape2 = getCollisionShape(entity2)
 
-    local e2x = entity2.components.position.x
-    local e2y = entity2.components.position.y
-
-    -- Use effective radius which accounts for shields
-    local e1Radius = Radius.calculateEffectiveRadius(entity1)
-    local e2Radius = Radius.calculateEffectiveRadius(entity2)
-
-    -- Simple circular collision detection
-    local dx = e1x - e2x
-    local dy = e1y - e2y
-    local distance = math.sqrt(dx * dx + dy * dy)
-    local minDistance = e1Radius + e2Radius
-
-    return distance < minDistance
+    if shape1.type == "polygon" and shape2.type == "polygon" then
+        return Geometry.polygonVsPolygon(shape1.vertices, shape2.vertices)
+    elseif shape1.type == "polygon" then
+        return polygonVsCircle(shape1, shape2)
+    elseif shape2.type == "polygon" then
+        return polygonVsCircle(shape2, shape1)
+    else
+        local dx = shape1.x - shape2.x
+        local dy = shape1.y - shape2.y
+        local distanceSq = dx * dx + dy * dy
+        local minDistance = shape1.radius + shape2.radius
+        return distanceSq < (minDistance * minDistance)
+    end
 end
 
 -- Helper function to push an entity
@@ -116,9 +160,9 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt)
     local nx = dx / distance
     local ny = dy / distance
 
-    -- Calculate overlap amount using effective radius (includes shields)
-    local e1Radius = Radius.calculateEffectiveRadius(entity1)
-    local e2Radius = Radius.calculateEffectiveRadius(entity2)
+    -- Calculate overlap amount using hull/shield radii without broad-phase buffer
+    local e1Radius = hasActiveShield(entity1) and Radius.getShieldRadius(entity1) or Radius.getHullRadius(entity1)
+    local e2Radius = hasActiveShield(entity2) and Radius.getShieldRadius(entity2) or Radius.getHullRadius(entity2)
 
     local overlap = (e1Radius + e2Radius) - distance
 
@@ -152,8 +196,8 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt)
         -- Choose restitution based on shields (make shields bouncier)
         local HULL_REST = getCombatValue("HULL_RESTITUTION") or 0.28
         local SHIELD_REST = getCombatValue("SHIELD_RESTITUTION") or 0.88
-        local e1Rest = StationShields.hasActiveShield(entity1) and SHIELD_REST or HULL_REST
-        local e2Rest = StationShields.hasActiveShield(entity2) and SHIELD_REST or HULL_REST
+        local e1Rest = hasActiveShield(entity1) and SHIELD_REST or HULL_REST
+        local e2Rest = hasActiveShield(entity2) and SHIELD_REST or HULL_REST
 
         -- Push entities apart based on their mobility
         if e1CanMove and e2CanMove then
