@@ -36,10 +36,43 @@ end
 local function generatePositionOnAsteroid(asteroid, radius)
     local pos = asteroid.components.position
     local collidable = asteroid.components.collidable
-    local bodyRadius = (collidable and collidable.radius) or radius or 24
+    local hotspotRadius = radius or 12
 
+    if collidable and collidable.shape == "polygon" and collidable.vertices and #collidable.vertices >= 6 then
+        local vertexCount = math.floor(#collidable.vertices / 2)
+        if vertexCount >= 3 then
+            local index = math.random(1, vertexCount)
+            local nextIndex = (index % vertexCount) + 1
+
+            local vx = collidable.vertices[(index - 1) * 2 + 1] or 0
+            local vy = collidable.vertices[(index - 1) * 2 + 2] or 0
+            local nx = collidable.vertices[(nextIndex - 1) * 2 + 1] or 0
+            local ny = collidable.vertices[(nextIndex - 1) * 2 + 2] or 0
+
+            local t = math.random()
+            local edgeX = vx + (nx - vx) * t
+            local edgeY = vy + (ny - vy) * t
+
+            local length = math.sqrt(edgeX * edgeX + edgeY * edgeY)
+            local dirX, dirY = 0, -1
+            if length > 0 then
+                dirX = edgeX / length
+                dirY = edgeY / length
+            end
+
+            local offset = hotspotRadius * 0.6
+            local jitter = (math.random() - 0.5) * hotspotRadius * 0.1
+
+            local x = pos.x + edgeX + dirX * (hotspotRadius + offset) + (-dirY) * jitter
+            local y = pos.y + edgeY + dirY * (hotspotRadius + offset) + dirX * jitter
+
+            return x, y
+        end
+    end
+
+    local bodyRadius = (collidable and collidable.radius) or hotspotRadius or 24
     local angle = math.random() * math.pi * 2
-    local distance = bodyRadius * (1.0 + math.random() * 0.05)
+    local distance = bodyRadius + hotspotRadius * 0.65
 
     local x = pos.x + math.cos(angle) * distance
     local y = pos.y + math.sin(angle) * distance
