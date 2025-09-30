@@ -28,17 +28,20 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
 
     -- Aim in the direction of the target if provided, otherwise use owner's facing
     local angle
+    local targetDistance = math.huge
     if target then
         -- For automatic firing (AI), start by aiming from the ship center to the target
         local tx = target.components.position.x
         local ty = target.components.position.y
         angle = math.atan2(ty - shipPos.y, tx - shipPos.x)
+        targetDistance = math.sqrt((tx - shipPos.x)^2 + (ty - shipPos.y)^2)
     elseif turret.owner.cursorWorldPos and shipPos then
         -- For manual firing, use the cursor direction
         local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
         local dx = cursorX - shipPos.x
         local dy = cursorY - shipPos.y
         angle = math.atan2(dy, dx)
+        targetDistance = math.sqrt(dx * dx + dy * dy)
     else
         -- Fallback to ship facing if cursor position not available
         angle = shipPos.angle or 0
@@ -54,12 +57,15 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
         local ty = target.components.position.y
         angle = math.atan2(ty - sy, tx - sx)
         turret.currentAimAngle = angle
+        -- Recalculate distance from turret position
+        targetDistance = math.sqrt((tx - sx)^2 + (ty - sy)^2)
     end
 
     -- Perform hitscan collision check
     local maxRange = turret.maxRange or 1500
-    local endX = sx + math.cos(angle) * maxRange
-    local endY = sy + math.sin(angle) * maxRange
+    local actualRange = math.min(targetDistance, maxRange)
+    local endX = sx + math.cos(angle) * actualRange
+    local endY = sy + math.sin(angle) * actualRange
 
     local hitTarget, hitX, hitY = BeamWeapons.performLaserHitscan(
         sx, sy, endX, endY, turret, world

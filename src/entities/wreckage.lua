@@ -33,8 +33,8 @@ local function buildFragments(visuals, sizeScale)
   local totalShards = 0
   for i = 1, shardCount do
     local c = palette[math.random(1, #palette)]
-    -- Scale fragment size based on ship size
-    local baseR = 4 + math.random() * 8
+    -- Scale fragment size based on ship size - made bigger overall
+    local baseR = 8 + math.random() * 12  -- Increased from 4-12 to 8-20
     local r = baseR * sizeScale
     totalR = totalR + r
     totalShards = totalShards + 1
@@ -92,8 +92,8 @@ local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, si
   local sizeHint = (avgR or 6) * ((visuals and visuals.size) or 1.0) * (sizeScale or 1.0)
   e.components.wreckage = WreckageComponent.new({
       resourceType = "scraps",
-      salvageAmount = math.max(5, math.floor(sizeHint)), -- Increased minimum and multiplier for more durability
-      salvageCycleTime = 0.9 + math.random() * 0.6,
+      salvageAmount = math.max(2, math.floor(sizeHint * 0.3)), -- Much less durable: reduced from 5+ to 2+ and 0.3x multiplier
+      salvageCycleTime = 0.4 + math.random() * 0.3, -- Much faster salvaging: reduced from 0.9-1.5s to 0.4-0.7s
       scanned = false
   })
   -- Expose select fields + simple API on the entity itself so turret system can interact
@@ -130,8 +130,8 @@ function Wreckage.spawnFromEnemy(originPos, visuals, sizeScale)
   local ox = originPos.x or 0
   local oy = originPos.y or 0
   sizeScale = sizeScale or 1.0
-  -- Spawn just a few larger pieces so they’re easier to salvage
-  local numPieces = 1 + math.random(0, 3) -- 1-4 pieces
+  -- Spawn more pieces for better visibility and easier salvaging
+  local numPieces = 2 + math.random(0, 4) -- 2-6 pieces (increased from 1-4)
   local lootPiece = math.random(1, numPieces)
 
   for i = 1, numPieces do

@@ -3,6 +3,9 @@ local HeatManager = require("src.systems.turret.heat_manager")
 local TurretEffects = require("src.systems.turret.effects")
 local CollisionEffects = require("src.systems.collision.effects")
 local Effects = require("src.systems.effects")
+local Skills = require("src.core.skills")
+local Notifications = require("src.ui.notifications")
+local Events = require("src.core.events")
 
 local UtilityBeams = {}
 local IMPACT_INTERVAL = 0.18
@@ -50,12 +53,14 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     -- Manual shooting - fire in the direction of the cursor
     local angle = 0
+    local cursorDistance = math.huge
     if turret.owner.cursorWorldPos and turret.owner.components and turret.owner.components.position then
         local shipX, shipY = turret.owner.components.position.x, turret.owner.components.position.y
         local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
         local dx = cursorX - shipX
         local dy = cursorY - shipY
         angle = math.atan2(dy, dx)
+        cursorDistance = math.sqrt(dx * dx + dy * dy)
     else
         -- Fallback to ship facing if cursor position not available
         angle = turret.owner.components.position.angle or 0
@@ -67,11 +72,11 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     local Turret = require("src.systems.turret.core")
     local sx, sy = Turret.getTurretWorldPosition(turret)
 
-    -- Perform hitscan collision check for ALL collidable objects (like combat laser)
+    -- Calculate actual beam range: minimum of cursor distance and max range
     local maxRange = turret.maxRange or 850
-    local endX = sx + math.cos(angle) * maxRange
-    local endY = sy + math.sin(angle) * maxRange
-    print("UtilityBeams: Mining beam fired from (" .. sx .. ", " .. sy .. ") to (" .. endX .. ", " .. endY .. ")")
+    local actualRange = math.min(cursorDistance, maxRange)
+    local endX = sx + math.cos(angle) * actualRange
+    local endY = sy + math.sin(angle) * actualRange
 
     local hitTarget, hitX, hitY = UtilityBeams.performMiningHitscan(
         sx, sy, endX, endY, turret, world
@@ -93,14 +98,9 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     local damageRate = miningPower / cycle
 
     if hitTarget then
-        print("UtilityBeams: Hit target found, has mineable: " .. tostring(hitTarget.components and hitTarget.components.mineable ~= nil))
         if hitTarget.components and hitTarget.components.mineable then
             -- Set mining flag to enable hotspot generation
-            if not hitTarget.components.mineable.isBeingMined then
-                print("Mining started on asteroid!")
-            end
             hitTarget.components.mineable.isBeingMined = true
-            print("UtilityBeams: Set isBeingMined to true")
             
             local damageValue = damageRate * dt
             UtilityBeams.applyMiningDamage(hitTarget, damageValue, turret.owner, world, hitX, hitY)
@@ -290,12 +290,14 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     -- Manual shooting - fire in the direction of the cursor
     local angle = 0
+    local cursorDistance = math.huge
     if turret.owner.cursorWorldPos and turret.owner.components and turret.owner.components.position then
         local shipX, shipY = turret.owner.components.position.x, turret.owner.components.position.y
         local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
         local dx = cursorX - shipX
         local dy = cursorY - shipY
         angle = math.atan2(dy, dx)
+        cursorDistance = math.sqrt(dx * dx + dy * dy)
     else
         -- Fallback to ship facing if cursor position not available
         angle = turret.owner.components.position.angle or 0
@@ -307,12 +309,13 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     local Turret = require("src.systems.turret.core")
     local sx, sy = Turret.getTurretWorldPosition(turret)
 
-    -- Perform hitscan collision check for ALL collidable objects (like combat laser)
+    -- Calculate actual beam range: minimum of cursor distance and max range
     local maxRange = turret.maxRange or 800
-    local endX = sx + math.cos(angle) * maxRange
-    local endY = sy + math.sin(angle) * maxRange
+    local actualRange = math.min(cursorDistance, maxRange)
+    local endX = sx + math.cos(angle) * actualRange
+    local endY = sy + math.sin(angle) * actualRange
 
-    local hitTarget, hitX, hitY = UtilityBeams.performSalvageHitscan(
+    local hitTarget, hitX, hitY = UtilityBeams.performMiningHitscan(
         sx, sy, endX, endY, turret, world
     )
 
@@ -333,6 +336,11 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     if hitTarget then
         if hitTarget.components and hitTarget.components.wreckage then
+            -- Mark wreckage as being salvaged
+            if not hitTarget.components.wreckage.isBeingSalvaged then
+                hitTarget.components.wreckage.isBeingSalvaged = true
+            end
+            
             local removed = UtilityBeams.applySalvageDamage(hitTarget, salvageRate * dt, turret.owner, world)
             if removed and turret._beamImpactTimer <= 0 then
                 TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "salvage")
@@ -341,6 +349,14 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
         elseif turret._beamImpactTimer <= 0 then
             TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
             turret._beamImpactTimer = IMPACT_INTERVAL
+        end
+    else
+        -- No target hit, clear salvage flags on all wreckage
+        local entities = world:get_entities_with_components("wreckage")
+        for _, entity in ipairs(entities) do
+            if entity.components and entity.components.wreckage then
+                entity.components.wreckage.isBeingSalvaged = false
+            end
         end
     end
 
@@ -395,36 +411,6 @@ function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, w
     return bestTarget, bestHitX, bestHitY
 end
 
--- Perform hitscan collision detection for salvaging lasers
-function UtilityBeams.performSalvageHitscan(startX, startY, endX, endY, turret, world)
-    if not world then return nil end
-
-    local bestTarget = nil
-    local bestDistance = math.huge
-    local bestHitX, bestHitY = endX, endY
-
-    local entities = world:get_entities_with_components("collidable", "position")
-
-    for _, entity in ipairs(entities) do
-        if entity ~= turret.owner and not entity.dead then
-            local targetRadius = CollisionHelpers.calculateEffectiveRadius(entity)
-            local hit, hx, hy = CollisionHelpers.performCollisionCheck(
-                startX, startY, endX, endY, entity, targetRadius
-            )
-
-            if hit then
-                local distance = math.sqrt((hx - startX)^2 + (hy - startY)^2)
-                if distance < bestDistance then
-                    bestDistance = distance
-                    bestTarget = entity
-                    bestHitX, bestHitY = hx, hy
-                end
-            end
-        end
-    end
-
-    return bestTarget, bestHitX, bestHitY
-end
 
 -- Apply salvage damage to wreckage
 function UtilityBeams.applySalvageDamage(target, damage, source, world)
@@ -453,6 +439,28 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
         wreckage._partialSalvage = wreckage._partialSalvage - whole
         wreckage._salvageDropped = wreckage._salvageDropped + whole
         spawnSalvagePickup(target, whole, world)
+        
+        -- Give XP and skill progression for salvaged resources
+        if source and source.addXP then
+            local xpBase = 10 -- base XP per salvaged resource
+            local salvagingLevel = Skills.getLevel("salvaging")
+            local xpGain = xpBase * (1 + salvagingLevel * 0.06) -- mild scaling per level
+            local leveledUp = Skills.addXp("salvaging", xpGain)
+            source:addXP(xpGain)
+
+            if leveledUp then
+                Notifications.action("Salvaging level up!")
+            end
+
+            -- Emit salvage event
+            Events.emit(Events.GAME_EVENTS.WRECKAGE_SALVAGED, {
+                player = source,
+                amount = whole,
+                resourceId = wreckage.resourceType or "scraps",
+                wreckage = target,
+                wreckageId = target.id
+            })
+        end
     end
 
     if remaining <= 0 then
@@ -461,6 +469,28 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
         if remainingToDrop > 0 then
             wreckage._salvageDropped = wreckage._salvageDropped + remainingToDrop
             spawnSalvagePickup(target, remainingToDrop, world)
+            
+            -- Give XP for remaining resources
+            if source and source.addXP then
+                local xpBase = 10
+                local salvagingLevel = Skills.getLevel("salvaging")
+                local xpGain = xpBase * (1 + salvagingLevel * 0.06) * remainingToDrop
+                local leveledUp = Skills.addXp("salvaging", xpGain)
+                source:addXP(xpGain)
+
+                if leveledUp then
+                    Notifications.action("Salvaging level up!")
+                end
+
+                -- Emit salvage event for remaining resources
+                Events.emit(Events.GAME_EVENTS.WRECKAGE_SALVAGED, {
+                    player = source,
+                    amount = remainingToDrop,
+                    resourceId = wreckage.resourceType or "scraps",
+                    wreckage = target,
+                    wreckageId = target.id
+                })
+            end
         end
         wreckage._partialSalvage = 0
         UtilityBeams.completeSalvage(nil, target, world)
