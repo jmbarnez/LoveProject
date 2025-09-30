@@ -30,7 +30,7 @@ return {
     mineable = {
         resourceType = "stones",
         resources = 90,
-        durability = 5.0,  -- Reduced from 22.0 to 5.0 (77% reduction)
+        durability = 2.5,  -- Reduced from 5.0 to 2.5 (50% reduction)
     },
 
     visuals = {

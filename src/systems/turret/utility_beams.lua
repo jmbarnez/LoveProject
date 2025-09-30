@@ -195,10 +195,11 @@ function UtilityBeams.completeMining(turret, target, world)
     else
         mineable.hotspots = {}
     end
-    -- Create raw stone pickups (2-4 stones)
+    -- Create resource pickups (both stones and tritanium)
     local ItemPickup = require("src.entities.item_pickup")
-    local stoneCount = 2 + math.random(2)
     
+    -- Drop 2-3 raw stones
+    local stoneCount = 2 + math.random(1)
     for i = 1, stoneCount do
         local angle = math.random() * math.pi * 2
         local dist = 8 + math.random() * 16
@@ -213,7 +214,35 @@ function UtilityBeams.completeMining(turret, target, world)
         local pickup = ItemPickup.new(
             spawnX,
             spawnY,
-            "stones",  -- Always drop raw stones
+            "stones",  -- Drop raw stones
+            1,
+            0.8 + math.random() * 0.4,
+            vx,
+            vy
+        )
+
+        if pickup and world then
+            world:addEntity(pickup)
+        end
+    end
+
+    -- Drop 1-3 tritanium ore
+    local tritCount = 1 + math.random(2)
+    for i = 1, tritCount do
+        local angle = math.random() * math.pi * 2
+        local dist = 8 + math.random() * 16
+        local spawnX = target.components.position.x + math.cos(angle) * dist
+        local spawnY = target.components.position.y + math.sin(angle) * dist
+
+        local speed = 100 + math.random() * 140
+        local spreadAngle = angle + (math.random() - 0.5) * 0.5
+        local vx = math.cos(spreadAngle) * speed
+        local vy = math.sin(spreadAngle) * speed
+
+        local pickup = ItemPickup.new(
+            spawnX,
+            spawnY,
+            "ore_tritanium",  -- Drop tritanium ore
             1,
             0.8 + math.random() * 0.4,
             vx,

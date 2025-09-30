@@ -1,8 +1,9 @@
 local Pickups = {}
 local Events = require("src.core.events")
 local Sound = require("src.core.sound")
+local Notifications = require("src.ui.notifications")
 
-local ATTRACT_RADIUS = 400
+local ATTRACT_RADIUS = 600  -- Increased from 400 to 600 for better item collection
 local CAPTURE_RADIUS = 35  -- Increased to ensure items are collected when they get under the ship
 local BASE_PULL = 180
 
@@ -19,6 +20,12 @@ local function collect(player, pickup)
   local qty = pickup.qty or (pickup.components and pickup.components.renderable and pickup.components.renderable.props and pickup.components.renderable.props.qty) or 1
   cargo:add(id, qty)
   Sound.triggerEventAt("loot_collected", pickup.components.position.x, pickup.components.position.y)
+  
+  -- Show pickup notification
+  local itemName = id == "stones" and "Raw Stones" or (id == "ore_tritanium" and "Tritanium Ore" or id)
+  local notificationText = qty > 1 and ("+" .. qty .. " " .. itemName) or ("+" .. qty .. " " .. itemName)
+  Notifications.action(notificationText)
+  
   pickup.dead = true
 end
 

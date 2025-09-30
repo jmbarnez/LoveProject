@@ -32,18 +32,30 @@ end
 
 function Geometry.segPolygonHit(x1,y1,x2,y2, verts)
   if not verts or #verts < 6 then 
-    print("segPolygonHit: Invalid vertices, count=" .. tostring(verts and #verts or 0))
     return false 
   end
   local count = #verts
   local numVertices = count / 2
   
-  -- Only print debug info for the first few calls to avoid spam
-  if not Geometry._debugCount then Geometry._debugCount = 0 end
-  Geometry._debugCount = Geometry._debugCount + 1
-  if Geometry._debugCount <= 3 then
-    print("segPolygonHit: Checking beam (" .. x1 .. "," .. y1 .. ") to (" .. x2 .. "," .. y2 .. ") against polygon with " .. numVertices .. " vertices")
+  -- Check if either endpoint is inside the polygon (prevents tunneling)
+  local startInside = Geometry.pointInPolygon(x1, y1, verts)
+  local endInside = Geometry.pointInPolygon(x2, y2, verts)
+  
+  -- If either point is inside, we have a hit
+  if startInside or endInside then
+    -- Return the point that's inside, or the midpoint if both are inside
+    if startInside and endInside then
+      return true, (x1 + x2) / 2, (y1 + y2) / 2
+    elseif startInside then
+      return true, x1, y1
+    else
+      return true, x2, y2
+    end
   end
+  
+  -- Check for edge intersections
+  local bestHit = nil
+  local bestDistance = math.huge
   
   for i = 1, numVertices do
     local nextI = i + 1
@@ -51,20 +63,22 @@ function Geometry.segPolygonHit(x1,y1,x2,y2, verts)
     
     local ix, iy = verts[(i-1)*2 + 1], verts[(i-1)*2 + 2]
     local jx, jy = verts[(nextI-1)*2 + 1], verts[(nextI-1)*2 + 2]
-    if Geometry._debugCount <= 3 then
-      print("  Edge " .. i .. ": (" .. ix .. "," .. iy .. ") to (" .. jx .. "," .. jy .. ")")
-    end
+    
     local hit, hx, hy = Geometry.segIntersect(x1,y1,x2,y2, ix,iy,jx,jy)
     if hit then 
-      if Geometry._debugCount <= 3 then
-        print("  HIT! At (" .. hx .. "," .. hy .. ")")
+      -- Find the closest intersection point to the start of the beam
+      local distance = math.sqrt((hx - x1)^2 + (hy - y1)^2)
+      if distance < bestDistance then
+        bestDistance = distance
+        bestHit = {hx, hy}
       end
-      return true, hx, hy 
     end
   end
-  if Geometry._debugCount <= 3 then
-    print("  No hit found")
+  
+  if bestHit then
+    return true, bestHit[1], bestHit[2]
   end
+  
   return false
 end
 
