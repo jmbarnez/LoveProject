@@ -12,37 +12,43 @@ return {
 
   visuals = {
     size = 1.2, -- larger boss drone size
-    hullColor = {0.35, 0.38, 0.44, 1.0},
-    panelColor = {0.30, 0.32, 0.36, 1.0},
-    accentColor = {0.85, 0.45, 0.20, 0.9},
-    engineColor = {1.0, 0.3, 0.15},
+    hullColor = {0.56, 0.16, 0.46, 1.0},
+    panelColor = {0.42, 0.12, 0.48, 1.0},
+    accentColor = {1.0, 0.45, 0.82, 0.95},
+    engineColor = {1.0, 0.35, 0.75},
     shapes = {
-      -- Central hexagonal core (larger for boss)
-      { type = "polygon", mode = "fill", color = {0.35, 0.38, 0.44, 1.0}, points = { 0,-14,  -12,-7,  -12,7,  0,14,  12,7,  12,-7 } },
+      -- Central hexagonal core with magenta plating
+      { type = "polygon", mode = "fill", color = {0.56, 0.16, 0.46, 1.0}, points = { 0,-14,  -12,-7,  -12,7,  0,14,  12,7,  12,-7 } },
+      { type = "polygon", mode = "fill", color = {0.84, 0.32, 0.72, 0.55}, points = { 0,-10,  -8,-5,  -8,5,  0,10,  8,5,  8,-5 } },
 
       -- Symmetrical engine mounts (4 points around center, larger)
-      { type = "rectangle", mode = "fill", color = {0.30, 0.32, 0.36, 1.0}, x = -14, y = -4, w = 4, h = 8 },
-      { type = "rectangle", mode = "fill", color = {0.30, 0.32, 0.36, 1.0}, x = 10, y = -4, w = 4, h = 8 },
-      { type = "rectangle", mode = "fill", color = {0.30, 0.32, 0.36, 1.0}, x = -4, y = -14, w = 8, h = 4 },
-      { type = "rectangle", mode = "fill", color = {0.30, 0.32, 0.36, 1.0}, x = -4, y = 10, w = 8, h = 4 },
+      { type = "rectangle", mode = "fill", color = {0.42, 0.12, 0.48, 1.0}, x = -14, y = -4, w = 4, h = 8 },
+      { type = "rectangle", mode = "fill", color = {0.42, 0.12, 0.48, 1.0}, x = 10, y = -4, w = 4, h = 8 },
+      { type = "rectangle", mode = "fill", color = {0.42, 0.12, 0.48, 1.0}, x = -4, y = -14, w = 8, h = 4 },
+      { type = "rectangle", mode = "fill", color = {0.42, 0.12, 0.48, 1.0}, x = -4, y = 10, w = 8, h = 4 },
+      { type = "rectangle", mode = "fill", color = {0.78, 0.28, 0.68, 0.85}, x = -12, y = -2, w = 3, h = 4 },
+      { type = "rectangle", mode = "fill", color = {0.78, 0.28, 0.68, 0.85}, x = 11, y = -2, w = 3, h = 4 },
+      { type = "rectangle", mode = "fill", color = {0.78, 0.28, 0.68, 0.85}, x = -2, y = -12, w = 4, h = 3 },
+      { type = "rectangle", mode = "fill", color = {0.78, 0.28, 0.68, 0.85}, x = -2, y = 11, w = 4, h = 3 },
 
       -- Engine glow effects (positioned at engine mounts, more intense)
-      { type = "circle", mode = "fill", color = {0.85, 0.45, 0.20, 0.9}, x = -12, y = 0, r = 2.5 },
-      { type = "circle", mode = "fill", color = {1.0, 0.3, 0.15, 0.85}, x = 12, y = 0, r = 2.5 },
-      { type = "circle", mode = "fill", color = {0.85, 0.45, 0.20, 0.9}, x = 0, y = -12, r = 2.5 },
-      { type = "circle", mode = "fill", color = {1.0, 0.3, 0.15, 0.85}, x = 0, y = 12, r = 2.5 },
+      { type = "circle", mode = "fill", color = {1.0, 0.45, 0.85, 0.95}, x = -12, y = 0, r = 2.8 },
+      { type = "circle", mode = "fill", color = {1.0, 0.45, 0.85, 0.95}, x = 12, y = 0, r = 2.8 },
+      { type = "circle", mode = "fill", color = {1.0, 0.35, 0.80, 0.9}, x = 0, y = -12, r = 2.8 },
+      { type = "circle", mode = "fill", color = {1.0, 0.35, 0.80, 0.9}, x = 0, y = 12, r = 2.8 },
 
       -- Central sensor array (larger for boss)
-      { type = "circle", mode = "fill", color = {0.35, 0.65, 0.85, 0.5}, x = 0, y = 0, r = 6 },
+      { type = "circle", mode = "fill", color = {0.96, 0.52, 0.88, 0.55}, x = 0, y = 0, r = 6.5 },
+      { type = "circle", mode = "line", color = {1.0, 0.7, 0.95, 0.8}, x = 0, y = 0, r = 8.5, lineWidth = 1.5 },
 
       -- Symmetrical sensor nodes (larger and more prominent)
-      { type = "circle", mode = "fill", color = {0.45, 0.75, 0.95, 0.6}, x = 0, y = -8, r = 2 },
-      { type = "circle", mode = "fill", color = {0.45, 0.75, 0.95, 0.6}, x = 0, y = 8, r = 2 },
-      { type = "circle", mode = "fill", color = {0.45, 0.75, 0.95, 0.6}, x = -8, y = 0, r = 2 },
-      { type = "circle", mode = "fill", color = {0.45, 0.75, 0.95, 0.6}, x = 8, y = 0, r = 2 },
+      { type = "circle", mode = "fill", color = {0.98, 0.65, 0.92, 0.7}, x = 0, y = -8, r = 2.2 },
+      { type = "circle", mode = "fill", color = {0.98, 0.65, 0.92, 0.7}, x = 0, y = 8, r = 2.2 },
+      { type = "circle", mode = "fill", color = {0.98, 0.65, 0.92, 0.7}, x = -8, y = 0, r = 2.2 },
+      { type = "circle", mode = "fill", color = {0.98, 0.65, 0.92, 0.7}, x = 8, y = 0, r = 2.2 },
 
       -- Outer hull outline (heavier for boss)
-      { type = "polygon", mode = "line", color = {0.18, 0.20, 0.25, 0.95}, points = { 0,-14,  -12,-7,  -12,7,  0,14,  12,7,  12,-7 } },
+      { type = "polygon", mode = "line", color = {0.32, 0.05, 0.35, 0.95}, points = { 0,-14,  -12,-7,  -12,7,  0,14,  12,7,  12,-7 } },
     }
   },
 
@@ -59,162 +65,150 @@ return {
   },
 
   hardpoints = {
-    { 
+    {
       turret = {
-        id = "all_direction_gun",
-        type = "gun",
-        name = "All-Direction Gun",
-        description = "Fires projectiles in all directions simultaneously.",
+        id = "boss_prism_laser",
+        type = "laser",
+        name = "Prism Burst Array",
+        description = "Fires sweeping prisms of pink laser energy in a wide arc.",
         price = 0,
         module = { type = "turret" },
         icon = {
           size = 32,
           shapes = {
-            -- Central core
-            { type = "circle", mode = "fill", color = {0.15, 0.15, 0.20, 1}, x = 16, y = 16, r = 8 },
-            -- 8 directional barrels
-            { type = "rectangle", mode = "fill", color = {0.25, 0.25, 0.30, 1}, x = 14, y = 2, w = 4, h = 8, rx = 2 },
-            { type = "rectangle", mode = "fill", color = {0.25, 0.25, 0.30, 1}, x = 20, y = 2, w = 4, h = 8, rx = 2 },
-            { type = "rectangle", mode = "fill", color = {0.25, 0.25, 0.30, 1}, x = 2, y = 14, w = 8, h = 4, rx = 2 },
-            { type = "rectangle", mode = "fill", color = {0.25, 0.25, 0.30, 1}, x = 22, y = 14, w = 8, h = 4, rx = 2 },
-            { type = "rectangle", mode = "fill", color = {0.25, 0.25, 0.30, 1}, x = 14, y = 22, w = 4, h = 8, rx = 2 },
-            { type = "rectangle", mode = "fill", color = {0.25, 0.25, 0.30, 1}, x = 20, y = 22, w = 4, h = 8, rx = 2 },
-            { type = "rectangle", mode = "fill", color = {0.25, 0.25, 0.30, 1}, x = 2, y = 20, w = 8, h = 4, rx = 2 },
-            { type = "rectangle", mode = "fill", color = {0.25, 0.25, 0.30, 1}, x = 22, y = 20, w = 8, h = 4, rx = 2 },
-            -- Central glow
-            { type = "circle", mode = "fill", color = {0.8, 0.4, 0.2, 0.8}, x = 16, y = 16, r = 4 },
+            { type = "circle", mode = "fill", color = {0.45, 0.08, 0.45, 1.0}, x = 16, y = 16, r = 7 },
+            { type = "circle", mode = "fill", color = {0.9, 0.3, 0.8, 0.85}, x = 16, y = 16, r = 4 },
+            { type = "polygon", mode = "fill", color = {1.0, 0.4, 0.85, 0.8}, points = { 16,4,  28,12,  16,20,  4,12 } },
+            { type = "circle", mode = "line", color = {1.0, 0.65, 0.95, 0.9}, x = 16, y = 16, r = 12, lineWidth = 1.5 },
           }
         },
-        spread = { minDeg = 0.0, maxDeg = 0.0, decay = 800 },
-        
-        -- Embedded projectile definition
+        spread = { minDeg = 0.0, maxDeg = 0.0, decay = 900 },
+
         projectile = {
-          id = "all_direction_bullet",
-          name = "All-Direction Bullet",
+          id = "boss_prism_beam",
+          name = "Prism Beam",
           class = "Projectile",
           physics = {
-            speed = 3600,
+            speed = 0,
             drag = 0,
           },
           renderable = {
             type = "bullet",
             props = {
-              kind = "bullet",
-              radius = 2.5,
-              color = {1.0, 0.2, 0.1, 1.0}, -- Red projectiles
+              kind = "laser",
+              length = 1400,
+              tracerWidth = 6,
+              color = {1.0, 0.45, 0.85, 0.95},
             }
           },
+          collidable = {
+            radius = 4,
+          },
           damage = {
-            value = 2.0,
+            min = 6,
+            max = 9,
           },
           timed_life = {
-            duration = 2.0,
+            duration = 0.18,
+          },
+          charged_pulse = {
+            buildup_time = 0.12,
+            flash_time = 0.09,
           }
         },
-        
-        -- Visual effects
-        tracer = { color = {1.0, 0.2, 0.1, 1.0}, width = 1.5, coreRadius = 2 }, -- Red tracer
-        impact = {
-          shield = { spanDeg = 80, color1 = {0.8, 0.4, 0.2, 0.6}, color2 = {1.0, 0.6, 0.3, 0.4} },
-          hull = { spark = {1.0, 0.5, 0.1, 0.7}, ring = {1.0, 0.3, 0.0, 0.5} },
-        },
-        optimal = 600, falloff = 400,
-        damage_range = { min = 1.5, max = 2.5 },
-        cycle = 2.0, capCost = 0, -- No energy cost for basic enemies
-        projectileSpeed = 3600,
-        maxRange = 1500,
-        -- Overheating parameters
-        maxHeat = 80,
-        heatPerShot = 12,
-        cooldownRate = 20,
-        overheatCooldown = 3.0,
-        heatCycleMult = 0.8,
-        heatEnergyMult = 1.2,
 
-        -- Firing mode: "manual" or "automatic"
+        tracer = { color = {1.0, 0.45, 0.85, 0.95}, width = 4, coreRadius = 3 },
+        impact = {
+          shield = { spanDeg = 80, color1 = {0.95, 0.55, 0.95, 0.6}, color2 = {1.0, 0.35, 0.8, 0.45} },
+          hull = { spark = {1.0, 0.4, 0.8, 0.7}, ring = {0.9, 0.2, 0.6, 0.5} },
+        },
+        optimal = 1000, falloff = 500,
+        damage_range = { min = 6, max = 9 },
+        cycle = 1.6, capCost = 0,
+        projectileSpeed = 0,
+        maxRange = 1500,
+        maxHeat = 110,
+        heatPerShot = 18,
+        cooldownRate = 28,
+        overheatCooldown = 3.0,
+        heatCycleMult = 0.75,
+        heatEnergyMult = 1.1,
         fireMode = "automatic",
-        
-        -- All-direction firing: 8 projectiles in all directions
-        volleyCount = 8,
-        volleySpreadDeg = 45, -- 360/8 = 45 degrees between each shot
+        volleyCount = 4,
+        volleySpreadDeg = 18,
       }
     },
-    { 
+    {
       turret = {
-        id = "boss_missile_launcher",
-        type = "missile",
-        name = "Boss Missile Launcher",
-        description = "Fires homing missiles at the player every 6 seconds.",
+        id = "boss_luminary_lance",
+        type = "laser",
+        name = "Luminary Lance",
+        description = "Charges and unleashes a focused pink beam at long range.",
         price = 0,
         module = { type = "turret" },
         icon = {
           size = 32,
           shapes = {
-            -- Missile launcher base
-            { type = "rectangle", mode = "fill", color = {0.20, 0.20, 0.25, 1}, x = 8, y = 12, w = 16, h = 8, rx = 2 },
-            -- Missile tubes
-            { type = "rectangle", mode = "fill", color = {0.30, 0.30, 0.35, 1}, x = 10, y = 14, w = 3, h = 4, rx = 1 },
-            { type = "rectangle", mode = "fill", color = {0.30, 0.30, 0.35, 1}, x = 19, y = 14, w = 3, h = 4, rx = 1 },
-            -- Missile tips
-            { type = "polygon", mode = "fill", color = {0.8, 0.2, 0.1, 1}, points = {11.5, 10, 13.5, 10, 12.5, 14} },
-            { type = "polygon", mode = "fill", color = {0.8, 0.2, 0.1, 1}, points = {20.5, 10, 22.5, 10, 21.5, 14} },
-            -- Targeting reticle
-            { type = "circle", mode = "line", color = {0.8, 0.4, 0.2, 0.8}, x = 16, y = 16, r = 6, lineWidth = 1 },
-            { type = "circle", mode = "line", color = {0.8, 0.4, 0.2, 0.6}, x = 16, y = 16, r = 3, lineWidth = 1 },
+            { type = "rectangle", mode = "fill", color = {0.4, 0.08, 0.42, 1.0}, x = 12, y = 8, w = 8, h = 16, rx = 3 },
+            { type = "rectangle", mode = "fill", color = {0.85, 0.28, 0.78, 0.9}, x = 14, y = 6, w = 4, h = 20, rx = 2 },
+            { type = "polygon", mode = "fill", color = {1.0, 0.5, 0.9, 0.9}, points = { 16,4,  20,10,  16,6,  12,10 } },
+            { type = "circle", mode = "line", color = {1.0, 0.7, 0.95, 0.7}, x = 16, y = 16, r = 10, lineWidth = 1.5 },
           }
         },
         spread = { minDeg = 0.0, maxDeg = 0.0, decay = 1000 },
-        
-        -- Embedded projectile definition
+
         projectile = {
-          id = "boss_missile",
-          name = "Boss Missile",
+          id = "boss_luminary_beam",
+          name = "Luminary Beam",
           class = "Projectile",
           physics = {
-            speed = 1200,
-            drag = 0.1,
+            speed = 0,
+            drag = 0,
           },
           renderable = {
             type = "bullet",
             props = {
-              kind = "missile",
-              radius = 3.0,
-              color = {1.0, 0.1, 0.1, 1.0}, -- Bright red missile
+              kind = "laser",
+              length = 1800,
+              tracerWidth = 8,
+              color = {1.0, 0.5, 0.9, 0.95},
             }
           },
+          collidable = {
+            radius = 5,
+          },
           damage = {
-            value = 8.0,
+            min = 10,
+            max = 16,
           },
           timed_life = {
-            duration = 8.0,
+            duration = 0.22,
+          },
+          charged_pulse = {
+            buildup_time = 0.2,
+            flash_time = 0.12,
           }
         },
-        
-        -- Visual effects
-        tracer = { color = {1.0, 0.1, 0.1, 1.0}, width = 2, coreRadius = 3 }, -- Bright red trail
-        impact = {
-          shield = { spanDeg = 90, color1 = {0.8, 0.2, 0.1, 0.7}, color2 = {1.0, 0.4, 0.2, 0.5} },
-          hull = { spark = {1.0, 0.6, 0.2, 0.8}, ring = {1.0, 0.3, 0.0, 0.6} },
-        },
-        optimal = 1000, falloff = 500,
-        damage_range = { min = 6, max = 10 },
-        cycle = 6.0, capCost = 0, -- No energy cost for basic enemies
-        projectileSpeed = 1200,
-        maxRange = 2000,
-        -- Missile-specific parameters
-        homingStrength = 0.9,
-        missileTurnRate = 3.0,
-        lockOnTime = 1.0,
-        -- Overheating parameters
-        maxHeat = 60,
-        heatPerShot = 20,
-        cooldownRate = 15,
-        overheatCooldown = 4.0,
-        heatCycleMult = 0.9,
-        heatEnergyMult = 1.1,
 
-        -- Firing mode: "manual" or "automatic"
+        tracer = { color = {1.0, 0.5, 0.9, 1.0}, width = 5, coreRadius = 4 },
+        impact = {
+          shield = { spanDeg = 110, color1 = {0.9, 0.35, 0.85, 0.7}, color2 = {1.0, 0.6, 0.95, 0.5} },
+          hull = { spark = {1.0, 0.45, 0.85, 0.8}, ring = {0.85, 0.25, 0.7, 0.6} },
+        },
+        optimal = 1400, falloff = 400,
+        damage_range = { min = 10, max = 16 },
+        cycle = 5.0, capCost = 0,
+        projectileSpeed = 0,
+        maxRange = 2000,
+        maxHeat = 80,
+        heatPerShot = 26,
+        cooldownRate = 20,
+        overheatCooldown = 4.2,
+        heatCycleMult = 0.85,
+        heatEnergyMult = 1.05,
         fireMode = "automatic",
+        volleyCount = 1,
+        volleySpreadDeg = 0,
       }
     }
   },

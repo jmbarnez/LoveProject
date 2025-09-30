@@ -2,11 +2,16 @@ local Util = require("src.core.util")
 local AIComponent = require("src.components.ai")
 local Log = require("src.core.log")
 local SpaceStationSystem = require("src.systems.hub")
+local EntityFactory = require("src.templates.entity_factory")
 
 local AISystem = {}
 
 -- Simple constants for basic AI
 local PATROL_RADIUS = 200  -- How far enemies patrol from spawn point
+local BOSS_MINION_MAX = 3
+local BOSS_MINION_INTERVAL_MIN = 4.0
+local BOSS_MINION_INTERVAL_MAX = 6.0
+local BOSS_MINION_OFFSET = 160
 
 -- Logging throttle to prevent spam
 local lastHuntingLog = 0
@@ -33,6 +38,71 @@ local function onEntityDamaged(eventData)
             ai.state = "hunting"
         end
     end
+end
+
+local function updateBossMinions(entity, dt, world)
+    if not entity or not entity.isBoss or entity.dead then
+        return
+    end
+
+    if not (entity.components and entity.components.health and entity.components.position) then
+        return
+    end
+
+    local health = entity.components.health
+    local hp = health.hp or health.current or 0
+    if hp <= 0 then
+        return
+    end
+
+    entity._bossMinions = entity._bossMinions or {}
+    local active = {}
+    for _, minion in ipairs(entity._bossMinions) do
+        if minion and not minion.dead and minion.components and minion.components.health then
+            local mh = minion.components.health
+            local mhp = mh.hp or mh.current or 0
+            if mhp > 0 then
+                table.insert(active, minion)
+            end
+        end
+    end
+    entity._bossMinions = active
+
+    entity._bossMinionTimer = (entity._bossMinionTimer or (math.random() * (BOSS_MINION_INTERVAL_MAX - BOSS_MINION_INTERVAL_MIN) + BOSS_MINION_INTERVAL_MIN)) - dt
+
+    if entity._bossMinionTimer > 0 then
+        return
+    end
+
+    if #entity._bossMinions >= BOSS_MINION_MAX then
+        entity._bossMinionTimer = 1.5
+        return
+    end
+
+    if not world or not world.addEntity then
+        entity._bossMinionTimer = 1.5
+        return
+    end
+
+    local pos = entity.components.position
+    local angle = math.random() * math.pi * 2
+    local baseRadius = (entity.components.collidable and entity.components.collidable.radius) or 80
+    local distance = baseRadius + BOSS_MINION_OFFSET + math.random() * 80
+    local spawnX = pos.x + math.cos(angle) * distance
+    local spawnY = pos.y + math.sin(angle) * distance
+
+    local minion = EntityFactory.createEnemy("basic_drone", spawnX, spawnY)
+    if minion then
+        minion.summonedByBoss = true
+        if minion.components and minion.components.ai then
+            minion.components.ai.spawnPos = { x = spawnX, y = spawnY }
+            minion.components.ai.patrolCenter = { x = spawnX, y = spawnY }
+        end
+        world:addEntity(minion)
+        table.insert(entity._bossMinions, minion)
+    end
+
+    entity._bossMinionTimer = math.random() * (BOSS_MINION_INTERVAL_MAX - BOSS_MINION_INTERVAL_MIN) + BOSS_MINION_INTERVAL_MIN
 end
 
 -- Check if an enemy is within any station's weapons disabled zone
@@ -407,6 +477,8 @@ function AISystem.update(dt, world, spawnProjectile)
 
     for _, entity in ipairs(aiEntities) do
         local ai = entity.components.ai
+
+        updateBossMinions(entity, dt, world)
 
         -- Find player if we don't have a target
         if not ai.target then

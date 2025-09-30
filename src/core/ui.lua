@@ -41,7 +41,7 @@ end
 
 function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, remotePlayers)
   -- Draw modular HUD components
-  StatusBars.draw(player)
+  StatusBars.draw(player, world)
   -- Always hide system mouse cursor - use in-game cursors instead
   if love and love.mouse and love.mouse.setVisible then love.mouse.setVisible(false) end
 

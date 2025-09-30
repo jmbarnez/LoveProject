@@ -222,6 +222,173 @@ local energyAnimation = {
     lastUpdate = 0
 }
 
+local bossState = {
+    entity = nil,
+    label = nil,
+    hp = 0,
+    maxHp = 1,
+    shield = 0,
+    maxShield = 0,
+    smoothHp = 0,
+    smoothShield = 0,
+    displayTimer = 0,
+}
+
+local BOSS_BAR_RANGE = 2000
+local BOSS_BAR_RANGE_SQ = BOSS_BAR_RANGE * BOSS_BAR_RANGE
+local BOSS_BAR_HOLD_TIME = 0.8
+local BOSS_BAR_FADE_TIME = 0.4
+
+local function drawBossMeter(x, y, w, h, pct, color, text, alpha)
+    local clampedPct = math.max(0, math.min(1, pct or 0))
+    Theme.setColor({0.06, 0.01, 0.06, 0.75 * alpha})
+    love.graphics.rectangle('fill', x, y, w, h, 14, 14)
+
+    local fillColor = {color[1], color[2], color[3], (color[4] or 1) * alpha}
+    Theme.setColor(fillColor)
+    love.graphics.rectangle('fill', x, y, w * clampedPct, h, 14, 14)
+
+    Theme.setColor({1.0, 0.85, 0.98, 0.9 * alpha})
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle('line', x, y, w, h, 14, 14)
+    love.graphics.setLineWidth(1)
+
+    local prevFont = love.graphics.getFont()
+    if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
+    local font = love.graphics.getFont()
+    local textWidth = font:getWidth(text)
+    local textHeight = font:getHeight()
+    Theme.setColor({1.0, 0.95, 0.99, alpha})
+    love.graphics.print(text, x + (w - textWidth) / 2, y + (h - textHeight) / 2)
+    if prevFont then love.graphics.setFont(prevFont) end
+end
+
+local function updateBossBar(dt, player, world)
+    bossState.displayTimer = math.max(0, bossState.displayTimer - dt)
+
+    if not (world and world.get_entities_with_components and player and player.components and player.components.position) then
+        if bossState.displayTimer <= 0 then
+            bossState.entity = nil
+            bossState.label = nil
+        end
+        bossState.smoothHp = Util.lerp(bossState.smoothHp or 0, 0, 1 - math.exp(-8 * dt))
+        bossState.smoothShield = Util.lerp(bossState.smoothShield or 0, 0, 1 - math.exp(-8 * dt))
+        return
+    end
+
+    local playerPos = player.components.position
+    local nearest, nearestDistSq = nil, nil
+    local candidates = world:get_entities_with_components("health", "position")
+    for _, entity in ipairs(candidates) do
+        if (entity.isBoss or entity.shipId == 'boss_drone') and not entity.dead then
+            local pos = entity.components.position
+            if pos then
+                local dx = pos.x - playerPos.x
+                local dy = pos.y - playerPos.y
+                local distSq = dx * dx + dy * dy
+                if not nearestDistSq or distSq < nearestDistSq then
+                    nearest = entity
+                    nearestDistSq = distSq
+                end
+            end
+        end
+    end
+
+    if nearest and nearestDistSq and nearestDistSq <= BOSS_BAR_RANGE_SQ then
+        local h = nearest.components.health
+        if h then
+            local hp = h.hp or h.current or 0
+            local maxHp = h.maxHP or h.max or math.max(1, hp)
+            local shield = h.shield or 0
+            local maxShield = h.maxShield or 0
+
+            if bossState.entity ~= nearest then
+                bossState.smoothHp = hp
+                bossState.smoothShield = shield
+            end
+
+            bossState.entity = nearest
+            bossState.label = nearest.name or nearest.displayName or "Boss Threat"
+            bossState.hp = hp
+            bossState.maxHp = math.max(1, maxHp)
+            bossState.shield = shield
+            bossState.maxShield = math.max(0, maxShield)
+            bossState.displayTimer = BOSS_BAR_HOLD_TIME
+        end
+    elseif bossState.entity then
+        local h = bossState.entity.components and bossState.entity.components.health
+        if (not h) or (h.hp or h.current or 0) <= 0 or bossState.entity.dead then
+            bossState.entity = nil
+        end
+    end
+
+    local targetHp = bossState.entity and bossState.hp or 0
+    local targetShield = bossState.entity and bossState.shield or 0
+    bossState.smoothHp = Util.lerp(bossState.smoothHp or targetHp, targetHp, 1 - math.exp(-8 * dt))
+    bossState.smoothShield = Util.lerp(bossState.smoothShield or targetShield, targetShield, 1 - math.exp(-8 * dt))
+
+    if bossState.displayTimer <= 0 and not bossState.entity then
+        bossState.label = nil
+        bossState.hp = 0
+        bossState.shield = 0
+        bossState.maxShield = 0
+    end
+end
+
+local function drawBossBar()
+    if bossState.displayTimer <= 0 and not bossState.entity then
+        return
+    end
+
+    local alpha = 1
+    if not bossState.entity then
+        alpha = math.max(0, math.min(1, bossState.displayTimer / BOSS_BAR_FADE_TIME))
+        if alpha <= 0 then return end
+    end
+
+    local sw, sh = Viewport.getDimensions()
+    local barWidth = math.min(sw - 160, 720)
+    local panelPadding = 28
+    local barHeight = 24
+    local barCount = (bossState.maxShield or 0) > 0 and 2 or 1
+    local panelHeight = barCount * (barHeight + 14) + 56
+    local panelWidth = barWidth + panelPadding * 2
+    local panelX = math.floor((sw - panelWidth) * 0.5)
+    local panelY = math.max(24, math.floor(sh * 0.08))
+
+    Theme.setColor({0.05, 0.0, 0.06, 0.82 * alpha})
+    love.graphics.rectangle('fill', panelX, panelY, panelWidth, panelHeight, 18, 18)
+    Theme.setColor({1.0, 0.65, 0.95, 0.75 * alpha})
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle('line', panelX, panelY, panelWidth, panelHeight, 18, 18)
+    love.graphics.setLineWidth(1)
+
+    local label = bossState.label or "Boss Threat"
+    local prevFont = love.graphics.getFont()
+    local titleFont = (Theme.fonts and (Theme.fonts.large or Theme.fonts.medium)) or prevFont
+    if titleFont then love.graphics.setFont(titleFont) end
+    local font = love.graphics.getFont()
+    local labelWidth = font:getWidth(label)
+    local labelHeight = font:getHeight()
+    Theme.setColor({1.0, 0.88, 0.98, alpha})
+    love.graphics.print(label, panelX + (panelWidth - labelWidth) / 2, panelY + 12)
+    if prevFont then love.graphics.setFont(prevFont) end
+
+    local barX = panelX + panelPadding
+    local barY = panelY + labelHeight + 24
+    local hullPct = (bossState.maxHp or 1) > 0 and math.max(0, math.min(1, (bossState.smoothHp or 0) / bossState.maxHp)) or 0
+    local shieldPct = (bossState.maxShield or 0) > 0 and math.max(0, math.min(1, (bossState.smoothShield or 0) / math.max(1, bossState.maxShield))) or 0
+
+    if (bossState.maxShield or 0) > 0 then
+        local shieldText = string.format("Shield %d / %d", math.floor(math.max(0, bossState.shield or 0)), math.floor(math.max(0, bossState.maxShield or 0)))
+        drawBossMeter(barX, barY, barWidth, barHeight, shieldPct, {0.75, 0.55, 1.0, 1.0}, shieldText, alpha)
+        barY = barY + barHeight + 14
+    end
+
+    local hullText = string.format("Hull %d / %d", math.floor(math.max(0, bossState.hp or 0)), math.floor(math.max(1, bossState.maxHp or 1)))
+    drawBossMeter(barX, barY, barWidth, barHeight, hullPct, {1.0, 0.35, 0.8, 1.0}, hullText, alpha)
+end
+
 local function initialize()
     bars = {
         hull = StatusBar.new({ label = "Hull", color = Theme.semantic.statusHull }),
@@ -232,7 +399,7 @@ local function initialize()
     initialized = true
 end
 
-function HUDStatusBars.update(dt, player)
+function HUDStatusBars.update(dt, player, world)
     if not initialized then initialize() end
     if not player or not player.components or not player.components.health then return end
 
@@ -264,9 +431,11 @@ function HUDStatusBars.update(dt, player)
     for _, bar in pairs(bars) do
         bar:update(dt)
     end
+
+    updateBossBar(dt, player, world)
 end
 
-function HUDStatusBars.draw(player)
+function HUDStatusBars.draw(player, world)
     if not initialized then initialize() end
 
     local sw, sh = Viewport.getDimensions()
@@ -289,6 +458,8 @@ function HUDStatusBars.draw(player)
     local xpBarHeight = 4
     local xpBarY = sh - xpBarHeight
     bars.xp:draw(0, xpBarY, sw, xpBarHeight)
+
+    drawBossBar()
 end
 
 return HUDStatusBars

@@ -478,7 +478,7 @@ end
 function Game.update(dt)
     Input.update(dt)
     UIManager.update(dt, player)
-    StatusBars.update(dt, player)
+    StatusBars.update(dt, player, world)
     SkillXpPopup.update(dt)
     local input = Input.getInputState()
 
