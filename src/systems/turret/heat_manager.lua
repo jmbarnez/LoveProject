@@ -155,11 +155,11 @@ function HeatManager.drawHeatIndicator(turret, x, y, size)
     love.graphics.setColor(0.2, 0.2, 0.2, 0.8)
     love.graphics.rectangle("fill", x, y, size, 4)
 
-    -- Heat level
+    -- Heat level - red color that fills up
     local heatColor = {
-        1 - heatFactor, -- Red increases with heat
-        1 - heatFactor * 0.8, -- Green decreases with heat
-        0.2, -- Blue stays low
+        0.8 + heatFactor * 0.2, -- Red increases with heat
+        0.2 - heatFactor * 0.1, -- Green decreases with heat
+        0.1 - heatFactor * 0.05, -- Blue decreases with heat
         0.9
     }
     love.graphics.setColor(heatColor)

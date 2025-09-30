@@ -4,6 +4,7 @@ local Content = require("src.content.content")
 local Viewport = require("src.core.viewport")
 local UIUtils = require("src.ui.common.utils")
 local Events = require("src.core.events")
+local Settings = require("src.core.settings")
 
 -- Import modular HUD components
 local StatusBars = require("src.ui.hud.status_bars")

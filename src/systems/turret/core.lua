@@ -320,7 +320,13 @@ function Turret.updateLockOn(turret, dt, target, world)
     local targetAngle = math.atan2(dy, dx)
 
     -- Check if player cursor is roughly aligned with target (within tolerance)
-    local playerAngle = ownerPos.angle or 0
+    local playerAngle = targetAngle -- Use target angle directly since we're checking cursor alignment
+    if turret.owner.cursorWorldPos then
+        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
+        local dx = cursorX - ownerPos.x
+        local dy = cursorY - ownerPos.y
+        playerAngle = math.atan2(dy, dx)
+    end
     local angleDiff = math.abs(targetAngle - playerAngle)
     -- Normalize to [0, π]
     if angleDiff > math.pi then

@@ -118,7 +118,7 @@ function MiningSystem.update(dt, world, player)
                                 end
 
                                 Events.emit(Events.GAME_EVENTS.ASTEROID_MINED, {
-                                    item = { id = resourceId, name = name },
+                                    item = { id = "ore_tritanium", name = "Tritanium Ore" },
                                     amount = 1,
                                     player = player,
                                     asteroid = e

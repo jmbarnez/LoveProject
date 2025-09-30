@@ -133,19 +133,9 @@ function PlayerSystem.update(dt, player, input, world, hub)
     local UIManager = require("src.core.ui_manager")
     local modalActive = UIManager and UIManager.isModalActive and UIManager.isModalActive() or false
 
-    -- Face the direction of movement (disabled while modal)
-    if not modalActive and body and (body.vx ~= 0 or body.vy ~= 0) then
-        local desiredAngle = math.atan2(body.vy, body.vx)
-        local currentAngle = body.angle or 0
-        local diff = (desiredAngle - currentAngle + math.pi) % (2 * math.pi) - math.pi
-        -- Almost instant turning for responsive feel
-        local maxTurnRate = 50.0
-        local step = math.max(-maxTurnRate * dt, math.min(maxTurnRate * dt, diff))
-        body.angle = currentAngle + step
-        player.components.position.angle = body.angle
-        -- Zero out residual angular velocity to avoid wobble
-        body.angularVel = 0
-    end
+    -- Ship orientation is now independent of movement direction
+    -- The ship maintains its current orientation and doesn't auto-rotate
+    -- This allows for smooth 360-degree movement in any direction
 
     -- Movement system: WASD moves in that screen/world direction; ship still faces cursor
     body:resetThrusters() -- Ensure physics thrusters don't add extra forces

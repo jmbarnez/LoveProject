@@ -40,7 +40,7 @@ return {
       type = "bullet",
       props = {
         kind = "bullet",
-        radius = 2,
+        radius = 6, -- Increased from 2 to 6 (3x bigger)
         color = {0.35, 0.70, 1.00, 1.0},
       }
     },
@@ -53,7 +53,7 @@ return {
   },
   
   -- Visual effects
-  tracer = { color = {0.35, 0.70, 1.00, 1.0}, width = 1, coreRadius = 2 },
+  tracer = { color = {0.35, 0.70, 1.00, 1.0}, width = 3, coreRadius = 6 }, -- Increased width and coreRadius to match bullet size
   impact = {
     shield = { spanDeg = 70, color1 = {0.26, 0.62, 1.0, 0.55}, color2 = {0.50, 0.80, 1.0, 0.35} },
     hull = { spark = {1.0, 0.6, 0.1, 0.6}, ring = {1.0, 0.3, 0.0, 0.4} },

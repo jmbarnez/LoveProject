@@ -687,8 +687,8 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     local panelX, panelY, w, h = win.x, win.y, win.width, win.height
     local content = win:getContentBounds()
     local contentX, contentY, contentW, contentH = content.x, content.y, content.w, content.h
-    local innerTop = contentY
-    local innerH = contentH - 60
+    local innerTop = contentY or panelY  -- Fallback to panelY if contentY is nil
+    local innerH = (contentH or h) - 60
     local valueX = contentX + 150
     local dropdownW = 150
     local itemHeight = 40
@@ -995,7 +995,7 @@ function SettingsPanel.mousemoved(raw_x, raw_y, dx, dy)
 
     -- Handle slider dragging
     if draggingSlider == "scrollbar" then
-        if contentHeight > innerH then
+        if contentHeight > innerH and innerTop then
             local scrollbarWidth = 12
             local scrollbarX = panelX + w - scrollbarWidth - 4
             local scrollbarY = innerTop
@@ -1003,7 +1003,7 @@ function SettingsPanel.mousemoved(raw_x, raw_y, dx, dy)
             local thumbH = math.max(20, scrollbarH * (innerH / contentHeight))
             local trackRange = scrollbarH - thumbH
 
-            if trackRange > 0 then
+            if trackRange > 0 and scrollbarY then
                 local newThumbY = y - scrollDragOffset
                 local frac = (newThumbY - scrollbarY) / trackRange
                 local maxScroll = math.max(0, contentHeight - innerH)
@@ -1080,6 +1080,17 @@ function SettingsPanel.isBinding()
 end
 
 function SettingsPanel.resetToDefaults()
+    -- Delete the settings.json file to force a complete reset
+    local filename = "settings.json"
+    if love.filesystem.getInfo(filename) then
+        local success = love.filesystem.remove(filename)
+        if not success then
+            Log.error("SettingsPanel.resetToDefaults - Failed to delete settings file")
+            Notifications.add("Failed to reset settings", "error")
+            return
+        end
+    end
+    
     -- Reset to default settings
     local defaultGraphics = Settings.getDefaultGraphicsSettings()
     local defaultAudio = Settings.getDefaultAudioSettings()
@@ -1089,6 +1100,21 @@ function SettingsPanel.resetToDefaults()
     currentGraphicsSettings = cloneSettings(defaultGraphics)
     currentAudioSettings = cloneSettings(defaultAudio)
     keymap = cloneSettings(defaultKeymap)
+    
+    -- Apply the default settings immediately
+    Settings.applySettings(defaultGraphics, defaultAudio)
+    
+    -- Reset keymap to defaults
+    for action, binding in pairs(defaultKeymap) do
+        if type(binding) == "table" then
+            Settings.setKeyBinding(action, binding.primary, "primary")
+        else
+            Settings.setKeyBinding(action, binding, "primary")
+        end
+    end
+    
+    -- Save the reset settings
+    Settings.save()
     
     -- Update dropdowns to reflect default values
     SettingsPanel.refreshFromSettings()
@@ -1113,7 +1139,7 @@ function SettingsPanel.resetToDefaults()
     applyAccentTheme(currentGraphicsSettings.accent_theme or "Cyan/Lavender")
     
     -- Show notification
-    Notifications.add("Settings reset to defaults", "success")
+    Notifications.add("Settings reset to defaults (saves preserved)", "success")
 end
 
 
