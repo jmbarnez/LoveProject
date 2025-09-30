@@ -592,4 +592,6 @@ function ConfigValidator.logErrors(result)
     end
 end
 
+ConfigValidator.Schema = Schema
+
 return ConfigValidator
