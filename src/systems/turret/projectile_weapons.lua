@@ -2,6 +2,7 @@ local Content = require("src.content.content")
 local HeatManager = require("src.systems.turret.heat_manager")
 local Targeting = require("src.systems.turret.targeting")
 local TurretEffects = require("src.systems.turret.effects")
+local Skills = require("src.core.skills")
 
 local ProjectileWeapons = {}
 
@@ -11,13 +12,16 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
         return
     end
 
-    -- Manual shooting - fire in the direction of the cursor
+    -- Get turret world position first for accurate aiming
+    local Turret = require("src.systems.turret.core")
+    local sx, sy = Turret.getTurretWorldPosition(turret)
+
+    -- Manual shooting - fire in the direction of the cursor from turret position
     local angle = 0
-    if turret.owner.cursorWorldPos and turret.owner.components and turret.owner.components.position then
-        local shipX, shipY = turret.owner.components.position.x, turret.owner.components.position.y
+    if turret.owner.cursorWorldPos then
         local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
-        local dx = cursorX - shipX
-        local dy = cursorY - shipY
+        local dx = cursorX - sx
+        local dy = cursorY - sy
         angle = math.atan2(dy, dx)
     else
         -- Fallback to ship facing if cursor position not available

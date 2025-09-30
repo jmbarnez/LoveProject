@@ -394,6 +394,10 @@ function UIManager.update(dt, player)
   if Map.update then Map.update(dt, player) end
   if warpInstance.update then warpInstance:update(dt) end
   if DebugPanel.update then DebugPanel.update(dt) end
+  
+  -- Update HUD notifications
+  local ExperienceNotification = require("src.ui.hud.experience_notification")
+  if ExperienceNotification.update then ExperienceNotification.update(dt) end
 end
 
 -- Returns true if the mouse is currently over any visible UI component

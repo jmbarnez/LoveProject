@@ -287,6 +287,9 @@ function Game.load(fromSave, saveSlot, loadingScreen)
 
   if not fromSave then
     player:setGC(Constants.PLAYER.STARTING_CREDITS or 10000)
+    -- Reset skills to level 1 with 0 XP for new games
+    local Skills = require("src.core.skills")
+    Skills.reset()
   end
 
   -- Initialize audio listener to player position for positional SFX
@@ -324,8 +327,9 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   -- Clear any existing event listeners to prevent conflicts
   Events.clear()
   
-  -- Re-subscribe SkillXpPopup to events after clearing
-  SkillXpPopup.resubscribe()
+  -- Re-subscribe experience notification to events after clearing
+  local ExperienceNotification = require("src.ui.hud.experience_notification")
+  ExperienceNotification.resubscribe()
   
   -- Set up event listeners for automatic sound effects
   Events.on(Events.GAME_EVENTS.PLAYER_DAMAGED, function(data)

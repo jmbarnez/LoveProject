@@ -293,4 +293,29 @@ ActionMap.registerAction({
     end,
 })
 
+-- Test action to add XP for testing experience notification
+ActionMap.registerAction({
+    name = "test_add_xp",
+    priority = 25,
+    getKeys = function()
+        return { "x" }
+    end,
+    enabled = function(ctx)
+        return ctx and ctx.player ~= nil
+    end,
+    callback = function(ctx)
+        if not ctx or not ctx.player then return false end
+        
+        local Skills = require("src.core.skills")
+        local leveledUp = Skills.testAddXp("mining", 15)
+        
+        if leveledUp then
+            local Notifications = require("src.ui.notifications")
+            Notifications.action("Test: Mining level up!")
+        end
+        
+        return true
+    end,
+})
+
 return ActionMap

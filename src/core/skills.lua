@@ -46,6 +46,34 @@ Skills.definitions = {
             end
         end
     },
+    gunnery = {
+        id = "gunnery",
+        name = "Gunnery",
+        maxLevel = 99,
+        xpPerLevel = function(level)
+            if level <= 15 then return 8 * level
+            elseif level <= 30 then return 80 + 15 * (level - 15)
+            elseif level <= 45 then return 305 + 25 * (level - 30)
+            elseif level <= 60 then return 680 + 35 * (level - 45)
+            elseif level <= 75 then return 1205 + 45 * (level - 60)
+            else return 1880 + 65 * (level - 75)
+            end
+        end
+    },
+    missiles = {
+        id = "missiles",
+        name = "Missiles",
+        maxLevel = 99,
+        xpPerLevel = function(level)
+            if level <= 15 then return 15 * level
+            elseif level <= 30 then return 150 + 30 * (level - 15)
+            elseif level <= 45 then return 600 + 40 * (level - 30)
+            elseif level <= 60 then return 1200 + 50 * (level - 45)
+            elseif level <= 75 then return 1950 + 60 * (level - 60)
+            else return 2850 + 85 * (level - 75)
+            end
+        end
+    },
 }
 
 -- Player skills data structure
@@ -61,6 +89,16 @@ Skills.playerSkills = {
         totalXp = 0
     },
     salvaging = {
+        level = 1,
+        xp = 0,
+        totalXp = 0
+    },
+    gunnery = {
+        level = 1,
+        xp = 0,
+        totalXp = 0
+    },
+    missiles = {
         level = 1,
         xp = 0,
         totalXp = 0
@@ -142,11 +180,14 @@ function Skills.getProgressToNext(skillId)
         return 1
     end
 
-    local currentLevelXp = Skills.getXpForLevel(skillId, skillData.level)
-    local nextLevelXp = Skills.getXpForLevel(skillId, skillData.level + 1)
-    local currentXpInLevel = skillData.totalXp - currentLevelXp
+    -- Get XP needed for current level (not total XP to reach current level)
+    local currentLevelXp = skillDef.xpPerLevel(skillData.level)
+    local nextLevelXp = skillDef.xpPerLevel(skillData.level + 1)
+    
+    -- Current XP in this level is the stored xp value
+    local currentXpInLevel = skillData.xp
 
-    local xpNeeded = nextLevelXp - currentLevelXp
+    local xpNeeded = nextLevelXp
     return math.min(1, currentXpInLevel / xpNeeded)
 end
 
@@ -178,8 +219,9 @@ function Skills.addXp(skillId, amount)
     end
 
     -- Update current level XP
-    local currentLevelXp = Skills.getXpForLevel(skillId, skillData.level)
-    skillData.xp = skillData.totalXp - currentLevelXp
+    -- Calculate XP in current level by finding how much XP we have beyond the previous level
+    local previousLevelTotalXp = skillData.level > 1 and Skills.getXpForLevel(skillId, skillData.level - 1) or 0
+    skillData.xp = skillData.totalXp - previousLevelTotalXp
 
     local xpToNext = Skills.getXpToNext(skillId)
     local progress = Skills.getProgressToNext(skillId)
@@ -203,6 +245,13 @@ function Skills.addXp(skillId, amount)
 end
 
 
+
+-- Test function to add XP for testing
+function Skills.testAddXp(skillId, amount)
+    amount = amount or 10
+    skillId = skillId or "mining"
+    return Skills.addXp(skillId, amount)
+end
 
 -- Get all skills data for UI
 function Skills.getAllSkills()
@@ -239,6 +288,15 @@ end
 -- Save skills data
 function Skills.save()
     return Skills.playerSkills
+end
+
+-- Reset all skills to level 1 with 0 XP
+function Skills.reset()
+    for skillId, skillData in pairs(Skills.playerSkills) do
+        skillData.level = 1
+        skillData.xp = 0
+        skillData.totalXp = 0
+    end
 end
 
 return Skills

@@ -6,7 +6,6 @@ local Effects = require("src.systems.effects")
 local Skills = require("src.core.skills")
 local Notifications = require("src.ui.notifications")
 local Events = require("src.core.events")
-local ExperiencePickup = require("src.entities.xp_pickup")
 
 local UtilityBeams = {}
 local IMPACT_INTERVAL = 0.18
@@ -33,29 +32,6 @@ local function spawnSalvagePickup(target, amount, world)
     end
 end
 
-local function spawnExperiencePickup(world, x, y, amount)
-    if not world or not amount or amount <= 0 then
-        return
-    end
-
-    local angle = math.random() * math.pi * 2
-    local offset = 8 + math.random() * 18
-    local speed = 40 + math.random() * 55
-    local spawnX = x + math.cos(angle) * offset
-    local spawnY = y + math.sin(angle) * offset
-    local pickup = ExperiencePickup.new(
-        spawnX,
-        spawnY,
-        amount,
-        1.0,
-        math.cos(angle) * speed,
-        math.sin(angle) * speed
-    )
-
-    if pickup then
-        world:addEntity(pickup)
-    end
-end
 
 -- Handle mining laser operation (continuous beam with ticking damage)
 function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
@@ -76,14 +52,17 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     turret._beamImpactTimer = math.max(0, (turret._beamImpactTimer or 0) - dt)
 
-    -- Manual shooting - fire in the direction of the cursor
+    -- Get turret world position first for accurate aiming
+    local Turret = require("src.systems.turret.core")
+    local sx, sy = Turret.getTurretWorldPosition(turret)
+
+    -- Manual shooting - fire in the direction of the cursor from turret position
     local angle = 0
     local cursorDistance = math.huge
-    if turret.owner.cursorWorldPos and turret.owner.components and turret.owner.components.position then
-        local shipX, shipY = turret.owner.components.position.x, turret.owner.components.position.y
+    if turret.owner.cursorWorldPos then
         local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
-        local dx = cursorX - shipX
-        local dy = cursorY - shipY
+        local dx = cursorX - sx
+        local dy = cursorY - sy
         angle = math.atan2(dy, dx)
         cursorDistance = math.sqrt(dx * dx + dy * dy)
     else
@@ -93,21 +72,17 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     turret.currentAimAngle = angle
 
-    -- Get turret world position instead of ship center
-    local Turret = require("src.systems.turret.core")
-    local sx, sy = Turret.getTurretWorldPosition(turret)
-
-    -- Calculate actual beam range: minimum of cursor distance and max range
+    -- Calculate maximum beam range for collision detection
     local maxRange = turret.maxRange or 850
-    local actualRange = math.min(cursorDistance, maxRange)
-    local endX = sx + math.cos(angle) * actualRange
-    local endY = sy + math.sin(angle) * actualRange
+    local endX = sx + math.cos(angle) * maxRange
+    local endY = sy + math.sin(angle) * maxRange
 
     local hitTarget, hitX, hitY = UtilityBeams.performMiningHitscan(
         sx, sy, endX, endY, turret, world
     )
 
     local wasActive = turret.beamActive
+    -- Use collision point if hit, otherwise use max range end point
     local beamEndX = hitX or endX
     local beamEndY = hitY or endY
 
@@ -348,14 +323,17 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     turret._beamImpactTimer = math.max(0, (turret._beamImpactTimer or 0) - dt)
 
-    -- Manual shooting - fire in the direction of the cursor
+    -- Get turret world position first for accurate aiming
+    local Turret = require("src.systems.turret.core")
+    local sx, sy = Turret.getTurretWorldPosition(turret)
+
+    -- Manual shooting - fire in the direction of the cursor from turret position
     local angle = 0
     local cursorDistance = math.huge
-    if turret.owner.cursorWorldPos and turret.owner.components and turret.owner.components.position then
-        local shipX, shipY = turret.owner.components.position.x, turret.owner.components.position.y
+    if turret.owner.cursorWorldPos then
         local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
-        local dx = cursorX - shipX
-        local dy = cursorY - shipY
+        local dx = cursorX - sx
+        local dy = cursorY - sy
         angle = math.atan2(dy, dx)
         cursorDistance = math.sqrt(dx * dx + dy * dy)
     else
@@ -365,21 +343,17 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     turret.currentAimAngle = angle
 
-    -- Get turret world position instead of ship center
-    local Turret = require("src.systems.turret.core")
-    local sx, sy = Turret.getTurretWorldPosition(turret)
-
-    -- Calculate actual beam range: minimum of cursor distance and max range
+    -- Calculate maximum beam range for collision detection
     local maxRange = turret.maxRange or 800
-    local actualRange = math.min(cursorDistance, maxRange)
-    local endX = sx + math.cos(angle) * actualRange
-    local endY = sy + math.sin(angle) * actualRange
+    local endX = sx + math.cos(angle) * maxRange
+    local endY = sy + math.sin(angle) * maxRange
 
     local hitTarget, hitX, hitY = UtilityBeams.performMiningHitscan(
         sx, sy, endX, endY, turret, world
     )
 
     local wasActive = turret.beamActive
+    -- Use collision point if hit, otherwise use max range end point
     local beamEndX = hitX or endX
     local beamEndY = hitY or endY
 
@@ -506,10 +480,6 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
             local salvagingLevel = Skills.getLevel("salvaging")
             local xpGain = xpBase * (1 + salvagingLevel * 0.06) -- mild scaling per level
             local leveledUp = Skills.addXp("salvaging", xpGain)
-            local pos = target.components and target.components.position
-            local px = pos and pos.x or 0
-            local py = pos and pos.y or 0
-            spawnExperiencePickup(world, px, py, xpGain)
 
             if leveledUp then
                 Notifications.action("Salvaging level up!")
@@ -539,10 +509,6 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
                 local salvagingLevel = Skills.getLevel("salvaging")
                 local xpGain = xpBase * (1 + salvagingLevel * 0.06) * remainingToDrop
                 local leveledUp = Skills.addXp("salvaging", xpGain)
-                local pos = target.components and target.components.position
-                local px = pos and pos.x or 0
-                local py = pos and pos.y or 0
-                spawnExperiencePickup(world, px, py, xpGain)
 
                 if leveledUp then
                     Notifications.action("Salvaging level up!")
