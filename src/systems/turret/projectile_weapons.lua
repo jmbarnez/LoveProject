@@ -31,6 +31,9 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
         projSpeed = turret.projectileSpeed
     end
 
+    -- Store the current aim so muzzle calculations can align with turret visuals.
+    turret.currentAimAngle = angle
+
     -- Handle volley firing for turrets that support it
     local volleyCount = turret.volleyCount or 1
     local volleySpreadDeg = turret.volleySpreadDeg or 0
@@ -133,6 +136,8 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         angle = math.atan2(dy, dx)
     end
 
+    turret.currentAimAngle = angle
+
     -- Create missile projectile using embedded definition or fallback to Content
     local projectileTemplate = nil
     local projectileId = turret.projectileId or "missile"
@@ -187,14 +192,24 @@ end
 function ProjectileWeapons.fireSecondaryProjectile(turret, target, primaryAngle, world)
     if not turret.secondaryProjectile then return end
 
-    local dx = target.components.position.x - turret.owner.components.position.x
-    local dy = target.components.position.y - turret.owner.components.position.y
-    local dist = math.sqrt(dx * dx + dy * dy)
+    local ownerPos = turret.owner.components.position
+    local targetPos = target and target.components and target.components.position or nil
+    local dx, dy = 0, 0
+    local angle = primaryAngle or (ownerPos.angle or 0)
+
+    if targetPos then
+        dx = targetPos.x - ownerPos.x
+        dy = targetPos.y - ownerPos.y
+        angle = math.atan2(dy, dx)
+    else
+        dx = math.cos(angle)
+        dy = math.sin(angle)
+    end
 
     -- Secondary projectiles often have different characteristics
     local secondarySpeed = turret.secondaryProjectile.speed or 400
-    local leadTime = dist / secondarySpeed
-    local angle = math.atan2(dy, dx)
+
+    turret.currentAimAngle = primaryAngle or angle
 
     -- Create secondary projectile
     -- Get turret world position instead of ship center
