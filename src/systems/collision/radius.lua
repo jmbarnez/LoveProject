@@ -194,6 +194,33 @@ function Radius.invalidateCache(entity, opts)
     entity._radiusCacheVersion = (entity._radiusCacheVersion or 0) + 1
     if opts.visual then
         entity._visualRadiusCacheVersion = (entity._visualRadiusCacheVersion or 0) + 1
+
+function Radius.calculateEffectiveRadius(entity)
+    local baseRadius = entity.components.collidable.radius or (entity.components.player and 12 or 10)
+    local hitBuffer = (Config.BULLET and Config.BULLET.HIT_BUFFER) or 1.5
+
+    if entity.components.mineable then
+        -- For mineable entities (asteroids), use visual radius to ensure proper collision
+        local visualRadius = computeVisualRadius(entity)
+        local collidableRadius = entity.components.collidable.radius or baseRadius
+        local effectiveRadius = math.max(visualRadius, collidableRadius)
+        local finalRadius = effectiveRadius + hitBuffer
+        return finalRadius
+    end
+
+    -- Compute visual radius for broad-phase culling (covers large renderables like planets/stations/asteroids)
+    local visualRadius = computeVisualRadius(entity)
+    local effectiveVisual = math.max(baseRadius, visualRadius)
+
+    -- Use expanded, visually-accurate shield radius if entity has shields
+    if entity.components.health and (entity.components.health.shield or 0) > 0 then
+        local shieldRadius = computeShieldRadius(entity)
+        return math.max(effectiveVisual, (shieldRadius > 0 and shieldRadius or baseRadius)) + hitBuffer
+    else
+        -- When shields are gone, collide against visual hull extent
+        local hullRadius = computeHullRadius(entity)
+        return math.max(effectiveVisual, (hullRadius > 0 and hullRadius or baseRadius)) + hitBuffer
+
     end
     entity.shieldRadius = nil
     entity._shieldRadiusVisualSize = nil

@@ -29,15 +29,7 @@ return {
     mineable = {
         resourceType = "stones",
         resources = 45,
-        durability = 12.0,
-        -- Hotspot configuration
-        maxHotspots = 2,
-        hotspotRadius = 12,
-        hotspotDamageMultiplier = 1.8,
-        hotspotLifetime = 6.0,
-        hotspotSpawnChance = 0.4,
-        hotspotSpawnInterval = 1.5,
-        hotspotBonusResources = 2
+        durability = 1.5,  -- Reduced from 3.0 to 1.5 (50% reduction)
     },
 
     visuals = {
