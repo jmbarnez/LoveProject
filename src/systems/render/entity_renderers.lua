@@ -312,11 +312,8 @@ function EntityRenderers.asteroid(entity, player)
         -- Draw mining hotspots as half circles sticking out from asteroid edge
         if entity.components.mineable and entity.components.mineable.hotspots then
             local hotspots = entity.components.mineable.hotspots:getHotspots()
-            print("Asteroid renderer: Found " .. #hotspots .. " hotspots for rendering")
-            local asteroidX = entity.components.position.x
-            local asteroidY = entity.components.position.y
             local asteroidRadius = entity.components.collidable and entity.components.collidable.radius or 30
-            
+
             for _, hotspot in ipairs(hotspots) do
                 if hotspot.active then
                     -- Calculate pulsing effect
@@ -324,8 +321,8 @@ function EntityRenderers.asteroid(entity, player)
                     local alpha = (hotspot.lifetime / hotspot.maxLifetime) * pulse
 
                     -- Calculate angle from asteroid center to hotspot
-                    local dx = hotspot.x - asteroidX
-                    local dy = hotspot.y - asteroidY
+                    local dx = hotspot.x - entity.components.position.x
+                    local dy = hotspot.y - entity.components.position.y
                     local angle = math.atan2(dy, dx)
 
                     -- Calculate half circle parameters based on stored hotspot position
@@ -339,8 +336,8 @@ function EntityRenderers.asteroid(entity, player)
                         distance = math.max(distance, desiredDistance)
                     end
 
-                    local halfCircleX = asteroidX + math.cos(angle) * distance
-                    local halfCircleY = asteroidY + math.sin(angle) * distance
+                    local halfCircleX = math.cos(angle) * distance
+                    local halfCircleY = math.sin(angle) * distance
 
                     -- Draw half circle as a filled arc with vivid yellow glow
                     local glowColor = {1.0, 0.95, 0.35, alpha * 0.55}
