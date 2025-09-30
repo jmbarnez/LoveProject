@@ -138,6 +138,13 @@ function Normalizer.normalizeWorldObject(def)
     out.no_spawn_radius = def.no_spawn_radius
   end
 
+  if def.station_services then
+    out.station_services = copy(def.station_services)
+  end
+  if def.description then
+    out.description = def.description
+  end
+
   return out
 end
 
