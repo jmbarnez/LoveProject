@@ -122,7 +122,7 @@ return {
                     hull = { spark = {1.0, 0.2, 0.2, 0.5}, ring = {1.0, 0.1, 0.1, 0.4} },
                 },
                 optimal = 600, falloff = 300, -- Shorter range than player lasers
-                damage_range = { min = 6, max = 10 },
+                damage_range = { min = 2, max = 4 },
                 cycle = 1.5, capCost = 0, -- No energy cost for basic enemies
                 spread = { minDeg = 0.1, maxDeg = 0.3, decay = 600 },
                 maxRange = 800, -- Shorter range
@@ -142,6 +142,17 @@ return {
 
     bounty = 8,
     xpReward = 10,
+
+    enemy = {
+        sizeMultiplier = 1.5,
+        collidableRadiusMultiplier = 1.5,
+        physicsRadiusMultiplier = 1.5,
+        energyRegen = 20,
+        turretBehavior = {
+            fireMode = "automatic",
+            autoFire = true,
+        },
+    },
 
     loot = {
         drops = {
