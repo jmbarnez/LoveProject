@@ -189,7 +189,8 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   end
 
   -- Create a beacon station to protect the top-left quadrant from enemy spawning
-  local beacon_station = EntityFactory.create("station", "beacon_station", 7500, 7500)
+  -- Position it far enough from other stations to avoid weapon disable zone overlap
+  local beacon_station = EntityFactory.create("station", "beacon_station", 2000, 2000)
   if beacon_station then
     world:addEntity(beacon_station)
   else
@@ -212,8 +213,9 @@ function Game.load(fromSave, saveSlot, loadingScreen)
     end
   end
 
-  -- Step 8: Create warp gate
+  -- Step 8: Create warp gate (DISABLED)
   updateProgress(0.8, "Creating warp gate...")
+  --[[
   do
     -- Place warp gate in a clear area away from all stations
     -- Hub is at (5000, 5000), beacon at (7500, 7500)
@@ -232,6 +234,7 @@ function Game.load(fromSave, saveSlot, loadingScreen)
       return false
     end
   end
+  --]]
 
   -- Step 9: Spawn the player
   updateProgress(0.9, "Spawning player...")

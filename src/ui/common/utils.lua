@@ -140,7 +140,7 @@ function UIUtils.drawButton(x, y, w, h, text, hover, active, options)
     borderColor = options.activeBorder or Theme.colors.accent
     textColor = textColor or Theme.colors.textHighlight
   elseif hover then
-    bgColor = options.hoverBg or Theme.colors.bg3
+    bgColor = options.hoverBg or {Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 0.6}
     borderColor = options.hoverBorder or Theme.colors.borderBright
     textColor = textColor or Theme.colors.textHighlight
   else
@@ -149,8 +149,8 @@ function UIUtils.drawButton(x, y, w, h, text, hover, active, options)
     textColor = textColor or Theme.colors.text
   end
   
-  -- Enhanced glow for hover state
-  local glowIntensity = hover and Theme.effects.glowMedium or Theme.effects.glowWeak
+  -- Enhanced glow for hover state - much brighter on hover
+  local glowIntensity = hover and Theme.effects.glowStrong or Theme.effects.glowWeak
   
   -- Draw button background
   Theme.drawGradientGlowRect(x, y, w, h, cornerRadius,

@@ -512,6 +512,26 @@ function Theme.drawCloseButton(rect, hover)
   if oldFont then love.graphics.setFont(oldFont) end
 end
 
+function Theme.drawMaximizeButton(rect, hover, maximized)
+  -- Draw maximize/restore icon using simple shapes
+  Theme.setColor(hover and Theme.colors.accent or Theme.colors.textSecondary)
+  
+  local centerX = rect.x + rect.w * 0.5
+  local centerY = rect.y + rect.h * 0.5
+  local size = math.min(rect.w, rect.h) * 0.4
+  
+  if maximized then
+    -- Restore icon: two overlapping squares
+    love.graphics.setLineWidth(1.5)
+    love.graphics.rectangle("line", centerX - size * 0.6, centerY - size * 0.6, size * 0.8, size * 0.8)
+    love.graphics.rectangle("line", centerX - size * 0.2, centerY - size * 0.2, size * 0.8, size * 0.8)
+  else
+    -- Maximize icon: single square
+    love.graphics.setLineWidth(1.5)
+    love.graphics.rectangle("line", centerX - size * 0.5, centerY - size * 0.5, size, size)
+  end
+end
+
 function Theme.drawGradientGlowRect(x, y, w, h, radius, topColor, bottomColor, glowColor, glowIntensity)
   -- Handle nil parameters gracefully
   if x == nil or y == nil or w == nil or h == nil then
@@ -779,8 +799,8 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
     opts._hoverPlayed = false
   end
   
-  -- Enhanced glow intensity for better hover feedback
-  local glowIntensity = hover and Theme.effects.glowMedium or Theme.effects.glowWeak
+  -- Enhanced glow intensity for better hover feedback - much brighter on hover
+  local glowIntensity = hover and Theme.effects.glowStrong or Theme.effects.glowWeak
   
   -- Add subtle pulsing animation for hover state
   local pulseOffset = 0
@@ -788,12 +808,15 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
     pulseOffset = math.sin(t * 8) * 0.1 -- Subtle pulsing effect
   end
 
-  -- Create more vibrant hover colors
+  -- Create more vibrant hover colors with accent color glow
   local bg3 = {Theme.colors.bg3[1], Theme.colors.bg3[2], Theme.colors.bg3[3], 0.3 + pulseOffset}
   local bg2 = {Theme.colors.bg2[1], Theme.colors.bg2[2], Theme.colors.bg2[3], 0.1}
   local bg4 = {Theme.colors.bg4[1], Theme.colors.bg4[2], Theme.colors.bg4[3], 0.4}
+  
+  -- Use accent color for hover background glow
+  local hoverBg = hover and {Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 0.6 + pulseOffset} or nil
 
-  local topColor = color or (hover and bg3 or bg2)
+  local topColor = color or (hover and hoverBg or bg2)
   if down then
     topColor = bg4
   end

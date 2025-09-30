@@ -210,10 +210,6 @@ function SettingsPanel.init()
     SettingsPanel.refreshFromSettings()
     originalGraphicsSettings = cloneSettings(Settings.getGraphicsSettings())
     originalAudioSettings = cloneSettings(Settings.getAudioSettings())
-    -- Ensure helpers_enabled exists with default value
-    if currentGraphicsSettings.helpers_enabled == nil then
-        currentGraphicsSettings.helpers_enabled = true
-    end
     if not currentGraphicsSettings.reticle_style then
         currentGraphicsSettings.reticle_style = 1
     end
@@ -390,19 +386,6 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     accentThemeDropdown:setPosition(valueX, yOffset - 2 - scrollY)
     yOffset = yOffset + itemHeight
 
-    -- Helpers toggle
-    Theme.setColor(Theme.colors.text)
-    love.graphics.setFont(Theme.fonts and Theme.fonts.xsmall or Theme.fonts.small or love.graphics.getFont())
-    love.graphics.print("Helpers", labelX, yOffset + 4)
-    local toggleX, toggleY, toggleW, toggleH = valueX, yOffset, 70, 24
-    local enabled = currentGraphicsSettings.helpers_enabled ~= false
-    local toggleHover = mx >= toggleX and mx <= toggleX + toggleW and scrolledMouseY >= toggleY and scrolledMouseY <= toggleY + toggleH
-    local toggleLabel = enabled and "On" or "Off"
-    Theme.drawStyledButton(toggleX, toggleY, toggleW, toggleH, "", toggleHover, love.timer.getTime())
-    Theme.setColor(Theme.colors.text)
-    love.graphics.setFont(Theme.fonts and Theme.fonts.xsmall or Theme.fonts.small or love.graphics.getFont())
-    love.graphics.printf(toggleLabel, toggleX, toggleY + 5, toggleW, "center")
-    yOffset = yOffset + itemHeight + sectionSpacing
 
     -- === AUDIO SECTION ===
     Theme.setColor(Theme.colors.accent)
@@ -578,17 +561,26 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     fpsLimitDropdown:drawOptionsOnly(mx, my)
     accentThemeDropdown:drawOptionsOnly(mx, my)
 
-    -- Apply button (green)
+    -- Apply and Reset buttons
     local buttonW, buttonH = 100, 30
-    local applyButtonX = x + (w / 2) - buttonW / 2
+    local buttonSpacing = 20
+    local totalButtonWidth = buttonW * 2 + buttonSpacing
+    local applyButtonX = x + (w / 2) - totalButtonWidth / 2
+    local resetButtonX = applyButtonX + buttonW + buttonSpacing
     local buttonAreaY = y + h - 60
     local buttonY = buttonAreaY + 15
     local applyBtnHover = mx >= applyButtonX and mx <= applyButtonX + buttonW and my >= buttonY and my <= buttonY + buttonH
+    local resetBtnHover = mx >= resetButtonX and mx <= resetButtonX + buttonW and my >= buttonY and my <= buttonY + buttonH
 
     -- Draw Apply button using themed button renderer and store its rect
     local applyText = Strings.getUI("apply_button")
     Theme.drawStyledButton(applyButtonX, buttonY, buttonW, buttonH, applyText, applyBtnHover, love.timer.getTime())
     SettingsPanel._applyButton = { _rect = { x = applyButtonX, y = buttonY, w = buttonW, h = buttonH } }
+
+    -- Draw Reset button
+    local resetText = "Reset"
+    Theme.drawStyledButton(resetButtonX, buttonY, buttonW, buttonH, resetText, resetBtnHover, love.timer.getTime())
+    SettingsPanel._resetButton = { _rect = { x = resetButtonX, y = buttonY, w = buttonW, h = buttonH } }
 
     -- Reticle Gallery Popup
     if reticleGalleryOpen then
@@ -721,11 +713,16 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     if fpsLimitDropdown:mousepressed(x, y, button) then return true end
     if accentThemeDropdown:mousepressed(x, y, button) then return true end
     
-    -- Handle apply button (use content bounds like drawContent does)
+    -- Handle apply and reset buttons (use content bounds like drawContent does)
     local buttonW, buttonH = 100, 30
-    local applyButtonX = contentX + (contentW / 2) - buttonW / 2
+    local buttonSpacing = 20
+    local totalButtonWidth = buttonW * 2 + buttonSpacing
+    local applyButtonX = contentX + (contentW / 2) - totalButtonWidth / 2
+    local resetButtonX = applyButtonX + buttonW + buttonSpacing
     local buttonAreaY = contentY + contentH - 60
     local buttonY = buttonAreaY + 15
+    
+    -- Apply button
     if x >= applyButtonX and x <= applyButtonX + buttonW and y >= buttonY and y <= buttonY + buttonH then
         local newGraphicsSettings = {}
         for k, v in pairs(currentGraphicsSettings) do newGraphicsSettings[k] = v end
@@ -736,6 +733,12 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         Notifications.add(Strings.getNotification("settings_applied"), "success")
         originalGraphicsSettings = cloneSettings(Settings.getGraphicsSettings())
         originalAudioSettings = cloneSettings(Settings.getAudioSettings())
+        return true
+    end
+    
+    -- Reset button
+    if x >= resetButtonX and x <= resetButtonX + buttonW and y >= buttonY and y <= buttonY + buttonH then
+        SettingsPanel.resetToDefaults()
         return true
     end
 
@@ -837,14 +840,6 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     -- Dropdown handles its own mousepress
     yOffset = yOffset + itemHeight
 
-    -- Helpers toggle
-    local toggleX, toggleW, toggleH = valueX, 70, 24
-    local toggleY = yOffset
-    if scrolledY >= toggleY and scrolledY <= toggleY + toggleH and x >= toggleX and x <= toggleX + toggleW then
-        currentGraphicsSettings.helpers_enabled = not currentGraphicsSettings.helpers_enabled
-        return true
-    end
-    yOffset = yOffset + itemHeight + sectionSpacing
 
     -- === AUDIO SECTION ===
     yOffset = yOffset + 30 -- "Audio Settings" label
@@ -1082,6 +1077,43 @@ end
 
 function SettingsPanel.isBinding()
     return bindingAction ~= nil
+end
+
+function SettingsPanel.resetToDefaults()
+    -- Reset to default settings
+    local defaultGraphics = Settings.getDefaultGraphicsSettings()
+    local defaultAudio = Settings.getDefaultAudioSettings()
+    local defaultKeymap = Settings.getDefaultKeymap()
+    
+    -- Update current settings
+    currentGraphicsSettings = cloneSettings(defaultGraphics)
+    currentAudioSettings = cloneSettings(defaultAudio)
+    keymap = cloneSettings(defaultKeymap)
+    
+    -- Update dropdowns to reflect default values
+    SettingsPanel.refreshFromSettings()
+    
+    -- Update resolution dropdown
+    selectedResolutionIndex = 1
+    for i, res in ipairs(resolutions) do
+        if res.width == currentGraphicsSettings.resolution.width and res.height == currentGraphicsSettings.resolution.height then
+            selectedResolutionIndex = i
+            break
+        end
+    end
+    
+    -- Update fullscreen dropdown
+    if currentGraphicsSettings.fullscreen then
+        selectedFullscreenTypeIndex = 2
+    else
+        selectedFullscreenTypeIndex = 1
+    end
+    
+    -- Update accent theme
+    applyAccentTheme(currentGraphicsSettings.accent_theme or "Cyan/Lavender")
+    
+    -- Show notification
+    Notifications.add("Settings reset to defaults", "success")
 end
 
 

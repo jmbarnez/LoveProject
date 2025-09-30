@@ -20,7 +20,6 @@ local settings = {
         max_fps = Constants.TIMING.FPS_60,
         ui_scale = 1.0,
         font_scale = 1.0,
-        helpers_enabled = true,
         -- Reticle customization
         reticle_style = 1,            -- 1..50 preset styles
         reticle_color = "accent",     -- legacy string (kept for fallback)
@@ -310,6 +309,22 @@ function Settings.load()
     
     settings = deepMerge(defaultSettings, loadedSettings)
     Log.info("Settings.load - Settings loaded successfully from " .. filename)
+end
+
+function Settings.getDefaultSettings()
+    return Util.deepCopy(defaultSettings)
+end
+
+function Settings.getDefaultGraphicsSettings()
+    return Util.deepCopy(defaultSettings.graphics)
+end
+
+function Settings.getDefaultAudioSettings()
+    return Util.deepCopy(defaultSettings.audio)
+end
+
+function Settings.getDefaultKeymap()
+    return Util.deepCopy(defaultSettings.keymap)
 end
 
 return Settings

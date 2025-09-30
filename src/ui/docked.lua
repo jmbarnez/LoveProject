@@ -63,11 +63,24 @@ DockedUI.furnaceState = {
     inputRect = nil,
     smeltButtonRect = nil,
     infoText = nil,
+    hoveredRecipe = nil,
+    hoverRect = nil,
 }
 
 local function isFurnaceStation()
     return DockedUI.stationType == "ore_furnace_station"
 end
+
+-- Furnace recipes
+local FURNACE_RECIPES = {
+    ["stones"] = {
+        { output = "credits", ratio = 1, type = "credits" }, -- 1 stone = 1 credit
+        { output = "ore_tritanium", ratio = 25, type = "item" } -- 25 stones = 1 tritanium
+    },
+    ["ore_tritanium"] = {
+        { output = "credits", ratio = 50, type = "credits" } -- 1 tritanium = 50 credits
+    }
+}
 
 local function resetFurnaceState()
     DockedUI.furnaceState.slots = {}
@@ -84,80 +97,91 @@ local function resetFurnaceState()
     DockedUI.furnaceState.amountText = "1"
 end
 
-local function collectFurnaceOres(player)
-    local oresById = {}
-    local order = {}
-    if not player or not player.components or not player.components.cargo then
-        return order
+local function collectFurnaceRecipes(player)
+    local recipes = {}
+    local playerQuantities = {}
+    
+    -- Get player's current quantities
+    if player and player.components and player.components.cargo then
+        player.components.cargo:iterate(function(_, entry)
+            if entry and entry.id then
+                playerQuantities[entry.id] = (playerQuantities[entry.id] or 0) + (entry.qty or 0)
+            end
+        end)
     end
-
-    local cargo = player.components.cargo
-    cargo:iterate(function(_, entry)
-        if entry and entry.id then
-            local item = Content.getItem(entry.id)
-            if item and item.tags then
-                local hasOreTag = false
-                for _, tag in ipairs(item.tags) do
-                    if tag == "ore" then
-                        hasOreTag = true
-                        break
+    
+    -- Create recipe cards for all available recipes
+    for inputId, recipeList in pairs(FURNACE_RECIPES) do
+        for _, recipe in ipairs(recipeList) do
+            local inputItem = Content.getItem(inputId)
+            if inputItem then
+                local playerQty = playerQuantities[inputId] or 0
+                local recipeCard = {
+                    id = inputId,
+                    quantity = playerQty,
+                    item = inputItem,
+                    name = inputItem.name or inputId,
+                    recipe = recipe,
+                    canSmelt = playerQty >= recipe.ratio,
+                    maxSmeltable = math.floor(playerQty / recipe.ratio)
+                }
+                table.insert(recipes, recipeCard)
+            end
+        end
+    end
+    
+    -- Also include any ores the player has that don't have recipes yet
+    if player and player.components and player.components.cargo then
+        player.components.cargo:iterate(function(_, entry)
+            if entry and entry.id then
+                local item = Content.getItem(entry.id)
+                if item and item.tags then
+                    local hasOreTag = false
+                    for _, tag in ipairs(item.tags) do
+                        if tag == "ore" then
+                            hasOreTag = true
+                            break
+                        end
                     end
-                end
-                if hasOreTag then
-                    local existing = oresById[entry.id]
-                    if existing then
-                        existing.quantity = existing.quantity + (entry.qty or 0)
-                    elseif (entry.qty or 0) > 0 then
-                        local data = {
-                            id = entry.id,
-                            quantity = entry.qty or 0,
-                            item = item,
-                            name = item.name or entry.id,
-                        }
-                        oresById[entry.id] = data
-                        table.insert(order, data)
+                    
+                    -- Only add if it's an ore and doesn't have recipes
+                    if hasOreTag and not FURNACE_RECIPES[entry.id] then
+                        local existing = nil
+                        for _, recipe in ipairs(recipes) do
+                            if recipe.id == entry.id then
+                                existing = recipe
+                                break
+                            end
+                        end
+                        
+                        if existing then
+                            existing.quantity = existing.quantity + (entry.qty or 0)
+                        else
+                            local recipeCard = {
+                                id = entry.id,
+                                quantity = entry.qty or 0,
+                                item = item,
+                                name = item.name or entry.id,
+                                recipe = nil, -- No recipe available
+                                canSmelt = false,
+                                maxSmeltable = 0
+                            }
+                            table.insert(recipes, recipeCard)
+                        end
                     end
                 end
             end
-        end
-    end)
+        end)
+    end
 
-    table.sort(order, function(a, b)
+    table.sort(recipes, function(a, b)
+        -- Sort by: has recipe first, then by name
+        if a.recipe and not b.recipe then return true end
+        if not a.recipe and b.recipe then return false end
         return (a.name or a.id) < (b.name or b.id)
     end)
 
-    return order
-end
-
-local function ensureFurnaceSelection(ores)
-    local state = DockedUI.furnaceState
-    if not ores or #ores == 0 then
-        state.selectedOre = nil
-        state.selectedOreId = nil
-        return
-    end
-
-    if state.selectedOreId then
-        for _, ore in ipairs(ores) do
-            if ore.id == state.selectedOreId then
-                state.selectedOre = ore
-                return
-            end
-        end
-    end
-
-    state.selectedOre = ores[1]
-    state.selectedOreId = state.selectedOre and state.selectedOre.id or nil
-    if state.selectedOre then
-        if not state.amountText or state.amountText == "" then
-            if (state.selectedOre.quantity or 0) <= 0 then
-                state.amountText = "0"
-            else
-                state.amountText = tostring(math.min(state.selectedOre.quantity, 1))
-            end
-        end
-        clampAmountText(state.selectedOre.quantity)
-    end
+    return recipes
 end
 
 local function clampAmountText(maxAmount)
@@ -179,7 +203,38 @@ local function clampAmountText(maxAmount)
     return amount
 end
 
-local function drawFurnaceSlot(ore, rect, selected)
+local function ensureFurnaceSelection(recipes)
+    local state = DockedUI.furnaceState
+    if not recipes or #recipes == 0 then
+        state.selectedOre = nil
+        state.selectedOreId = nil
+        return
+    end
+
+    if state.selectedOreId then
+        for _, recipe in ipairs(recipes) do
+            if recipe.id == state.selectedOreId then
+                state.selectedOre = recipe
+                return
+            end
+        end
+    end
+
+    state.selectedOre = recipes[1]
+    state.selectedOreId = state.selectedOre and state.selectedOre.id or nil
+    if state.selectedOre then
+        if not state.amountText or state.amountText == "" then
+            if (state.selectedOre.quantity or 0) <= 0 then
+                state.amountText = "0"
+            else
+                state.amountText = tostring(math.min(state.selectedOre.quantity, 1))
+            end
+        end
+        clampAmountText(state.selectedOre.quantity)
+    end
+end
+
+local function drawFurnaceSlot(recipe, rect, selected)
     local hover = false
     local mx, my = Viewport.getMousePosition()
     if mx >= rect.x and mx <= rect.x + rect.w and my >= rect.y and my <= rect.y + rect.h then
@@ -190,29 +245,123 @@ local function drawFurnaceSlot(ore, rect, selected)
     local bg2 = selected and Theme.colors.bg2 or Theme.colors.bg1
     local border = selected and Theme.colors.accent or Theme.colors.border
 
-    Theme.drawGradientGlowRect(rect.x, rect.y, rect.w, rect.h, 4, bg1, bg2, border,
-        hover and Theme.effects.glowMedium or Theme.effects.glowWeak)
+    -- Dim the card if no recipe available
+    local alpha = recipe.recipe and 1.0 or 0.6
+    if recipe.recipe then
+        Theme.drawGradientGlowRect(rect.x, rect.y, rect.w, rect.h, 4, bg1, bg2, border,
+            hover and Theme.effects.glowMedium or Theme.effects.glowWeak)
+    else
+        Theme.drawGradientGlowRect(rect.x, rect.y, rect.w, rect.h, 4, bg1, bg2, Theme.colors.border,
+            hover and Theme.effects.glowWeak or 0)
+    end
 
+    -- Draw input material icon at the top
     local iconSize = rect.w - 16
     local iconX = rect.x + (rect.w - iconSize) * 0.5
     local iconY = rect.y + 10
-    IconSystem.drawIconAny({ ore.item, ore.id }, iconX, iconY, iconSize, 1.0)
+    IconSystem.drawIconAny({ recipe.item, recipe.id }, iconX, iconY, iconSize, alpha)
 
-    local quantity = ore.quantity or 0
-    Theme.setColor(quantity > 0 and Theme.colors.textHighlight or Theme.colors.textSecondary)
+    -- Draw output item icon above the quantity
+    if recipe.recipe then
+        local outputIconSize = 24
+        local outputIconX = rect.x + (rect.w - outputIconSize) * 0.5
+        local outputIconY = rect.y + rect.h - 50
+        
+        if recipe.recipe.type == "credits" then
+            -- Draw credits icon (simple circle with $)
+            Theme.setColor(Theme.colors.accent)
+            love.graphics.circle("fill", outputIconX + outputIconSize/2, outputIconY + outputIconSize/2, outputIconSize/2)
+            Theme.setColor(Theme.colors.bg0)
+            love.graphics.setFont(Theme.fonts and Theme.fonts.tiny or love.graphics.getFont())
+            love.graphics.printf("$", outputIconX, outputIconY, outputIconSize, "center")
+        elseif recipe.recipe.type == "item" then
+            -- Draw output item icon
+            local outputItem = Content.getItem(recipe.recipe.output)
+            if outputItem then
+                IconSystem.drawIconAny({ outputItem, recipe.recipe.output }, outputIconX, outputIconY, outputIconSize, alpha)
+            end
+        end
+    end
+
+    -- Show player's quantity at bottom center
+    local quantity = recipe.quantity or 0
+    local qtyColor = quantity > 0 and Theme.colors.textHighlight or Theme.colors.textSecondary
+    if not recipe.recipe then
+        qtyColor = Theme.colors.textDisabled
+    end
+    Theme.setColor(qtyColor)
     love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
     local qtyText = Util.formatNumber and Util.formatNumber(quantity) or tostring(quantity)
-    love.graphics.printf(qtyText, rect.x + 6, rect.y + rect.h - 26, rect.w - 12, "right")
-
-    Theme.setColor(Theme.colors.text)
-    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-    love.graphics.printf(ore.name or ore.id, rect.x + 4, rect.y + rect.h - 16, rect.w - 8, "center")
+    love.graphics.printf(qtyText, rect.x + 4, rect.y + rect.h - 20, rect.w - 8, "center")
+    
+    -- Store hover state for tooltip
+    if hover then
+        DockedUI.furnaceState.hoveredRecipe = recipe
+        DockedUI.furnaceState.hoverRect = rect
+    end
 end
 
 local function drawNoOreMessage(areaX, areaY, areaW, areaH)
     Theme.setColor(Theme.colors.textSecondary)
     love.graphics.setFont(Theme.fonts and Theme.fonts.normal or love.graphics.getFont())
     love.graphics.printf("No ores available for smelting", areaX, areaY + areaH * 0.5 - 12, areaW, "center")
+end
+
+local function drawFurnaceTooltip(recipe, rect)
+    if not recipe or not rect then return end
+    
+    local mx, my = Viewport.getMousePosition()
+    local tooltipX = mx + 10
+    local tooltipY = my - 10
+    
+    -- Calculate tooltip size - only show recipe information
+    local lines = {}
+    
+    if recipe.recipe then
+        if recipe.recipe.type == "credits" then
+            table.insert(lines, string.format("%d %s → %d Credits", recipe.recipe.ratio, recipe.name or recipe.id, 1))
+        elseif recipe.recipe.type == "item" then
+            table.insert(lines, string.format("%d %s → %s", recipe.recipe.ratio, recipe.name or recipe.id, recipe.recipe.output))
+        end
+    else
+        table.insert(lines, "No smelting recipe available")
+    end
+    
+    -- Calculate tooltip dimensions
+    local maxWidth = 0
+    local lineHeight = 16
+    local padding = 8
+    
+    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+    for _, line in ipairs(lines) do
+        local width = love.graphics.getFont():getWidth(line)
+        maxWidth = math.max(maxWidth, width)
+    end
+    
+    local tooltipW = maxWidth + padding * 2
+    local tooltipH = #lines * lineHeight + padding * 2
+    
+    -- Adjust position to stay on screen
+    local sw, sh = Viewport.getDimensions()
+    if tooltipX + tooltipW > sw then
+        tooltipX = mx - tooltipW - 10
+    end
+    if tooltipY + tooltipH > sh then
+        tooltipY = my - tooltipH - 10
+    end
+    
+    -- Draw tooltip background
+    Theme.setColor(Theme.colors.bg0)
+    love.graphics.rectangle("fill", tooltipX, tooltipY, tooltipW, tooltipH)
+    Theme.setColor(Theme.colors.border)
+    love.graphics.rectangle("line", tooltipX, tooltipY, tooltipW, tooltipH)
+    
+    -- Draw tooltip text
+    Theme.setColor(Theme.colors.text)
+    for i, line in ipairs(lines) do
+        local y = tooltipY + padding + (i - 1) * lineHeight
+        love.graphics.print(line, tooltipX + padding, y)
+    end
 end
 
 local function drawFurnaceBottomBar(x, y, w, h, selectedOre)
@@ -276,11 +425,15 @@ function DockedUI.drawFurnaceContent(window, x, y, w, h)
     local gridY = y + pad
     local gridHeight = h - bottomBarHeight - pad
 
-    local ores = collectFurnaceOres(DockedUI.player)
-    DockedUI.furnaceState.slots = {}
-    ensureFurnaceSelection(ores)
+    -- Clear hover state
+    DockedUI.furnaceState.hoveredRecipe = nil
+    DockedUI.furnaceState.hoverRect = nil
 
-    if #ores == 0 then
+    local recipes = collectFurnaceRecipes(DockedUI.player)
+    DockedUI.furnaceState.slots = {}
+    ensureFurnaceSelection(recipes)
+
+    if #recipes == 0 then
         drawNoOreMessage(x, gridY, w, gridHeight)
     else
         local slotSize = 120
@@ -290,7 +443,7 @@ function DockedUI.drawFurnaceContent(window, x, y, w, h)
         local startX = x + (w - totalWidth) * 0.5
         local startY = gridY
 
-        for index, ore in ipairs(ores) do
+        for index, recipe in ipairs(recipes) do
             local zeroBased = index - 1
             local row = math.floor(zeroBased / cols)
             local col = zeroBased % cols
@@ -298,13 +451,18 @@ function DockedUI.drawFurnaceContent(window, x, y, w, h)
             local slotY = math.floor(startY + row * (slotSize + spacing) + 0.5)
             if slotY + slotSize <= gridY + gridHeight then
                 local rect = { x = slotX, y = slotY, w = slotSize, h = slotSize }
-                drawFurnaceSlot(ore, rect, DockedUI.furnaceState.selectedOreId == ore.id)
-                table.insert(DockedUI.furnaceState.slots, { rect = rect, ore = ore })
+                drawFurnaceSlot(recipe, rect, DockedUI.furnaceState.selectedOreId == recipe.id)
+                table.insert(DockedUI.furnaceState.slots, { rect = rect, ore = recipe })
             end
         end
     end
 
     drawFurnaceBottomBar(x + pad, y + h - bottomBarHeight, w - pad * 2, bottomBarHeight - pad, DockedUI.furnaceState.selectedOre)
+    
+    -- Draw tooltip if hovering over a recipe
+    if DockedUI.furnaceState.hoveredRecipe and DockedUI.furnaceState.hoverRect then
+        drawFurnaceTooltip(DockedUI.furnaceState.hoveredRecipe, DockedUI.furnaceState.hoverRect)
+    end
 end
 
 local function furnaceClickInside(rect, x, y)
@@ -324,12 +482,56 @@ local function executeFurnaceSmelt()
         return
     end
 
-    local itemName = ore.name or ore.id
-    Notifications.action(string.format("Queued smelting of %d %s", amount, itemName))
+    local itemId = ore.id
+    local recipes = FURNACE_RECIPES[itemId]
+    
+    if not recipes then
+        Notifications.info("No smelting recipes available for " .. (ore.name or itemId))
+        return
+    end
+
+    -- For now, use the first available recipe
+    local recipe = recipes[1]
+    if not recipe then
+        Notifications.info("No valid recipe found")
+        return
+    end
+
+    -- Calculate how much we can actually smelt based on available materials
+    local maxSmeltable = math.floor(amount / recipe.ratio)
+    if maxSmeltable <= 0 then
+        Notifications.info(string.format("Need at least %d %s to smelt", recipe.ratio, ore.name or itemId))
+        return
+    end
+
+    -- Calculate actual amounts
+    local inputAmount = maxSmeltable * recipe.ratio
+    local outputAmount = maxSmeltable
+
+    -- Remove input materials
+    if not DockedUI.player:removeItem(itemId, inputAmount) then
+        Notifications.info("Failed to remove materials from cargo")
+        return
+    end
+
+    -- Add output
+    if recipe.type == "credits" then
+        DockedUI.player:addGC(outputAmount)
+        Notifications.action(string.format("Smelted %d %s into %d credits", inputAmount, ore.name or itemId, outputAmount))
+    elseif recipe.type == "item" then
+        DockedUI.player:addItem(recipe.output, outputAmount)
+        Notifications.action(string.format("Smelted %d %s into %d %s", inputAmount, ore.name or itemId, outputAmount, recipe.output))
+    end
+
+    -- Update furnace state
     state.inputActive = false
     if love and love.keyboard and love.keyboard.setTextInput then
         love.keyboard.setTextInput(false)
     end
+    
+    -- Refresh the recipe list
+    local recipes = collectFurnaceRecipes(DockedUI.player)
+    ensureFurnaceSelection(recipes)
 end
 
 local function setFurnaceInputActive(active)

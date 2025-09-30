@@ -68,14 +68,10 @@ function UI.drawHelpers(player, world, hub, camera)
 
   -- Helper tooltip above stations (docking prompt and repair requirements)
   do
-    local Settings = require("src.core.settings")
-    local g = Settings.getGraphicsSettings()
-    local helpersEnabled = (g.helpers_enabled ~= false)
-
     -- Check all stations for tooltip display
     local all_stations = world:get_entities_with_components("station")
     for _, station in ipairs(all_stations) do
-      if helpersEnabled and station and station.components and station.components.position and not player.docked then
+      if station and station.components and station.components.position and not player.docked then
         local sx, sy = station.components.position.x, station.components.position.y
         local sw, sh = Viewport.getDimensions()
         local camScale = camera and camera.scale or 1
@@ -131,18 +127,59 @@ function UI.drawHelpers(player, world, hub, camera)
               text = "Beacon Array - OPERATIONAL"
             end
           elseif station.components.station and station.components.station.type == "ore_furnace_station" then
-            local lines = { station.components.station.name or "Ore Furnace" }
-            local services = station.components.station.services
-            if services and type(services) == "table" then
-              local serviceNames = {}
-              if services.ore_processing then table.insert(serviceNames, "Ore Smelting") end
-              if services.stone_cracking then table.insert(serviceNames, "Stone Cracking") end
-              if #serviceNames > 0 then
-                table.insert(lines, table.concat(serviceNames, " • "))
+            if player.canDock and player.nearbyStation == station then
+              dockPromptState.visible = true
+              dockPromptState.station = station
+              dockPromptState.stationName = (station.components and station.components.station and station.components.station.name) or "Ore Furnace"
+              local sw, sh = Viewport.getDimensions()
+              local mouseX, mouseY = Viewport.getMousePosition()
+
+              -- Simple dock button - no minimized/expanded states
+              local buttonW, buttonH = 80, 36
+              local buttonX = math.floor(screenX - buttonW * 0.5 + 0.5)
+              local buttonY = math.floor(screenY - buttonH - 48 + 0.5)
+              buttonX = math.max(8, math.min(sw - buttonW - 8, buttonX))
+              buttonY = math.max(8, math.min(sh - buttonH - 8, buttonY))
+
+              local hover = UIUtils.pointInRect(mouseX, mouseY, {
+                x = buttonX,
+                y = buttonY,
+                w = buttonW,
+                h = buttonH,
+              })
+
+              local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
+              local previousFont = love.graphics.getFont()
+              dockPromptState.dockRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "Dock", hover, false, {
+                font = buttonFont,
+              })
+              dockPromptState.toggleRect = nil
+
+              local triCx = math.floor(screenX + 0.5)
+              local triY = dockPromptState.dockRect.y + dockPromptState.dockRect.h
+              Theme.setColor(Theme.colors.bg2)
+              love.graphics.polygon('fill', triCx - 6, triY, triCx + 6, triY, triCx, triY + 8)
+              Theme.setColor(Theme.colors.border)
+              love.graphics.line(triCx - 6, triY, triCx, triY + 8)
+              love.graphics.line(triCx + 6, triY, triCx, triY + 8)
+
+              if previousFont then
+                love.graphics.setFont(previousFont)
               end
+            else
+              local lines = { station.components.station.name or "Ore Furnace" }
+              local services = station.components.station.services
+              if services and type(services) == "table" then
+                local serviceNames = {}
+                if services.ore_processing then table.insert(serviceNames, "Ore Smelting") end
+                if services.stone_cracking then table.insert(serviceNames, "Stone Cracking") end
+                if #serviceNames > 0 then
+                  table.insert(lines, table.concat(serviceNames, " • "))
+                end
+              end
+              table.insert(lines, "Automated refinery operations active")
+              text = table.concat(lines, "\n")
             end
-            table.insert(lines, "Automated refinery operations active")
-            text = table.concat(lines, "\n")
           elseif player.canDock and player.nearbyStation == station then
             dockPromptState.visible = true
             dockPromptState.station = station
@@ -245,15 +282,11 @@ function UI.drawHelpers(player, world, hub, camera)
     end
   end
 
-  -- Helper tooltip above warp gates (same visual style as stations)
+  -- Warp button above warp gates
   do
-    local Settings = require("src.core.settings")
-    local g = Settings.getGraphicsSettings()
-    local helpersEnabled = (g.helpers_enabled ~= false)
-
     local all_gates = world:get_entities_with_components("warp_gate")
     for _, gate in ipairs(all_gates) do
-      if helpersEnabled and gate and gate.components and gate.components.position and not player.docked then
+      if gate and gate.components and gate.components.position and not player.docked then
         local gx, gy = gate.components.position.x, gate.components.position.y
         local sw, sh = Viewport.getDimensions()
         local camScale = camera and camera.scale or 1
@@ -316,10 +349,7 @@ function UI.drawHelpers(player, world, hub, camera)
 
   -- Helper tooltip for nearby asteroid or wreckage (shows hotkeys for mining/salvaging)
   do
-    local Settings = require("src.core.settings")
-    local g = Settings.getGraphicsSettings()
-    local helpersEnabled = (g.helpers_enabled ~= false)
-    if helpersEnabled and not player.docked and world and camera then
+    if not player.docked and world and camera then
       local mx, my = Viewport.getMousePosition()
       local sw, sh = Viewport.getDimensions()
       local camScale = camera and camera.scale or 1

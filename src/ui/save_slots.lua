@@ -119,12 +119,41 @@ function SaveSlots:_ensureCache()
     end
 end
 
-local function drawButtonRect(buttonFont, buttonPaddingX, buttonPaddingY, xPos, yPos, width, height, fillColor, label, enabled)
+local function drawButtonRect(buttonFont, buttonPaddingX, buttonPaddingY, xPos, yPos, width, height, fillColor, label, enabled, hover)
+    -- Enhanced hover effects
+    local scaleX, scaleY = 1, 1
+    local offsetX, offsetY = 0, 0
+    if hover and enabled then
+        scaleX = 1.02
+        scaleY = 1.02
+        offsetX = (width * (scaleX - 1)) * 0.5
+        offsetY = (height * (scaleY - 1)) * 0.5
+        xPos = xPos - offsetX
+        yPos = yPos - offsetY
+        width = width * scaleX
+        height = height * scaleY
+    end
+
     local color = enabled and fillColor or Theme.withAlpha(fillColor, 0.4)
     Theme.setColor(color)
     love.graphics.rectangle("fill", xPos, yPos, width, height)
 
+    -- Add accent color glow for hover
+    if hover and enabled then
+        -- Draw accent color inner glow
+        local accentGlow = {Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 0.7}
+        Theme.setColor(accentGlow)
+        love.graphics.rectangle("fill", xPos + 1, yPos + 1, width - 2, height - 2)
+        
+        -- Draw accent color border
+        Theme.setColor(Theme.colors.accent)
+        love.graphics.rectangle("line", xPos + 0.5, yPos + 0.5, width - 1, height - 1)
+    end
+
     local textColor = enabled and Theme.colors.text or Theme.withAlpha(Theme.colors.text, 0.5)
+    if hover and enabled then
+        textColor = Theme.colors.textHighlight
+    end
     Theme.setColor(textColor)
 
     local prevFont = love.graphics.getFont()
@@ -190,6 +219,7 @@ function SaveSlots:draw(x, y, w, h)
     self:_ensureCache()
 
     local baseFont = Theme.fonts and Theme.fonts.normal or love.graphics.getFont()
+    local mx, my = Viewport.getMousePosition()
     local buttonFont = (Theme.fonts and (Theme.fonts.tiny or Theme.fonts.small)) or baseFont
     local buttonPaddingX, buttonPaddingY = 18, 8
     local buttonMinWidth = 120
@@ -235,12 +265,14 @@ function SaveSlots:draw(x, y, w, h)
 
     local saveButtonEnabled = hasSelectedSlot and not self.disableSave
     local saveButtonColor = self.disableSave and Theme.colors.textSecondary or Theme.colors.success
-    drawButtonRect(buttonFont, buttonPaddingX, buttonPaddingY, buttonRowX, currentY, saveButtonW, saveButtonH, saveButtonColor, saveLabel, saveButtonEnabled)
+    local saveButtonHover = mx >= buttonRowX and mx <= buttonRowX + saveButtonW and my >= currentY and my <= currentY + saveButtonH
+    drawButtonRect(buttonFont, buttonPaddingX, buttonPaddingY, buttonRowX, currentY, saveButtonW, saveButtonH, saveButtonColor, saveLabel, saveButtonEnabled, saveButtonHover)
     layout.saveButton = { x = buttonRowX, y = currentY, w = saveButtonW, h = saveButtonH }
 
     local loadButtonEnabled = selectedSlotData ~= nil
     local loadButtonColor = selectedSlotData and Theme.colors.info or Theme.colors.textSecondary
-    drawButtonRect(buttonFont, buttonPaddingX, buttonPaddingY, buttonRowX + saveButtonW + buttonSpacing, currentY, loadButtonW, loadButtonH, loadButtonColor, loadLabel, loadButtonEnabled)
+    local loadButtonHover = mx >= buttonRowX + saveButtonW + buttonSpacing and mx <= buttonRowX + saveButtonW + buttonSpacing + loadButtonW and my >= currentY and my <= currentY + loadButtonH
+    drawButtonRect(buttonFont, buttonPaddingX, buttonPaddingY, buttonRowX + saveButtonW + buttonSpacing, currentY, loadButtonW, loadButtonH, loadButtonColor, loadLabel, loadButtonEnabled, loadButtonHover)
     layout.loadButton = { x = buttonRowX + saveButtonW + buttonSpacing, y = currentY, w = loadButtonW, h = loadButtonH }
     
     -- Store the selected data in the layout for the mousepressed function
@@ -307,7 +339,8 @@ function SaveSlots:draw(x, y, w, h)
         if slotData then
             local deleteX = slotRect.x + slotRect.w - deleteButtonW - slotPadding
             local deleteY = slotRect.y + slotRect.h - deleteButtonH - slotPadding
-            drawButtonRect(buttonFont, buttonPaddingX, buttonPaddingY, deleteX, deleteY, deleteButtonW, deleteButtonH, Theme.colors.danger, deleteLabel, true)
+            local deleteButtonHover = mx >= deleteX and mx <= deleteX + deleteButtonW and my >= deleteY and my <= deleteY + deleteButtonH
+            drawButtonRect(buttonFont, buttonPaddingX, buttonPaddingY, deleteX, deleteY, deleteButtonW, deleteButtonH, Theme.colors.danger, deleteLabel, true, deleteButtonHover)
             layout.slots[slotName].delete = { x = deleteX, y = deleteY, w = deleteButtonW, h = deleteButtonH }
         end
 
@@ -367,7 +400,8 @@ function SaveSlots:draw(x, y, w, h)
 
         local buttonY = autosaveRect.y + autosaveRect.h - deleteButtonH - slotPadding
         local autoLoadButtonX = autosaveRect.x + autosaveRect.w - deleteButtonW - slotPadding
-        drawButtonRect(buttonFont, buttonPaddingX, buttonPaddingY, autoLoadButtonX, buttonY, deleteButtonW, deleteButtonH, Theme.colors.warning, loadLabel, true)
+        local autoLoadButtonHover = mx >= autoLoadButtonX and mx <= autoLoadButtonX + deleteButtonW and my >= buttonY and my <= buttonY + deleteButtonH
+        drawButtonRect(buttonFont, buttonPaddingX, buttonPaddingY, autoLoadButtonX, buttonY, deleteButtonW, deleteButtonH, Theme.colors.warning, loadLabel, true, autoLoadButtonHover)
         layout.autosaveLoad = { x = autoLoadButtonX, y = buttonY, w = deleteButtonW, h = deleteButtonH }
     else
         Theme.setColor(Theme.colors.textSecondary)

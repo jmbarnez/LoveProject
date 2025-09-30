@@ -31,6 +31,8 @@ function Window.new(options)
   self.draggable = options.draggable ~= false -- default true
   self.resizable = options.resizable or false
   self.modal = options.modal or false
+  self.maximizable = options.maximizable ~= false -- default true
+  self.maximized = false
   
   -- Drag state
   self.dragging = false
@@ -44,6 +46,12 @@ function Window.new(options)
   self.resizeStartY = 0
   self.resizeStartW = 0
   self.resizeStartH = 0
+  
+  -- Maximize state
+  self.originalX = self.x
+  self.originalY = self.y
+  self.originalWidth = self.width
+  self.originalHeight = self.height
   
   -- Styling
   self.titleBarHeight = (Theme.ui and Theme.ui.titleBarHeight) or 24
@@ -124,6 +132,60 @@ function Window:pointInCloseButton(x, y)
          y >= btnY and y <= btnY + btnSize
 end
 
+-- Check if point is in maximize button
+function Window:pointInMaximizeButton(x, y)
+  if not self.maximizable then return false end
+
+  local btnSize = 20  -- Same size as close button
+  local btnX = self.x + self.width - btnSize - 3 - (self.closable and (btnSize + 3) or 0)
+  local btnY = self.y + 2
+
+  return x >= btnX and x <= btnX + btnSize and
+         y >= btnY and y <= btnY + btnSize
+end
+
+-- Maximize window
+function Window:maximize()
+  if not self.maximizable or self.maximized then return end
+  
+  -- Store original state
+  self.originalX = self.x
+  self.originalY = self.y
+  self.originalWidth = self.width
+  self.originalHeight = self.height
+  
+  -- Maximize to screen
+  local sw, sh = Viewport.getDimensions()
+  self.x = 0
+  self.y = 0
+  self.width = sw
+  self.height = sh
+  
+  self.maximized = true
+end
+
+-- Restore window
+function Window:restore()
+  if not self.maximized then return end
+  
+  -- Restore original state
+  self.x = self.originalX
+  self.y = self.originalY
+  self.width = self.originalWidth
+  self.height = self.originalHeight
+  
+  self.maximized = false
+end
+
+-- Toggle maximize/restore
+function Window:toggleMaximize()
+  if self.maximized then
+    self:restore()
+  else
+    self:maximize()
+  end
+end
+
 -- Get resize handle at point
 function Window:getResizeHandle(x, y)
   if not self.resizable then return nil end
@@ -171,6 +233,16 @@ function Window:draw()
   Theme.setColor(Theme.colors.border)
   love.graphics.line(self.x, self.y + self.titleBarHeight, self.x + self.width, self.y + self.titleBarHeight)
 
+  -- Maximize button
+  if self.maximizable then
+    local btnSize = 20  -- Same size as close button
+    local btnX = self.x + self.width - btnSize - 3 - (self.closable and (btnSize + 3) or 0)
+    local btnY = self.y + 2
+    local maximizeHover = self:pointInMaximizeButton(mx, my)
+    
+    Theme.drawMaximizeButton({x = btnX, y = btnY, w = btnSize, h = btnSize}, maximizeHover, self.maximized)
+  end
+  
   -- Close button
   if self.closable then
     local btnSize = 20  -- Smaller close button for thinner title bar
@@ -226,6 +298,12 @@ function Window:mousepressed(x, y, button)
   if not self.visible then return false end
   
   if button == 1 then
+    -- Maximize button
+    if self.maximizable and self:pointInMaximizeButton(x, y) then
+      self:toggleMaximize()
+      return true
+    end
+    
     -- Close button
     if self.closable and self:pointInCloseButton(x, y) then
       self:hide()

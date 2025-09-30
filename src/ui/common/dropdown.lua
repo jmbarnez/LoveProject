@@ -70,11 +70,11 @@ end
 function Dropdown:drawButton(mx, my)
     local buttonHover = self:isPointInButton(mx, my) and not self.disabled
 
-    -- Button background
+    -- Button background with accent color hover glow
     local buttonColor = self.disabled and Theme.colors.bg1 or
-                       (buttonHover and Theme.colors.bg3 or Theme.colors.bg2)
+                       (buttonHover and {Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 0.6} or Theme.colors.bg2)
     local buttonGlow = self.disabled and Theme.effects.glowWeak * 0.1 or
-                      (buttonHover and Theme.effects.glowWeak * 0.3 or Theme.effects.glowWeak * 0.2)
+                      (buttonHover and Theme.effects.glowStrong or Theme.effects.glowWeak * 0.2)
 
     Theme.drawGradientGlowRect(self.x, self.y, self.width, self.optionHeight,
         2, buttonColor, Theme.colors.bg1, Theme.colors.border, buttonGlow)

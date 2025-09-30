@@ -472,6 +472,25 @@ function DestructionSystem.update(world, gameState, hub)
             Events.emit('player_respawn', {player = e})
             Log.debug("DestructionSystem - Player respawned, docked state reset to:", e.docked)
             
+            -- Recreate engine trail component if missing
+            if not e.components.engine_trail then
+              local EngineTrail = require("src.components.engine_trail")
+              local ModelUtil = require("src.core.model_util")
+              local shipConfig = e.ship or {}
+              local visuals = e.visuals or {}
+              
+              -- Configure engine trail colors based on ship visuals
+              local engineColors = {
+                color1 = (visuals.engineColor and {visuals.engineColor[1], visuals.engineColor[2], visuals.engineColor[3], 0.8}) or {0.0, 0.0, 1.0, 0.8},
+                color2 = (visuals.engineColor and {visuals.engineColor[1] * 0.5, visuals.engineColor[2] * 0.5, visuals.engineColor[3], 0.4}) or {0.0, 0.0, 0.5, 0.4},
+                size = (visuals.size or 1.0) * 0.8,
+                offset = ModelUtil.calculateModelWidth(shipConfig.visuals) * 0.3
+              }
+              
+              e.components.engine_trail = EngineTrail.new(engineColors)
+              Log.debug("DestructionSystem - Recreated engine trail component for player")
+            end
+            
             -- Ensure player is properly added to world if not already
             if world and world.addEntity then
               local alreadyInWorld = false
