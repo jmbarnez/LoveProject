@@ -41,6 +41,9 @@ local TEXT_RIGHT_PADDING = 12
 local BULLET_INDENT = 12
 local SCROLL_TRACK_WIDTH = 8
 local SCROLL_EXTRA_GAP = 8
+local HERO_HEIGHT = 104
+local HERO_PADDING = 18
+local HERO_RADIUS = 14
 local PATH_SEPARATOR = package.config and package.config:sub(1, 1) or "/"
 
 local function getCommitGroupCount(data)
@@ -56,6 +59,107 @@ end
 
 local function hasCommitData(data)
     return getCommitGroupCount(data) > 0
+end
+
+local function getLatestVersionInfo()
+    local data = VersionLog.commits
+    if not data or not data.order or not data.grouped or #data.order == 0 then
+        return nil
+    end
+
+    local versionKey = data.order[1]
+    local commits = data.grouped[versionKey]
+    if not commits or #commits == 0 then
+        return {
+            version = versionKey,
+            commits = {},
+            headline = Strings.getUI("version_log_title"),
+            updateCount = 0,
+        }
+    end
+
+    local firstCommit = commits[1]
+    local updateCount = 0
+    for _, commit in ipairs(commits) do
+        if commit.bodyLines and type(commit.bodyLines) == "table" then
+            updateCount = updateCount + #commit.bodyLines
+        elseif commit.notes and type(commit.notes) == "table" then
+            updateCount = updateCount + #commit.notes
+        end
+    end
+    if updateCount == 0 then
+        updateCount = #commits
+    end
+
+    return {
+        version = versionKey,
+        commits = commits,
+        headline = (firstCommit and firstCommit.subject) or Strings.getUI("version_log_title"),
+        date = firstCommit and firstCommit.date or nil,
+        author = firstCommit and firstCommit.author or nil,
+        updateCount = updateCount,
+    }
+end
+
+local function drawHeroHeader(x, y, w)
+    local info = getLatestVersionInfo()
+    if not info then
+        return 0
+    end
+
+    local height = HERO_HEIGHT
+    local radius = HERO_RADIUS
+
+    Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.35))
+    love.graphics.rectangle("fill", x + 6, y + 8, w - 12, height - 12, radius + 6, radius + 6)
+
+    Theme.setColor(Theme.withAlpha(Theme.colors.primaryBright, 0.55))
+    love.graphics.rectangle("fill", x, y, w, height, radius, radius)
+
+    Theme.setColor(Theme.withAlpha(Theme.colors.accent, 0.45))
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", x, y, w, height, radius, radius)
+    love.graphics.setLineWidth(1)
+
+    Theme.setColor(Theme.withAlpha(Theme.colors.accent, 0.18))
+    love.graphics.circle("fill", x + w - 60, y + height * 0.45, 46)
+    Theme.setColor(Theme.withAlpha(Theme.colors.accent, 0.12))
+    love.graphics.circle("fill", x + w - 28, y + height * 0.72, 28)
+
+    local titleFont = Theme.fonts.title or Theme.fonts.large or love.graphics.getFont()
+    local metaFont = Theme.fonts.medium or Theme.fonts.normal or love.graphics.getFont()
+    local bodyFont = Theme.fonts.normal or love.graphics.getFont()
+
+    local cursorX = x + 28
+    local cursorY = y + 22
+
+    love.graphics.setFont(titleFont)
+    Theme.setColor(Theme.colors.text)
+    local versionLabel = string.format("Version %s", info.version or Strings.getUI("version") or "")
+    love.graphics.print(versionLabel, cursorX, cursorY)
+
+    cursorY = cursorY + titleFont:getHeight() + 6
+    love.graphics.setFont(metaFont)
+    Theme.setColor(Theme.colors.textHighlight)
+    local subtitle = info.headline or Strings.getUI("version_log_title") or ""
+    love.graphics.print(subtitle, cursorX, cursorY)
+
+    cursorY = cursorY + metaFont:getHeight() + 4
+    love.graphics.setFont(bodyFont)
+    Theme.setColor(Theme.colors.textSecondary)
+    local metaParts = {}
+    if info.date and info.date ~= "" then table.insert(metaParts, info.date) end
+    if info.author and info.author ~= "" then table.insert(metaParts, info.author) end
+    if info.updateCount and info.updateCount > 0 then
+        table.insert(metaParts, string.format("%d detailed notes", info.updateCount))
+    end
+    local metaLine = table.concat(metaParts, "  •  ")
+    if metaLine ~= "" then
+        love.graphics.print(metaLine, cursorX, cursorY)
+    end
+
+    love.graphics.setFont(Theme.fonts.small or bodyFont)
+    return height
 end
 
 local function measureEntryWidth(text)
@@ -362,12 +466,22 @@ function VersionLog.draw(x, y, w, h)
         return
     end
 
-    Theme.setColor(Theme.colors.bg1)
-    love.graphics.rectangle("fill", panelX, panelY, panelW, panelH)
-    Theme.setColor(Theme.colors.border)
-    love.graphics.rectangle("line", panelX, panelY, panelW, panelH)
+    Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.4))
+    local shadowW = math.max(0, panelW - 12)
+    local shadowH = math.max(0, panelH - 14)
+    if shadowW > 0 and shadowH > 0 then
+        love.graphics.rectangle("fill", panelX + 6, panelY + 10, shadowW, shadowH, 18, 18)
+    end
 
-    local listInset = 12
+    Theme.setColor(Theme.withAlpha(Theme.colors.primaryBright, 0.6))
+    love.graphics.rectangle("fill", panelX, panelY, panelW, panelH, 18, 18)
+
+    Theme.setColor(Theme.withAlpha(Theme.colors.accent, 0.35))
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", panelX, panelY, panelW, panelH, 18, 18)
+    love.graphics.setLineWidth(1)
+
+    local listInset = 18
     local listX = panelX + listInset
     local listY = panelY + listInset
     local listW = math.max(0, panelW - listInset * 2)
@@ -377,10 +491,21 @@ function VersionLog.draw(x, y, w, h)
         return
     end
 
+    local heroHeight = drawHeroHeader(listX, listY, listW)
+    local contentOffset = heroHeight > 0 and (heroHeight + HERO_PADDING) or 0
+    local contentX = listX
+    local contentY = listY + contentOffset
+    local contentW = listW
+    local contentH = math.max(0, listH - contentOffset)
+
+    if contentW <= 0 or contentH <= 0 then
+        return
+    end
+
     local totalContentHeight = VersionLog.layoutCache.totalHeight
     local commitGroupCount = getCommitGroupCount(VersionLog.commits)
-    if not totalContentHeight or VersionLog.layoutCache.width ~= listW or VersionLog.layoutCache.count ~= commitGroupCount then
-        VersionLog.layoutCache.width = listW
+    if not totalContentHeight or VersionLog.layoutCache.width ~= contentW or VersionLog.layoutCache.count ~= commitGroupCount then
+        VersionLog.layoutCache.width = contentW
         local commitData = VersionLog.commits
         VersionLog.layoutCache.count = commitGroupCount
         VersionLog.layoutCache.entries = {}
@@ -390,7 +515,7 @@ function VersionLog.draw(x, y, w, h)
             local lineHeight = font:getHeight()
             love.graphics.setFont(font)
             local reservedTrackSpace = SCROLL_TRACK_WIDTH + SCROLL_EXTRA_GAP
-            local textAreaWidth = math.max(0, listW - reservedTrackSpace)
+            local textAreaWidth = math.max(0, contentW - reservedTrackSpace)
             local textColumnWidth = math.max(0, textAreaWidth - TEXT_LEFT_MARGIN - TEXT_RIGHT_PADDING)
             local bodyColumnWidth = math.max(0, textColumnWidth - BULLET_INDENT)
             for _, versionKey in ipairs(commitData.order) do
@@ -483,61 +608,65 @@ function VersionLog.draw(x, y, w, h)
         VersionLog.layoutCache.totalHeight = totalContentHeight
     end
 
-    local contentHeight = math.max(totalContentHeight, listH)
+    local contentHeight = math.max(totalContentHeight, contentH)
 
     local mx, my = Viewport.getMousePosition()
     local draggingThumb = VersionLog.scrollState and VersionLog.scrollState.dragging
-    VersionLog.scrollY, VersionLog.scrollGeom = ScrollArea.draw(listX, listY, listW, listH, contentHeight, VersionLog.scrollY, {
+    VersionLog.scrollY, VersionLog.scrollGeom = ScrollArea.draw(contentX, contentY, contentW, contentH, contentHeight, VersionLog.scrollY, {
         dragging = draggingThumb,
         dragOffset = VersionLog.scrollState and VersionLog.scrollState.dragOffset or 0,
         mouseY = my,
     })
     VersionLog.scrollState = VersionLog.scrollState or { dragging = false, dragOffset = 0 }
-    VersionLog.scrollGeom.viewH = listH
-    VersionLog.bounds = { x = listX, y = listY, w = listW, h = listH }
+    VersionLog.scrollGeom.viewH = contentH
+    VersionLog.bounds = { x = contentX, y = contentY, w = contentW, h = contentH }
     clampScroll()
 
-    love.graphics.setScissor(listX, listY, listW, listH)
+    love.graphics.setScissor(contentX, contentY, contentW, contentH)
     local entryFont = Theme.fonts.small or love.graphics.getFont()
     love.graphics.setFont(entryFont)
 
     if VersionLog.loading then
         love.graphics.setFont(Theme.fonts.small)
-        drawStatusMessage(listX, listY, listW - 16, Strings.getUI("version_log_loading"))
+        drawStatusMessage(contentX, contentY, contentW - 16, Strings.getUI("version_log_loading"))
         love.graphics.setFont(Theme.fonts.normal)
     elseif VersionLog.errorMessage == "io_popen_missing" or VersionLog.errorMessage == "git_unavailable" then
         love.graphics.setFont(Theme.fonts.small)
-        drawStatusMessage(listX, listY, listW - 16, Strings.getUI("version_log_git_missing"))
+        drawStatusMessage(contentX, contentY, contentW - 16, Strings.getUI("version_log_git_missing"))
         love.graphics.setFont(Theme.fonts.normal)
     elseif VersionLog.errorMessage == "fallback_missing" or VersionLog.errorMessage == "fallback_read_error" or VersionLog.errorMessage == "fallback_invalid" then
         love.graphics.setFont(Theme.fonts.small)
-        drawStatusMessage(listX, listY, listW - 16, Strings.getUI("version_log_fallback_missing"))
+        drawStatusMessage(contentX, contentY, contentW - 16, Strings.getUI("version_log_fallback_missing"))
         love.graphics.setFont(Theme.fonts.normal)
     elseif VersionLog.errorMessage then
         love.graphics.setFont(Theme.fonts.small)
-        drawStatusMessage(listX, listY, listW - 16, Strings.getUI("version_log_error"))
+        drawStatusMessage(contentX, contentY, contentW - 16, Strings.getUI("version_log_error"))
         love.graphics.setFont(Theme.fonts.normal)
     elseif not hasCommitData(VersionLog.commits) then
         love.graphics.setFont(Theme.fonts.small)
-        drawStatusMessage(listX, listY, listW - 16, Strings.getUI("version_log_empty"))
+        drawStatusMessage(contentX, contentY, contentW - 16, Strings.getUI("version_log_empty"))
         love.graphics.setFont(Theme.fonts.normal)
     else
         local font = entryFont
         local lineHeight = font:getHeight()
         love.graphics.setFont(font)
-        local rowY = listY - VersionLog.scrollY
+        local rowY = contentY - VersionLog.scrollY
         local trackWidth = (VersionLog.scrollGeom.track and VersionLog.scrollGeom.track.w) or SCROLL_TRACK_WIDTH
         local reservedTrackSpace = trackWidth + SCROLL_EXTRA_GAP
-        local textAreaWidth = math.max(0, listW - reservedTrackSpace)
-        local textX = listX + TEXT_LEFT_MARGIN
+        local textAreaWidth = math.max(0, contentW - reservedTrackSpace)
+        local textX = contentX + TEXT_LEFT_MARGIN
         local textWidth = math.max(0, textAreaWidth - TEXT_LEFT_MARGIN - TEXT_RIGHT_PADDING)
 
         for _, entry in ipairs(VersionLog.layoutCache.entries) do
             local entryTop = rowY
             local entryBottom = rowY + entry.height
-            if entryBottom >= listY - ENTRY_SPACING and entryTop <= listY + listH + ENTRY_SPACING then
+            if entryBottom >= contentY - ENTRY_SPACING and entryTop <= contentY + contentH + ENTRY_SPACING then
                 if entry.kind == "version" then
                     local headerLines = wrapText(font, entry.text, textWidth)
+                    local headerX = textX - TEXT_LEFT_MARGIN + 4
+                    local headerW = math.max(0, textAreaWidth - 8)
+                    Theme.setColor(Theme.withAlpha(Theme.colors.accent, 0.12))
+                    love.graphics.rectangle("fill", headerX, entryTop + 6, headerW, entry.height - 12, 10, 10)
                     Theme.setColor(Theme.colors.accentGold or Theme.colors.accent)
                     local cursorY = entryTop + ENTRY_PADDING_Y
                     for _, line in ipairs(headerLines) do
@@ -546,8 +675,17 @@ function VersionLog.draw(x, y, w, h)
                     end
                 elseif entry.kind == "commit" then
                     local commit = entry.commit
+                    local cardX = textX - TEXT_LEFT_MARGIN + 4
+                    local cardY = entryTop + 4
+                    local cardW = math.max(0, textAreaWidth - 8)
+                    local cardH = math.max(0, entry.height - 8)
+                    Theme.setColor(Theme.withAlpha(Theme.colors.primaryDim or Theme.colors.primary, 0.65))
+                    love.graphics.rectangle("fill", cardX, cardY, cardW, cardH, 10, 10)
+                    Theme.setColor(Theme.withAlpha(Theme.colors.accent, 0.65))
+                    love.graphics.rectangle("fill", cardX - 2, cardY + 6, 4, math.max(0, cardH - 12), 2, 2)
+
                     local cursorY = entryTop + ENTRY_PADDING_Y
-                    Theme.setColor(Theme.colors.accent)
+                    Theme.setColor(Theme.colors.textHighlight)
                     for _, line in ipairs(entry.headerLines) do
                         love.graphics.print(line, textX, cursorY)
                         cursorY = cursorY + lineHeight
@@ -569,7 +707,9 @@ function VersionLog.draw(x, y, w, h)
                         for paragraphIndex, paragraph in ipairs(entry.bodyWraps) do
                             for _, wrapLines in ipairs(paragraph) do
                                 for _, line in ipairs(wrapLines) do
+                                    Theme.setColor(Theme.withAlpha(Theme.colors.textSecondary, 0.85))
                                     love.graphics.print("•", textX, cursorY)
+                                    Theme.setColor(Theme.colors.text)
                                     love.graphics.print(line, textX + bulletIndent, cursorY)
                                     cursorY = cursorY + lineHeight + BULLET_LINE_SPACING
                                 end
@@ -580,11 +720,11 @@ function VersionLog.draw(x, y, w, h)
                         end
                     end
 
-                    Theme.setColor(Theme.colors.border)
+                    Theme.setColor(Theme.withAlpha(Theme.colors.accent, 0.2))
                     love.graphics.setLineWidth(1)
                     local ruleRight = textX + math.max(0, textAreaWidth - TEXT_RIGHT_PADDING)
                     if ruleRight > textX then
-                        love.graphics.line(textX - 4, cursorY + 4, ruleRight, cursorY + 4)
+                        love.graphics.line(textX - 2, cursorY + 6, ruleRight, cursorY + 6)
                     end
                 end
             end
