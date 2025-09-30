@@ -117,35 +117,82 @@ Schema.__index = Schema
 function Schema.new()
     local self = setmetatable({}, Schema)
     self.fields = {}
+    self._lastField = nil
     return self
 end
 
 function Schema:field(name, validator, options)
-    self.fields[name] = {
-        validator = validator,
-        options = options or {}
-    }
+    local field = self.fields[name] or {}
+    field.validator = validator
+    field.options = options or field.options or {}
+    field.required = field.required or false
+    self.fields[name] = field
+    self._lastField = name
     return self
 end
 
 function Schema:required()
-    self.fields[#self.fields].required = true
+    if not self._lastField then
+        Log.warn("Schema:required called before any :field")
+        return self
+    end
+
+    local field = self.fields[self._lastField]
+    if not field then
+        Log.warn("Schema:required could not find field '%s'", tostring(self._lastField))
+        return self
+    end
+
+    field.required = true
     return self
 end
 
 function Schema:range(min, max)
-    self.fields[#self.fields].min = min
-    self.fields[#self.fields].max = max
+    if not self._lastField then
+        Log.warn("Schema:range called before any :field")
+        return self
+    end
+
+    local field = self.fields[self._lastField]
+    if not field then
+        Log.warn("Schema:range could not find field '%s'", tostring(self._lastField))
+        return self
+    end
+
+    field.min = min
+    field.max = max
     return self
 end
 
 function Schema:oneOf(options)
-    self.fields[#self.fields].options = options
+    if not self._lastField then
+        Log.warn("Schema:oneOf called before any :field")
+        return self
+    end
+
+    local field = self.fields[self._lastField]
+    if not field then
+        Log.warn("Schema:oneOf could not find field '%s'", tostring(self._lastField))
+        return self
+    end
+
+    field.options = options
     return self
 end
 
 function Schema:dependsOn(field, value)
-    self.fields[#self.fields].dependency = { field = field, value = value }
+    if not self._lastField then
+        Log.warn("Schema:dependsOn called before any :field")
+        return self
+    end
+
+    local lastField = self.fields[self._lastField]
+    if not lastField then
+        Log.warn("Schema:dependsOn could not find field '%s'", tostring(self._lastField))
+        return self
+    end
+
+    lastField.dependency = { field = field, value = value }
     return self
 end
 
@@ -591,5 +638,7 @@ function ConfigValidator.logErrors(result)
         end
     end
 end
+
+ConfigValidator.Schema = Schema
 
 return ConfigValidator

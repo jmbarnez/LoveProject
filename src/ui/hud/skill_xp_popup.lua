@@ -9,6 +9,8 @@ local SkillXpPopup = {
     timer = 0,
     holdDuration = 2.75,
     fadeDuration = 1.0,
+    scale = 0,
+    slideY = 0,
     state = {
         skillName = "",
         level = 1,
@@ -42,6 +44,11 @@ local function subscribe()
     end
 end
 
+function SkillXpPopup.resubscribe()
+    subscribed = false
+    subscribe()
+end
+
 function SkillXpPopup.onXpGain(payload)
     if not payload then return end
 
@@ -56,6 +63,8 @@ function SkillXpPopup.onXpGain(payload)
 
     SkillXpPopup.visible = true
     SkillXpPopup.alpha = 1
+    SkillXpPopup.scale = 0
+    SkillXpPopup.slideY = -20
     SkillXpPopup.timer = 0
 end
 
@@ -63,10 +72,26 @@ function SkillXpPopup.update(dt)
     if SkillXpPopup.visible then
         SkillXpPopup.timer = SkillXpPopup.timer + dt
 
-        if SkillXpPopup.timer <= SkillXpPopup.holdDuration then
+        -- Animation phases
+        local totalDuration = SkillXpPopup.holdDuration + SkillXpPopup.fadeDuration
+        local animTime = SkillXpPopup.timer
+
+        -- Scale and slide in animation (first 0.3 seconds)
+        if animTime <= 0.3 then
+            local t = animTime / 0.3
+            SkillXpPopup.scale = 1 - math.pow(1 - t, 3) -- Ease out cubic
+            SkillXpPopup.slideY = -20 * (1 - t) -- Slide from above
+        else
+            SkillXpPopup.scale = 1
+            SkillXpPopup.slideY = 0
+        end
+
+        -- Hold phase
+        if animTime <= SkillXpPopup.holdDuration then
             SkillXpPopup.alpha = 1
         else
-            local fadeTime = SkillXpPopup.timer - SkillXpPopup.holdDuration
+            -- Fade out phase
+            local fadeTime = animTime - SkillXpPopup.holdDuration
             if SkillXpPopup.fadeDuration > 0 then
                 SkillXpPopup.alpha = math.max(0, 1 - (fadeTime / SkillXpPopup.fadeDuration))
             else
@@ -76,6 +101,8 @@ function SkillXpPopup.update(dt)
             if SkillXpPopup.alpha <= 0 then
                 SkillXpPopup.visible = false
                 SkillXpPopup.alpha = 0
+                SkillXpPopup.scale = 0
+                SkillXpPopup.slideY = 0
             end
         end
     end
@@ -110,6 +137,7 @@ function SkillXpPopup.draw()
     end
 
     local sw, sh = Viewport.getDimensions()
+
     local width = math.min(320, sw - 32)
     local height = 72
     local margin = 16
@@ -117,13 +145,20 @@ function SkillXpPopup.draw()
     local y = 36
 
     local alpha = SkillXpPopup.alpha
+    local scale = SkillXpPopup.scale
+
+    -- Apply scaling and positioning
+    love.graphics.push()
+    love.graphics.translate(x + width * 0.5, y + height * 0.5)
+    love.graphics.scale(scale, scale)
+    love.graphics.translate(-width * 0.5, -height * 0.5)
 
     local bgTop = Theme.withAlpha(Theme.colors.bg2, 0.9 * alpha)
     local bgBottom = Theme.withAlpha(Theme.colors.bg1, 0.9 * alpha)
     local glow = Theme.withAlpha(Theme.colors.accent, 0.4 * alpha)
 
-    Theme.drawGradientGlowRect(x, y, width, height, 4, bgTop, bgBottom, glow, Theme.effects.glowWeak * alpha)
-    Theme.drawEVEBorder(x, y, width, height, 4, Theme.withAlpha(Theme.colors.borderBright, alpha), 2)
+    Theme.drawGradientGlowRect(0, 0, width, height, 4, bgTop, bgBottom, glow, Theme.effects.glowWeak * alpha)
+    Theme.drawEVEBorder(0, 0, width, height, 4, Theme.withAlpha(Theme.colors.borderBright, alpha), 2)
 
     local oldFont = love.graphics.getFont()
     if Theme.fonts and Theme.fonts.medium then
@@ -133,7 +168,7 @@ function SkillXpPopup.draw()
     local title = SkillXpPopup.state.skillName .. " — Lvl " .. SkillXpPopup.state.level
     local titleColor = SkillXpPopup.state.leveledUp and Theme.colors.success or Theme.colors.text
     Theme.setColor(Theme.withAlpha(titleColor, alpha))
-    love.graphics.print(title, x + 16, y + 12)
+    love.graphics.print(title, 16, 12)
 
     local xpGainText = string.format("+%s XP", formatXp(SkillXpPopup.state.xpGained))
     if Theme.fonts and Theme.fonts.small then
@@ -142,7 +177,7 @@ function SkillXpPopup.draw()
 
     local xpGainMetrics = UIUtils.getCachedTextMetrics(xpGainText, love.graphics.getFont())
     Theme.setColor(Theme.withAlpha(Theme.colors.accent, alpha))
-    love.graphics.print(xpGainText, x + width - xpGainMetrics.width - 16, y + 14)
+    love.graphics.print(xpGainText, width - xpGainMetrics.width - 16, 14)
 
     local barX = x + 14
     local barY = y + height - 28
@@ -169,6 +204,8 @@ function SkillXpPopup.draw()
     if oldFont then
         love.graphics.setFont(oldFont)
     end
+
+    love.graphics.pop()
 end
 
 subscribe()
