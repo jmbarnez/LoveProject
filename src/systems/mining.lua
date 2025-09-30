@@ -24,128 +24,74 @@ local function ensureHotspotDefaults(entity, mineable)
         local scale = mineable.hotspotRadiusScale or 0.28
         mineable.hotspotRadius = math.max(6, radius * scale)
     end
-    mineable.hotspots = mineable.hotspots or {}
+    
+    -- Initialize hotspots as Hotspots class instance if not already
+    if not mineable.hotspots or type(mineable.hotspots) == "table" and not mineable.hotspots.update then
+        print("MiningSystem: Initializing hotspots system for entity")
+        local Hotspots = require("src.components.hotspots")
+        mineable.hotspots = Hotspots.new({
+            maxHotspots = 3,
+            hotspotRadius = mineable.hotspotRadius,
+            hotspotDamageMultiplier = 2.0,
+            hotspotLifetime = 8.0,
+            hotspotSpawnChance = 0.3,
+            hotspotSpawnInterval = 2.0
+        })
+        print("MiningSystem: Hotspots system initialized, maxHotspots: " .. mineable.hotspots.maxHotspots)
+    else
+        print("MiningSystem: Hotspots system already exists")
+    end
     return radius
 end
 
-local function updateHotspots(dt, entity, mineable)
-    if not mineable.hotspots or #mineable.hotspots == 0 then
-        return
-    end
-
-    local pos = entity.components and entity.components.position
-    if not pos then
-        return
-    end
-
-    local angle = pos.angle or 0
-    local cosA = math.cos(angle)
-    local sinA = math.sin(angle)
-
-    for i = #mineable.hotspots, 1, -1 do
-        local hotspot = mineable.hotspots[i]
-        hotspot.life = (hotspot.life or 0) - dt
-        hotspot.cooldown = math.max(0, (hotspot.cooldown or 0) - dt)
-        hotspot.warmup = math.max(0, (hotspot.warmup or 0) - dt)
-        hotspot.pulse = math.max(0, (hotspot.pulse or 0) - dt)
-        hotspot.lastHit = math.max(0, (hotspot.lastHit or 0) - dt)
-
-        if (hotspot.life or 0) <= 0 then
-            table.remove(mineable.hotspots, i)
-        else
-            local offsetX = hotspot.offsetX or 0
-            local offsetY = hotspot.offsetY or 0
-            hotspot.worldX = pos.x + offsetX * cosA - offsetY * sinA
-            hotspot.worldY = pos.y + offsetX * sinA + offsetY * cosA
-        end
-    end
-end
-
-local function spawnHotspot(entity, mineable)
-    local radius = ensureHotspotDefaults(entity, mineable)
-    if radius <= 0 then
-        return
-    end
-
-    mineable.hotspots = mineable.hotspots or {}
-    if #mineable.hotspots >= 3 then
-        return
-    end
-
-    local distanceMin = radius * 0.35
-    local distanceMax = radius * 0.85
-    local distance = distanceMin + math.random() * (distanceMax - distanceMin)
-    local angle = math.random() * math.pi * 2
-    local offsetX = math.cos(angle) * distance
-    local offsetY = math.sin(angle) * distance
-    local hotspotRadius = math.max(6, mineable.hotspotRadius or radius * 0.25)
-
-    local baseLife = mineable.hotspotLife or 2.4
-    local life = baseLife * (0.75 + math.random() * 0.6)
-    local warmup = mineable.hotspotWarmup or 0.35
-    local burstInterval = mineable.hotspotBurstInterval or 0.75
-
-    local hotspot = {
-        offsetX = offsetX,
-        offsetY = offsetY,
-        radius = hotspotRadius,
-        life = life,
-        maxLife = life,
-        warmup = warmup,
-        cooldown = warmup,
-        burstInterval = burstInterval,
-        damage = mineable.hotspotDamage or 8,
-        pulse = 0,
-        lastHit = 0,
-    }
-
-    local pos = entity.components and entity.components.position
-    if pos then
-        local cosA = math.cos(pos.angle or 0)
-        local sinA = math.sin(pos.angle or 0)
-        hotspot.worldX = pos.x + offsetX * cosA - offsetY * sinA
-        hotspot.worldY = pos.y + offsetX * sinA + offsetY * cosA
-    end
-
-    table.insert(mineable.hotspots, hotspot)
-end
+-- Old array-based hotspot system removed - now using Hotspots class
 
 -- Updates mining progress on all mineable entities being mined.
 -- Yields resources to the player every N cycles.
 function MiningSystem.update(dt, world, player)
     local entities = world:get_entities_with_components("mineable")
+    print("MiningSystem: Found " .. #entities .. " mineable entities")
     for _, e in ipairs(entities) do
         local m = e.components and e.components.mineable
+        print("MiningSystem: Entity has mineable component: " .. tostring(m ~= nil) .. ", isBeingMined: " .. tostring(m and m.isBeingMined) .. ", resources: " .. tostring(m and m.resources))
         if m and m.isBeingMined and (m.resources or 0) > 0 then
-            updateHotspots(dt, e, m)
+            print("MiningSystem: Entity is being mined, resources: " .. (m.resources or 0))
+            -- Ensure hotspots system is initialized
+            ensureHotspotDefaults(e, m)
 
             if not m._wasBeingMined then
                 m.hotspotTimer = math.max(0.2, (m.hotspotWarmup or 0.35))
             end
 
             m.hotspotTimer = (m.hotspotTimer or 0) - dt
+            print("MiningSystem: Hotspot timer: " .. (m.hotspotTimer or 0) .. ", hotspots system exists: " .. tostring(m.hotspots ~= nil))
             if (m.hotspotTimer or 0) <= 0 then
-                spawnHotspot(e, m)
+                print("MiningSystem: Hotspot timer expired, attempting to generate hotspot")
+                -- Use the Hotspots class to generate hotspots with random chance
+                if m.hotspots and m.hotspots.generateHotspot then
+                    local spawnChance = m.hotspots.hotspotSpawnChance or 0.3
+                    print("MiningSystem: Spawn chance: " .. spawnChance .. ", random: " .. math.random())
+                    if math.random() < spawnChance then
+                        local success = m.hotspots:generateHotspot(e)
+                        if success then
+                            print("Hotspot generated! Total hotspots: " .. m.hotspots:getCount())
+                        else
+                            print("Hotspot generation failed!")
+                        end
+                    else
+                        print("MiningSystem: Spawn chance failed")
+                    end
+                else
+                    print("MiningSystem: No hotspots system or generateHotspot method")
+                end
                 local interval = m.hotspotInterval or 2.2
                 local jitter = m.hotspotIntervalJitter or 1.4
                 m.hotspotTimer = interval + math.random() * jitter
             end
       
-            -- Update hotspots
-            if m.hotspots then
+            -- Update hotspots using the Hotspots class
+            if m.hotspots and m.hotspots.update then
                 m.hotspots:update(dt)
-                
-                -- Try to generate new hotspots during mining
-                local currentTime = love.timer.getTime()
-                if currentTime - (m.hotspots.lastHotspotSpawn or 0) >= m.hotspots.hotspotSpawnInterval then
-                    if math.random() < m.hotspots.hotspotSpawnChance then
-                        local success = m.hotspots:generateHotspot(e)
-                        if success then
-                            print("Hotspot generated! Total hotspots: " .. m.hotspots:getCount())
-                        end
-                    end
-                    m.hotspots.lastHotspotSpawn = currentTime
-                end
             end
             
             -- Advance per-cycle progress
@@ -212,7 +158,38 @@ function MiningSystem.update(dt, world, player)
                 end
             end
         elseif m then
-            updateHotspots(dt, e, m)
+            -- Update hotspots even when not being mined
+            if m.hotspots and m.hotspots.update then
+                m.hotspots:update(dt)
+            end
+            
+            -- Generate hotspots even when not being mined, but less frequently
+            if (m.resources or 0) > 0 then
+                -- Ensure hotspots system is initialized
+                ensureHotspotDefaults(e, m)
+                
+                if not m._wasBeingMined and not m.isBeingMined then
+                    m.hotspotTimer = math.max(1.0, (m.hotspotWarmup or 0.35) * 3) -- Longer delay when not mining
+                end
+                
+                m.hotspotTimer = (m.hotspotTimer or 0) - dt
+                if (m.hotspotTimer or 0) <= 0 then
+                    -- Use the Hotspots class to generate hotspots with lower chance when not mining
+                    if m.hotspots and m.hotspots.generateHotspot then
+                        local spawnChance = (m.hotspots.hotspotSpawnChance or 0.3) * 0.2 -- Much lower chance when not mining
+                        if math.random() < spawnChance then
+                            local success = m.hotspots:generateHotspot(e)
+                            if success then
+                                print("Hotspot generated (idle)! Total hotspots: " .. m.hotspots:getCount())
+                            end
+                        end
+                    end
+                    local interval = (m.hotspotInterval or 2.2) * 4 -- Much longer interval when not mining
+                    local jitter = (m.hotspotIntervalJitter or 1.4) * 2
+                    m.hotspotTimer = interval + math.random() * jitter
+                end
+            end
+            
             if m._wasBeingMined and not m.isBeingMined then
                 local delay = 0.6 + math.random() * 0.6
                 m.hotspotTimer = delay

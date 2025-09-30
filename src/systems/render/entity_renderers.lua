@@ -306,68 +306,53 @@ function EntityRenderers.asteroid(entity, player)
         RenderUtils.setColor(fillColor)
         love.graphics.polygon("fill", flatVertices)
 
-        -- Chunks removed - hotspots now provide visual variety during mining
-
-        local mineable = entity.components.mineable
-        local hotspots = mineable and mineable.hotspots
-        if hotspots and #hotspots > 0 then
-            local prevLineWidth = love.graphics.getLineWidth()
-            local baseWarmup = mineable.hotspotWarmup or 0.35
-            local radiusBase = mineable.hotspotRadius or 10
-            for _, hotspot in ipairs(hotspots) do
-                local hx = hotspot.offsetX or 0
-                local hy = hotspot.offsetY or 0
-                local radius = hotspot.radius or radiusBase
-                local warmup = hotspot.warmup or 0
-                local warmupDenom = math.max(0.0001, baseWarmup)
-                local warmupPct = 1 - math.min(1, warmup / warmupDenom)
-                local lifePct = 1
-                if hotspot.maxLife and hotspot.maxLife > 0 then
-                    lifePct = math.max(0, math.min(1, (hotspot.life or 0) / hotspot.maxLife))
-                end
-                local pulse = hotspot.pulse or 0
-                local hit = hotspot.lastHit or 0
-                local fillAlpha = math.min(0.85, (0.2 + warmupPct * 0.5 + pulse * 0.9)) * lifePct
-                local ringAlpha = math.min(1.0, 0.3 + warmupPct * 0.55 + hit * 1.2) * lifePct
-
-                RenderUtils.setColor({1.0, 0.38 + warmupPct * 0.5, 0.2 + hit * 0.3, fillAlpha})
-                love.graphics.circle("fill", hx, hy, radius)
-
-                RenderUtils.setColor({1.0, 0.6 + warmupPct * 0.25, 0.18 + hit * 0.4, ringAlpha})
-                love.graphics.setLineWidth(2)
-                love.graphics.circle("line", hx, hy, radius)
-            end
-            love.graphics.setLineWidth(prevLineWidth)
-        end
-
         RenderUtils.setColor(outlineColor)
         love.graphics.polygon("line", flatVertices)
         
-        -- Draw mining hotspots
+        -- Draw mining hotspots as half circles sticking out from asteroid edge
         if entity.components.mineable and entity.components.mineable.hotspots then
             local hotspots = entity.components.mineable.hotspots:getHotspots()
+            print("Asteroid renderer: Found " .. #hotspots .. " hotspots for rendering")
+            local asteroidX = entity.components.position.x
+            local asteroidY = entity.components.position.y
+            local asteroidRadius = entity.components.collidable and entity.components.collidable.radius or 30
+            
             for _, hotspot in ipairs(hotspots) do
                 if hotspot.active then
                     -- Calculate pulsing effect
                     local pulse = 0.8 + 0.2 * math.sin(hotspot.pulsePhase)
                     local alpha = (hotspot.lifetime / hotspot.maxLifetime) * pulse
                     
-                    -- Draw hotspot glow
+                    -- Calculate angle from asteroid center to hotspot
+                    local dx = hotspot.x - asteroidX
+                    local dy = hotspot.y - asteroidY
+                    local angle = math.atan2(dy, dx)
+                    
+                    -- Calculate half circle parameters
+                    local halfCircleRadius = hotspot.radius * pulse
+                    local halfCircleX = asteroidX + math.cos(angle) * (asteroidRadius + halfCircleRadius * 0.5)
+                    local halfCircleY = asteroidY + math.sin(angle) * (asteroidRadius + halfCircleRadius * 0.5)
+                    
+                    -- Draw half circle as a filled arc
                     local glowColor = {1.0, 0.8, 0.2, alpha * 0.6} -- Orange glow
                     RenderUtils.setColor(glowColor)
-                    love.graphics.circle("fill", hotspot.x, hotspot.y, hotspot.radius * pulse)
+                    love.graphics.arc("fill", halfCircleX, halfCircleY, halfCircleRadius, 
+                                   angle - math.pi/2, angle + math.pi/2, 32)
                     
-                    -- Draw hotspot border
+                    -- Draw half circle border
                     local borderColor = {1.0, 0.6, 0.0, alpha} -- Brighter orange border
                     RenderUtils.setColor(borderColor)
                     love.graphics.setLineWidth(2)
-                    love.graphics.circle("line", hotspot.x, hotspot.y, hotspot.radius * pulse)
+                    love.graphics.arc("line", halfCircleX, halfCircleY, halfCircleRadius, 
+                                    angle - math.pi/2, angle + math.pi/2, 32)
                     love.graphics.setLineWidth(1)
                     
-                    -- Draw inner core
+                    -- Draw inner core as smaller half circle
                     local coreColor = {1.0, 1.0, 0.4, alpha * 0.8} -- Bright yellow core
                     RenderUtils.setColor(coreColor)
-                    love.graphics.circle("fill", hotspot.x, hotspot.y, hotspot.radius * 0.4 * pulse)
+                    local coreRadius = halfCircleRadius * 0.4
+                    love.graphics.arc("fill", halfCircleX, halfCircleY, coreRadius, 
+                                   angle - math.pi/2, angle + math.pi/2, 32)
                 end
             end
         end

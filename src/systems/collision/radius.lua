@@ -70,7 +70,15 @@ local function computeVisualRadius(entity)
         end
     end
 
-    -- For asteroids with vertices
+    -- For asteroids with vertices (stored in props.vertices, not visuals.vertices)
+    if renderable.props and renderable.props.vertices then
+        for _, vertex in ipairs(renderable.props.vertices) do
+            local vx, vy = vertex[1] or 0, vertex[2] or 0
+            maxExtent = math.max(maxExtent, math.sqrt(vx*vx + vy*vy) * size)
+        end
+    end
+    
+    -- Also check visuals.vertices for other entities
     if visuals.vertices then
         for _, vertex in ipairs(visuals.vertices) do
             local vx, vy = vertex[1] or 0, vertex[2] or 0
@@ -133,7 +141,13 @@ function Radius.calculateEffectiveRadius(entity)
     local hitBuffer = (Config.BULLET and Config.BULLET.HIT_BUFFER) or 1.5
 
     if entity.components.mineable then
-        return (entity.components.collidable.radius or baseRadius) + hitBuffer
+        -- For mineable entities (asteroids), use visual radius to ensure proper collision
+        local visualRadius = computeVisualRadius(entity)
+        local collidableRadius = entity.components.collidable.radius or baseRadius
+        local effectiveRadius = math.max(visualRadius, collidableRadius)
+        local finalRadius = effectiveRadius + hitBuffer
+        print("Radius calculation for asteroid: visual=" .. visualRadius .. ", collidable=" .. collidableRadius .. ", effective=" .. effectiveRadius .. ", final=" .. finalRadius)
+        return finalRadius
     end
 
     -- Compute visual radius for broad-phase culling (covers large renderables like planets/stations/asteroids)

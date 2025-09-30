@@ -136,6 +136,12 @@ function DockedUI.draw(player)
     if not DockedUI.window then DockedUI.init() end
     DockedUI.window.visible = DockedUI.visible
     DockedUI.window:draw()
+    
+    -- Draw context menu on top of everything else
+    if DockedUI.activeTab == "Shop" then
+        local mx, my = Viewport.getMousePosition()
+        Shop.drawContextMenu(DockedUI, mx, my)
+    end
 end
 
 function DockedUI.drawContent(window, x, y, w, h)
@@ -168,7 +174,6 @@ function DockedUI.drawContent(window, x, y, w, h)
         elseif DockedUI.activeShopTab == "Buyback" then
             DockedUI.drawBuybackItems(x + pad, shopContentY, w - pad * 2, shopContentH, player)
         end
-        Shop.drawContextMenu(DockedUI, mx, my)
   elseif DockedUI.activeTab == "Quests" then
         DockedUI.quests:draw(player, x + pad, contentY, w - pad * 2, contentH)
     elseif DockedUI.activeTab == "Nodes" then

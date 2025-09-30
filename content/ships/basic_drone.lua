@@ -105,7 +105,7 @@ return {
                     collidable = {
                         radius = 2, -- small collision radius so the beam is included in collision queries
                     },
-                    damage = 8, -- Moderate damage
+                    damage = { min = 1, max = 3 }, -- Low damage range
                     timed_life = {
                         duration = 0.12, -- Short beam duration
                     },

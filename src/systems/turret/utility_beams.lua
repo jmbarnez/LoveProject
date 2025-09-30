@@ -16,8 +16,12 @@ local function triggerHotspot(target, hotspot, source, impactX, impactY)
     hotspot.pulse = 0.35
     hotspot.lastHit = 0.35
 
-    if source then
-        CollisionEffects.applyDamage(source, hotspot.damage or 8, target)
+    if target then
+        -- Apply burst damage to the asteroid, not the player
+        local burstDamage = hotspot.damage or 8
+        if target.components and target.components.mineable then
+            target.components.mineable.durability = math.max(0, (target.components.mineable.durability or 0) - burstDamage)
+        end
     end
 
     if Effects and Effects.spawnImpact and target and target.components then
@@ -113,6 +117,7 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     local maxRange = turret.maxRange or 850
     local endX = sx + math.cos(angle) * maxRange
     local endY = sy + math.sin(angle) * maxRange
+    print("UtilityBeams: Mining beam fired from (" .. sx .. ", " .. sy .. ") to (" .. endX .. ", " .. endY .. ")")
 
     local hitTarget, hitX, hitY = UtilityBeams.performMiningHitscan(
         sx, sy, endX, endY, turret, world
@@ -134,12 +139,14 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     local damageRate = miningPower / cycle
 
     if hitTarget then
+        print("UtilityBeams: Hit target found, has mineable: " .. tostring(hitTarget.components and hitTarget.components.mineable ~= nil))
         if hitTarget.components and hitTarget.components.mineable then
             -- Set mining flag to enable hotspot generation
             if not hitTarget.components.mineable.isBeingMined then
                 print("Mining started on asteroid!")
             end
             hitTarget.components.mineable.isBeingMined = true
+            print("UtilityBeams: Set isBeingMined to true")
             
             local damageValue = damageRate * dt
             UtilityBeams.applyMiningDamage(hitTarget, damageValue, turret.owner, world, hitX, hitY)

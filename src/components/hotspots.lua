@@ -32,9 +32,9 @@ function Hotspots:generateHotspot(asteroid)
     local pos = asteroid.components.position
     local radius = asteroid.components.collidable and asteroid.components.collidable.radius or 30
     
-    -- Generate random position on asteroid surface
+    -- Generate random position on asteroid edge, slightly outside for half circle effect
     local angle = math.random() * math.pi * 2
-    local distance = radius * (0.7 + math.random() * 0.3) -- 70-100% of radius
+    local distance = radius * (1.0 + math.random() * 0.1) -- 100-110% of radius (slightly outside edge)
     local x = pos.x + math.cos(angle) * distance
     local y = pos.y + math.sin(angle) * distance
     
@@ -50,6 +50,7 @@ function Hotspots:generateHotspot(asteroid)
     }
     
     table.insert(self.hotspots, hotspot)
+    print(string.format("Hotspot created at (%.1f, %.1f) with radius %.1f", x, y, self.hotspotRadius))
     return true
 end
 
