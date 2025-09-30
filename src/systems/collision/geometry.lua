@@ -1,5 +1,26 @@
 local Geometry = {}
 
+local function distSqPointSegment(px, py, x1, y1, x2, y2)
+  local dx, dy = x2 - x1, y2 - y1
+  if dx == 0 and dy == 0 then
+    local qx, qy = px - x1, py - y1
+    return qx * qx + qy * qy
+  end
+
+  local t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)
+  if t < 0 then
+    t = 0
+  elseif t > 1 then
+    t = 1
+  end
+
+  local projx = x1 + t * dx
+  local projy = y1 + t * dy
+  local qx = px - projx
+  local qy = py - projy
+  return qx * qx + qy * qy
+end
+
 function Geometry.segIntersect(x1,y1,x2,y2, x3,y3,x4,y4)
   local function cross(ax,ay,bx,by) return ax*by - ay*bx end
   local rpx, rpy = x2 - x1, y2 - y1
@@ -107,6 +128,31 @@ function Geometry.polygonVsPolygon(verts1, verts2)
 
   local numVertices2 = #verts2 / 2
   if numVertices2 >= 1 and Geometry.pointInPolygon(verts2[1], verts2[2], verts1) then
+    return true
+  end
+
+  return false
+end
+
+function Geometry.polygonVsCircle(verts, cx, cy, radius)
+  if not verts or #verts < 6 then return false end
+  local radiusSq = radius * radius
+  local numVertices = #verts / 2
+
+  for i = 1, numVertices do
+    local nextI = i + 1
+    if nextI > numVertices then nextI = 1 end
+    local x1 = verts[(i-1) * 2 + 1]
+    local y1 = verts[(i-1) * 2 + 2]
+    local x2 = verts[(nextI-1) * 2 + 1]
+    local y2 = verts[(nextI-1) * 2 + 2]
+
+    if distSqPointSegment(cx, cy, x1, y1, x2, y2) <= radiusSq then
+      return true
+    end
+  end
+
+  if Geometry.pointInPolygon(cx, cy, verts) then
     return true
   end
 

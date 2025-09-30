@@ -2,6 +2,7 @@ local Effects = require("src.systems.effects")
 local Events = require("src.core.events")
 local Config = require("src.content.config")
 local StationShields = require("src.systems.collision.station_shields")
+local Radius = require("src.systems.collision.radius")
 
 local CollisionEffects = {}
 
@@ -113,7 +114,13 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         Effects.addDamageNumber(entity.components.position.x, entity.components.position.y, math.floor(shieldDamage), "shield")
     end
 
-    health.shield = math.max(0, shieldBefore - shieldDamage)
+    local newShield = math.max(0, shieldBefore - shieldDamage)
+    if newShield ~= shieldBefore then
+        health.shield = newShield
+        Radius.invalidateCache(entity)
+    else
+        health.shield = newShield
+    end
     local remainingDamage = incoming - shieldDamage
 
     if remainingDamage > 0 then
