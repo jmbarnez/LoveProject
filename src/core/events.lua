@@ -189,6 +189,9 @@ Events.GAME_EVENTS = {
   -- Mining/Salvaging
   ASTEROID_MINED = "asteroid_mined",
   WRECKAGE_SALVAGED = "wreckage_salvaged",
+
+  -- Skill progression
+  SKILL_XP_GAINED = "skill_xp_gained",
   
   -- Quest system
   QUEST_STARTED = "quest_started",

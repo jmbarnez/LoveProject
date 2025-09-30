@@ -36,6 +36,7 @@ local Pickups = require("src.systems.pickups")
 local DestructionSystem = require("src.systems.destruction")
 local EntityFactory = require("src.templates.entity_factory")
 local StatusBars = require("src.ui.hud.status_bars")
+local SkillXpPopup = require("src.ui.hud.skill_xp_popup")
 local HotbarSystem = require("src.systems.hotbar")
 
 local Indicators = require("src.systems.render.indicators")
@@ -412,6 +413,7 @@ function Game.update(dt)
     Input.update(dt)
     UIManager.update(dt, player)
     StatusBars.update(dt, player)
+    SkillXpPopup.update(dt)
     local input = Input.getInputState()
 
     -- Update UI effects systems

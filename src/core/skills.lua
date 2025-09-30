@@ -1,5 +1,7 @@
 local Skills = {}
 
+local Events = require("src.core.events")
+
 -- Skill definitions with XP requirements
 Skills.definitions = {
     mining = {
@@ -81,6 +83,13 @@ function Skills.getXpToNext(skillId)
     local skillData = Skills.playerSkills[skillId]
     if not skillData then return 0 end
 
+    local skillDef = Skills.definitions[skillId]
+    if not skillDef then return 0 end
+
+    if skillData.level >= (skillDef.maxLevel or math.huge) then
+        return 0
+    end
+
     local nextLevelXp = Skills.getXpForLevel(skillId, skillData.level + 1)
     local currentTotalXp = Skills.getXpForLevel(skillId, skillData.level)
     return nextLevelXp - currentTotalXp
@@ -90,6 +99,13 @@ end
 function Skills.getProgressToNext(skillId)
     local skillData = Skills.playerSkills[skillId]
     if not skillData then return 0 end
+
+    local skillDef = Skills.definitions[skillId]
+    if not skillDef then return 0 end
+
+    if skillData.level >= (skillDef.maxLevel or math.huge) then
+        return 1
+    end
 
     local currentLevelXp = Skills.getXpForLevel(skillId, skillData.level)
     local nextLevelXp = Skills.getXpForLevel(skillId, skillData.level + 1)
@@ -104,11 +120,14 @@ function Skills.addXp(skillId, amount)
     local skillData = Skills.playerSkills[skillId]
     if not skillData then return false end
 
+    local skillDef = Skills.definitions[skillId]
+    if not skillDef then return false end
+
     skillData.totalXp = skillData.totalXp + amount
 
     -- Calculate new level
     local newLevel = 1
-    while newLevel < Skills.definitions[skillId].maxLevel do
+    while newLevel < (skillDef.maxLevel or math.huge) do
         local xpNeeded = Skills.getXpForLevel(skillId, newLevel + 1)
         if skillData.totalXp < xpNeeded then
             break
@@ -126,6 +145,24 @@ function Skills.addXp(skillId, amount)
     -- Update current level XP
     local currentLevelXp = Skills.getXpForLevel(skillId, skillData.level)
     skillData.xp = skillData.totalXp - currentLevelXp
+
+    local xpToNext = Skills.getXpToNext(skillId)
+    local progress = Skills.getProgressToNext(skillId)
+
+    if Events and Events.emit and Events.GAME_EVENTS and Events.GAME_EVENTS.SKILL_XP_GAINED then
+        Events.emit(Events.GAME_EVENTS.SKILL_XP_GAINED, {
+            skillId = skillId,
+            skillName = skillDef.name or skillId,
+            level = skillData.level,
+            maxLevel = skillDef.maxLevel,
+            xpGained = amount,
+            xpInLevel = skillData.xp,
+            xpToNext = xpToNext,
+            progress = progress,
+            leveledUp = leveledUp,
+            totalXp = skillData.totalXp
+        })
+    end
 
     return leveledUp, newLevel
 end
