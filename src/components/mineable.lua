@@ -21,6 +21,18 @@ function Mineable.new(values)
     instance.activeCyclesPerResource = values.activeCyclesPerResource -- optional; typically set by startMining
     -- Optional flag if systems prefer to mark on the component
     instance.isBeingMined = false
+    instance._wasBeingMined = false
+    -- Mining hotspot state (transient, runtime-managed)
+    instance.hotspots = {}
+    instance.hotspotTimer = 0
+    instance.hotspotInterval = values.hotspotInterval or 2.2
+    instance.hotspotIntervalJitter = values.hotspotIntervalJitter or 1.4
+    instance.hotspotRadius = values.hotspotRadius -- initialized later using entity radius if absent
+    instance.hotspotRadiusScale = values.hotspotRadiusScale or 0.28
+    instance.hotspotLife = values.hotspotLife or 2.4
+    instance.hotspotWarmup = values.hotspotWarmup or 0.35
+    instance.hotspotBurstInterval = values.hotspotBurstInterval or 0.75
+    instance.hotspotDamage = values.hotspotDamage or 8
     
     -- Hotspot system for enhanced mining
     instance.hotspots = Hotspots.new({
@@ -31,7 +43,7 @@ function Mineable.new(values)
         hotspotSpawnChance = values.hotspotSpawnChance or 0.3,
         hotspotSpawnInterval = values.hotspotSpawnInterval or 2.0
     })
-    
+
     return instance
 end
 
