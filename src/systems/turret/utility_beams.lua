@@ -61,6 +61,8 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
         angle = turret.owner.components.position.angle or 0
     end
 
+    turret.currentAimAngle = angle
+
     -- Get turret world position instead of ship center
     local Turret = require("src.systems.turret.core")
     local sx, sy = Turret.getTurretWorldPosition(turret)
@@ -272,6 +274,8 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
         -- Fallback to ship facing if cursor position not available
         angle = turret.owner.components.position.angle or 0
     end
+
+    turret.currentAimAngle = angle
 
     -- Get turret world position instead of ship center
     local Turret = require("src.systems.turret.core")

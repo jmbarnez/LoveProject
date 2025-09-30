@@ -24,27 +24,36 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
 
     -- Get turret world position instead of ship center
     local Turret = require("src.systems.turret.core")
-    local sx, sy = Turret.getTurretWorldPosition(turret)
+    local shipPos = turret.owner.components and turret.owner.components.position or {x = 0, y = 0, angle = 0}
 
     -- Aim in the direction of the target if provided, otherwise use owner's facing
     local angle
     if target then
-        -- For automatic firing (AI), aim directly at the target
+        -- For automatic firing (AI), start by aiming from the ship center to the target
+        local tx = target.components.position.x
+        local ty = target.components.position.y
+        angle = math.atan2(ty - shipPos.y, tx - shipPos.x)
+    elseif turret.owner.cursorWorldPos and shipPos then
+        -- For manual firing, use the cursor direction
+        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
+        local dx = cursorX - shipPos.x
+        local dy = cursorY - shipPos.y
+        angle = math.atan2(dy, dx)
+    else
+        -- Fallback to ship facing if cursor position not available
+        angle = shipPos.angle or 0
+    end
+
+    turret.currentAimAngle = angle
+
+    local sx, sy = Turret.getTurretWorldPosition(turret)
+
+    if target then
+        -- Refine the beam angle now that we have the muzzle position
         local tx = target.components.position.x
         local ty = target.components.position.y
         angle = math.atan2(ty - sy, tx - sx)
-    else
-        -- For manual firing, use the cursor direction
-        if turret.owner.cursorWorldPos and turret.owner.components and turret.owner.components.position then
-            local shipX, shipY = turret.owner.components.position.x, turret.owner.components.position.y
-            local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
-            local dx = cursorX - shipX
-            local dy = cursorY - shipY
-            angle = math.atan2(dy, dx)
-        else
-            -- Fallback to ship facing if cursor position not available
-            angle = turret.owner.components.position.angle or 0
-        end
+        turret.currentAimAngle = angle
     end
 
     -- Perform hitscan collision check

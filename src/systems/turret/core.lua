@@ -97,6 +97,10 @@ function Turret.new(owner, params)
     self.isLockedOn = false -- Whether lock-on has been achieved
     self.lockOnProgress = 0 -- 0-1 progress toward lock acquisition
 
+    -- Track the turret's current aiming direction in world space so visuals,
+    -- beams, and projectiles share the same muzzle origin.
+    self.currentAimAngle = nil
+
     -- Set default tracer colors if not specified
     if (self.kind == 'gun' or self.kind == 'projectile' or not self.kind) and not self.tracer.color then
         self.tracer.color = {0.35, 0.70, 1.00, 1.0}
@@ -342,46 +346,112 @@ function Turret.getTurretWorldPosition(turret)
     if not turret or not turret.owner or not turret.owner.components or not turret.owner.components.position then
         return 0, 0
     end
-    
+
     local shipX = turret.owner.components.position.x
     local shipY = turret.owner.components.position.y
     local shipAngle = turret.owner.components.position.angle or 0
-    
-    -- Get turret pivot from the ship's visual definition
-    local turretPivotX, turretPivotY = 0, 0
-    local turretTipOffset = 0
-    
-    -- Try to get turret position from ship visuals
-    if turret.owner.ship and turret.owner.ship.visuals and turret.owner.ship.visuals.shapes then
-        for _, shape in ipairs(turret.owner.ship.visuals.shapes) do
-            if shape.turret and shape.turretPivot then
-                turretPivotX = shape.turretPivot.x or 0
-                turretPivotY = shape.turretPivot.y or 0
-                
-                -- For circle shapes (turret barrels), the tip is at the center of the circle
-                if shape.type == "circle" then
-                    -- Use the circle's position as the turret tip, not offset by radius
-                    turretPivotX = (shape.x or 0)
-                    turretPivotY = (shape.y or 0)
-                    turretTipOffset = 0
-                elseif shape.type == "rectangle" then
-                    -- For rectangle shapes, use the center position plus half the height
-                    turretPivotX = (shape.x or 0) + (shape.w or 0) / 2
-                    turretPivotY = (shape.y or 0) + (shape.h or 0) / 2
-                    turretTipOffset = 0
+
+    -- Determine the local pivot and muzzle points from the ship's visuals.
+    local pivotX, pivotY = 0, 0
+    local muzzleX, muzzleY = 0, 0
+    local pivotFound = false
+    local muzzleFound = false
+    local maxDistanceSq = -math.huge
+
+    local visuals = turret.owner.ship and turret.owner.ship.visuals
+    if visuals then
+        if visuals.turretPivot then
+            pivotX = visuals.turretPivot.x or pivotX
+            pivotY = visuals.turretPivot.y or pivotY
+            pivotFound = true
+        end
+
+        if visuals.shapes then
+            for _, shape in ipairs(visuals.shapes) do
+                if shape.turret then
+                    if not pivotFound then
+                        if type(shape.turretPivot) == "table" then
+                            pivotX = shape.turretPivot.x or pivotX
+                            pivotY = shape.turretPivot.y or pivotY
+                            pivotFound = true
+                        elseif shape.turretPivotX or shape.turretPivotY then
+                            pivotX = shape.turretPivotX or pivotX
+                            pivotY = shape.turretPivotY or pivotY
+                            pivotFound = true
+                        end
+                    end
+
+                    local candidateX, candidateY = nil, nil
+
+                    if shape.type == "circle" then
+                        candidateX = shape.x or 0
+                        candidateY = shape.y or 0
+                    elseif shape.type == "rectangle" then
+                        candidateX = (shape.x or 0) + (shape.w or 0) / 2
+                        candidateY = (shape.y or 0) + (shape.h or 0) / 2
+                    elseif shape.type == "polygon" and shape.points then
+                        local sumX, sumY = 0, 0
+                        local count = 0
+                        for i = 1, #shape.points, 2 do
+                            sumX = sumX + shape.points[i]
+                            sumY = sumY + shape.points[i + 1]
+                            count = count + 1
+                        end
+                        if count > 0 then
+                            candidateX = sumX / count
+                            candidateY = sumY / count
+                        end
+                    end
+
+                    if candidateX and candidateY then
+                        local dx = candidateX - pivotX
+                        local dy = candidateY - pivotY
+                        local distSq = dx * dx + dy * dy
+                        if distSq > maxDistanceSq then
+                            muzzleX = candidateX
+                            muzzleY = candidateY
+                            maxDistanceSq = distSq
+                            muzzleFound = true
+                        end
+                    end
                 end
-                break
             end
         end
     end
-    
-    -- Calculate turret tip position in world coordinates
-    local cos = math.cos(shipAngle)
-    local sin = math.sin(shipAngle)
-    local tipWorldX = shipX + turretPivotX * cos - turretPivotY * sin
-    local tipWorldY = shipY + turretPivotX * sin + turretPivotY * cos
-    
-    return tipWorldX, tipWorldY
+
+    if not pivotFound then
+        pivotX, pivotY = 0, 0
+    end
+
+    if not muzzleFound then
+        muzzleX, muzzleY = pivotX, pivotY
+    end
+
+    -- Determine how much the turret is rotated relative to the ship.
+    local aimAngle = turret.currentAimAngle
+    if not aimAngle then
+        aimAngle = shipAngle - math.pi / 2
+    end
+    local turretAngle = aimAngle - shipAngle + math.pi / 2
+
+    -- Rotate pivot into world space.
+    local cosShip = math.cos(shipAngle)
+    local sinShip = math.sin(shipAngle)
+    local pivotWorldX = shipX + pivotX * cosShip - pivotY * sinShip
+    local pivotWorldY = shipY + pivotX * sinShip + pivotY * cosShip
+
+    -- Rotate muzzle offset by turret rotation, then by ship rotation.
+    local offsetX = muzzleX - pivotX
+    local offsetY = muzzleY - pivotY
+    local cosTurret = math.cos(turretAngle)
+    local sinTurret = math.sin(turretAngle)
+    local rotatedOffsetX = offsetX * cosTurret - offsetY * sinTurret
+    local rotatedOffsetY = offsetX * sinTurret + offsetY * cosTurret
+
+    local muzzleWorldX = pivotWorldX + rotatedOffsetX * cosShip - rotatedOffsetY * sinShip
+    local muzzleWorldY = pivotWorldY + rotatedOffsetX * sinShip + rotatedOffsetY * cosShip
+
+    return muzzleWorldX, muzzleWorldY
 end
 
 return Turret
