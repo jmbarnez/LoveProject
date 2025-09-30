@@ -322,36 +322,45 @@ function EntityRenderers.asteroid(entity, player)
                     -- Calculate pulsing effect
                     local pulse = 0.8 + 0.2 * math.sin(hotspot.pulsePhase)
                     local alpha = (hotspot.lifetime / hotspot.maxLifetime) * pulse
-                    
+
                     -- Calculate angle from asteroid center to hotspot
                     local dx = hotspot.x - asteroidX
                     local dy = hotspot.y - asteroidY
                     local angle = math.atan2(dy, dx)
-                    
-                    -- Calculate half circle parameters
+
+                    -- Calculate half circle parameters based on stored hotspot position
                     local halfCircleRadius = hotspot.radius * pulse
-                    local halfCircleX = asteroidX + math.cos(angle) * (asteroidRadius + halfCircleRadius * 0.5)
-                    local halfCircleY = asteroidY + math.sin(angle) * (asteroidRadius + halfCircleRadius * 0.5)
-                    
-                    -- Draw half circle as a filled arc
-                    local glowColor = {1.0, 0.8, 0.2, alpha * 0.6} -- Orange glow
+                    local baseDistance = math.sqrt(dx * dx + dy * dy)
+                    local desiredDistance = asteroidRadius + halfCircleRadius * 0.35
+                    local distance = baseDistance
+                    if distance <= 0 then
+                        distance = desiredDistance
+                    else
+                        distance = math.max(distance, desiredDistance)
+                    end
+
+                    local halfCircleX = asteroidX + math.cos(angle) * distance
+                    local halfCircleY = asteroidY + math.sin(angle) * distance
+
+                    -- Draw half circle as a filled arc with vivid yellow glow
+                    local glowColor = {1.0, 0.95, 0.35, alpha * 0.55}
                     RenderUtils.setColor(glowColor)
-                    love.graphics.arc("fill", halfCircleX, halfCircleY, halfCircleRadius, 
+                    love.graphics.arc("fill", halfCircleX, halfCircleY, halfCircleRadius,
                                    angle - math.pi/2, angle + math.pi/2, 32)
-                    
-                    -- Draw half circle border
-                    local borderColor = {1.0, 0.6, 0.0, alpha} -- Brighter orange border
+
+                    -- Draw half circle border with a brighter rim
+                    local borderColor = {1.0, 0.9, 0.2, alpha}
                     RenderUtils.setColor(borderColor)
                     love.graphics.setLineWidth(2)
-                    love.graphics.arc("line", halfCircleX, halfCircleY, halfCircleRadius, 
+                    love.graphics.arc("line", halfCircleX, halfCircleY, halfCircleRadius,
                                     angle - math.pi/2, angle + math.pi/2, 32)
                     love.graphics.setLineWidth(1)
-                    
-                    -- Draw inner core as smaller half circle
-                    local coreColor = {1.0, 1.0, 0.4, alpha * 0.8} -- Bright yellow core
+
+                    -- Draw inner core as smaller half circle to sell the heat
+                    local coreColor = {1.0, 0.98, 0.55, alpha * 0.85}
                     RenderUtils.setColor(coreColor)
-                    local coreRadius = halfCircleRadius * 0.4
-                    love.graphics.arc("fill", halfCircleX, halfCircleY, coreRadius, 
+                    local coreRadius = halfCircleRadius * 0.42
+                    love.graphics.arc("fill", halfCircleX, halfCircleY, coreRadius,
                                    angle - math.pi/2, angle + math.pi/2, 32)
                 end
             end
