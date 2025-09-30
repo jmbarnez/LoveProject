@@ -78,12 +78,14 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
             -- Apply damage
             local damage = turret.damage_range and {
                 min = turret.damage_range.min,
-                max = turret.damage_range.max
-            } or {min = 1, max = 2}
+                max = turret.damage_range.max,
+                skill = turret.skillId
+            } or {min = 1, max = 2, skill = turret.skillId}
 
             local dmgValue = math.random(damage.min, damage.max)
+            damage.value = dmgValue
             Log.debug("Applying damage from turret: " .. tostring(turret.id) .. " to target: " .. tostring(hitTarget.id) .. " with value: " .. tostring(dmgValue))
-            BeamWeapons.applyLaserDamage(hitTarget, dmgValue, turret.owner)
+            BeamWeapons.applyLaserDamage(hitTarget, dmgValue, turret.owner, turret.skillId, damage)
 
             -- Create combat impact effects
             TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
@@ -164,7 +166,7 @@ function BeamWeapons.isEnemyTarget(target, source)
 end
 
 -- Apply damage from laser weapons
-function BeamWeapons.applyLaserDamage(target, damage, source)
+function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMeta)
     if not target.components or not target.components.health then
         return
     end
@@ -181,6 +183,15 @@ function BeamWeapons.applyLaserDamage(target, damage, source)
         if health.hp <= 0 then
             target.dead = true
             target._killedBy = source
+            if damageMeta then
+                damageMeta.value = damage
+                if skillId and damageMeta.skill == nil then
+                    damageMeta.skill = skillId
+                end
+                target._finalDamage = damageMeta
+            else
+                target._finalDamage = { value = damage, skill = skillId }
+            end
         end
     end
 end

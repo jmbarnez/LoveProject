@@ -18,6 +18,14 @@ function Turret.new(owner, params)
     self.owner = owner
     self.kind = params.type or params.kind or "gun"
 
+    -- Skill progression tag used when this turret deals the killing blow
+    self.skillId = params.skillId
+    if not self.skillId then
+        if self.kind == 'gun' or self.kind == 'projectile' or self.kind == 'laser' or self.kind == 'missile' then
+            self.skillId = "gunnery"
+        end
+    end
+
     -- Basic turret parameters
     self.damage_range = params.damage_range or {min = 1, max = 2}
     self.cycle = params.cycle or 1.0
