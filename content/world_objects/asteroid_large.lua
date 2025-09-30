@@ -31,6 +31,13 @@ return {
         resourceType = "stones",
         resources = 140,
         durability = 30.0,
+        -- Hotspot configuration
+        maxHotspots = 4,
+        hotspotRadius = 18,
+        hotspotDamageMultiplier = 2.2,
+        hotspotLifetime = 10.0,
+        hotspotSpawnChance = 0.25,
+        hotspotSpawnInterval = 2.5
     },
 
     visuals = {

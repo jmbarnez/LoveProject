@@ -12,7 +12,8 @@ local cacheCounter = 0
 
 -- Cached radius calculation to avoid expensive recalculations
 local function getCachedEffectiveRadius(entity)
-    local cacheKey = entity.id .. "_" .. (entity._radiusCacheVersion or 0)
+    local entityId = entity.id or tostring(entity):gsub("table: ", "")
+    local cacheKey = entityId .. "_" .. (entity._radiusCacheVersion or 0)
 
     -- Check if we have a cached value
     if radiusCache[cacheKey] then
@@ -44,7 +45,8 @@ end
 
 -- Cached visual radius calculation
 local function getCachedVisualRadius(entity)
-    local cacheKey = entity.id .. "_visual_" .. (entity._visualRadiusCacheVersion or 0)
+    local entityId = entity.id or tostring(entity):gsub("table: ", "")
+    local cacheKey = entityId .. "_visual_" .. (entity._visualRadiusCacheVersion or 0)
 
     if visualRadiusCache[cacheKey] then
         return visualRadiusCache[cacheKey]
