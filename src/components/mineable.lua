@@ -31,17 +31,21 @@ function Mineable.new(values)
     instance.hotspotBurstDamage = values.hotspotBurstDamage or (hotspotDamage * damageMultiplier)
     instance.hotspotBonusResources = values.hotspotBonusResources or 2
 
-    -- Hotspot system for enhanced mining
-    instance.hotspots = Hotspots.new({
-        maxHotspots = values.maxHotspots or 3,
-        hotspotRadius = values.hotspotRadius or 15,
-        hotspotLifetime = values.hotspotLifetime or 6.0,
-        hotspotSpawnChance = values.hotspotSpawnChance or 0.4,
-        hotspotSpawnInterval = values.hotspotSpawnInterval or 2.0,
-        hotspotSpawnJitter = values.hotspotSpawnJitter or 0.8,
-        hotspotBonusResources = instance.hotspotBonusResources,
-        hotspotBurstDamage = instance.hotspotBurstDamage
-    })
+    -- Hotspot system for enhanced mining (only if configured)
+    if values.maxHotspots and values.maxHotspots > 0 then
+        instance.hotspots = Hotspots.new({
+            maxHotspots = values.maxHotspots,
+            hotspotRadius = values.hotspotRadius or 15,
+            hotspotLifetime = values.hotspotLifetime or 6.0,
+            hotspotSpawnChance = values.hotspotSpawnChance or 0.4,
+            hotspotSpawnInterval = values.hotspotSpawnInterval or 2.0,
+            hotspotSpawnJitter = values.hotspotSpawnJitter or 0.8,
+            hotspotBonusResources = instance.hotspotBonusResources,
+            hotspotBurstDamage = instance.hotspotBurstDamage
+        })
+    else
+        instance.hotspots = nil
+    end
 
     return instance
 end

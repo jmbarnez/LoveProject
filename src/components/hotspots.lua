@@ -153,7 +153,6 @@ local function spawnBonusResources(world, asteroid, impactX, impactY, count)
     mineable.resources = available - drops
 
     local ItemPickup = require("src.entities.item_pickup")
-    local resourceId = mineable.resourceType or "stones"
     local speedBase = 160
 
     for i = 1, drops do
@@ -170,7 +169,7 @@ local function spawnBonusResources(world, asteroid, impactX, impactY, count)
         local pickup = ItemPickup.new(
             spawnX,
             spawnY,
-            resourceId,
+            "stones",  -- Always drop raw stones
             1,
             0.85 + math.random() * 0.3,
             vx,

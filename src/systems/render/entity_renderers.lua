@@ -1082,18 +1082,7 @@ function EntityRenderers.draw(world, camera, player)
         ::continue::
     end
 
-    -- Draw player tractor beam for item pickups
-    if player and player.tractorBeam then
-        local RenderUtils = require("src.systems.render.utils")
-        local sx, sy = player.components.position.x, player.components.position.y
-        local ex, ey = player.tractorBeam.targetX, player.tractorBeam.targetY
-        local time = love.timer.getTime()
-        local pulse = 0.7 + 0.3 * math.sin(time * 4)  -- Subtle pulse between 0.4 and 1.0 alpha base
-        RenderUtils.setColor({0.2, 0.6, 1.0, 0.4 * pulse})
-        love.graphics.setLineWidth(1.5)
-        love.graphics.line(sx, sy, ex, ey)
-        love.graphics.setLineWidth(1)
-    end
+    -- Tractor beam removed - player ship is now magnetic for all nearby items
 end
 
 return EntityRenderers

@@ -149,7 +149,7 @@ function UtilityBeams.applyMiningDamage(target, damage, source, world, impactX, 
         mineable.maxDurability = oldDurability
     end
 
-    -- Check for hotspot burst damage
+    -- Check for hotspot burst damage (only if hotspots exist)
     local burstDamage = 0
     local hotspotConsumed = false
     if mineable.hotspots and mineable.hotspots.activateAt and impactX and impactY then
@@ -177,8 +177,6 @@ function UtilityBeams.applyMiningDamage(target, damage, source, world, impactX, 
     if mineable.durability <= 0 then
         if mineable.hotspots and mineable.hotspots.clear then
             mineable.hotspots:clear()
-        else
-            mineable.hotspots = {}
         end
         UtilityBeams.completeMining(nil, target, world)
         target.dead = true
@@ -197,28 +195,27 @@ function UtilityBeams.completeMining(turret, target, world)
     else
         mineable.hotspots = {}
     end
-    local resourceType = mineable.resourceType or "stones"
-    local resourceAmount = math.max(1, mineable.amount or mineable.resources or 1)
-
-    -- Create resource pickup
+    -- Create raw stone pickups (2-4 stones)
     local ItemPickup = require("src.entities.item_pickup")
-    for i = 1, math.max(1, resourceAmount) do
+    local stoneCount = 2 + math.random(2)
+    
+    for i = 1, stoneCount do
         local angle = math.random() * math.pi * 2
-        local dist = 6 + math.random() * 18
+        local dist = 8 + math.random() * 16
         local spawnX = target.components.position.x + math.cos(angle) * dist
         local spawnY = target.components.position.y + math.sin(angle) * dist
 
-        local speed = 120 + math.random() * 180
-        local spreadAngle = angle + (math.random() - 0.5) * 0.6
+        local speed = 100 + math.random() * 140
+        local spreadAngle = angle + (math.random() - 0.5) * 0.5
         local vx = math.cos(spreadAngle) * speed
         local vy = math.sin(spreadAngle) * speed
 
         local pickup = ItemPickup.new(
             spawnX,
             spawnY,
-            resourceType,
+            "stones",  -- Always drop raw stones
             1,
-            0.85 + math.random() * 0.35,
+            0.8 + math.random() * 0.4,
             vx,
             vy
         )

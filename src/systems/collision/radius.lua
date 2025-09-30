@@ -146,7 +146,6 @@ function Radius.calculateEffectiveRadius(entity)
         local collidableRadius = entity.components.collidable.radius or baseRadius
         local effectiveRadius = math.max(visualRadius, collidableRadius)
         local finalRadius = effectiveRadius + hitBuffer
-        print("Radius calculation for asteroid: visual=" .. visualRadius .. ", collidable=" .. collidableRadius .. ", effective=" .. effectiveRadius .. ", final=" .. finalRadius)
         return finalRadius
     end
 

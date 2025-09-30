@@ -71,7 +71,6 @@ function WorldObject.new(x, y, angle, friendly, config)
             table.insert(flat, v[1])
             table.insert(flat, v[2])
         end
-        print("Asteroid generated with " .. #vertsNested .. " vertices, flat list has " .. #flat .. " elements")
         -- Upgrade collidable to polygon using generated hull while keeping radius for broad-phase
         if self.components.collidable then
             self.components.collidable.shape = "polygon"

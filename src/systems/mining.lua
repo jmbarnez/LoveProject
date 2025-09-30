@@ -60,26 +60,26 @@ function MiningSystem.update(dt, world, player)
                         if (m.resources or 0) > 0 then
                             m.resources = m.resources - 1
                             if player then
-                                local resourceId = m.resourceType or "stones"
-
                                 local ItemPickup = require("src.entities.item_pickup")
                                 local radius = (e.components.collidable and e.components.collidable.radius) or 30
-                                local count = math.max(1, math.ceil(radius / 12))
+                                
+                                -- Drop 2-4 raw stones from the asteroid
+                                local stoneCount = 2 + math.random(2)
 
-                                for i = 1, count do
+                                for i = 1, stoneCount do
                                     local angle = math.random() * math.pi * 2
-                                    local dist = radius * 0.2 + math.random() * radius * 0.6
+                                    local dist = radius * 0.3 + math.random() * radius * 0.4
                                     local spawnX = e.components.position.x + math.cos(angle) * dist
                                     local spawnY = e.components.position.y + math.sin(angle) * dist
-                                    local speed = 160 + math.random() * 200
-                                    local spreadAngle = angle + (math.random() - 0.5) * 0.8
+                                    local speed = 80 + math.random() * 120
+                                    local spreadAngle = angle + (math.random() - 0.5) * 0.6
 
                                     local pickup = ItemPickup.new(
                                         spawnX,
                                         spawnY,
-                                        resourceId,
+                                        "stones",  -- Always drop raw stones
                                         1,
-                                        0.85 + math.random() * 0.35,
+                                        0.8 + math.random() * 0.4,
                                         math.cos(spreadAngle) * speed,
                                         math.sin(spreadAngle) * speed
                                     )
