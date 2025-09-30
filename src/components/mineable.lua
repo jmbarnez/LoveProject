@@ -22,26 +22,25 @@ function Mineable.new(values)
     -- Optional flag if systems prefer to mark on the component
     instance.isBeingMined = false
     instance._wasBeingMined = false
-    -- Mining hotspot state (transient, runtime-managed)
-    instance.hotspots = {}
-    instance.hotspotTimer = 0
-    instance.hotspotInterval = values.hotspotInterval or 2.2
-    instance.hotspotIntervalJitter = values.hotspotIntervalJitter or 1.4
+    -- Mining hotspot configuration
     instance.hotspotRadius = values.hotspotRadius -- initialized later using entity radius if absent
     instance.hotspotRadiusScale = values.hotspotRadiusScale or 0.28
-    instance.hotspotLife = values.hotspotLife or 2.4
-    instance.hotspotWarmup = values.hotspotWarmup or 0.35
-    instance.hotspotBurstInterval = values.hotspotBurstInterval or 0.75
-    instance.hotspotDamage = values.hotspotDamage or 8
-    
+
+    local hotspotDamage = values.hotspotDamage or 8
+    local damageMultiplier = values.hotspotDamageMultiplier or 1.8
+    instance.hotspotBurstDamage = values.hotspotBurstDamage or (hotspotDamage * damageMultiplier)
+    instance.hotspotBonusResources = values.hotspotBonusResources or 2
+
     -- Hotspot system for enhanced mining
     instance.hotspots = Hotspots.new({
         maxHotspots = values.maxHotspots or 3,
         hotspotRadius = values.hotspotRadius or 15,
-        hotspotDamageMultiplier = values.hotspotDamageMultiplier or 2.0,
-        hotspotLifetime = values.hotspotLifetime or 8.0,
-        hotspotSpawnChance = values.hotspotSpawnChance or 0.3,
-        hotspotSpawnInterval = values.hotspotSpawnInterval or 2.0
+        hotspotLifetime = values.hotspotLifetime or 6.0,
+        hotspotSpawnChance = values.hotspotSpawnChance or 0.4,
+        hotspotSpawnInterval = values.hotspotSpawnInterval or 2.0,
+        hotspotSpawnJitter = values.hotspotSpawnJitter or 0.8,
+        hotspotBonusResources = instance.hotspotBonusResources,
+        hotspotBurstDamage = instance.hotspotBurstDamage
     })
 
     return instance
