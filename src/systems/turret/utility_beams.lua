@@ -7,55 +7,6 @@ local Effects = require("src.systems.effects")
 local UtilityBeams = {}
 local IMPACT_INTERVAL = 0.18
 
-local function triggerHotspot(target, hotspot, source, impactX, impactY)
-    if not hotspot then
-        return
-    end
-
-    hotspot.cooldown = (hotspot.burstInterval or 0.75)
-    hotspot.pulse = 0.35
-    hotspot.lastHit = 0.35
-
-    if target then
-        -- Apply burst damage to the asteroid, not the player
-        local burstDamage = hotspot.damage or 8
-        if target.components and target.components.mineable then
-            target.components.mineable.durability = math.max(0, (target.components.mineable.durability or 0) - burstDamage)
-        end
-    end
-
-    if Effects and Effects.spawnImpact and target and target.components then
-        local pos = target.components.position
-        local collidable = target.components.collidable
-        if pos and impactX and impactY then
-            local radius = (collidable and collidable.radius) or 30
-            local angle = math.atan2(impactY - pos.y, impactX - pos.x)
-            Effects.spawnImpact('hull', pos.x, pos.y, radius, impactX, impactY, angle, nil, 'mining_hotspot', target)
-        end
-    end
-end
-
-local function handleHotspotImpact(target, mineable, source, impactX, impactY)
-    if not mineable or not mineable.hotspots or not impactX or not impactY then
-        return
-    end
-
-    local radiusBase = mineable.hotspotRadius or 10
-    for _, hotspot in ipairs(mineable.hotspots) do
-        local hx = hotspot.worldX or 0
-        local hy = hotspot.worldY or 0
-        local radius = hotspot.radius or radiusBase
-        local dx = impactX - hx
-        local dy = impactY - hy
-        if (dx * dx + dy * dy) <= radius * radius then
-            hotspot.lastHit = 0.25
-            if (hotspot.warmup or 0) <= 0 and (hotspot.cooldown or 0) <= 0 then
-                triggerHotspot(target, hotspot, source, impactX, impactY)
-            end
-        end
-    end
-end
-
 local function spawnSalvagePickup(target, amount, world)
     if not world or amount <= 0 then
         return
@@ -190,10 +141,6 @@ function UtilityBeams.applyMiningDamage(target, damage, source, world, impactX, 
     local mineable = target.components.mineable
     local oldDurability = mineable.durability or 5.0
 
-    if impactX and impactY then
-        handleHotspotImpact(target, mineable, source, impactX, impactY)
-    end
-
     -- Initialize maxDurability if not set
     if not mineable.maxDurability then
         mineable.maxDurability = oldDurability
@@ -202,23 +149,20 @@ function UtilityBeams.applyMiningDamage(target, damage, source, world, impactX, 
     -- Check for hotspot burst damage
     local burstDamage = 0
     local hotspotConsumed = false
-    if mineable.hotspots and source and source.cursorWorldPos then
-        -- Try to consume a hotspot for burst damage
-        burstDamage = mineable.hotspots:consumeHotspot(
-            source.cursorWorldPos.x, 
-            source.cursorWorldPos.y
-        )
+    if mineable.hotspots and mineable.hotspots.activateAt and impactX and impactY then
+        burstDamage = mineable.hotspots:activateAt(target, world, impactX, impactY)
         hotspotConsumed = (burstDamage > 0)
     end
 
     -- Apply base damage plus burst damage
     local finalDamage = damage + burstDamage
-    
+
     -- Create visual effect for hotspot consumption
     if hotspotConsumed then
-        local TurretEffects = require("src.systems.turret.effects")
-        if TurretEffects and TurretEffects.createImpactEffect then
-            TurretEffects.createImpactEffect(nil, source.cursorWorldPos.x, source.cursorWorldPos.y, target, "hotspot_burst")
+        local effectX = impactX or (source and source.cursorWorldPos and source.cursorWorldPos.x)
+        local effectY = impactY or (source and source.cursorWorldPos and source.cursorWorldPos.y)
+        if effectX and effectY and TurretEffects and TurretEffects.createImpactEffect then
+            TurretEffects.createImpactEffect(nil, effectX, effectY, target, "hotspot_burst")
         end
     end
     mineable.durability = math.max(0, mineable.durability - finalDamage)
@@ -228,7 +172,11 @@ function UtilityBeams.applyMiningDamage(target, damage, source, world, impactX, 
 
     -- Check if asteroid is completely mined
     if mineable.durability <= 0 then
-        mineable.hotspots = {}
+        if mineable.hotspots and mineable.hotspots.clear then
+            mineable.hotspots:clear()
+        else
+            mineable.hotspots = {}
+        end
         UtilityBeams.completeMining(nil, target, world)
         target.dead = true
     end
@@ -241,7 +189,11 @@ function UtilityBeams.completeMining(turret, target, world)
     end
 
     local mineable = target.components.mineable
-    mineable.hotspots = {}
+    if mineable.hotspots and mineable.hotspots.clear then
+        mineable.hotspots:clear()
+    else
+        mineable.hotspots = {}
+    end
     local resourceType = mineable.resourceType or "stones"
     local resourceAmount = math.max(1, mineable.amount or mineable.resources or 1)
 

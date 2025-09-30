@@ -36,7 +36,8 @@ return {
         hotspotDamageMultiplier = 1.8,
         hotspotLifetime = 6.0,
         hotspotSpawnChance = 0.4,
-        hotspotSpawnInterval = 1.5
+        hotspotSpawnInterval = 1.5,
+        hotspotBonusResources = 2
     },
 
     visuals = {
