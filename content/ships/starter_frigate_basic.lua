@@ -35,8 +35,8 @@ return {
   cargo = { capacity = 120 },
   equipmentSlots = 3,
   equipmentLayout = {
-    { slot = 1, type = "turret", label = "Port Turret" },
-    { slot = 2, type = "turret", label = "Starboard Turret" },
+    { slot = 1, type = "turret" },
+    { slot = 2, type = "turret" },
     { slot = 3, type = "shield", label = "Shield Generator" },
   },
   targeting = { lockTime = 2.0 },

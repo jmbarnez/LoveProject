@@ -337,4 +337,51 @@ function Turret.updateLockOn(turret, dt, target, world)
     end
 end
 
+-- Calculate the world position of a turret based on ship position, rotation, and turret pivot
+function Turret.getTurretWorldPosition(turret)
+    if not turret or not turret.owner or not turret.owner.components or not turret.owner.components.position then
+        return 0, 0
+    end
+    
+    local shipX = turret.owner.components.position.x
+    local shipY = turret.owner.components.position.y
+    local shipAngle = turret.owner.components.position.angle or 0
+    
+    -- Get turret pivot from the ship's visual definition
+    local turretPivotX, turretPivotY = 0, 0
+    local turretTipOffset = 0
+    
+    -- Try to get turret position from ship visuals
+    if turret.owner.ship and turret.owner.ship.visuals and turret.owner.ship.visuals.shapes then
+        for _, shape in ipairs(turret.owner.ship.visuals.shapes) do
+            if shape.turret and shape.turretPivot then
+                turretPivotX = shape.turretPivot.x or 0
+                turretPivotY = shape.turretPivot.y or 0
+                
+                -- For circle shapes (turret barrels), the tip is at the center of the circle
+                if shape.type == "circle" then
+                    -- Use the circle's position as the turret tip, not offset by radius
+                    turretPivotX = (shape.x or 0)
+                    turretPivotY = (shape.y or 0)
+                    turretTipOffset = 0
+                elseif shape.type == "rectangle" then
+                    -- For rectangle shapes, use the center position plus half the height
+                    turretPivotX = (shape.x or 0) + (shape.w or 0) / 2
+                    turretPivotY = (shape.y or 0) + (shape.h or 0) / 2
+                    turretTipOffset = 0
+                end
+                break
+            end
+        end
+    end
+    
+    -- Calculate turret tip position in world coordinates
+    local cos = math.cos(shipAngle)
+    local sin = math.sin(shipAngle)
+    local tipWorldX = shipX + turretPivotX * cos - turretPivotY * sin
+    local tipWorldY = shipY + turretPivotX * sin + turretPivotY * cos
+    
+    return tipWorldX, tipWorldY
+end
+
 return Turret

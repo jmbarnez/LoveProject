@@ -82,12 +82,14 @@ function util.generateAsteroidGeometry(radius, opts)
   local angleStep = (2 * math.pi) / numPoints
   local jaggedness = opts.jaggedness or {0.75, 1.2}
 
+  print("Generating asteroid with " .. numPoints .. " points, radius " .. radius)
   for i = 0, numPoints - 1 do
     local angle = i * angleStep
     local r = radius * (jaggedness[1] + math.random() * (jaggedness[2] - jaggedness[1]))
     local x = r * math.cos(angle)
     local y = r * math.sin(angle)
     table.insert(vertices, {x, y})
+    print("  Vertex " .. (i+1) .. ": (" .. x .. "," .. y .. ")")
   end
 
   local chunkCountRange = opts.chunkCount or {1, 3}

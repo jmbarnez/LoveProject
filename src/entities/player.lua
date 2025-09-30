@@ -100,8 +100,14 @@ function Player.new(x, y, shipId)
           self:addItem("basic_gun", 1)
       end
 
-      if not equipStartingModule(2, "shield_module_basic") and self.components and self.components.cargo then
+      if not equipStartingModule(3, "shield_module_basic") and self.components and self.components.cargo then
           self:addItem("shield_module_basic", 1)
+      end
+
+      -- Add mining and salvaging lasers to cargo hold
+      if self.components and self.components.cargo then
+          self:addItem("mining_laser", 1)
+          self:addItem("salvaging_laser", 1)
       end
   end
 

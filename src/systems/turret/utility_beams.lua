@@ -61,8 +61,9 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
         angle = turret.owner.components.position.angle or 0
     end
 
-    local sx = turret.owner.components.position.x
-    local sy = turret.owner.components.position.y
+    -- Get turret world position instead of ship center
+    local Turret = require("src.systems.turret.core")
+    local sx, sy = Turret.getTurretWorldPosition(turret)
 
     -- Perform hitscan collision check for ALL collidable objects (like combat laser)
     local maxRange = turret.maxRange or 850
@@ -272,8 +273,9 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
         angle = turret.owner.components.position.angle or 0
     end
 
-    local sx = turret.owner.components.position.x
-    local sy = turret.owner.components.position.y
+    -- Get turret world position instead of ship center
+    local Turret = require("src.systems.turret.core")
+    local sx, sy = Turret.getTurretWorldPosition(turret)
 
     -- Perform hitscan collision check for ALL collidable objects (like combat laser)
     local maxRange = turret.maxRange or 800

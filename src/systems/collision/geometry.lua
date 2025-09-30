@@ -31,15 +31,39 @@ function Geometry.transformPolygon(ex, ey, angle, verts)
 end
 
 function Geometry.segPolygonHit(x1,y1,x2,y2, verts)
-  if not verts or #verts < 6 then return false end
+  if not verts or #verts < 6 then 
+    print("segPolygonHit: Invalid vertices, count=" .. tostring(verts and #verts or 0))
+    return false 
+  end
   local count = #verts
-  for i = 1, count-1, 2 do
-    local j = i + 2
-    if j > count then j = 1 end
-    local ix, iy = verts[i], verts[i+1]
-    local jx, jy = verts[j], verts[j+1]
+  local numVertices = count / 2
+  
+  -- Only print debug info for the first few calls to avoid spam
+  if not Geometry._debugCount then Geometry._debugCount = 0 end
+  Geometry._debugCount = Geometry._debugCount + 1
+  if Geometry._debugCount <= 3 then
+    print("segPolygonHit: Checking beam (" .. x1 .. "," .. y1 .. ") to (" .. x2 .. "," .. y2 .. ") against polygon with " .. numVertices .. " vertices")
+  end
+  
+  for i = 1, numVertices do
+    local nextI = i + 1
+    if nextI > numVertices then nextI = 1 end
+    
+    local ix, iy = verts[(i-1)*2 + 1], verts[(i-1)*2 + 2]
+    local jx, jy = verts[(nextI-1)*2 + 1], verts[(nextI-1)*2 + 2]
+    if Geometry._debugCount <= 3 then
+      print("  Edge " .. i .. ": (" .. ix .. "," .. iy .. ") to (" .. jx .. "," .. jy .. ")")
+    end
     local hit, hx, hy = Geometry.segIntersect(x1,y1,x2,y2, ix,iy,jx,jy)
-    if hit then return true, hx, hy end
+    if hit then 
+      if Geometry._debugCount <= 3 then
+        print("  HIT! At (" .. hx .. "," .. hy .. ")")
+      end
+      return true, hx, hy 
+    end
+  end
+  if Geometry._debugCount <= 3 then
+    print("  No hit found")
   end
   return false
 end
@@ -47,12 +71,12 @@ end
 function Geometry.pointInPolygon(px, py, verts)
   if not verts or #verts < 6 then return false end
   local inside = false
-  local count = #verts
-  local j = count - 1
+  local numVertices = #verts / 2
+  local j = numVertices
 
-  for i = 1, count-1, 2 do
-    local xi, yi = verts[i], verts[i+1]
-    local xj, yj = verts[j], verts[j+1]
+  for i = 1, numVertices do
+    local xi, yi = verts[(i-1)*2 + 1], verts[(i-1)*2 + 2]
+    local xj, yj = verts[(j-1)*2 + 1], verts[(j-1)*2 + 2]
 
     if ((yi > py) ~= (yj > py)) and (px < (xj - xi) * (py - yi) / (yj - yi) + xi) then
       inside = not inside
@@ -64,12 +88,12 @@ end
 
 function Geometry.polygonVsPolygon(verts1, verts2)
   -- Check if any edge of polygon1 intersects polygon2
-  local count1 = #verts1
-  for i = 1, count1-1, 2 do
-    local j = i + 2
-    if j > count1 then j = 1 end
-    local x1, y1 = verts1[i], verts1[i+1]
-    local x2, y2 = verts1[j], verts1[j+1]
+  local numVertices1 = #verts1 / 2
+  for i = 1, numVertices1 do
+    local nextI = i + 1
+    if nextI > numVertices1 then nextI = 1 end
+    local x1, y1 = verts1[(i-1)*2 + 1], verts1[(i-1)*2 + 2]
+    local x2, y2 = verts1[(nextI-1)*2 + 1], verts1[(nextI-1)*2 + 2]
 
     if Geometry.segPolygonHit(x1, y1, x2, y2, verts2) then
       return true
@@ -77,12 +101,12 @@ function Geometry.polygonVsPolygon(verts1, verts2)
   end
 
   -- Check if polygon1 is inside polygon2 or vice versa
-  if count1 >= 2 and Geometry.pointInPolygon(verts1[1], verts1[2], verts2) then
+  if numVertices1 >= 1 and Geometry.pointInPolygon(verts1[1], verts1[2], verts2) then
     return true
   end
 
-  local count2 = #verts2
-  if count2 >= 2 and Geometry.pointInPolygon(verts2[1], verts2[2], verts1) then
+  local numVertices2 = #verts2 / 2
+  if numVertices2 >= 1 and Geometry.pointInPolygon(verts2[1], verts2[2], verts1) then
     return true
   end
 

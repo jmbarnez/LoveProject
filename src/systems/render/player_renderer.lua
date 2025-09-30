@@ -140,7 +140,10 @@ function PlayerRenderer.render(entity, playerRef)
     if entity.components and entity.components.equipment and entity.components.equipment.grid then
         for _, gridData in ipairs(entity.components.equipment.grid) do
             if gridData.type == "turret" and gridData.module and (gridData.module.kind == "laser" or gridData.module.kind == "mining_laser" or gridData.module.kind == "salvaging_laser") and gridData.module.beamActive then
-                TurretEffects.renderBeam(gridData.module, entity.components.position.x, entity.components.position.y, gridData.module.beamEndX, gridData.module.beamEndY, gridData.module.beamTarget)
+                -- Get turret world position for beam rendering
+                local Turret = require("src.systems.turret.core")
+                local turretX, turretY = Turret.getTurretWorldPosition(gridData.module)
+                TurretEffects.renderBeam(gridData.module, turretX, turretY, gridData.module.beamEndX, gridData.module.beamEndY, gridData.module.beamTarget)
             end
         end
     end

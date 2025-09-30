@@ -62,7 +62,7 @@ end
 
 local function resolveSlotHeaderLabel(slotType)
     if slotType == "turret" then
-        return "Turret Slots"
+        return "Turrets:"
     elseif slotType == "shield" then
         return "Shield Slots"
     elseif slotType == "utility" then
@@ -607,7 +607,10 @@ function Ship:draw(player, x, y, w, h)
         end
         local dropdown = self.slotDropdowns[i]
         local optionHeight = (dropdown and dropdown.optionHeight) or 24
-        local labelText = ((slotData and slotData.label) or ("Slot " .. i)) .. ":"
+        local labelText = ""
+        if slotType ~= "turret" then
+            labelText = ((slotData and slotData.label) or ("Slot " .. i)) .. ":"
+        end
         local labelWidth = labelFont:getWidth(labelText)
         local lineCount = math.max(1, math.ceil(labelWidth / maxLabelWidthAvailable))
         local labelHeight = lineCount * labelFont:getHeight()

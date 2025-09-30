@@ -36,6 +36,7 @@ function CollisionHelpers.performCollisionCheck(x1, y1, x2, y2, target, targetRa
     if collidable and collidable.shape == "polygon" and collidable.vertices then
         if target.components.mineable then
             print("Using polygon collision for asteroid, vertices: " .. #collidable.vertices)
+            print("Asteroid center: (" .. ex .. "," .. ey .. "), beam: (" .. x1 .. "," .. y1 .. ") to (" .. x2 .. "," .. y2 .. ")")
         end
         local angle = (target.components.position and target.components.position.angle) or 0
         local wverts = CollisionHelpers.transformPolygon(ex, ey, angle, collidable.vertices)

@@ -22,9 +22,9 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     turret.beamEndY = nil
     turret.beamTarget = nil
 
-    -- Get owner position
-    local sx = turret.owner.components.position.x
-    local sy = turret.owner.components.position.y
+    -- Get turret world position instead of ship center
+    local Turret = require("src.systems.turret.core")
+    local sx, sy = Turret.getTurretWorldPosition(turret)
 
     -- Aim in the direction of the target if provided, otherwise use owner's facing
     local angle

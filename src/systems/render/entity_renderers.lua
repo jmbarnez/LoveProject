@@ -1074,7 +1074,10 @@ function EntityRenderers.draw(world, camera, player)
                 if gridData.type == "turret" and gridData.module and (gridData.module.kind == "laser" or gridData.module.kind == "mining_laser" or gridData.module.kind == "salvaging_laser") and gridData.module.beamActive then
                     local turret = gridData.module
                     local TurretEffects = require("src.systems.turret.effects")
-                    TurretEffects.renderBeam(turret, turret.beamStartX, turret.beamStartY, turret.beamEndX, turret.beamEndY, turret.beamTarget)
+                    -- Get turret world position for beam rendering
+                    local Turret = require("src.systems.turret.core")
+                    local turretX, turretY = Turret.getTurretWorldPosition(turret)
+                    TurretEffects.renderBeam(turret, turretX, turretY, turret.beamEndX, turret.beamEndY, turret.beamTarget)
                     turret.beamActive = false
                 end
             end

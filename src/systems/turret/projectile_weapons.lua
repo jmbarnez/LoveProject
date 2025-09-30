@@ -62,8 +62,9 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
         end
 
         if projectileTemplate then
-            local sx = turret.owner.components.position.x
-            local sy = turret.owner.components.position.y
+            -- Get turret world position instead of ship center
+            local Turret = require("src.systems.turret.core")
+            local sx, sy = Turret.getTurretWorldPosition(turret)
             local vx = math.cos(finalAngle) * projSpeed
             local vy = math.sin(finalAngle) * projSpeed
 
@@ -144,8 +145,9 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
     end
 
     if projectileTemplate then
-        local sx = turret.owner.components.position.x
-        local sy = turret.owner.components.position.y
+        -- Get turret world position instead of ship center
+        local Turret = require("src.systems.turret.core")
+        local sx, sy = Turret.getTurretWorldPosition(turret)
         local vx = math.cos(angle) * projSpeed
         local vy = math.sin(angle) * projSpeed
 
@@ -195,8 +197,9 @@ function ProjectileWeapons.fireSecondaryProjectile(turret, target, primaryAngle,
     local angle = math.atan2(dy, dx)
 
     -- Create secondary projectile
-    local sx = turret.owner.components.position.x
-    local sy = turret.owner.components.position.y
+    -- Get turret world position instead of ship center
+    local Turret = require("src.systems.turret.core")
+    local sx, sy = Turret.getTurretWorldPosition(turret)
     local vx = math.cos(angle) * secondarySpeed
     local vy = math.sin(angle) * secondarySpeed
 
