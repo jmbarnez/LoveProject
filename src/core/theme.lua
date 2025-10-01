@@ -807,34 +807,48 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
   
   -- Use custom color if provided (for special buttons like Apply/Reset)
   if color then
-    baseColor = {color[1], color[2], color[3], 0.3} -- Semi-transparent custom color
+    baseColor = {color[1], color[2], color[3], 1.0} -- Fully opaque custom color
     borderColor = {0, 0, 0, 1.0} -- Black border for custom colors
     textColor = {0, 0, 0, 1.0} -- Black text for custom colors
   end
   
   -- Hover effects
   if hover then
-    -- Add subtle background tint on hover for visibility
-    baseColor = {Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 0.2}
+    if color then
+      -- For custom colors, use brighter versions for hover effects
+      baseColor = {color[1], color[2], color[3], 1.0} -- Fully opaque custom color on hover
+      borderColor = {
+        math.min(1.0, color[1] + 0.2), -- Brighter custom color border
+        math.min(1.0, color[2] + 0.2),
+        math.min(1.0, color[3] + 0.2),
+        1.0
+      }
+      textColor = {0, 0, 0, 1.0} -- Keep black text for visibility
+    else
+      -- Add subtle background tint on hover for visibility
+      baseColor = {Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 0.2}
+      
+      -- Make border and text brighter on hover
+      borderColor = {
+        math.min(1.0, borderColor[1] + 0.3),
+        math.min(1.0, borderColor[2] + 0.3), 
+        math.min(1.0, borderColor[3] + 0.3),
+        borderColor[4]
+      }
+      textColor = {
+        math.min(1.0, textColor[1] + 0.3),
+        math.min(1.0, textColor[2] + 0.3), 
+        math.min(1.0, textColor[3] + 0.3),
+        textColor[4]
+      }
+    end
     
-    -- Make border and text brighter on hover
-    borderColor = {
-      math.min(1.0, borderColor[1] + 0.3),
-      math.min(1.0, borderColor[2] + 0.3), 
-      math.min(1.0, borderColor[3] + 0.3),
-      borderColor[4]
-    }
-    textColor = {
-      math.min(1.0, textColor[1] + 0.3),
-      math.min(1.0, textColor[2] + 0.3), 
-      math.min(1.0, textColor[3] + 0.3),
-      textColor[4]
-    }
-    
-    -- Add subtle pulsing effect
-    local pulseOffset = math.sin(t * 8) * 0.1
-    borderColor[4] = math.min(1.0, borderColor[4] + pulseOffset)
-    textColor[4] = math.min(1.0, textColor[4] + pulseOffset)
+    -- Add subtle pulsing effect (only for non-custom colored buttons)
+    if not color then
+      local pulseOffset = math.sin(t * 8) * 0.1
+      borderColor[4] = math.min(1.0, borderColor[4] + pulseOffset)
+      textColor[4] = math.min(1.0, textColor[4] + pulseOffset)
+    end
     
     -- Slight scale effect
     local scale = 1.02

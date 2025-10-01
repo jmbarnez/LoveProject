@@ -222,7 +222,14 @@ function ChartRenderer.draw(self, node, x, y, w, h)
   local volH = math.floor(chartH * 0.20)
   local candleH = math.max(10, chartH - volH - 6)
   local volY = chartY + candleH + 4
-  self._chartRect = { x = chartX, y = chartY, w = chartW, h = candleH }
+  
+  -- Ensure chart area is always valid for mouse detection
+  self._chartRect = { 
+    x = chartX, 
+    y = chartY, 
+    w = math.max(1, chartW), 
+    h = math.max(1, candleH) 
+  }
 
   -- Determine desired visible count and fetch downsampled candles from market API
   local basePxPerCandle = 8
@@ -235,8 +242,16 @@ function ChartRenderer.draw(self, node, x, y, w, h)
   local requestedVisible = math.max(1, math.floor(chartW / candleWithGapPx))
   local candles = NodeMarket.getDownsampledCandles(node, self.intervalSeconds, requestedVisible + math.floor(requestedVisible * 0.5) + 32)
 
-  local visible = math.max(1, math.min(#candles, requestedVisible))
   local n = #candles
+  local visible = math.max(1, math.min(n, requestedVisible))
+  
+  -- When there are very few candles, allow zoom to work by adjusting visible count
+  if n <= 5 then
+    -- For few candles, let zoom affect the display more dramatically
+    local minVisible = 1
+    local maxVisible = n
+    visible = math.max(minVisible, math.min(maxVisible, math.floor(chartW / (pxPerCandle * 2))))  -- More aggressive zoom
+  end
 
   love.graphics.push()
   love.graphics.setScissor(chartX, chartY, chartW, chartH)
@@ -246,8 +261,16 @@ function ChartRenderer.draw(self, node, x, y, w, h)
   local padR = math.max(2, math.floor(requestedVisible * 0.05))  -- Reduced right padding
 
   -- Constrain xPanBars to prevent chart from disappearing off edges
-  local maxPanLeft = math.max(0, n - visible)  -- Can't pan past the start of data
+  -- Allow more flexible panning when there are few candles
+  local maxPanLeft = math.max(0, n - visible)
   local maxPanRight = 0  -- Can't pan past the end (newest data)
+  
+  -- When there are very few candles, allow more zoom flexibility
+  if n <= 5 then
+    -- For very few candles, allow more aggressive zooming
+    maxPanLeft = math.max(0, math.max(1, n - 1))  -- Allow showing at least 1 candle
+  end
+  
   self.xPanBars = math.max(-maxPanRight, math.min(maxPanLeft, self.xPanBars or 0))
 
   -- Calculate start index: newest data on the right, pan left to see older data

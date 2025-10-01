@@ -651,6 +651,9 @@ local function drawTradingInterface(self, player, node, stats, x, y, w, h)
     -- Main container background
     Theme.drawGradientGlowRect(x, y, w, h, 6, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
 
+    -- Get mouse position for hover detection
+    local mx, my = Viewport.getMousePosition()
+
     -- Trading mode tabs (Buy/Sell)
     local tabW = w / 2
     local tabH = 28
@@ -660,12 +663,12 @@ local function drawTradingInterface(self, player, node, stats, x, y, w, h)
 
     -- Buy tab - use main button theme
     local buySelected = self.tradingMode == "buy"
-    local buyHover = mx >= buyTabX and mx <= buyTabX + tabW - 4 and my >= tabY and my <= tabY + tabH
+    local buyHover = mx and my and mx >= buyTabX and mx <= buyTabX + tabW - 4 and my >= tabY and my <= tabY + tabH
     Theme.drawStyledButton(buyTabX, tabY, tabW - 4, tabH, "BUY", buyHover, 1.0, buySelected and Theme.colors.success or nil, buySelected)
 
     -- Sell tab - use main button theme
     local sellSelected = self.tradingMode == "sell"
-    local sellHover = mx >= sellTabX and mx <= sellTabX + tabW - 4 and my >= tabY and my <= tabY + tabH
+    local sellHover = mx and my and mx >= sellTabX and mx <= sellTabX + tabW - 4 and my >= tabY and my <= tabY + tabH
     Theme.drawStyledButton(sellTabX, tabY, tabW - 4, tabH, "SELL", sellHover, 1.0, sellSelected and Theme.colors.danger or nil, sellSelected)
 
     -- Store tab areas for click detection
@@ -943,7 +946,16 @@ end
 
 function Nodes:wheelmoved(player, dx, dy)
     local mx, my = Viewport.getMousePosition()
+    
+    -- Debug output
+    if self._chartRect then
+        print(string.format("Chart zoom attempt: mx=%.1f, my=%.1f, chartRect={x=%.1f, y=%.1f, w=%.1f, h=%.1f}, zoom=%.2f", 
+            mx or 0, my or 0, self._chartRect.x, self._chartRect.y, self._chartRect.w, self._chartRect.h, self.zoom or 1.0))
+    end
+    
     if self._chartRect and Util.rectContains(mx, my, self._chartRect.x, self._chartRect.y, self._chartRect.w, self._chartRect.h) then
+        print("Chart zoom: Inside chart area, applying zoom")
+        
         if self.history then
             self.history:push({
                 range = self.range,
@@ -958,11 +970,15 @@ function Nodes:wheelmoved(player, dx, dy)
         local factor = (dy > 0) and 1.2 or 1 / 1.2
         if love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift") then
             self.yScale = math.max(0.1, math.min(20.0, (self.yScale or 1.0) * factor))
+            print(string.format("Y-scale zoom: %.2f", self.yScale))
         else
             self.zoom = math.max(0.05, math.min(32.0, (self.zoom or 1.0) * factor))
             self.yScale = math.max(0.1, math.min(20.0, (self.yScale or 1.0) * factor))
+            print(string.format("Full zoom: zoom=%.2f, yScale=%.2f", self.zoom, self.yScale))
         end
         return true
+    else
+        print("Chart zoom: Outside chart area or no chart rect")
     end
     return false
 end

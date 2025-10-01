@@ -153,6 +153,9 @@ function UI.drawHelpers(player, world, hub, camera)
               local previousFont = love.graphics.getFont()
               dockPromptState.dockRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "Dock", hover, false, {
                 font = buttonFont,
+                bg = {0, 0, 0, 1}, -- Black background
+                hoverBg = {0.1, 0.1, 0.1, 1}, -- Dark gray on hover
+                activeBg = {0.2, 0.2, 0.2, 1}, -- Lighter gray when active
               })
               dockPromptState.toggleRect = nil
 
@@ -207,6 +210,9 @@ function UI.drawHelpers(player, world, hub, camera)
               local previousFont = love.graphics.getFont()
               dockPromptState.dockRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "Dock", hover, false, {
                 font = buttonFont,
+                bg = {0, 0, 0, 1}, -- Black background
+                hoverBg = {0.1, 0.1, 0.1, 1}, -- Dark gray on hover
+                activeBg = {0.2, 0.2, 0.2, 1}, -- Lighter gray when active
               })
               dockPromptState.toggleRect = nil
 
@@ -330,6 +336,9 @@ function UI.drawHelpers(player, world, hub, camera)
           local previousFont = love.graphics.getFont()
           warpPromptState.warpRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "Warp", hover, false, {
             font = buttonFont,
+            bg = {0, 0, 0, 1}, -- Black background
+            hoverBg = {0.1, 0.1, 0.1, 1}, -- Dark gray on hover
+            activeBg = {0.2, 0.2, 0.2, 1}, -- Lighter gray when active
           })
 
           local triCx = math.floor(screenX + 0.5)
