@@ -101,8 +101,12 @@ function Player.new(x, y, shipId)
           return equipped
       end
 
-      if not equipStartingModule(1, "basic_gun") and self.components and self.components.cargo then
-          self:addItem("basic_gun", 1)
+      if not equipStartingModule(1, "gun_turret") and self.components and self.components.cargo then
+          self:addItem("gun_turret", 1)
+      end
+
+      if not equipStartingModule(2, "combat_laser") and self.components and self.components.cargo then
+          self:addItem("combat_laser", 1)
       end
 
       if not equipStartingModule(3, "shield_module_basic") and self.components and self.components.cargo then

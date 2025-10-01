@@ -39,6 +39,7 @@ return {
     { slot = 2, type = "turret" },
     { slot = 3, type = "shield", label = "Shield Generator" },
   },
+  
   targeting = { lockTime = 2.0 },
   description = "A compact starter drone with hexagonal core and symmetrical multi-directional engines.",
 
