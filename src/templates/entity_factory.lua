@@ -6,6 +6,18 @@ local Log = require("src.core.log")
 local Util = require("src.core.util")
 local TurretCore = require("src.systems.turret.core")
 
+local function random_choice(options)
+    if type(options) ~= "table" or #options == 0 then
+        return nil
+    end
+
+    if love and love.math and love.math.random then
+        return options[love.math.random(1, #options)]
+    end
+
+    return options[math.random(1, #options)]
+end
+
 -- A registry for entity blueprints/templates.
 local entity_templates = {
     ship = require("src.templates.ship"),
@@ -198,6 +210,13 @@ function EntityFactory.createEnemy(shipId, x, y)
                 for _, hardpoint in ipairs(hardpoints) do
                     local turretId = hardpoint.turret or hardpoint.id
                     local turretDef = nil
+
+                    if shipId == "basic_drone" and hardpoint.randomTurrets then
+                        local randomId = random_choice(hardpoint.randomTurrets)
+                        if randomId then
+                            turretId = randomId
+                        end
+                    end
 
                     if type(turretId) == "table" then
                         turretDef = turretId

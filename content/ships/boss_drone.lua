@@ -3,7 +3,7 @@ return {
   id = "boss_drone",
   name = "MILA",
   class = "Drone",
-  description = "Heavily armed drone that fires a cone spray.",
+  description = "Heavily armed drone that mixes cone blasts, short-range lasers, and homing rockets.",
 
   ai = {
     intelligenceLevel = "STANDARD",
@@ -67,27 +67,30 @@ return {
 
   hardpoints = {
     {
+      turret = "boss_cone_gun",
+    },
+    {
       turret = {
-        id = "boss_prism_laser",
+        id = "boss_close_laser",
         type = "laser",
-        name = "Prism Burst Array",
-        description = "Fires sweeping prisms of pink laser energy in a wide arc.",
+        name = "Radiant Cutter",
+        description = "Sweeps a piercing beam across nearby targets.",
         price = 0,
         module = { type = "turret" },
         icon = {
           size = 32,
           shapes = {
-            { type = "circle", mode = "fill", color = {0.45, 0.08, 0.45, 1.0}, x = 16, y = 16, r = 7 },
-            { type = "circle", mode = "fill", color = {0.9, 0.3, 0.8, 0.85}, x = 16, y = 16, r = 4 },
-            { type = "polygon", mode = "fill", color = {1.0, 0.4, 0.85, 0.8}, points = { 16,4,  28,12,  16,20,  4,12 } },
-            { type = "circle", mode = "line", color = {1.0, 0.65, 0.95, 0.9}, x = 16, y = 16, r = 12, lineWidth = 1.5 },
+            { type = "rectangle", mode = "fill", color = {0.36, 0.10, 0.40, 1.0}, x = 10, y = 10, w = 12, h = 14, rx = 2 },
+            { type = "polygon", mode = "fill", color = {0.88, 0.32, 0.78, 0.85}, points = { 16,4,  20,12,  16,8,  12,12 } },
+            { type = "circle", mode = "fill", color = {1.0, 0.55, 0.95, 0.9}, x = 16, y = 18, r = 5 },
+            { type = "circle", mode = "line", color = {1.0, 0.75, 0.98, 0.8}, x = 16, y = 18, r = 8, lineWidth = 1.4 },
           }
         },
         spread = { minDeg = 0.0, maxDeg = 0.0, decay = 900 },
 
         projectile = {
-          id = "boss_prism_beam",
-          name = "Prism Beam",
+          id = "boss_close_laser_beam",
+          name = "Radiant Cutter Beam",
           class = "Projectile",
           physics = {
             speed = 0,
@@ -97,189 +100,120 @@ return {
             type = "bullet",
             props = {
               kind = "laser",
-              length = 1400,
+              length = 950,
               tracerWidth = 6,
-              color = {1.0, 0.45, 0.85, 0.95},
+              color = {1.0, 0.55, 0.95, 0.95},
             }
           },
           collidable = {
             radius = 4,
           },
           damage = {
-            min = 6,
-            max = 9,
+            min = 4,
+            max = 6,
           },
           timed_life = {
             duration = 0.18,
           },
           charged_pulse = {
-            buildup_time = 0.12,
-            flash_time = 0.09,
+            buildup_time = 0.1,
+            flash_time = 0.08,
           }
         },
 
-        tracer = { color = {1.0, 0.45, 0.85, 0.95}, width = 4, coreRadius = 3 },
+        tracer = { color = {1.0, 0.55, 0.95, 0.9}, width = 4, coreRadius = 3 },
         impact = {
-          shield = { spanDeg = 80, color1 = {0.95, 0.55, 0.95, 0.6}, color2 = {1.0, 0.35, 0.8, 0.45} },
-          hull = { spark = {1.0, 0.4, 0.8, 0.7}, ring = {0.9, 0.2, 0.6, 0.5} },
+          shield = { spanDeg = 85, color1 = {1.0, 0.55, 0.95, 0.6}, color2 = {0.95, 0.35, 0.85, 0.45} },
+          hull = { spark = {1.0, 0.45, 0.85, 0.7}, ring = {0.9, 0.25, 0.65, 0.5} },
         },
-        optimal = 1000, falloff = 500,
-        damage_range = { min = 6, max = 9 },
-        cycle = 1.6, capCost = 0,
+        optimal = 650,
+        falloff = 350,
+        damage_range = { min = 4, max = 6 },
+        cycle = 1.1,
+        capCost = 0,
         projectileSpeed = 0,
-        maxRange = 1500,
-        maxHeat = 110,
-        heatPerShot = 18,
-        cooldownRate = 28,
+        maxRange = 1100,
+        maxHeat = 100,
+        heatPerShot = 16,
+        cooldownRate = 26,
         overheatCooldown = 3.0,
-        heatCycleMult = 0.75,
+        heatCycleMult = 0.8,
         heatEnergyMult = 1.1,
         fireMode = "automatic",
-        volleyCount = 4,
-        volleySpreadDeg = 18,
       }
     },
     {
       turret = {
-        id = "boss_luminary_lance",
-        type = "laser",
-        name = "Luminary Lance",
-        description = "Charges and unleashes a focused pink beam at long range.",
-        price = 0,
-        module = { type = "turret" },
-        icon = {
-          size = 32,
-          shapes = {
-            { type = "rectangle", mode = "fill", color = {0.4, 0.08, 0.42, 1.0}, x = 12, y = 8, w = 8, h = 16, rx = 3 },
-            { type = "rectangle", mode = "fill", color = {0.85, 0.28, 0.78, 0.9}, x = 14, y = 6, w = 4, h = 20, rx = 2 },
-            { type = "polygon", mode = "fill", color = {1.0, 0.5, 0.9, 0.9}, points = { 16,4,  20,10,  16,6,  12,10 } },
-            { type = "circle", mode = "line", color = {1.0, 0.7, 0.95, 0.7}, x = 16, y = 16, r = 10, lineWidth = 1.5 },
-          }
-        },
-        spread = { minDeg = 0.0, maxDeg = 0.0, decay = 1000 },
-
-        projectile = {
-          id = "boss_luminary_beam",
-          name = "Luminary Beam",
-          class = "Projectile",
-          physics = {
-            speed = 0,
-            drag = 0,
-          },
-          renderable = {
-            type = "bullet",
-            props = {
-              kind = "laser",
-              length = 1800,
-              tracerWidth = 8,
-              color = {1.0, 0.5, 0.9, 0.95},
-            }
-          },
-          collidable = {
-            radius = 5,
-          },
-          damage = {
-            min = 1,
-            max = 1,
-          },
-          timed_life = {
-            duration = 0.22,
-          },
-          charged_pulse = {
-            buildup_time = 0.2,
-            flash_time = 0.12,
-          }
-        },
-
-        tracer = { color = {1.0, 0.5, 0.9, 1.0}, width = 5, coreRadius = 4 },
-        impact = {
-          shield = { spanDeg = 110, color1 = {0.9, 0.35, 0.85, 0.7}, color2 = {1.0, 0.6, 0.95, 0.5} },
-          hull = { spark = {1.0, 0.45, 0.85, 0.8}, ring = {0.85, 0.25, 0.7, 0.6} },
-        },
-        optimal = 1400, falloff = 400,
-        damage_range = { min = 1, max = 1 },
-        cycle = 5.0, capCost = 0,
-        projectileSpeed = 0,
-        maxRange = 2000,
-        maxHeat = 80,
-        heatPerShot = 26,
-        cooldownRate = 20,
-        overheatCooldown = 4.2,
-        heatCycleMult = 0.85,
-        heatEnergyMult = 1.05,
-        fireMode = "automatic",
-        volleyCount = 1,
-        volleySpreadDeg = 0,
-      }
-    },
-    {
-      turret = {
-        id = "boss_rocket_launcher",
+        id = "boss_homing_rocket_launcher",
         type = "missile",
-        name = "Heavy Rocket Launcher",
-        description = "Fires powerful explosive rockets at long range.",
+        name = "Homing Rocket Battery",
+        description = "Launches guided rockets that relentlessly track targets.",
         price = 0,
         module = { type = "turret" },
         icon = {
           size = 32,
           shapes = {
-            { type = "rectangle", mode = "fill", color = {0.3, 0.3, 0.3, 1.0}, x = 8, y = 12, w = 16, h = 8, rx = 2 },
-            { type = "rectangle", mode = "fill", color = {0.6, 0.6, 0.6, 0.9}, x = 10, y = 10, w = 12, h = 12, rx = 1 },
-            { type = "circle", mode = "fill", color = {1.0, 0.4, 0.2, 0.9}, x = 16, y = 6, r = 3 },
-            { type = "polygon", mode = "fill", color = {0.8, 0.8, 0.8, 0.8}, points = { 16,2,  18,6,  16,4,  14,6 } },
+            { type = "rectangle", mode = "fill", color = {0.28, 0.26, 0.34, 1.0}, x = 9, y = 12, w = 14, h = 10, rx = 2 },
+            { type = "rectangle", mode = "fill", color = {0.62, 0.60, 0.70, 0.9}, x = 11, y = 10, w = 10, h = 14, rx = 1 },
+            { type = "polygon", mode = "fill", color = {1.0, 0.45, 0.25, 0.95}, points = {16, 4, 20, 12, 16, 9, 12, 12} },
+            { type = "circle", mode = "fill", color = {1.0, 0.7, 0.3, 0.9}, x = 16, y = 6, r = 3 },
           }
         },
         spread = { minDeg = 0.0, maxDeg = 0.0, decay = 800 },
 
         projectile = {
-          id = "boss_heavy_rocket",
-          name = "Heavy Rocket",
+          id = "boss_homing_rocket",
+          name = "Homing Rocket",
           class = "Projectile",
           physics = {
-            speed = 1200,
-            drag = 0.1,
+            speed = 1100,
+            drag = 0.08,
           },
           renderable = {
             type = "bullet",
             props = {
               kind = "missile",
-              length = 40,
+              length = 38,
               tracerWidth = 3,
-              color = {1.0, 0.6, 0.2, 1.0},
+              color = {1.0, 0.65, 0.25, 1.0},
             }
           },
           collidable = {
             radius = 6,
           },
           damage = {
-            min = 15,
-            max = 20,
+            min = 12,
+            max = 16,
           },
           timed_life = {
-            duration = 8.0,
+            duration = 7.0,
           },
           explosion = {
-            radius = 80,
-            damage = 12
+            radius = 75,
+            damage = 10,
           }
         },
 
-        tracer = { color = {1.0, 0.6, 0.2, 1.0}, width = 3, coreRadius = 2 },
+        tracer = { color = {1.0, 0.65, 0.25, 1.0}, width = 3, coreRadius = 2 },
         impact = {
-          shield = { spanDeg = 120, color1 = {1.0, 0.5, 0.3, 0.8}, color2 = {1.0, 0.3, 0.1, 0.6} },
-          hull = { spark = {1.0, 0.6, 0.2, 0.9}, ring = {1.0, 0.4, 0.1, 0.7} },
+          shield = { spanDeg = 120, color1 = {1.0, 0.6, 0.3, 0.8}, color2 = {1.0, 0.35, 0.1, 0.6} },
+          hull = { spark = {1.0, 0.55, 0.2, 0.9}, ring = {1.0, 0.4, 0.1, 0.7} },
         },
-        optimal = 3000, falloff = 1000,
-        damage_range = { min = 15, max = 20 },
-        cycle = 4.0, capCost = 0,
-        projectileSpeed = 1200,
-        maxRange = 4000,
-        maxHeat = 60,
-        heatPerShot = 15,
-        cooldownRate = 12,
+        optimal = 2800,
+        falloff = 900,
+        damage_range = { min = 12, max = 16 },
+        cycle = 3.5,
+        capCost = 0,
+        projectileSpeed = 1100,
+        maxRange = 3800,
+        maxHeat = 70,
+        heatPerShot = 14,
+        cooldownRate = 14,
         overheatCooldown = 2.5,
         heatCycleMult = 0.9,
         heatEnergyMult = 1.0,
+        homingStrength = 0.85,
+        missileTurnRate = 4.2,
         fireMode = "automatic",
         volleyCount = 1,
         volleySpreadDeg = 0,

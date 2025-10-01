@@ -60,83 +60,9 @@ return {
   },
 
     hardpoints = {
-        { 
-            turret = {
-                id = "enemy_red_laser",
-                type = "laser",
-                name = "Enemy Red Laser",
-                description = "A short-range red laser beam weapon.",
-                price = 0,
-                module = { type = "turret" },
-                icon = {
-                    size = 32,
-                    shapes = {
-                        -- Laser emitter base
-                        { type = "rectangle", mode = "fill", color = {0.20, 0.20, 0.25, 1}, x = 12, y = 14, w = 8, h = 4, rx = 2 },
-                        -- Laser barrel
-                        { type = "rectangle", mode = "fill", color = {0.30, 0.30, 0.35, 1}, x = 18, y = 15, w = 6, h = 2, rx = 1 },
-                        -- Laser tip
-                        { type = "circle", mode = "fill", color = {1.0, 0.1, 0.1, 1}, x = 24, y = 16, r = 1.5 },
-                        -- Energy core
-                        { type = "circle", mode = "fill", color = {1.0, 0.2, 0.2, 0.8}, x = 16, y = 16, r = 2 },
-                    }
-                },
-                spread = { minDeg = 0.0, maxDeg = 0.0, decay = 1000 },
-                
-                -- Embedded projectile definition
-                projectile = {
-                    id = "enemy_red_laser_beam",
-                    name = "Enemy Red Laser Beam",
-                    class = "Projectile",
-                    physics = {
-                        speed = 0, -- Beams should not advance position; collision handles ray
-                        drag = 0,
-                    },
-                    renderable = {
-                        type = "bullet",
-                        props = {
-                            kind = "laser",
-                            length = 800, -- Shorter range than player lasers
-                            tracerWidth = 3,
-                            angle = 0, -- Will be set when fired
-                            color = {1.0, 0.1, 0.1, 0.9} -- Bright red laser
-                        }
-                    },
-                    collidable = {
-                        radius = 2, -- small collision radius so the beam is included in collision queries
-                    },
-                    damage = { min = 1, max = 1 }, -- Low damage range
-                    timed_life = {
-                        duration = 0.12, -- Short beam duration
-                    },
-                    charged_pulse = {
-                        buildup_time = 0.05,  -- Quick buildup
-                        flash_time = 0.07,   -- Short intense beam flash
-                    }
-                },
-                
-                -- Visual effects
-                tracer = { color = {1.0, 0.1, 0.1, 0.8}, width = 2, coreRadius = 1.5 },
-                impact = {
-                    shield = { spanDeg = 80, color1 = {1.0, 0.1, 0.1, 0.65}, color2 = {1.0, 0.3, 0.3, 0.45} },
-                    hull = { spark = {1.0, 0.2, 0.2, 0.5}, ring = {1.0, 0.1, 0.1, 0.4} },
-                },
-                optimal = 600, falloff = 300, -- Shorter range than player lasers
-                damage_range = { min = 1, max = 1 },
-                cycle = 1.5, capCost = 0, -- No energy cost for basic enemies
-                spread = { minDeg = 0.1, maxDeg = 0.3, decay = 600 },
-                maxRange = 800, -- Shorter range
-                -- Overheating parameters
-                maxHeat = 80,
-                heatPerShot = 8,
-                cooldownRate = 25,
-                overheatCooldown = 3.0,
-                heatCycleMult = 0.8,
-                heatEnergyMult = 1.2,
-
-                -- Firing mode: "manual" or "automatic"
-                fireMode = "automatic"
-            }
+        {
+            turret = "basic_gun",
+            randomTurrets = { "basic_gun", "combat_laser", "rocket_mk1" },
         }
     },
 

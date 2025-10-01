@@ -34,12 +34,12 @@ return {
   },
   optimal = 700, falloff = 500,
   damage_range = { min = 2, max = 3 },
-  cycle = 1.0, capCost = 0,
+  cycle = 0.9, capCost = 0,
   projectileSpeed = 800,
   baseAccuracy = 0.9,
   overheatCooldown = 5.0,
   -- Volley settings
-  volleyCount = 3,
+  volleyCount = 4,
   volleySpreadDeg = 30,
   -- Also fires a slow rocket alongside the cone
   secondaryProjectile = "missile",
@@ -47,6 +47,6 @@ return {
   secondaryFireEvery = 1,
 
   -- Firing mode: "manual" or "automatic"
-  fireMode = "manual"
+  fireMode = "automatic"
 }
 
