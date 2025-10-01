@@ -437,7 +437,7 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
   end
 
   Theme.drawGradientGlowRect(x, y, size, size, 4, bgColor,
-    Theme.withAlpha(Theme.colors.bg0, 0.2), Theme.colors.border, 0)
+    Theme.withAlpha(Theme.colors.bg0, 0.2), Theme.colors.border, 0, false)
 
   -- Item icon
   local def = getItemDefinition(item)

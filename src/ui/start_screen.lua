@@ -15,6 +15,42 @@ local VersionLog = require("src.ui.version_log")
 local Start = {}
 Start.__index = Start
 
+-- Function to draw a simple cog icon
+local function drawCogIcon(centerX, centerY, radius)
+    local segments = 12
+    local innerRadius = radius * 0.6
+    local outerRadius = radius
+    local toothDepth = radius * 0.2
+    
+    love.graphics.push()
+    love.graphics.translate(centerX, centerY)
+    
+    -- Draw outer gear teeth
+    for i = 0, segments - 1 do
+        local angle1 = (i * 2 * math.pi) / segments
+        local angle2 = ((i + 0.5) * 2 * math.pi) / segments
+        local angle3 = ((i + 1) * 2 * math.pi) / segments
+        
+        local x1 = math.cos(angle1) * outerRadius
+        local y1 = math.sin(angle1) * outerRadius
+        local x2 = math.cos(angle2) * (outerRadius + toothDepth)
+        local y2 = math.sin(angle2) * (outerRadius + toothDepth)
+        local x3 = math.cos(angle3) * outerRadius
+        local y3 = math.sin(angle3) * outerRadius
+        
+        love.graphics.polygon("fill", 0, 0, x1, y1, x2, y2, x3, y3)
+    end
+    
+    -- Draw inner circle
+    love.graphics.circle("fill", 0, 0, innerRadius)
+    
+    -- Draw center hole
+    love.graphics.setColor(0, 0, 0, 1)
+    love.graphics.circle("fill", 0, 0, innerRadius * 0.3)
+    
+    love.graphics.pop()
+end
+
 -- Start screen input handler
 local startScreenHandler = function(self, x, y, button)
   if button ~= 1 then return false end
@@ -32,6 +68,12 @@ local startScreenHandler = function(self, x, y, button)
 
   if Theme.handleButtonClick(self.versionButton, x, y, function()
     VersionLog.toggle()
+  end) then
+    return false
+  end
+
+  if Theme.handleButtonClick(self.settingsButton, x, y, function()
+    SettingsPanel.toggle()
   end) then
     return false
   end
@@ -118,6 +160,7 @@ function Start.new()
   self.button = { x = 0, y = 0, w = 260, h = 40 }
   self.loadButton = { x = 0, y = 0, w = 260, h = 40 }
   self.versionButton = { x = 0, y = 0, w = 260, h = 40 }
+  self.settingsButton = { x = 0, y = 0, w = 40, h = 40 }
   self.versionWindow = Window.new({
     title = Strings.getUI("version_log_title"),
     width = 820,
@@ -135,6 +178,10 @@ function Start.new()
     end
   })
   VersionLog.showWindow(self.versionWindow)
+  
+  -- Initialize settings panel
+  SettingsPanel.init()
+  
   self.loadSlotsUI = SaveLoad:new({
     onClose = function()
       self.showLoadUI = false
@@ -328,29 +375,17 @@ function Start:draw()
 
   local vhover = mx >= vbx and mx <= vbx + vbw and my >= vby and my <= vby + vbh
 
-  -- Draw aurora background scoped to button via scissor
-  local oldScissor = { love.graphics.getScissor() }
-  love.graphics.setScissor(vbx, vby, vbw, vbh)
-
-  self.auroraShader = self.auroraShader or AuroraTitle.new()
-  if self.auroraShader then
-    self.auroraShader:send("time", love.timer.getTime())
-    love.graphics.setShader(self.auroraShader)
-  end
-
-  Theme.setColor({1, 1, 1, vhover and 0.85 or 0.7})
-  love.graphics.rectangle("fill", vbx, vby, vbw, vbh)
-
-  love.graphics.setShader()
-  love.graphics.setScissor(oldScissor[1], oldScissor[2], oldScissor[3], oldScissor[4])
-
-  Theme.setColor(Theme.colors.border)
+  -- Draw transparent background with subtle gray border
+  local borderColor = vhover and {0.6, 0.6, 0.6, 1.0} or {0.4, 0.4, 0.4, 1.0}
+  Theme.setColor(borderColor)
+  love.graphics.setLineWidth(1)
   love.graphics.rectangle("line", vbx, vby, vbw, vbh)
 
-  -- Draw button text in black for contrast
+  -- Draw button text with appropriate color for transparent background
   local prevColor = {love.graphics.getColor()}
   local prevFont = love.graphics.getFont()
-  Theme.setColor({0, 0, 0, 1})
+  local textColor = vhover and {0.9, 0.9, 0.9, 1.0} or {0.7, 0.7, 0.7, 1.0}
+  Theme.setColor(textColor)
   local font = Theme.fonts and Theme.fonts.normal or prevFont
   love.graphics.setFont(font)
   local tw = font:getWidth(versionText)
@@ -360,6 +395,29 @@ function Start:draw()
   love.graphics.setColor(prevColor[1], prevColor[2], prevColor[3], prevColor[4])
 
   self.versionButton._rect = { x = vbx, y = vby, w = vbw, h = vbh }
+
+  -- Settings button in top right
+  local settingsButtonSize = 40 * s
+  local settingsButtonX = w - settingsButtonSize - 20 * s
+  local settingsButtonY = 20 * s
+  local settingsHover = mx >= settingsButtonX and mx <= settingsButtonX + settingsButtonSize and my >= settingsButtonY and my <= settingsButtonY + settingsButtonSize
+
+  -- Draw settings button background
+  local settingsBgColor = settingsHover and {0.2, 0.2, 0.2, 0.8} or {0.1, 0.1, 0.1, 0.6}
+  Theme.setColor(settingsBgColor)
+  love.graphics.rectangle("fill", settingsButtonX, settingsButtonY, settingsButtonSize, settingsButtonSize)
+
+  -- Draw settings button border
+  local settingsBorderColor = settingsHover and {0.6, 0.6, 0.6, 1.0} or {0.4, 0.4, 0.4, 1.0}
+  Theme.setColor(settingsBorderColor)
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("line", settingsButtonX, settingsButtonY, settingsButtonSize, settingsButtonSize)
+
+  -- Draw cog icon
+  Theme.setColor(settingsHover and {0.9, 0.9, 0.9, 1.0} or {0.7, 0.7, 0.7, 1.0})
+  drawCogIcon(settingsButtonX + settingsButtonSize/2, settingsButtonY + settingsButtonSize/2, settingsButtonSize * 0.4)
+
+  self.settingsButton._rect = { x = settingsButtonX, y = settingsButtonY, w = settingsButtonSize, h = settingsButtonSize }
 
 -- No exit button - users can use Escape key or Alt+F4 to exit
 

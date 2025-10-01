@@ -128,7 +128,7 @@ function Shop.drawBuybackItems(DockedUI, x, y, w, h, player)
       local hover = mx >= btnX and my <= btnX + btnW and my >= btnY and my <= btnY + btnH
       local canAfford = player:getGC() >= item.price
       local btnColor = canAfford and (hover and Theme.colors.success or Theme.colors.bg3) or Theme.colors.bg1
-      Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 4, btnColor, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+      Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 4, btnColor, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak, false)
       Theme.setColor(canAfford and Theme.colors.textHighlight or Theme.colors.textSecondary)
       love.graphics.printf("Buy", btnX, btnY + 8, btnW, "center")
       table.insert(DockedUI._buybackButtons, { x = btnX, y = btnY, w = btnW, h = btnH, item = item, index = i })
@@ -185,7 +185,7 @@ function Shop.drawPlayerInventoryForSale(DockedUI, x, y, w, h, player)
     if sy + slotSize >= startY and sy <= startY + h then
       local hover = mx >= sx and my >= sy and mx <= sx + slotSize and my <= sy + slotSize
       if hover then currentHoveredItem = { x = dx, y = dy, w = slotSize, h = slotSize, item = item } end
-      Theme.drawGradientGlowRect(dx, dy, slotSize, slotSize, 4, hover and Theme.colors.bg2 or Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
+      Theme.drawGradientGlowRect(dx, dy, slotSize, slotSize, 4, hover and Theme.colors.bg2 or Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak, false)
       IconSystem.drawIconAny({ item.def, item.id }, dx + 4, dy + 4, slotSize - 8, 1.0)
       Theme.setColor(Theme.colors.accent)
       love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
@@ -281,9 +281,9 @@ function Shop.drawShopItems(DockedUI, x, y, w, h, player)
       end
 
       if hover then
-        Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+        Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak, false)
       else
-        Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
+        Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak, false)
       end
       local iconSize = 48
       local iconPad = (slotW - iconSize) / 2
@@ -339,7 +339,7 @@ local function drawContextMenuContents(DockedUI, mx, my)
   if not menu.visible or not menu.item then return end
 
   local x_, y_, w_, h_ = menu.x, menu.y, MENU_WIDTH, MENU_HEIGHT
-  Theme.drawGradientGlowRect(x_, y_, w_, h_, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+  Theme.drawGradientGlowRect(x_, y_, w_, h_, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak, false)
 
   Theme.setColor(Theme.colors.textHighlight)
   love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())

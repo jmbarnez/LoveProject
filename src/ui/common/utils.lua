@@ -134,17 +134,17 @@ function UIUtils.drawButton(x, y, w, h, text, hover, active, options)
     h = h * scaleY
   end
   
-  -- Determine colors based on state
+  -- Determine colors based on state - transparent backgrounds
   if active then
-    bgColor = options.activeBg or Theme.colors.bg4
+    bgColor = options.activeBg or {Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 0.3}
     borderColor = options.activeBorder or Theme.colors.accent
     textColor = textColor or Theme.colors.textHighlight
   elseif hover then
-    bgColor = options.hoverBg or {Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 0.6}
+    bgColor = options.hoverBg or {Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 0.2}
     borderColor = options.hoverBorder or Theme.colors.borderBright
     textColor = textColor or Theme.colors.textHighlight
   else
-    bgColor = options.bg or Theme.colors.bg2
+    bgColor = options.bg or {0, 0, 0, 0} -- Fully transparent
     borderColor = options.border or Theme.colors.border
     textColor = textColor or Theme.colors.text
   end
@@ -154,7 +154,7 @@ function UIUtils.drawButton(x, y, w, h, text, hover, active, options)
   
   -- Draw button background
   Theme.drawGradientGlowRect(x, y, w, h, cornerRadius,
-    bgColor, Theme.colors.bg1, borderColor, glowIntensity)
+    bgColor, Theme.colors.bg1, borderColor, glowIntensity, false)
   
   -- Draw button text
   if text then
@@ -224,7 +224,7 @@ function UIUtils.drawScrollableList(x, y, w, h, items, scroll, itemHeight, drawI
   
   -- Background
   Theme.drawGradientGlowRect(x, y, w, h, cornerRadius,
-    Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
+    Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak, false)
   
   if not items or #items == 0 then
     Theme.setColor(Theme.colors.textSecondary)

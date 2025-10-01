@@ -59,6 +59,7 @@ function Window.new(options)
   self.cornerRadius = 0
   self.shadow = options.shadow ~= false -- default true
   self.useLoadPanelTheme = options.useLoadPanelTheme or false
+  self.bottomBarHeight = options.bottomBarHeight or 0
 
   
   -- Content area callback
@@ -104,7 +105,7 @@ function Window:getContentBounds()
     x = self.x + self.borderSize,
     y = self.y + self.titleBarHeight,
     w = self.width - self.borderSize * 2,
-    h = self.height - self.titleBarHeight - self.borderSize
+    h = self.height - self.titleBarHeight - self.borderSize - self.bottomBarHeight
   }
 end
 

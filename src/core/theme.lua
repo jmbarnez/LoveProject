@@ -9,17 +9,17 @@ local Sound = require("src.core.sound")
 
 -- === DARK CYAN/LAVENDER SPACE THEME ===
 Theme.colors = {
-  -- Ultra-dark space primaries
-  primary = {0.02, 0.02, 0.04, 1.00},      -- Ultra-deep space black
-  primaryBright = {0.04, 0.04, 0.08, 1.00}, -- Dark space void
-  primaryDark = {0.00, 0.00, 0.02, 1.00},  -- Pure void black
-  primaryDim = {0.01, 0.01, 0.03, 1.00},   -- Dim space black
+  -- Dark gray space primaries
+  primary = {0.08, 0.08, 0.10, 1.00},      -- Dark space gray
+  primaryBright = {0.12, 0.12, 0.15, 1.00}, -- Brighter space gray
+  primaryDark = {0.05, 0.05, 0.07, 1.00},  -- Darker space gray
+  primaryDim = {0.06, 0.06, 0.08, 1.00},   -- Dim space gray
 
-  -- Single cyan accent color
-  accent = {0.2, 0.8, 0.9, 1.00},          -- Electric cyan (single accent)
-  accentGold = {0.2, 0.8, 0.9, 1.00},      -- Same as accent
-  accentTeal = {0.2, 0.8, 0.9, 1.00},      -- Same as accent
-  accentPink = {0.2, 0.8, 0.9, 1.00},      -- Same as accent
+  -- Single monochrome accent color
+  accent = {0.7, 0.7, 0.7, 1.00},          -- Medium gray (single accent)
+  accentGold = {0.7, 0.7, 0.7, 1.00},      -- Same as accent
+  accentTeal = {0.7, 0.7, 0.7, 1.00},      -- Same as accent
+  accentPink = {0.7, 0.7, 0.7, 1.00},      -- Same as accent
 
   -- Space-themed status colors
   success = {0.3, 0.9, 0.6, 1.00},         -- Cyan-tinted green
@@ -27,22 +27,22 @@ Theme.colors = {
   danger = {0.9, 0.3, 0.5, 1.00},          -- Magenta red
   info = {0.5, 0.7, 0.9, 1.00},            -- Soft lavender
 
-  -- Solid black backgrounds
-  bg0 = {0.00, 0.00, 0.00, 1.00},          -- Pure black
-  bg1 = {0.00, 0.00, 0.00, 1.00},          -- Pure black
-  bg2 = {0.00, 0.00, 0.00, 1.00},          -- Pure black
-  bg3 = {0.00, 0.00, 0.00, 1.00},          -- Pure black
-  bg4 = {0.00, 0.00, 0.00, 1.00},          -- Pure black
+  -- Dark gray backgrounds
+  bg0 = {0.05, 0.05, 0.07, 1.00},          -- Darkest gray
+  bg1 = {0.08, 0.08, 0.10, 1.00},          -- Dark gray
+  bg2 = {0.10, 0.10, 0.12, 1.00},          -- Medium dark gray
+  bg3 = {0.12, 0.12, 0.15, 1.00},          -- Lighter dark gray
+  bg4 = {0.15, 0.15, 0.18, 1.00},          -- Lightest dark gray
 
-  -- Solid black UI chrome
-  windowBg = {0.00, 0.00, 0.00, 1.00},     -- Pure black
-  titleBar = {0.00, 0.00, 0.00, 1.00},     -- Pure black
-  titleBarAccent = {0.2, 0.8, 0.9, 1.00},  -- Cyan accent
+  -- Dark gray UI chrome
+  windowBg = {0.08, 0.08, 0.10, 1.00},     -- Dark gray
+  titleBar = {0.08, 0.08, 0.10, 1.00},     -- Dark gray
+  titleBarAccent = {0.7, 0.7, 0.7, 1.00},  -- Gray accent
 
   -- Unified border color
-  border = {0.5, 0.7, 0.9, 0.8},           -- Single cyan border color
-  borderBright = {0.5, 0.7, 0.9, 0.8},     -- Same as border
-  borderGlow = {0.5, 0.7, 0.9, 0.8},       -- Same as border
+  border = {0.7, 0.7, 0.7, 0.8},           -- Single gray border color
+  borderBright = {0.7, 0.7, 0.7, 0.8},     -- Same as border
+  borderGlow = {0.7, 0.7, 0.7, 0.8},       -- Same as border
   outline = {0.5, 0.7, 0.9, 0.8},          -- Same as border
 
   -- Starfield typography
@@ -63,7 +63,7 @@ Theme.colors = {
   -- Dark nebula effects
   glow = {0.5, 0.7, 0.9, 0.3},             -- Cyan nebula glow
   glowStrong = {0.5, 0.7, 0.9, 0.5},       -- Strong cyan glow
-  shadow = {0.00, 0.00, 0.00, 0.8},        -- Deep space shadow
+  shadow = {0.05, 0.05, 0.07, 0.8},        -- Dark gray shadow
   highlight = {0.8, 0.9, 1.0, 0.2},        -- Cyan highlight
 
   -- Dark space interaction states
@@ -532,7 +532,7 @@ function Theme.drawMaximizeButton(rect, hover, maximized)
   end
 end
 
-function Theme.drawGradientGlowRect(x, y, w, h, radius, topColor, bottomColor, glowColor, glowIntensity)
+function Theme.drawGradientGlowRect(x, y, w, h, radius, topColor, bottomColor, glowColor, glowIntensity, drawBorder)
   -- Handle nil parameters gracefully
   if x == nil or y == nil or w == nil or h == nil then
     return
@@ -551,10 +551,12 @@ function Theme.drawGradientGlowRect(x, y, w, h, radius, topColor, bottomColor, g
   Theme.setColor(topColor)
   love.graphics.rectangle("fill", math.floor(x + 0.5), math.floor(y + 0.5), w, h)
 
-  -- Sharp border for definition
-  Theme.setColor(Theme.colors.border)
-  love.graphics.setLineWidth(1)
-  love.graphics.rectangle("line", math.floor(x + 0.5), math.floor(y + 0.5), w, h)
+  -- Sharp border for definition (optional)
+  if drawBorder ~= false then -- Default to true for backward compatibility
+    Theme.setColor(Theme.colors.border)
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", math.floor(x + 0.5), math.floor(y + 0.5), w, h)
+  end
 end
 
 function Theme.drawEVEBorder(x, y, w, h, radius, borderColor, cornerSize)
@@ -784,7 +786,6 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
   end
 
   local t = t or love.timer.getTime()
-  local pulseColor = {0, 0, 0, 0.05} -- More transparent black border
   
   -- Play hover sound effect (only once per hover state)
   if hover and not (opts and opts._hoverPlayed) then
@@ -799,49 +800,70 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
     opts._hoverPlayed = false
   end
   
-  -- Enhanced glow intensity for better hover feedback - much brighter on hover
-  local glowIntensity = hover and Theme.effects.glowStrong or Theme.effects.glowWeak
+  -- Transparent background with accent border/text
+  local baseColor = {0, 0, 0, 0} -- Fully transparent background
+  local borderColor = Theme.colors.accent -- Accent border
+  local textColor = Theme.colors.accent -- Accent text
   
-  -- Add subtle pulsing animation for hover state
-  local pulseOffset = 0
-  if hover and t then
-    pulseOffset = math.sin(t * 8) * 0.1 -- Subtle pulsing effect
+  -- Use custom color if provided (for special buttons like Apply/Reset)
+  if color then
+    baseColor = {color[1], color[2], color[3], 0.3} -- Semi-transparent custom color
+    borderColor = {0, 0, 0, 1.0} -- Black border for custom colors
+    textColor = {0, 0, 0, 1.0} -- Black text for custom colors
   end
-
-  -- Create more vibrant hover colors with accent color glow
-  local bg3 = {Theme.colors.bg3[1], Theme.colors.bg3[2], Theme.colors.bg3[3], 0.3 + pulseOffset}
-  local bg2 = {Theme.colors.bg2[1], Theme.colors.bg2[2], Theme.colors.bg2[3], 0.1}
-  local bg4 = {Theme.colors.bg4[1], Theme.colors.bg4[2], Theme.colors.bg4[3], 0.4}
   
-  -- Use accent color for hover background glow
-  local hoverBg = hover and {Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 0.6 + pulseOffset} or nil
-
-  local topColor = color or (hover and hoverBg or bg2)
-  if down then
-    topColor = bg4
-  end
-
-  -- Add subtle scale effect for hover
-  local scaleX, scaleY = 1, 1
-  if hover and not down then
-    scaleX = 1.02 -- Very subtle scale up
-    scaleY = 1.02
-    local offsetX = (w * (scaleX - 1)) * 0.5
-    local offsetY = (h * (scaleY - 1)) * 0.5
+  -- Hover effects
+  if hover then
+    -- Add subtle background tint on hover for visibility
+    baseColor = {Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 0.2}
+    
+    -- Make border and text brighter on hover
+    borderColor = {
+      math.min(1.0, borderColor[1] + 0.3),
+      math.min(1.0, borderColor[2] + 0.3), 
+      math.min(1.0, borderColor[3] + 0.3),
+      borderColor[4]
+    }
+    textColor = {
+      math.min(1.0, textColor[1] + 0.3),
+      math.min(1.0, textColor[2] + 0.3), 
+      math.min(1.0, textColor[3] + 0.3),
+      textColor[4]
+    }
+    
+    -- Add subtle pulsing effect
+    local pulseOffset = math.sin(t * 8) * 0.1
+    borderColor[4] = math.min(1.0, borderColor[4] + pulseOffset)
+    textColor[4] = math.min(1.0, textColor[4] + pulseOffset)
+    
+    -- Slight scale effect
+    local scale = 1.02
+    local offsetX = (w * (scale - 1)) * 0.5
+    local offsetY = (h * (scale - 1)) * 0.5
     x = x - offsetX
     y = y - offsetY
-    w = w * scaleX
-    h = h * scaleY
+    w = w * scale
+    h = h * scale
   end
 
-  Theme.drawGradientGlowRect(x, y, w, h, 0,
-    topColor,
-    topColor, pulseColor, glowIntensity)
-
-  -- Enhanced border for hover state
-  local borderColor = hover and Theme.colors.borderBright or pulseColor
-  local borderGlow = hover and Theme.effects.glowSubtle or 0
-  Theme.drawEVEBorder(math.floor(x + 0.5), math.floor(y + 0.5), w, h, 0, borderColor, borderGlow)
+  -- If pressed down, make it darker
+  if down then
+    baseColor = {
+      baseColor[1] * 0.7,
+      baseColor[2] * 0.7,
+      baseColor[3] * 0.7,
+      math.min(1.0, baseColor[4] * 1.5) -- Make it more opaque when pressed
+    }
+  end
+  
+  -- Draw button background
+  Theme.setColor(baseColor)
+  love.graphics.rectangle("fill", x, y, w, h)
+  
+  -- Draw accent border
+  Theme.setColor(borderColor)
+  love.graphics.setLineWidth(2)
+  love.graphics.rectangle("line", x, y, w, h)
 
   -- If a fixed font is provided via opts, use it for consistent sizing
   local padX = 12
@@ -853,7 +875,7 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
     local tw = fixedFont:getWidth(text or "")
     local th = fixedFont:getHeight()
 
-    Theme.setColor(Theme.colors.text)
+    Theme.setColor(textColor)
     local textX = math.floor(x + (w - tw) * 0.5 + 0.5)
     local textY = math.floor(y + (h - th) * 0.5 + 0.5)
     love.graphics.print(text, textX, textY)
@@ -928,8 +950,7 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
   local textX = math.floor(x + (w - tw) * 0.5 + 0.5)
   local textY = math.floor(y + (h - th) * 0.5 + 0.5)
 
-  -- Enhanced text color for hover state
-  local textColor = hover and Theme.colors.textHighlight or Theme.colors.text
+  -- Draw text in accent color
   Theme.setColor(textColor)
   love.graphics.print(text, textX, textY)
 
@@ -998,12 +1019,12 @@ Theme.components = {
   },
 }
 
--- Dark space-themed turret slot colors (cyan primary, lavender secondary)
+-- Dark space-themed turret slot colors (monochrome theme)
 Theme.turretSlotColors = {
-  {0.2, 0.8, 0.9, 1.00},    -- Slot 1: electric cyan (primary)
-  {0.3, 0.9, 1.0, 1.00},    -- Slot 2: bright cyan (highlights)
-  {0.6, 0.4, 0.9, 1.00},    -- Slot 3: ethereal lavender (secondary)
-  {0.7, 0.5, 0.9, 1.00},    -- Slot 4: deep lavender (accents)
+  {0.7, 0.7, 0.7, 1.00},    -- Slot 1: medium gray (primary)
+  {0.8, 0.8, 0.8, 1.00},    -- Slot 2: light gray (highlights)
+  {0.6, 0.6, 0.6, 1.00},    -- Slot 3: dark gray (secondary)
+  {0.5, 0.5, 0.5, 1.00},    -- Slot 4: darker gray (accents)
 }
 
 -- === USAGE EXAMPLES ===

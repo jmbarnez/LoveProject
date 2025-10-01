@@ -12,6 +12,7 @@ local Util = require("src.core.util")
 local SettingsPanel = {}
 
 SettingsPanel.visible = false
+
 -- Aurora shader for title effect (initialized on first use)
 SettingsPanel.auroraShader = nil
 
@@ -36,10 +37,49 @@ local contentHeight = 0 -- Will be calculated dynamically
 local accentThemeLastChanged = 0
 local accentThemeChangeDuration = 0.5 -- Duration of highlight effect in seconds
 
+-- Function to apply custom accent color from RGB values
+local function applyCustomAccentColor(r, g, b)
+    local Theme = require("src.core.theme")
+    
+    -- Apply the custom color to all accent variants
+    Theme.colors.accent = {r, g, b, 1.00}
+    Theme.colors.accentGold = {r, g, b, 1.00}
+    Theme.colors.accentTeal = {r, g, b, 1.00}
+    Theme.colors.accentPink = {r, g, b, 1.00}
+    Theme.colors.border = {r, g, b, 0.8}
+    Theme.colors.borderBright = {r, g, b, 0.8}
+    
+    -- Update turret slot colors to match
+    Theme.turretSlotColors = {
+        {r, g, b, 1.00},
+        {r, g, b, 1.00},
+        {r, g, b, 1.00},
+        {r, g, b, 1.00},
+    }
+    
+    -- Store the custom color in settings
+    currentGraphicsSettings.accent_color_rgb = {r, g, b, 1.0}
+    currentGraphicsSettings.accent_theme = "Custom"
+    
+    accentThemeLastChanged = love.timer.getTime()
+end
+
 -- Standardized dropdown components
 local vsyncDropdown
 local fpsLimitDropdown
 local accentThemeDropdown
+
+-- Color picker state
+local accentColorPickerOpen = false
+local accentColorPickerX = 0
+local accentColorPickerY = 0
+local accentColorPickerW = 200
+local accentColorPickerH = 150
+local accentColorSliders = {
+    r = { value = 0.7, dragging = false },
+    g = { value = 0.7, dragging = false },
+    b = { value = 0.7, dragging = false }
+}
 
 -- Slider hover tracking
 local hoveredSlider = {
@@ -199,6 +239,7 @@ function SettingsPanel.init()
         minWidth = 600,
         minHeight = 400,
         useLoadPanelTheme = true,
+        bottomBarHeight = 60,
         draggable = true,
         resizable = false,
         drawContent = SettingsPanel.drawContent,
@@ -235,8 +276,16 @@ function SettingsPanel.init()
 
     -- Debug logging removed for production cleanliness
 
-    -- Apply the current accent theme
-    applyAccentTheme(currentGraphicsSettings.accent_theme or "Cyan/Lavender")
+    -- Apply the current accent theme or custom color
+    if currentGraphicsSettings.accent_color_rgb and currentGraphicsSettings.accent_theme == "Custom" then
+        local rgb = currentGraphicsSettings.accent_color_rgb
+        accentColorSliders.r.value = rgb[1] or 0.7
+        accentColorSliders.g.value = rgb[2] or 0.7
+        accentColorSliders.b.value = rgb[3] or 0.7
+        applyCustomAccentColor(accentColorSliders.r.value, accentColorSliders.g.value, accentColorSliders.b.value)
+    else
+        applyAccentTheme(currentGraphicsSettings.accent_theme or "Monochrome")
+    end
 
     -- Initialize standardized dropdown components
     local valueX = 150
@@ -283,34 +332,23 @@ function SettingsPanel.init()
     }
     local themeIndex = 1
     for i, theme in ipairs(accentThemes) do
-        if theme == (currentGraphicsSettings.accent_theme or "Cyan/Lavender") then
+        if theme == (currentGraphicsSettings.accent_theme or "Monochrome") then
             themeIndex = i
             break
         end
     end
 
-    accentThemeDropdown = Dropdown.new({
-        x = valueX,
-        y = 60 + itemHeight * 2,
-        options = accentThemes,
-        selectedIndex = themeIndex,
-        onSelect = function(index, option)
-            currentGraphicsSettings.accent_theme = option
-            applyAccentTheme(option)
-            Notifications.add(Strings.getNotification("accent_color_changed") .. " " .. option, "info")
-            accentThemeLastChanged = love.timer.getTime()
-            refreshGraphicsDropdowns()
-        end
-    })
+    -- Color picker button (replaces dropdown)
+    -- We'll handle this in the drawing and mouse handling code
 end
 
 function SettingsPanel.update(dt)
-    if not SettingsPanel.window.visible then return end
+    if not SettingsPanel.visible then return end
     -- Update logic for the settings panel
 end
 
 function SettingsPanel.draw()
-    if not SettingsPanel.window.visible then return end
+    if not SettingsPanel.visible then return end
 
     SettingsPanel.window:draw()
 end
@@ -326,7 +364,7 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     love.graphics.push()
     -- Get the actual title bar height from the window
     local innerTop = y  -- Start below the title bar
-    local innerH = h - 60   -- Leave room for title bar and bottom bar (60px)
+    local innerH = h   -- Content height is now handled by window's getContentBounds()
     love.graphics.setScissor(x, innerTop, w, innerH)
     love.graphics.translate(0, -scrollY)
 
@@ -380,10 +418,42 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     love.graphics.pop()
     yOffset = yOffset + itemHeight
 
-    -- Accent Color Theme
+    -- Accent Color Picker
     Theme.setColor(Theme.colors.text)
     love.graphics.print("Accent Color:", labelX, yOffset)
-    accentThemeDropdown:setPosition(valueX, yOffset - 2 - scrollY)
+    
+    -- Color picker button
+    local colorButtonX = valueX
+    local colorButtonY = yOffset - 2 - scrollY
+    local colorButtonW = 120
+    local colorButtonH = 30
+    local colorButtonHover = mx >= colorButtonX and mx <= colorButtonX + colorButtonW and my >= colorButtonY and my <= colorButtonY + colorButtonH
+    
+    -- Draw color preview button
+    local currentColor = {accentColorSliders.r.value, accentColorSliders.g.value, accentColorSliders.b.value, 1.0}
+    Theme.setColor(currentColor)
+    love.graphics.rectangle("fill", colorButtonX, colorButtonY, colorButtonW, colorButtonH)
+    
+    -- Draw border
+    local borderColor = colorButtonHover and Theme.colors.borderBright or Theme.colors.border
+    Theme.setColor(borderColor)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", colorButtonX, colorButtonY, colorButtonW, colorButtonH)
+    
+    -- Draw button text
+    Theme.setColor({0, 0, 0, 1}) -- Black text for contrast
+    local buttonText = "Custom"
+    local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
+    local oldFont = love.graphics.getFont()
+    love.graphics.setFont(font)
+    local textW = font:getWidth(buttonText)
+    local textH = font:getHeight()
+    love.graphics.print(buttonText, colorButtonX + (colorButtonW - textW) * 0.5, colorButtonY + (colorButtonH - textH) * 0.5)
+    love.graphics.setFont(oldFont)
+    
+    -- Store button bounds for mouse handling
+    SettingsPanel._colorPickerButton = { x = colorButtonX, y = colorButtonY, w = colorButtonW, h = colorButtonH }
+    
     yOffset = yOffset + itemHeight
 
 
@@ -511,7 +581,9 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     love.graphics.setLineWidth(1)
     
     -- Bottom separation line (between content and bottom bar)
-    love.graphics.line(x, y + h - 60, x + w, y + h - 60)
+    local content = SettingsPanel.window:getContentBounds()
+    local bottomBarY = content.y + content.h
+    love.graphics.line(x, bottomBarY, x + w, bottomBarY)
 
     -- Set scissor to full panel bounds for dropdowns and apply button
     love.graphics.setScissor(x, y, w, h)
@@ -554,12 +626,13 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     -- First draw all dropdown buttons (for proper z-ordering)
     vsyncDropdown:drawButtonOnly(mx, my)
     fpsLimitDropdown:drawButtonOnly(mx, my)
-    accentThemeDropdown:drawButtonOnly(mx, my)
 
     -- Then draw options for any open dropdowns (on top)
     vsyncDropdown:drawOptionsOnly(mx, my)
     fpsLimitDropdown:drawOptionsOnly(mx, my)
-    accentThemeDropdown:drawOptionsOnly(mx, my)
+
+    -- Disable scissor for buttons (they're in the bottom bar area)
+    love.graphics.setScissor()
 
     -- Apply and Reset buttons
     local buttonW, buttonH = 100, 30
@@ -567,20 +640,98 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     local totalButtonWidth = buttonW * 2 + buttonSpacing
     local applyButtonX = x + (w / 2) - totalButtonWidth / 2
     local resetButtonX = applyButtonX + buttonW + buttonSpacing
-    local buttonAreaY = y + h - 60
+    local buttonAreaY = content.y + content.h
     local buttonY = buttonAreaY + 15
     local applyBtnHover = mx >= applyButtonX and mx <= applyButtonX + buttonW and my >= buttonY and my <= buttonY + buttonH
     local resetBtnHover = mx >= resetButtonX and mx <= resetButtonX + buttonW and my >= buttonY and my <= buttonY + buttonH
 
-    -- Draw Apply button using themed button renderer and store its rect
+    -- Draw Apply button with green styling
     local applyText = Strings.getUI("apply_button")
-    Theme.drawStyledButton(applyButtonX, buttonY, buttonW, buttonH, applyText, applyBtnHover, love.timer.getTime())
+    Theme.drawStyledButton(applyButtonX, buttonY, buttonW, buttonH, applyText, applyBtnHover, love.timer.getTime(), {0.2, 0.8, 0.2, 1.0})
     SettingsPanel._applyButton = { _rect = { x = applyButtonX, y = buttonY, w = buttonW, h = buttonH } }
 
-    -- Draw Reset button
+    -- Draw Reset button with red styling
     local resetText = "Reset"
-    Theme.drawStyledButton(resetButtonX, buttonY, buttonW, buttonH, resetText, resetBtnHover, love.timer.getTime())
+    Theme.drawStyledButton(resetButtonX, buttonY, buttonW, buttonH, resetText, resetBtnHover, love.timer.getTime(), {0.8, 0.2, 0.2, 1.0})
     SettingsPanel._resetButton = { _rect = { x = resetButtonX, y = buttonY, w = buttonW, h = buttonH } }
+
+    -- Color Picker Popup
+    if accentColorPickerOpen then
+        local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
+        local pickerX = accentColorPickerX
+        local pickerY = accentColorPickerY
+        local pickerW = accentColorPickerW
+        local pickerH = accentColorPickerH
+        
+        -- Draw popup background
+        Theme.setColor({0.1, 0.1, 0.1, 0.95})
+        love.graphics.rectangle("fill", pickerX, pickerY, pickerW, pickerH)
+        
+        -- Draw popup border
+        Theme.setColor(Theme.colors.border)
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line", pickerX, pickerY, pickerW, pickerH)
+        
+        -- Draw title
+        Theme.setColor(Theme.colors.text)
+        love.graphics.print("Custom Accent Color", pickerX + 10, pickerY + 10)
+        
+        -- Draw color preview
+        local previewX = pickerX + 10
+        local previewY = pickerY + 35
+        local previewW = pickerW - 20
+        local previewH = 30
+        local currentColor = {accentColorSliders.r.value, accentColorSliders.g.value, accentColorSliders.b.value, 1.0}
+        Theme.setColor(currentColor)
+        love.graphics.rectangle("fill", previewX, previewY, previewW, previewH)
+        Theme.setColor(Theme.colors.border)
+        love.graphics.rectangle("line", previewX, previewY, previewW, previewH)
+        
+        -- Draw RGB sliders
+        local sliderY = previewY + previewH + 20
+        local sliderW = previewW
+        local sliderH = 15
+        local sliderSpacing = 25
+        
+        -- Red slider
+        Theme.setColor(Theme.colors.text)
+        love.graphics.print("R", pickerX + 10, sliderY - 15)
+        Theme.setColor({1, 0, 0, 1})
+        love.graphics.rectangle("fill", previewX, sliderY, sliderW, sliderH)
+        Theme.setColor({0.2, 0.2, 0.2, 1})
+        love.graphics.rectangle("fill", previewX, sliderY, sliderW * accentColorSliders.r.value, sliderH)
+        Theme.setColor(Theme.colors.border)
+        love.graphics.rectangle("line", previewX, sliderY, sliderW, sliderH)
+        
+        -- Green slider
+        sliderY = sliderY + sliderSpacing
+        Theme.setColor(Theme.colors.text)
+        love.graphics.print("G", pickerX + 10, sliderY - 15)
+        Theme.setColor({0, 1, 0, 1})
+        love.graphics.rectangle("fill", previewX, sliderY, sliderW, sliderH)
+        Theme.setColor({0.2, 0.2, 0.2, 1})
+        love.graphics.rectangle("fill", previewX, sliderY, sliderW * accentColorSliders.g.value, sliderH)
+        Theme.setColor(Theme.colors.border)
+        love.graphics.rectangle("line", previewX, sliderY, sliderW, sliderH)
+        
+        -- Blue slider
+        sliderY = sliderY + sliderSpacing
+        Theme.setColor(Theme.colors.text)
+        love.graphics.print("B", pickerX + 10, sliderY - 15)
+        Theme.setColor({0, 0, 1, 1})
+        love.graphics.rectangle("fill", previewX, sliderY, sliderW, sliderH)
+        Theme.setColor({0.2, 0.2, 0.2, 1})
+        love.graphics.rectangle("fill", previewX, sliderY, sliderW * accentColorSliders.b.value, sliderH)
+        Theme.setColor(Theme.colors.border)
+        love.graphics.rectangle("line", previewX, sliderY, sliderW, sliderH)
+        
+        -- Store slider bounds for mouse handling
+        SettingsPanel._colorPickerSliders = {
+            r = { x = previewX, y = previewY + previewH + 20, w = sliderW, h = sliderH },
+            g = { x = previewX, y = previewY + previewH + 45, w = sliderW, h = sliderH },
+            b = { x = previewX, y = previewY + previewH + 70, w = sliderW, h = sliderH }
+        }
+    end
 
     -- Reticle Gallery Popup
     if reticleGalleryOpen then
@@ -688,7 +839,7 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     local content = win:getContentBounds()
     local contentX, contentY, contentW, contentH = content.x, content.y, content.w, content.h
     local innerTop = contentY or panelY  -- Fallback to panelY if contentY is nil
-    local innerH = (contentH or h) - 60
+    local innerH = contentH or h
     local valueX = contentX + 150
     local dropdownW = 150
     local itemHeight = 40
@@ -711,7 +862,30 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     -- Handle dropdown clicks using standardized components
     if vsyncDropdown:mousepressed(x, y, button) then return true end
     if fpsLimitDropdown:mousepressed(x, y, button) then return true end
-    if accentThemeDropdown:mousepressed(x, y, button) then return true end
+    
+    -- Handle color picker button click
+    if SettingsPanel._colorPickerButton and x >= SettingsPanel._colorPickerButton.x and x <= SettingsPanel._colorPickerButton.x + SettingsPanel._colorPickerButton.w and y >= SettingsPanel._colorPickerButton.y and y <= SettingsPanel._colorPickerButton.y + SettingsPanel._colorPickerButton.h then
+        accentColorPickerOpen = not accentColorPickerOpen
+        if accentColorPickerOpen then
+            -- Position the color picker near the button
+            accentColorPickerX = SettingsPanel._colorPickerButton.x + SettingsPanel._colorPickerButton.w + 10
+            accentColorPickerY = SettingsPanel._colorPickerButton.y
+        end
+        return true
+    end
+    
+    -- Handle color picker sliders
+    if accentColorPickerOpen and SettingsPanel._colorPickerSliders then
+        for channel, slider in pairs(SettingsPanel._colorPickerSliders) do
+            if x >= slider.x and x <= slider.x + slider.w and y >= slider.y and y <= slider.y + slider.h then
+                accentColorSliders[channel].dragging = true
+                local value = math.max(0, math.min(1, (x - slider.x) / slider.w))
+                accentColorSliders[channel].value = value
+                applyCustomAccentColor(accentColorSliders.r.value, accentColorSliders.g.value, accentColorSliders.b.value)
+                return true
+            end
+        end
+    end
     
     -- Handle apply and reset buttons (use content bounds like drawContent does)
     local buttonW, buttonH = 100, 30
@@ -719,7 +893,7 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     local totalButtonWidth = buttonW * 2 + buttonSpacing
     local applyButtonX = contentX + (contentW / 2) - totalButtonWidth / 2
     local resetButtonX = applyButtonX + buttonW + buttonSpacing
-    local buttonAreaY = contentY + contentH - 60
+    local buttonAreaY = contentY + contentH
     local buttonY = buttonAreaY + 15
     
     -- Apply button
@@ -899,6 +1073,14 @@ function SettingsPanel.mousereleased(x, y, button)
     end
 
     draggingSlider = nil
+    
+    -- Stop color picker slider dragging
+    if accentColorPickerOpen then
+        for channel, _ in pairs(accentColorSliders) do
+            accentColorSliders[channel].dragging = false
+        end
+    end
+    
     return false
 end
 
@@ -909,7 +1091,7 @@ function SettingsPanel.wheelmoved(x, y, dx, dy)
     if not win:containsPoint(x, y) then return false end
 
     local content = win:getContentBounds()
-    local innerH = content.h - 60 -- Consistent with drawContent
+    local innerH = content.h -- Consistent with drawContent
 
     SettingsPanel.calculateContentHeight()
     local maxScroll = math.max(0, contentHeight - innerH)
@@ -936,7 +1118,7 @@ function SettingsPanel.mousemoved(raw_x, raw_y, dx, dy)
     local panelX, panelY, w, h = win.x, win.y, win.width, win.height
     local content = win:getContentBounds()
     local contentX, contentY, contentW, contentH = content.x, content.y, content.w, content.h
-    local innerH = contentH - 60
+    local innerH = contentH
     local valueX = contentX + 150
     local itemHeight = 40
 
@@ -949,7 +1131,17 @@ function SettingsPanel.mousemoved(raw_x, raw_y, dx, dy)
         -- Dropdowns handle their own hover detection, no changes needed here
         vsyncDropdown:mousemoved(x, y)
         fpsLimitDropdown:mousemoved(x, y)
-        accentThemeDropdown:mousemoved(x, y)
+        
+        -- Handle color picker slider dragging
+        if accentColorPickerOpen and SettingsPanel._colorPickerSliders then
+            for channel, slider in pairs(SettingsPanel._colorPickerSliders) do
+                if accentColorSliders[channel].dragging then
+                    local value = math.max(0, math.min(1, (x - slider.x) / slider.w))
+                    accentColorSliders[channel].value = value
+                    applyCustomAccentColor(accentColorSliders.r.value, accentColorSliders.g.value, accentColorSliders.b.value)
+                end
+            end
+        end
 
         -- Check slider hovers (scrolled content)
         -- Use the exact same logic as mousepressed to find the elements
@@ -1135,8 +1327,11 @@ function SettingsPanel.resetToDefaults()
         selectedFullscreenTypeIndex = 1
     end
     
-    -- Update accent theme
-    applyAccentTheme(currentGraphicsSettings.accent_theme or "Cyan/Lavender")
+    -- Reset accent color to default
+    accentColorSliders.r.value = 0.7
+    accentColorSliders.g.value = 0.7
+    accentColorSliders.b.value = 0.7
+    applyAccentTheme("Monochrome")
     
     -- Show notification
     Notifications.add("Settings reset to defaults (saves preserved)", "success")

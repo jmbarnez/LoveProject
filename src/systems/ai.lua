@@ -664,13 +664,13 @@ function AISystem.update(dt, world, spawnProjectile)
     -- Get all entities with AI component
     local aiEntities = world:get_entities_with_components("ai", "position")
 
+    -- Cache player reference - only look it up once per frame
+    local player = findPlayer(world)
+
     for _, entity in ipairs(aiEntities) do
         local ai = entity.components.ai
 
         updateBossMinions(entity, dt, world)
-
-        -- Find player for detection purposes
-        local player = findPlayer(world)
         
         -- Update AI state (detection, damage response, etc.)
         updateAIState(entity, dt, player)
