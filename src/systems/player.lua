@@ -471,7 +471,7 @@ function PlayerSystem.update(dt, player, input, world, hub)
     end
 end
 
--- Find the best target for missile lock-on based on player aim direction
+-- Simple target finder for missile lock-on - finds closest enemy
 function PlayerSystem.findBestTargetForLockOn(turret, world)
     if not turret or not world then
         return nil
@@ -483,20 +483,7 @@ function PlayerSystem.findBestTargetForLockOn(turret, world)
     end
   
     local ownerPos = owner.components.position
-    local aimAngle = ownerPos.angle or 0
-
-    -- Prefer the player's current aiming direction (cursor position) if available
-    local cursor = owner.cursorWorldPos
-    if cursor and cursor.x and cursor.y then
-        local aimDx = cursor.x - ownerPos.x
-        local aimDy = cursor.y - ownerPos.y
-        if aimDx ~= 0 or aimDy ~= 0 then
-            aimAngle = math.atan2(aimDy, aimDx)
-        end
-    end
-
-    local lockOnTolerance = turret.lockOnTolerance or (math.pi / 6) -- 30 degrees default
-    local graceTolerance = turret.lockOnGraceTolerance or (lockOnTolerance * 1.5)
+    local lockRange = turret.maxRange or 800 -- Use turret max range for lock range
 
     local function isValidEnemy(entity)
         if not entity or entity == owner or entity.dead then
@@ -532,61 +519,19 @@ function PlayerSystem.findBestTargetForLockOn(turret, world)
         return false
     end
 
-    local function getAngleDiff(targetPos)
-        local dx = targetPos.x - ownerPos.x
-        local dy = targetPos.y - ownerPos.y
-        local targetAngle = math.atan2(dy, dx)
-        local angleDiff = math.abs(targetAngle - aimAngle)
-        if angleDiff > math.pi then
-            angleDiff = 2 * math.pi - angleDiff
-        end
-        return angleDiff, dx, dy
-    end
-
-    local function isWithinAim(entity, tolerance)
-        if not isValidEnemy(entity) then
-            return false
-        end
-        local angleDiff = getAngleDiff(entity.components.position)
-        return angleDiff <= (tolerance or lockOnTolerance)
-    end
-
-    -- If we're already locking onto a target and still aiming at it, keep it to avoid resets
-    if isWithinAim(turret.lockOnTarget, graceTolerance) then
-        return turret.lockOnTarget
-    end
-
-    -- Gather potential candidates. Prefer AI-tagged enemies, fallback to any collidable entities
-    local candidates = world:get_entities_with_components("ai", "position") or {}
-    if not candidates[1] then
-        candidates = world:get_entities_with_components("collidable", "position") or {}
-    end
-
+    -- Find closest enemy within lock range
     local bestTarget = nil
-    local bestScore = -math.huge
+    local closestDistance = math.huge
 
-    for _, entity in ipairs(candidates) do
+    for _, entity in pairs(world.entities) do
         if isValidEnemy(entity) then
-            local angleDiff, dx, dy = getAngleDiff(entity.components.position)
-            if angleDiff <= lockOnTolerance then
-                local distance = math.sqrt(dx * dx + dy * dy)
-                local angleScore = 1 - (angleDiff / lockOnTolerance)
-                local distanceScore = 1000 / (1 + distance)
-
-                -- Slightly prefer the previous target to stabilize selection
-                local totalScore = angleScore * distanceScore
-                if entity == turret.lockOnTarget then
-                    totalScore = totalScore * 1.25
-                end
-
-                if totalScore > bestScore then
-                    bestScore = totalScore
-                    bestTarget = entity
-                end
-            elseif turret.lockOnTarget == entity and angleDiff <= graceTolerance then
-                -- Allow slight drift on the existing target so progress can decay gracefully
+            local dx = entity.components.position.x - ownerPos.x
+            local dy = entity.components.position.y - ownerPos.y
+            local distance = math.sqrt(dx * dx + dy * dy)
+            
+            if distance <= lockRange and distance < closestDistance then
+                closestDistance = distance
                 bestTarget = entity
-                bestScore = math.huge -- ensure we keep the current target
             end
         end
     end

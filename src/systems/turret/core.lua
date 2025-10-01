@@ -283,7 +283,7 @@ function Turret:resetLockOn()
     self.lockOnProgress = 0
 end
 
--- Update lock-on system
+-- Simple lock-on system for missiles
 function Turret.updateLockOn(turret, dt, target, world)
     -- If no target provided, reset lock-on
     if not target or not target.components or not target.components.position then
@@ -291,9 +291,19 @@ function Turret.updateLockOn(turret, dt, target, world)
         return
     end
 
-    -- For enemies (AI), automatically lock onto target without cursor requirements
-    if not turret.owner.isPlayer and not turret.owner.isFriendly then
-        -- Enemy AI: automatic lock-on to target
+    -- Calculate distance to target
+    local ownerPos = turret.owner.components.position
+    local targetPos = target.components.position
+    local dx = targetPos.x - ownerPos.x
+    local dy = targetPos.y - ownerPos.y
+    local distance = math.sqrt(dx * dx + dy * dy)
+    
+    -- Simple lock-on: if target is within range, lock on after a short delay
+    local lockRange = turret.maxRange or 800 -- Use turret max range for lock range
+    local lockTime = turret.lockOnDuration or 1.0 -- How long to hold target for lock
+    
+    if distance <= lockRange then
+        -- Target is in range, start/update lock-on
         if not turret.lockOnTarget or turret.lockOnTarget ~= target then
             -- New target, start lock-on timer
             turret.lockOnTarget = target
@@ -301,71 +311,16 @@ function Turret.updateLockOn(turret, dt, target, world)
             turret.lockOnProgress = 0
             turret.isLockedOn = false
         else
-            -- Same target, increment lock progress based on elapsed time
-            local duration = math.max(0.1, turret.lockOnDuration or 2.0)
-            turret.lockOnProgress = math.min(1.0, turret.lockOnProgress + dt / duration)
-
+            -- Same target, increment lock progress
+            local elapsed = love.timer.getTime() - turret.lockOnStartTime
+            turret.lockOnProgress = math.min(1.0, elapsed / lockTime)
+            
             if turret.lockOnProgress >= 1.0 then
                 turret.isLockedOn = true
             end
         end
-        return
-    end
-
-    -- Player lock-on system (requires cursor aiming)
-    local ownerPos = turret.owner.components.position
-    local targetPos = target.components.position
-
-    -- Calculate angle to target
-    local dx = targetPos.x - ownerPos.x
-    local dy = targetPos.y - ownerPos.y
-    local targetAngle = math.atan2(dy, dx)
-
-    -- Check if player cursor is roughly aligned with target (within tolerance)
-    local playerAngle = targetAngle -- Use target angle directly since we're checking cursor alignment
-    if turret.owner.cursorWorldPos then
-        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
-        local dx = cursorX - ownerPos.x
-        local dy = cursorY - ownerPos.y
-        playerAngle = math.atan2(dy, dx)
-    end
-    local angleDiff = math.abs(targetAngle - playerAngle)
-    -- Normalize to [0, π]
-    if angleDiff > math.pi then
-        angleDiff = 2 * math.pi - angleDiff
-    end
-
-    local lockOnTolerance = turret.lockOnTolerance or (math.pi / 6)
-    local graceTolerance = turret.lockOnGraceTolerance or (lockOnTolerance * 1.5)
-
-    if angleDiff <= lockOnTolerance then
-        -- We're aiming at the target, start/update lock-on
-        if not turret.lockOnTarget or turret.lockOnTarget ~= target then
-            -- New target, start lock-on timer
-            turret.lockOnTarget = target
-            turret.lockOnStartTime = love.timer.getTime()
-            turret.lockOnProgress = 0
-            turret.isLockedOn = false
-        end
-
-        local duration = math.max(0.1, turret.lockOnDuration or 2.0)
-        turret.lockOnProgress = math.min(1.0, turret.lockOnProgress + dt / duration)
-        if turret.lockOnProgress >= 1.0 then
-            turret.isLockedOn = true
-        end
-    elseif turret.lockOnTarget == target and angleDiff <= graceTolerance then
-        -- Slightly outside primary cone: bleed progress instead of instantly resetting
-        local decayTime = math.max(0.1, turret.lockOnDecayTime or turret.lockOnDuration or 2.0)
-        turret.lockOnProgress = math.max(0, turret.lockOnProgress - dt / decayTime)
-        if turret.lockOnProgress < 1.0 then
-            turret.isLockedOn = false
-        end
-
-        if turret.lockOnProgress <= 0 then
-            turret:resetLockOn()
-        end
     else
-        -- Far outside lock cone, reset lock-on completely
+        -- Target out of range, reset lock-on
         turret:resetLockOn()
     end
 end
