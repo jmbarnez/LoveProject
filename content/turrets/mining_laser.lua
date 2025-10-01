@@ -68,6 +68,10 @@ return {
     maxRange = 1500,
     spread = { minDeg = 0.0, maxDeg = 0.0, decay = 900 },
     
+    -- Volley firing (single shot by default)
+    volleyCount = 1,
+    volleySpreadDeg = 0,
+    
     -- Mining parameters
     miningPower = 2.5,
     miningCyclesPerResource = 4,
@@ -75,8 +79,8 @@ return {
     
     -- Overheating parameters
     maxHeat = 120,
-    heatPerShot = 60,
-    cooldownRate = 4,
+    heatPerShot = 40,
+    cooldownRate = 10,
     overheatCooldown = 3.0,
     heatCycleMult = 0.8,
     heatEnergyMult = 1.2,

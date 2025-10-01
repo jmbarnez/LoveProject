@@ -15,7 +15,7 @@ function Turret.new(owner, params)
     local self = setmetatable({}, Turret)
 
     self.owner = owner
-    self.kind = params.type or params.kind or "gun"
+    self.kind = params.type
 
     -- Skill progression tag used when this turret deals the killing blow
     self.skillId = params.skillId
@@ -26,13 +26,13 @@ function Turret.new(owner, params)
     end
 
     -- Basic turret parameters
-    self.damage_range = params.damage_range or {min = 1, max = 2}
-    self.cycle = params.cycle or 1.0
-    self.capCost = params.capCost or 5
+    self.damage_range = params.damage_range
+    self.cycle = params.cycle
+    self.capCost = params.capCost
 
     -- Targeting parameters
-    self.optimal = params.optimal or 800
-    self.falloff = params.falloff or 400
+    self.optimal = params.optimal
+    self.falloff = params.falloff
 
     -- Firing facing tolerance: enemies must face target within this angle to fire
     -- (radians). Players/friendly turrets are not restricted by this.
@@ -46,9 +46,9 @@ function Turret.new(owner, params)
     end
 
     -- Visual and audio parameters
-    self.tracer = params.tracer or {}
-    self.impact = params.impact or {}
-    self.spread = params.spread or {minDeg = 0.1, maxDeg = 0.5, decay = 500}
+    self.tracer = params.tracer
+    self.impact = params.impact
+    self.spread = params.spread
 
     -- Weapon-specific parameters
     -- Handle both embedded projectile definitions and projectile ID strings
@@ -60,29 +60,26 @@ function Turret.new(owner, params)
         -- Legacy projectile ID string
         self.projectileId = params.projectile
     end
-    self.projectileSpeed = params.projectileSpeed or (
-        (self.kind == 'laser' or self.kind == 'mining_laser' or self.kind == 'salvaging_laser') and 100000 or
-        (self.kind == 'missile' and 800) or 2400
-    )
-    self.maxRange = params.maxRange or (self.kind == 'laser' and 1500 or nil)
+    self.projectileSpeed = params.projectileSpeed
+    self.maxRange = params.maxRange
 
     -- Missile-specific parameters
-    self.missileTurnRate = params.missileTurnRate or 0
+    self.missileTurnRate = params.missileTurnRate
 
     -- Mining/salvaging parameters
-    self.miningPower = params.miningPower or 2.5
-    self.miningCyclesPerResource = params.miningCyclesPerResource or 4
-    self.salvagePower = params.salvagePower or 3.0
-    self.beamDuration = params.beamDuration or 0.08
+    self.miningPower = params.miningPower
+    self.miningCyclesPerResource = params.miningCyclesPerResource
+    self.salvagePower = params.salvagePower
+    self.beamDuration = params.beamDuration
 
     -- Secondary projectile support
     self.secondaryProjectile = params.secondaryProjectile
-    self.secondaryProjectileSpeed = params.secondaryProjectileSpeed or 600
-    self.secondaryFireEvery = params.secondaryFireEvery or 1
+    self.secondaryProjectileSpeed = params.secondaryProjectileSpeed
+    self.secondaryFireEvery = params.secondaryFireEvery
 
     -- Volley firing support
-    self.volleyCount = params.volleyCount or 1
-    self.volleySpreadDeg = params.volleySpreadDeg or 0
+    self.volleyCount = params.volleyCount
+    self.volleySpreadDeg = params.volleySpreadDeg
 
     -- Initialize heat management
     HeatManager.initializeHeat(self, params)
@@ -94,7 +91,7 @@ function Turret.new(owner, params)
     self.cooldown = 0 -- Time remaining until next shot
 
     -- Firing mode: manual (hold to fire) or automatic (toggle to fire)
-    self.fireMode = params.fireMode or "manual"
+    self.fireMode = params.fireMode
     self.autoFire = false -- For automatic mode, tracks toggle state
 
 
@@ -107,44 +104,44 @@ function Turret.new(owner, params)
         self.tracer.color = {0.35, 0.70, 1.00, 1.0}
     end
     if self.kind == 'laser' then
-        self.tracer.color = self.tracer.color or {0.3, 0.7, 1.0, 0.8}
-        self.tracer.width = self.tracer.width or 1.5
-        self.tracer.coreRadius = self.tracer.coreRadius or 1
+        self.tracer.color = self.tracer.color
+        self.tracer.width = self.tracer.width
+        self.tracer.coreRadius = self.tracer.coreRadius
     elseif self.kind == 'mining_laser' then
-        self.tracer.color = self.tracer.color or {1.0, 0.7, 0.2, 0.8}
-        self.tracer.width = self.tracer.width or 2.0
-        self.tracer.coreRadius = self.tracer.coreRadius or 2
+        self.tracer.color = self.tracer.color
+        self.tracer.width = self.tracer.width
+        self.tracer.coreRadius = self.tracer.coreRadius
     elseif self.kind == 'salvaging_laser' then
-        self.tracer.color = self.tracer.color or {0.2, 1.0, 0.3, 0.8}
-        self.tracer.width = self.tracer.width or 2.0
-        self.tracer.coreRadius = self.tracer.coreRadius or 3
+        self.tracer.color = self.tracer.color
+        self.tracer.width = self.tracer.width
+        self.tracer.coreRadius = self.tracer.coreRadius
     elseif self.kind == 'missile' then
-        self.tracer.color = self.tracer.color or {1.0, 0.5, 0.2, 1.0}
+        self.tracer.color = self.tracer.color
     end
 
     return self
 end
 
 function Turret:update(dt, target, locked, world)
+    -- Update heat management
+    HeatManager.updateHeat(self, dt, locked)
+
     -- Update cooldown timer
     if self.cooldown > 0 then
         self.cooldown = math.max(0, self.cooldown - dt)
     end
+
 
     -- Check if we can fire
     if locked then
         self.firing = false
         self.currentTarget = nil
         self.beamActive = false
-        -- Update heat management after setting firing to false
-        HeatManager.updateHeat(self, dt, locked)
         return
     end
 
     -- Check firing timing (cooldown takes priority over old timing system)
     if self.cooldown > 0 then
-        -- Update heat management even when on cooldown
-        HeatManager.updateHeat(self, dt, locked)
         return
     end
 
@@ -182,11 +179,8 @@ function Turret:update(dt, target, locked, world)
         Log.debug("Turret:update - Cooldown set to: " .. tostring(self.cooldown) .. " for turret: " .. tostring(self.id))
     end
 
-    -- Update heat management AFTER weapon firing (so heat is added before being dissipated)
-    HeatManager.updateHeat(self, dt, locked)
-
     -- Update last fire time (legacy compatibility)
-    self.lastFireTime = love.timer and love.timer.getTime() or 0
+    self.lastFireTime = love.timer and love.timer.getTime()
 end
 
 function Turret:cancelFiring()
@@ -269,7 +263,7 @@ function Turret.getTurretWorldPosition(turret)
 
     local shipX = turret.owner.components.position.x
     local shipY = turret.owner.components.position.y
-    local shipAngle = turret.owner.components.position.angle or 0
+    local shipAngle = turret.owner.components.position.angle
 
     -- Determine the local pivot and muzzle points from the ship's visuals.
     local pivotX, pivotY = 0, 0
@@ -281,8 +275,8 @@ function Turret.getTurretWorldPosition(turret)
     local visuals = turret.owner.ship and turret.owner.ship.visuals
     if visuals then
         if visuals.turretPivot then
-            pivotX = visuals.turretPivot.x or pivotX
-            pivotY = visuals.turretPivot.y or pivotY
+            pivotX = visuals.turretPivot.x
+            pivotY = visuals.turretPivot.y
             pivotFound = true
         end
 
@@ -291,12 +285,12 @@ function Turret.getTurretWorldPosition(turret)
                 if shape.turret then
                     if not pivotFound then
                         if type(shape.turretPivot) == "table" then
-                            pivotX = shape.turretPivot.x or pivotX
-                            pivotY = shape.turretPivot.y or pivotY
+                            pivotX = shape.turretPivot.x
+                            pivotY = shape.turretPivot.y
                             pivotFound = true
                         elseif shape.turretPivotX or shape.turretPivotY then
-                            pivotX = shape.turretPivotX or pivotX
-                            pivotY = shape.turretPivotY or pivotY
+                            pivotX = shape.turretPivotX
+                            pivotY = shape.turretPivotY
                             pivotFound = true
                         end
                     end
@@ -304,11 +298,11 @@ function Turret.getTurretWorldPosition(turret)
                     local candidateX, candidateY = nil, nil
 
                     if shape.type == "circle" then
-                        candidateX = shape.x or 0
-                        candidateY = shape.y or 0
+                        candidateX = shape.x
+                        candidateY = shape.y
                     elseif shape.type == "rectangle" then
-                        candidateX = (shape.x or 0) + (shape.w or 0) / 2
-                        candidateY = (shape.y or 0) + (shape.h or 0) / 2
+                        candidateX = shape.x + shape.w / 2
+                        candidateY = shape.y + shape.h / 2
                     elseif shape.type == "polygon" and shape.points then
                         local sumX, sumY = 0, 0
                         local count = 0

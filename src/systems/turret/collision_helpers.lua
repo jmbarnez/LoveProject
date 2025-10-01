@@ -25,18 +25,18 @@ function CollisionHelpers.performCollisionCheck(x1, y1, x2, y2, target, targetRa
 
 
     -- Shields always take priority - they're larger than the hull
-    if target.components.health and (target.components.health.shield or 0) > 0 then
+    if target.components.health and target.components.health.shield > 0 then
         return CollisionHelpers.calculateShieldHitPoint(x1, y1, x2, y2, ex, ey, targetRadius)
     end
 
     -- Check for polygon collision shape (hull collision)
     if collidable and collidable.shape == "polygon" and collidable.vertices then
-        local angle = (target.components.position and target.components.position.angle) or 0
+        local angle = (target.components.position and target.components.position.angle)
         local wverts = CollisionHelpers.transformPolygon(ex, ey, angle, collidable.vertices)
         return CollisionHelpers.segPolygonHit(x1, y1, x2, y2, wverts)
     -- Legacy support for mineable objects with vertices
     elseif target.components.mineable and collidable and collidable.vertices then
-        local angle = (target.components.position and target.components.position.angle) or 0
+        local angle = (target.components.position and target.components.position.angle)
         local wverts = CollisionHelpers.transformPolygon(ex, ey, angle, collidable.vertices)
         return CollisionHelpers.segPolygonHit(x1, y1, x2, y2, wverts)
     else

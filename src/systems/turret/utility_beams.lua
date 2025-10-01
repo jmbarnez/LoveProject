@@ -50,7 +50,7 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
         return
     end
 
-    turret._beamImpactTimer = math.max(0, (turret._beamImpactTimer or 0) - dt)
+    turret._beamImpactTimer = math.max(0, turret._beamImpactTimer - dt)
 
     -- Get turret world position first for accurate aiming
     local Turret = require("src.systems.turret.core")
@@ -67,13 +67,13 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
         cursorDistance = math.sqrt(dx * dx + dy * dy)
     else
         -- Fallback to ship facing if cursor position not available
-        angle = turret.owner.components.position.angle or 0
+        angle = turret.owner.components.position.angle
     end
 
     turret.currentAimAngle = angle
 
     -- Calculate maximum beam range for collision detection
-    local maxRange = turret.maxRange or 850
+    local maxRange = turret.maxRange
     local endX = sx + math.cos(angle) * maxRange
     local endY = sy + math.sin(angle) * maxRange
 
@@ -83,8 +83,8 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     local wasActive = turret.beamActive
     -- Use collision point if hit, otherwise use max range end point
-    local beamEndX = hitX or endX
-    local beamEndY = hitY or endY
+    local beamEndX = hitX
+    local beamEndY = hitY
 
     turret.beamActive = true
     turret.beamStartX = sx
@@ -93,8 +93,8 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     turret.beamEndY = beamEndY
     turret.beamTarget = hitTarget
 
-    local cycle = math.max(0.1, turret.cycle or 1.0)
-    local miningPower = turret.miningPower or 1
+    local cycle = math.max(0.1, turret.cycle)
+    local miningPower = turret.miningPower
     local damageRate = miningPower / cycle
 
     if hitTarget then
@@ -127,7 +127,7 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     turret.cooldownOverride = 0
 
-    local heatPerSecond = (turret.heatPerShot or 60.0) / cycle
+    local heatPerSecond = turret.heatPerShot / cycle
     HeatManager.addHeat(turret, heatPerSecond * dt)
 
     if not wasActive then
@@ -142,7 +142,7 @@ function UtilityBeams.applyMiningDamage(target, damage, source, world, impactX, 
     end
 
     local mineable = target.components.mineable
-    local oldDurability = mineable.durability or 5.0
+    local oldDurability = mineable.durability
 
     -- Initialize maxDurability if not set
     if not mineable.maxDurability then
@@ -257,7 +257,7 @@ function UtilityBeams.completeMining(turret, target, world)
     local Sound = require("src.core.sound")
     local x = target.components.position.x
     local y = target.components.position.y
-    local radius = (target.components.collidable and target.components.collidable.radius) or 30
+    local radius = (target.components.collidable and target.components.collidable.radius)
 
     if Effects and Effects.spawnExtractionFlash then
         Effects.spawnExtractionFlash(x, y, radius * 0.6)
@@ -321,7 +321,7 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
         return
     end
 
-    turret._beamImpactTimer = math.max(0, (turret._beamImpactTimer or 0) - dt)
+    turret._beamImpactTimer = math.max(0, turret._beamImpactTimer - dt)
 
     -- Get turret world position first for accurate aiming
     local Turret = require("src.systems.turret.core")
@@ -338,13 +338,13 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
         cursorDistance = math.sqrt(dx * dx + dy * dy)
     else
         -- Fallback to ship facing if cursor position not available
-        angle = turret.owner.components.position.angle or 0
+        angle = turret.owner.components.position.angle
     end
 
     turret.currentAimAngle = angle
 
     -- Calculate maximum beam range for collision detection
-    local maxRange = turret.maxRange or 800
+    local maxRange = turret.maxRange
     local endX = sx + math.cos(angle) * maxRange
     local endY = sy + math.sin(angle) * maxRange
 
@@ -354,8 +354,8 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     local wasActive = turret.beamActive
     -- Use collision point if hit, otherwise use max range end point
-    local beamEndX = hitX or endX
-    local beamEndY = hitY or endY
+    local beamEndX = hitX
+    local beamEndY = hitY
 
     turret.beamActive = true
     turret.beamStartX = sx
@@ -364,8 +364,8 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     turret.beamEndY = beamEndY
     turret.beamTarget = hitTarget
 
-    local cycle = math.max(0.1, turret.cycle or 1.0)
-    local salvagePower = turret.salvagePower or 1
+    local cycle = math.max(0.1, turret.cycle)
+    local salvagePower = turret.salvagePower
     local salvageRate = salvagePower / cycle
 
     if hitTarget then
@@ -396,7 +396,7 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     turret.cooldownOverride = 0
 
-    local heatPerSecond = (turret.heatPerShot or 60.0) / cycle
+    local heatPerSecond = turret.heatPerShot / cycle
     HeatManager.addHeat(turret, heatPerSecond * dt)
 
     if not wasActive then
@@ -457,7 +457,7 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
     end
 
     local wreckage = target.components.wreckage
-    local remaining = wreckage.salvageAmount or 0
+    local remaining = wreckage.salvageAmount
     if remaining <= 0 then
         return false
     end
@@ -466,8 +466,8 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
     remaining = remaining - applied
     wreckage.salvageAmount = remaining
 
-    wreckage._partialSalvage = (wreckage._partialSalvage or 0) + applied
-    wreckage._salvageDropped = wreckage._salvageDropped or 0
+    wreckage._partialSalvage = wreckage._partialSalvage + applied
+    wreckage._salvageDropped = wreckage._salvageDropped
     local whole = math.floor(wreckage._partialSalvage)
     if whole >= 1 then
         wreckage._partialSalvage = wreckage._partialSalvage - whole
@@ -497,8 +497,8 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
     end
 
     if remaining <= 0 then
-        local initialTotal = wreckage.maxSalvageAmount or wreckage._salvageDropped
-        local remainingToDrop = math.max(0, math.floor((initialTotal or 0) - wreckage._salvageDropped + 0.0001))
+        local initialTotal = wreckage.maxSalvageAmount
+        local remainingToDrop = math.max(0, math.floor(initialTotal - wreckage._salvageDropped + 0.0001))
         if remainingToDrop > 0 then
             wreckage._salvageDropped = wreckage._salvageDropped + remainingToDrop
             spawnSalvagePickup(target, remainingToDrop, world)

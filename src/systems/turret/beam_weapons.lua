@@ -23,7 +23,7 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
 
     -- Get turret world position instead of ship center
     local Turret = require("src.systems.turret.core")
-    local shipPos = turret.owner.components and turret.owner.components.position or {x = 0, y = 0, angle = 0}
+    local shipPos = turret.owner.components and turret.owner.components.position
 
     -- Get turret world position first for accurate aiming
     local sx, sy = Turret.getTurretWorldPosition(turret)
@@ -46,13 +46,13 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
         targetDistance = math.sqrt(dx * dx + dy * dy)
     else
         -- Fallback to ship facing if cursor position not available
-        angle = shipPos.angle or 0
+        angle = shipPos.angle
     end
 
     turret.currentAimAngle = angle
 
     -- Perform hitscan collision check
-    local maxRange = turret.maxRange or 1500
+    local maxRange = turret.maxRange
     local endX = sx + math.cos(angle) * maxRange
     local endY = sy + math.sin(angle) * maxRange
 
@@ -69,7 +69,7 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
                 min = turret.damage_range.min,
                 max = turret.damage_range.max,
                 skill = turret.skillId
-            } or {min = 1, max = 2, skill = turret.skillId}
+            }
 
             local dmgValue = math.random(damage.min, damage.max)
             damage.value = dmgValue
@@ -88,8 +88,8 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
 
     -- Store beam data for rendering during draw phase
     -- Use collision point if hit, otherwise use calculated end point
-    local beamEndX = hitX or endX
-    local beamEndY = hitY or endY
+    local beamEndX = hitX
+    local beamEndY = hitY
     turret.beamActive = true
     turret.beamStartX = sx
     turret.beamStartY = sy
@@ -98,7 +98,7 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     turret.beamTarget = hitTarget
 
     -- Add heat and play effects
-    HeatManager.addHeat(turret, turret.heatPerShot or 300)
+    HeatManager.addHeat(turret, turret.heatPerShot)
     TurretEffects.playFiringSound(turret)
 end
 
@@ -164,12 +164,12 @@ function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMet
     local health = target.components.health
 
     -- Apply damage to shields first, then hull
-    local shieldDamage = math.min(health.shield or 0, damage)
-    health.shield = (health.shield or 0) - shieldDamage
+    local shieldDamage = math.min(health.shield, damage)
+    health.shield = health.shield - shieldDamage
 
     local remainingDamage = damage - shieldDamage
     if remainingDamage > 0 then
-        health.hp = (health.hp or 0) - remainingDamage
+        health.hp = health.hp - remainingDamage
         if health.hp <= 0 then
             target.dead = true
             target._killedBy = source
@@ -190,20 +190,20 @@ end
 function BeamWeapons.renderContinuousBeam(turret, startX, startY, targetX, targetY, dt)
     if not turret.beamActive then
         turret.beamActive = true
-        turret.beamStartTime = love.timer and love.timer.getTime() or 0
+        turret.beamStartTime = love.timer and love.timer.getTime()
     end
 
     -- Calculate beam intensity based on duration
-    local beamDuration = (love.timer and love.timer.getTime() or 0) - turret.beamStartTime
+    local beamDuration = (love.timer and love.timer.getTime()) - turret.beamStartTime
     local intensity = math.min(1.0, beamDuration / 0.5) -- Fade in over 0.5 seconds
 
     -- Render beam with variable intensity
     if turret.tracer then
-        local color = turret.tracer.color or {1, 1, 1, 0.8}
+        local color = turret.tracer.color
         local alpha = color[4] * intensity
 
         love.graphics.setColor(color[1], color[2], color[3], alpha)
-        love.graphics.setLineWidth(turret.tracer.width or 2)
+        love.graphics.setLineWidth(turret.tracer.width)
         love.graphics.line(startX, startY, targetX, targetY)
 
         -- Beam core

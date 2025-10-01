@@ -34,12 +34,12 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
         angle = math.atan2(dy, dx)
     else
         -- Fallback to ship facing if no target or cursor available
-        angle = turret.owner.components.position.angle or 0
+        angle = turret.owner.components.position.angle
     end
     -- Get projectile speed from embedded definition or fallback to turret setting
     local projSpeed = 2400 -- Default fallback
     if turret.projectile and type(turret.projectile) == "table" and turret.projectile.physics then
-        projSpeed = turret.projectile.physics.speed or 2400
+        projSpeed = turret.projectile.physics.speed
     elseif turret.projectileSpeed then
         projSpeed = turret.projectileSpeed
     end
@@ -48,12 +48,12 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
     turret.currentAimAngle = angle
 
     -- Handle volley firing for turrets that support it
-    local volleyCount = turret.volleyCount or 1
-    local volleySpreadDeg = turret.volleySpreadDeg or 0
+    local volleyCount = turret.volleyCount
+    local volleySpreadDeg = turret.volleySpreadDeg
 
     for i = 1, volleyCount do
         -- Calculate spread angle for this projectile in the volley
-        local spreadFactor = turret.spread and turret.spread.minDeg or 0.1
+        local spreadFactor = turret.spread.minDeg
         local volleyAngle = 0
 
         if volleyCount > 1 then
@@ -111,7 +111,7 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
     -- Handle secondary projectiles (e.g., missiles alongside main fire)
     if turret.secondaryProjectile and turret.secondaryFireEvery then
         -- Check if it's time to fire secondary projectile
-        turret.secondaryFireCounter = (turret.secondaryFireCounter or 0) + 1
+        turret.secondaryFireCounter = turret.secondaryFireCounter + 1
         if turret.secondaryFireCounter >= turret.secondaryFireEvery then
             turret.secondaryFireCounter = 0
             ProjectileWeapons.fireSecondaryProjectile(turret, target, angle, world)
@@ -119,7 +119,7 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
     end
 
     -- Add heat and play effects (only once per volley, not per projectile)
-    HeatManager.addHeat(turret, turret.heatPerShot or 150)
+    HeatManager.addHeat(turret, turret.heatPerShot)
     TurretEffects.playFiringSound(turret)
 end
 
@@ -150,13 +150,13 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         angle = math.atan2(dy, dx)
     else
         -- Fallback to ship facing if no target or cursor available
-        angle = turret.owner.components.position.angle or 0
+        angle = turret.owner.components.position.angle
     end
 
     -- Get projectile speed from embedded definition or fallback to turret setting
     local projSpeed = 1200 -- Increased default speed for rockets (faster than bullets)
     if turret.projectile and type(turret.projectile) == "table" and turret.projectile.physics then
-        projSpeed = turret.projectile.physics.speed or 1200
+        projSpeed = turret.projectile.physics.speed
     elseif turret.projectileSpeed then
         projSpeed = turret.projectileSpeed
     end
@@ -206,7 +206,7 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         end
 
         -- Add heat and play effects
-        HeatManager.addHeat(turret, turret.heatPerShot or 200)
+        HeatManager.addHeat(turret, turret.heatPerShot)
         TurretEffects.playFiringSound(turret)
     end
 end
@@ -216,9 +216,9 @@ function ProjectileWeapons.fireSecondaryProjectile(turret, target, primaryAngle,
     if not turret.secondaryProjectile then return end
 
     local ownerPos = turret.owner.components.position
-    local targetPos = target and target.components and target.components.position or nil
+    local targetPos = target and target.components and target.components.position
     local dx, dy = 0, 0
-    local angle = primaryAngle or (ownerPos.angle or 0)
+    local angle = primaryAngle
 
     if targetPos then
         dx = targetPos.x - ownerPos.x
@@ -230,9 +230,9 @@ function ProjectileWeapons.fireSecondaryProjectile(turret, target, primaryAngle,
     end
 
     -- Secondary projectiles often have different characteristics
-    local secondarySpeed = turret.secondaryProjectile.speed or 400
+    local secondarySpeed = turret.secondaryProjectile.speed
 
-    turret.currentAimAngle = primaryAngle or angle
+    turret.currentAimAngle = primaryAngle
 
     -- Create secondary projectile
     -- Get turret world position instead of ship center
@@ -255,7 +255,7 @@ function ProjectileWeapons.fireSecondaryProjectile(turret, target, primaryAngle,
     -- Use world's spawn_projectile function to avoid circular dependency
     if world and world.spawn_projectile then
         world.spawn_projectile(sx, sy, angle, turret.owner.isPlayer or turret.owner.isFriendly, {
-            projectile = turret.secondaryProjectile.id or "missile",
+            projectile = turret.secondaryProjectile.id,
             vx = vx,
             vy = vy,
             source = turret.owner,

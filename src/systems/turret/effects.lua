@@ -33,7 +33,7 @@ end
 -- Create impact effects
 function TurretEffects.createImpactEffect(turret, x, y, target, impactType)
     -- If turret has no impact config and there's no global Effects.spawnImpact, nothing to do
-    local impactConfig = (turret and turret.impact) or nil
+    local impactConfig = turret and turret.impact
     if not Effects or not Effects.spawnImpact then return end
 
     if not target or not target.components or not target.components.position then
@@ -44,11 +44,11 @@ function TurretEffects.createImpactEffect(turret, x, y, target, impactType)
     local ey = target.components.position.y
 
     -- Determine effective radius for impact visuals
-    local targetRadius = Radius.calculateEffectiveRadius and Radius.calculateEffectiveRadius(target) or (target.components.collidable and target.components.collidable.radius) or 10
+    local targetRadius = Radius.calculateEffectiveRadius and Radius.calculateEffectiveRadius(target)
 
     -- Determine whether the hit affected shields
     local hasShields = false
-    if target.components and target.components.health and (target.components.health.shield or 0) > 0 then
+    if target.components and target.components.health and target.components.health.shield > 0 then
         hasShields = true
     elseif StationShields and StationShields.hasActiveShield and StationShields.isStation(target) and StationShields.hasActiveShield(target) then
         hasShields = true
@@ -61,7 +61,7 @@ function TurretEffects.createImpactEffect(turret, x, y, target, impactType)
     end
 
     -- Pass through bullet kind for styling (laser/mining/missile)
-    local bulletKind = (turret and turret.kind) or nil
+    local bulletKind = turret and turret.kind
 
     Effects.spawnImpact(impactKind, ex, ey, targetRadius, x, y, impactAngle, impactConfig, bulletKind, target)
 end
@@ -75,9 +75,9 @@ function TurretEffects.renderBeam(turret, startX, startY, endX, endY, hitTarget)
 
     if not turret.tracer then return end
 
-    local color = turret.tracer.color or {0, 0.5, 1, 1}
-    local width = turret.tracer.width or 4
-    local coreRadius = turret.tracer.coreRadius or 2
+    local color = turret.tracer.color
+    local width = turret.tracer.width
+    local coreRadius = turret.tracer.coreRadius
 
     -- Draw beam core
     love.graphics.setColor(color[1], color[2], color[3], color[4])

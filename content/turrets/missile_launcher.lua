@@ -71,10 +71,14 @@ return {
     maxRange = 3000,
     spread = { minDeg = 1.2, maxDeg = 3.5, decay = 300 },
     
+    -- Volley firing (single shot by default)
+    volleyCount = 1,
+    volleySpreadDeg = 0,
+    
     -- Overheating parameters
     maxHeat = 60,
-    heatPerShot = 200,
-    cooldownRate = 4,
+    heatPerShot = 75,
+    cooldownRate = 6,
     overheatCooldown = 5.0,
     heatCycleMult = 0.6,
     heatEnergyMult = 1.4,
