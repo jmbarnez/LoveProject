@@ -16,15 +16,23 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
     local Turret = require("src.systems.turret.core")
     local sx, sy = Turret.getTurretWorldPosition(turret)
 
-    -- Manual shooting - fire in the direction of the cursor from turret position
+    -- Aim at target if available, otherwise use cursor or ship facing
     local angle = 0
-    if turret.owner.cursorWorldPos then
+    if target and target.components and target.components.position then
+        -- For automatic firing (AI), aim from turret position to target
+        local tx = target.components.position.x
+        local ty = target.components.position.y
+        local dx = tx - sx
+        local dy = ty - sy
+        angle = math.atan2(dy, dx)
+    elseif turret.owner.cursorWorldPos then
+        -- For manual firing, use the cursor direction from turret position
         local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
         local dx = cursorX - sx
         local dy = cursorY - sy
         angle = math.atan2(dy, dx)
     else
-        -- Fallback to ship facing if cursor position not available
+        -- Fallback to ship facing if no target or cursor available
         angle = turret.owner.components.position.angle or 0
     end
     -- Get projectile speed from embedded definition or fallback to turret setting

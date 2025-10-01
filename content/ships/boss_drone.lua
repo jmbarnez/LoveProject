@@ -67,157 +67,13 @@ return {
 
   hardpoints = {
     {
-      turret = "boss_cone_gun",
+      turret = "basic_gun",
     },
     {
-      turret = {
-        id = "boss_close_laser",
-        type = "laser",
-        name = "Radiant Cutter",
-        description = "Sweeps a piercing beam across nearby targets.",
-        price = 0,
-        module = { type = "turret" },
-        icon = {
-          size = 32,
-          shapes = {
-            { type = "rectangle", mode = "fill", color = {0.36, 0.10, 0.40, 1.0}, x = 10, y = 10, w = 12, h = 14, rx = 2 },
-            { type = "polygon", mode = "fill", color = {0.88, 0.32, 0.78, 0.85}, points = { 16,4,  20,12,  16,8,  12,12 } },
-            { type = "circle", mode = "fill", color = {1.0, 0.55, 0.95, 0.9}, x = 16, y = 18, r = 5 },
-            { type = "circle", mode = "line", color = {1.0, 0.75, 0.98, 0.8}, x = 16, y = 18, r = 8, lineWidth = 1.4 },
-          }
-        },
-        spread = { minDeg = 0.0, maxDeg = 0.0, decay = 900 },
-
-        projectile = {
-          id = "boss_close_laser_beam",
-          name = "Radiant Cutter Beam",
-          class = "Projectile",
-          physics = {
-            speed = 0,
-            drag = 0,
-          },
-          renderable = {
-            type = "bullet",
-            props = {
-              kind = "laser",
-              length = 950,
-              tracerWidth = 6,
-              color = {1.0, 0.55, 0.95, 0.95},
-            }
-          },
-          collidable = {
-            radius = 4,
-          },
-          damage = {
-            min = 4,
-            max = 6,
-          },
-          timed_life = {
-            duration = 0.18,
-          },
-          charged_pulse = {
-            buildup_time = 0.1,
-            flash_time = 0.08,
-          }
-        },
-
-        tracer = { color = {1.0, 0.55, 0.95, 0.9}, width = 4, coreRadius = 3 },
-        impact = {
-          shield = { spanDeg = 85, color1 = {1.0, 0.55, 0.95, 0.6}, color2 = {0.95, 0.35, 0.85, 0.45} },
-          hull = { spark = {1.0, 0.45, 0.85, 0.7}, ring = {0.9, 0.25, 0.65, 0.5} },
-        },
-        optimal = 650,
-        falloff = 350,
-        damage_range = { min = 4, max = 6 },
-        cycle = 1.1,
-        capCost = 0,
-        projectileSpeed = 0,
-        maxRange = 1100,
-        maxHeat = 100,
-        heatPerShot = 16,
-        cooldownRate = 26,
-        overheatCooldown = 3.0,
-        heatCycleMult = 0.8,
-        heatEnergyMult = 1.1,
-        fireMode = "automatic",
-      }
+      turret = "laser_mk1",
     },
     {
-      turret = {
-        id = "boss_homing_rocket_launcher",
-        type = "missile",
-        name = "Homing Rocket Battery",
-        description = "Launches guided rockets that relentlessly track targets.",
-        price = 0,
-        module = { type = "turret" },
-        icon = {
-          size = 32,
-          shapes = {
-            { type = "rectangle", mode = "fill", color = {0.28, 0.26, 0.34, 1.0}, x = 9, y = 12, w = 14, h = 10, rx = 2 },
-            { type = "rectangle", mode = "fill", color = {0.62, 0.60, 0.70, 0.9}, x = 11, y = 10, w = 10, h = 14, rx = 1 },
-            { type = "polygon", mode = "fill", color = {1.0, 0.45, 0.25, 0.95}, points = {16, 4, 20, 12, 16, 9, 12, 12} },
-            { type = "circle", mode = "fill", color = {1.0, 0.7, 0.3, 0.9}, x = 16, y = 6, r = 3 },
-          }
-        },
-        spread = { minDeg = 0.0, maxDeg = 0.0, decay = 800 },
-
-        projectile = {
-          id = "boss_homing_rocket",
-          name = "Homing Rocket",
-          class = "Projectile",
-          physics = {
-            speed = 1100,
-            drag = 0.08,
-          },
-          renderable = {
-            type = "bullet",
-            props = {
-              kind = "missile",
-              length = 38,
-              tracerWidth = 3,
-              color = {1.0, 0.65, 0.25, 1.0},
-            }
-          },
-          collidable = {
-            radius = 6,
-          },
-          damage = {
-            min = 12,
-            max = 16,
-          },
-          timed_life = {
-            duration = 7.0,
-          },
-          explosion = {
-            radius = 75,
-            damage = 10,
-          }
-        },
-
-        tracer = { color = {1.0, 0.65, 0.25, 1.0}, width = 3, coreRadius = 2 },
-        impact = {
-          shield = { spanDeg = 120, color1 = {1.0, 0.6, 0.3, 0.8}, color2 = {1.0, 0.35, 0.1, 0.6} },
-          hull = { spark = {1.0, 0.55, 0.2, 0.9}, ring = {1.0, 0.4, 0.1, 0.7} },
-        },
-        optimal = 2800,
-        falloff = 900,
-        damage_range = { min = 12, max = 16 },
-        cycle = 3.5,
-        capCost = 0,
-        projectileSpeed = 1100,
-        maxRange = 3800,
-        maxHeat = 70,
-        heatPerShot = 14,
-        cooldownRate = 14,
-        overheatCooldown = 2.5,
-        heatCycleMult = 0.9,
-        heatEnergyMult = 1.0,
-        homingStrength = 0.85,
-        missileTurnRate = 4.2,
-        fireMode = "automatic",
-        volleyCount = 1,
-        volleySpreadDeg = 0,
-      }
+      turret = "rocket_mk1",
     }
   },
 
@@ -240,7 +96,9 @@ return {
     drops = {
       { id = "reward_crate", min = 1, max = 1, chance = 1.0 },
       { id = "ore_tritanium", min = 3, max = 6, chance = 0.9 },
-      { id = "basic_gun", chance = 0.6 },
+      { id = "basic_gun", chance = 0.4 },
+      { id = "laser_mk1", chance = 0.3 },
+      { id = "rocket_mk1", chance = 0.2 },
     }
   },
 

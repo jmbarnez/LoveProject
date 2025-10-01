@@ -165,30 +165,7 @@ function Turret:update(dt, target, locked, world)
 
     local effectiveCycle = HeatManager.getHeatModifiedCycle(self)
 
-    -- For manual shooting, we fire in the direction the player is facing
-    -- or towards a specific target for utility beams (mining/salvaging)
-    -- Prevent enemy turrets from firing until the owner is facing the target
-    -- Skip facing check for lasers since they aim directly at the target
-    if self.fireFacingTolerance and self.kind ~= "laser" and target and self.owner and not (self.owner.isPlayer or self.owner.isFriendly) then
-        if target.components and target.components.position and self.owner.components and self.owner.components.position then
-            local tx = target.components.position.x
-            local ty = target.components.position.y
-            local ox = self.owner.components.position.x
-            local oy = self.owner.components.position.y
-            local desired = math.atan2(ty - oy, tx - ox)
-            local current = self.owner.components.position.angle or 0
-            local diff = desired - current
-            -- Normalize to [-pi,pi]
-            local nd = math.atan2(math.sin(diff), math.cos(diff))
-            -- More forgiving facing tolerance for enemy ships to allow firing while orbiting
-            local tolerance = self.fireFacingTolerance or (self.owner.isPlayer and math.pi / 6 or math.pi / 3)
-            if math.abs(nd) > tolerance then
-                -- Not facing yet; skip firing this update
-                self.firing = false
-                return
-            end
-        end
-    end
+    -- No facing direction restrictions - enemies can shoot in any direction
 
     -- For manual mode, only fire if we're actively firing (button held)
     -- For automatic mode, fire if autoFire is enabled and cooldown allows

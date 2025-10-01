@@ -311,15 +311,8 @@ local function handleHunting(entity, dt, player, spawnProjectile, world)
         local playerDistance = math.sqrt(playerDx * playerDx + playerDy * playerDy)
 
         if playerDistance <= optimalRange * 1.5 and playerDistance >= 40 then
-            -- Check if we're facing the player well enough to shoot
-            local angleToPlayer = math.atan2(playerDy, playerDx)
-            local entityAngle = pos.angle or 0  -- Default to 0 if angle is nil
-            local angleDiff = angleToPlayer - entityAngle
-            while angleDiff > math.pi do angleDiff = angleDiff - 2 * math.pi end
-            while angleDiff < -math.pi do angleDiff = angleDiff + 2 * math.pi end
-
-            -- Can shoot if roughly facing the player (108 degrees, about 1/3 of a circle)
-            canShoot = math.abs(angleDiff) < math.pi * 0.6
+            -- Enemies can shoot in any direction - no facing restrictions
+            canShoot = true
         end
     end
 
@@ -341,9 +334,8 @@ local function handleHunting(entity, dt, player, spawnProjectile, world)
                     turret:update(dt, player, locked, world)
 
                     -- Throttled debug logging: Print turret firing status (only every 2 seconds)
-                    if canShoot and angleDiff and distance and currentTime - lastFiringLog > LOG_THROTTLE then
-                        Log.debug(string.format("Enemy turret firing! Distance: %.1f, Angle diff: %.2f rad",
-                            distance, math.abs(angleDiff)))
+                    if canShoot and currentTime - lastFiringLog > LOG_THROTTLE then
+                        Log.debug("Enemy turret firing!")
                         lastFiringLog = currentTime
                     end
                 end
