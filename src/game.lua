@@ -88,6 +88,7 @@ local function spawn_projectile(x, y, angle, friendly, opts)
         kind = opts.kind,
         -- Movement/Guidance overrides
         speedOverride = opts.speedOverride or opts.projectileSpeed,
+        homing = opts.homing,
         homingStrength = opts.homingStrength,
         missileTurnRate = opts.missileTurnRate,
         target = opts.target or opts.guaranteedTarget,
