@@ -17,11 +17,7 @@ Physics.constants = {
     -- Maximum velocity cap
     maxVelocity = 5000,
     -- Braking thruster power (percentage of main thrust)
-    brakingPower = 1.2,
-    -- Gravity constants
-    GRAVITATIONAL_CONSTANT = 0.1, -- Gameplay-scaled gravitational constant
-    MAX_GRAVITY_DISTANCE = 5000,  -- Maximum distance for gravity effects
-    MIN_GRAVITY_FORCE = 0.001     -- Minimum gravity force to apply
+    brakingPower = 1.2
 }
 
 -- Geometry utility functions

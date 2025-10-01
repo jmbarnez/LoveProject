@@ -509,9 +509,6 @@ function Game.update(dt)
         end
     end
     AISystem.update(dt, world, spawn_projectile)
-    -- Update gravity system before physics
-    local GravitySystem = require("src.systems.gravity")
-    GravitySystem.update(dt, world)
     -- Update physics and collisions first so any damage/death flags set by collisions
     -- are visible to the destruction system in the same frame.
     PhysicsSystem.update(dt, world:getEntities())
