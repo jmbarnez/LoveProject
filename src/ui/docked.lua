@@ -736,6 +736,11 @@ function DockedUI.drawContent(window, x, y, w, h)
         
         -- Draw combined shop interface
         DockedUI.drawCombinedShop(x + pad, shopContentY, w - pad * 2, shopContentH, player, mx, my)
+        
+        -- Draw dropdown options on top of everything else
+        if DockedUI.categoryDropdown then
+            DockedUI.categoryDropdown:drawOptionsOnly(mx, my)
+        end
   elseif DockedUI.activeTab == "Quests" then
         DockedUI.quests:draw(player, x + pad, contentY, w - pad * 2, contentH)
     elseif DockedUI.activeTab == "Nodes" then
@@ -753,11 +758,11 @@ end
 -- Draw combined shop interface with category dropdown and search
 function DockedUI.drawCombinedShop(x, y, w, h, player, mx, my)
   local searchWidth = 150
-  local dropdownWidth = 120
+  local dropdownWidth = 150
   local searchX = x + w - searchWidth
   local dropdownX = x
   
-  -- Category dropdown
+  -- Category dropdown button only (options drawn later for z-ordering)
   DockedUI.categoryDropdown:setPosition(dropdownX, y)
   DockedUI.categoryDropdown:drawButtonOnly(mx, my)
   
@@ -1011,6 +1016,11 @@ function DockedUI.mousemoved(x, y, dx, dy, player)
         local pct = math.max(0, math.min(1, localY / (sb.h - thumbH)))
         DockedUI.shopScroll = pct * DockedUI._shopMaxScroll
         return true, false
+    end
+
+    -- Handle category dropdown mousemoved
+    if DockedUI.activeTab == "Shop" and DockedUI.categoryDropdown then
+        DockedUI.categoryDropdown:mousemoved(x, y)
     end
 
     -- Delegate to active tab

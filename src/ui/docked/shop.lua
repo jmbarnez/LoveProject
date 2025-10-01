@@ -544,7 +544,7 @@ function Shop.mousepressed(DockedUI, x, y, button, player)
     end
   end
 
-  if DockedUI.activeShopTab == "Buyback" and DockedUI._buybackButtons then
+  if DockedUI._buybackButtons then
     for _, btn in ipairs(DockedUI._buybackButtons) do
       if x >= btn.x and x <= btn.x + btn.w and y >= btn.y and y <= btn.y + btn.h then
         if player and player:getGC() >= btn.item.price then
@@ -557,11 +557,10 @@ function Shop.mousepressed(DockedUI, x, y, button, player)
     end
   end
 
-  if DockedUI.activeShopTab == "Buy" then
-    if DockedUI.categoryDropdown and DockedUI.categoryDropdown:mousepressed(x, y, button) then
-      Shop.hideContextMenu(DockedUI)
-      return true, false
-    end
+  -- Handle category dropdown clicks
+  if DockedUI.categoryDropdown and DockedUI.categoryDropdown:mousepressed(x, y, button) then
+    Shop.hideContextMenu(DockedUI)
+    return true, false
   end
 
   -- Handle clicks on shop items
