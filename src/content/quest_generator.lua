@@ -32,6 +32,7 @@ local function buildKillQuest(opts)
     description = desc,
     objective = { type = "kill", target = target, count = count },
     reward = {
+      gc = math.floor(count * 15 + math.random(50, 150)), -- GC reward based on difficulty
       xp = rewardXP,
       items = {
         { id = "reward_crate_key", qty = 1 }
@@ -55,6 +56,7 @@ local function buildMineQuest(opts)
     description = desc,
     objective = { type = "mine", target = target, count = count },
     reward = {
+      gc = math.floor(count * 8 + math.random(30, 100)), -- GC reward for mining
       xp = rewardXP,
       items = {
         { id = "reward_crate_key", qty = 1 }
@@ -78,6 +80,7 @@ local function buildSalvageQuest(opts)
     description = desc,
     objective = { type = "salvage", target = resource, count = count },
     reward = {
+      gc = math.floor(count * 12 + math.random(40, 120)), -- GC reward for salvaging
       xp = rewardXP,
       items = {
         { id = "reward_crate_key", qty = 1 }
@@ -147,6 +150,35 @@ function QuestGenerator.refresh(board)
     elseif (not slot.quest) and (not slot.cooldownUntil) then
       slot.quest = QuestGenerator.generateQuest()
       slot.taken = false
+    end
+  end
+end
+
+-- Check if a quest slot should be replaced due to completion
+function QuestGenerator.checkQuestCompletion(board, player)
+  if not board or not board.slots or not player then return end
+  local questLog = player.components and player.components.questLog
+  if not questLog or not questLog.active then return end
+  
+  local now = love.timer and love.timer.getTime() or os.time()
+  
+  for i, slot in ipairs(board.slots) do
+    if slot.quest and slot.taken then
+      -- Check if this quest is no longer active (completed)
+      local questStillActive = false
+      for _, activeQuest in ipairs(questLog.active) do
+        if activeQuest.id == slot.quest.id then
+          questStillActive = true
+          break
+        end
+      end
+      
+      -- If quest is no longer active, start 30-minute replacement timer
+      if not questStillActive then
+        slot.quest = nil
+        slot.taken = false
+        slot.cooldownUntil = now + (30 * 60) -- 30 minutes
+      end
     end
   end
 end

@@ -21,38 +21,84 @@ function Quests:new()
   return o
 end
 
-local function drawRewardRow(quest, x, y)
-  love.graphics.print("Reward:", x, y)
-  local rewardX = x + 60
+local function drawRewardRow(quest, x, y, w)
   local font = love.graphics.getFont()
   local fontHeight = font:getHeight()
-  local iconSize = 12
+  local iconSize = 16
   local textY = y + (iconSize - fontHeight) / 2
-  if quest.reward.gc then
-    Theme.drawCurrencyToken(rewardX, y, iconSize)
-    Theme.setColor(Theme.colors.accentGold)
-    love.graphics.print(quest.reward.gc, rewardX + 15, textY)
-    rewardX = rewardX + 60
+  local rewardX = x
+  local rewardSpacing = 8
+  
+  -- Draw reward label with better styling
+  Theme.setColor(Theme.colors.textHighlight)
+  love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+  love.graphics.print("Rewards:", x, y)
+  rewardX = x + love.graphics.getFont():getWidth("Rewards:") + 12
+  
+  -- Draw all rewards in a clean row
+  local rewards = {}
+  
+  -- Add GC reward if present
+  if quest.reward.gc and quest.reward.gc > 0 then
+    table.insert(rewards, {
+      type = "gc",
+      value = quest.reward.gc,
+      icon = function(x, y) Theme.drawCurrencyToken(x, y, iconSize) end,
+      color = Theme.colors.accentGold
+    })
   end
-  if quest.reward.xp then
-    Theme.drawXPIcon(rewardX, y, iconSize)
-    Theme.setColor(Theme.colors.success)
-    love.graphics.print(quest.reward.xp, rewardX + 15, textY)
-    rewardX = rewardX + 60
+  
+  -- Add XP reward if present
+  if quest.reward.xp and quest.reward.xp > 0 then
+    table.insert(rewards, {
+      type = "xp", 
+      value = quest.reward.xp,
+      icon = function(x, y) Theme.drawXPIcon(x, y, iconSize) end,
+      color = Theme.colors.success
+    })
   end
+  
+  -- Add item rewards if present
   if quest.reward.items and #quest.reward.items > 0 then
-    Theme.setColor(Theme.colors.text)
     for _, entry in ipairs(quest.reward.items) do
       local itemId = entry.id
       local qty = entry.qty or entry.count or entry.quantity or 1
-      if itemId then
+      if itemId and qty > 0 then
         local itemDef = Content.getItem(itemId)
-        local label = string.format("%dx %s", qty, (itemDef and itemDef.name) or itemId)
-        love.graphics.print(label, rewardX, textY)
-        rewardX = rewardX + love.graphics.getFont():getWidth(label) + 20
+        local itemName = (itemDef and itemDef.name) or itemId
+        table.insert(rewards, {
+          type = "item",
+          value = qty,
+          name = itemName,
+          icon = function(x, y) 
+            -- Draw item icon if available
+            local IconSystem = require("src.core.icon_system")
+            IconSystem.drawIcon(itemId, x, y, iconSize, 1.0)
+          end,
+          color = Theme.colors.text
+        })
       end
     end
   end
+  
+  -- Draw all rewards
+  for i, reward in ipairs(rewards) do
+    if rewardX + iconSize + 40 < x + w then -- Don't overflow
+      -- Draw icon
+      reward.icon(rewardX, y)
+      
+      -- Draw value
+      Theme.setColor(reward.color)
+      local valueText = reward.type == "item" and 
+        string.format("%dx %s", reward.value, reward.name) or
+        Util.formatNumber(reward.value)
+      love.graphics.print(valueText, rewardX + iconSize + 4, textY)
+      
+      -- Move to next reward position
+      rewardX = rewardX + iconSize + love.graphics.getFont():getWidth(valueText) + rewardSpacing + 8
+    end
+  end
+  
   Theme.setColor(Theme.colors.text)
 end
 
@@ -70,32 +116,72 @@ function Quests:draw(player, x, y, w, h)
   -- Ensure board exists and refresh timers
   local board = QuestGenerator.ensureBoard(station)
   QuestGenerator.refresh(board)
+  QuestGenerator.checkQuestCompletion(board, player)
 
-  local startY = y + 10
-  local slotH = 100
-  local padding = 10
+  local startY = y + 15
+  local slotH = 120  -- Increased height for better layout
+  local padding = 12
   local now = love.timer.getTime()
 
-  love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
-  Theme.setColor(Theme.colors.textHighlight)
-  love.graphics.print("Station Contracts", x + 10, startY)
-  startY = startY + 20
+  -- Sleek header with better typography
+  love.graphics.setFont(Theme.fonts and Theme.fonts.large or love.graphics.getFont())
+  Theme.setColor(Theme.colors.accent)
+  love.graphics.print("Station Contracts", x + 15, startY)
+  startY = startY + 35
 
   for i = 1, ((Config.QUESTS and Config.QUESTS.STATION_SLOTS) or 3) do
     local slot = board.slots[i]
-    local cx, cy, cw, ch = x + 10, startY + (i - 1) * (slotH + padding), w - 20, slotH
-    Theme.drawGradientGlowRect(cx, cy, cw, ch, 6, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
+    local cx, cy, cw, ch = x + 15, startY + (i - 1) * (slotH + padding), w - 30, slotH
+    
+    -- Sleek transparent background with subtle glow
+    local bgColor = Theme.withAlpha(Theme.colors.bg2, 0.3)
+    Theme.drawGradientGlowRect(cx, cy, cw, ch, 8, bgColor, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak * 0.3, false)
 
     if slot.quest then
       local quest = slot.quest
-      Theme.setColor(Theme.colors.text)
+      
+      -- Quest title with better typography
+      Theme.setColor(Theme.colors.textHighlight)
       love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
-      love.graphics.print(quest.title, cx + 10, cy + 8)
+      love.graphics.print(quest.title, cx + 15, cy + 12)
+      
+      -- Quest description with better spacing
       Theme.setColor(Theme.colors.textSecondary)
       love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-      love.graphics.print(quest.description, cx + 10, cy + 28)
+      local descLines = {}
+      local maxWidth = cw - 30
+      local words = {}
+      for word in quest.description:gmatch("%S+") do
+        table.insert(words, word)
+      end
+      
+      local currentLine = ""
+      for _, word in ipairs(words) do
+        local testLine = currentLine == "" and word or currentLine .. " " .. word
+        if love.graphics.getFont():getWidth(testLine) <= maxWidth then
+          currentLine = testLine
+        else
+          if currentLine ~= "" then
+            table.insert(descLines, currentLine)
+            currentLine = word
+          else
+            table.insert(descLines, word)
+          end
+        end
+      end
+      if currentLine ~= "" then
+        table.insert(descLines, currentLine)
+      end
+      
+      for j, line in ipairs(descLines) do
+        if j <= 2 then -- Limit to 2 lines
+          love.graphics.print(line, cx + 15, cy + 32 + (j - 1) * 16)
+        end
+      end
+      
+      -- Rewards section with better layout
       Theme.setColor(Theme.colors.text)
-      drawRewardRow(quest, cx + 10, cy + 48)
+      drawRewardRow(quest, cx + 15, cy + 70, cw - 30)
 
       -- Determine slot/quest state for buttons
       local questLog = player and player.components and player.components.questLog
@@ -112,16 +198,21 @@ function Quests:draw(player, x, y, w, h)
         end
       end
 
-      local btnW, btnH = 120, 28
-      local btnX, btnY = cx + cw - btnW - 10, cy + ch - btnH - 10
+      local btnW, btnH = 100, 32
+      local btnX, btnY = cx + cw - btnW - 15, cy + ch - btnH - 15
 
       if not isAccepted and not slot.taken then
         local Viewport = require("src.core.viewport")
         local mx, my = Viewport.getMousePosition()
         local hover = mx > btnX and mx < btnX + btnW and my > btnY and my < btnY + btnH
-        Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 4, hover and Theme.colors.primary or Theme.colors.bg3, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
-        Theme.setColor(Theme.colors.text)
-        love.graphics.printf("Accept", btnX, btnY + 6, btnW, "center")
+        
+        -- Sleek transparent button
+        local btnColor = hover and Theme.withAlpha(Theme.colors.accent, 0.3) or Theme.withAlpha(Theme.colors.bg3, 0.2)
+        Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 6, btnColor, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak * 0.5, false)
+        
+        Theme.setColor(hover and Theme.colors.accent or Theme.colors.text)
+        love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+        love.graphics.printf("Accept", btnX, btnY + 8, btnW, "center")
         table.insert(self.buttons, { x = btnX, y = btnY, w = btnW, h = btnH, action = "accept", slot = i, quest = quest })
       elseif isAccepted and not readyTurnIn then
         Theme.setColor(Theme.colors.textDisabled)
@@ -130,9 +221,14 @@ function Quests:draw(player, x, y, w, h)
         local Viewport = require("src.core.viewport")
         local mx, my = Viewport.getMousePosition()
         local hover = mx > btnX and mx < btnX + btnW and my > btnY and my < btnY + btnH
-        Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 4, hover and Theme.colors.success or Theme.colors.bg3, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
-        Theme.setColor(Theme.colors.textHighlight)
-        love.graphics.printf("Turn In", btnX, btnY + 6, btnW, "center")
+        
+        -- Sleek success button
+        local btnColor = hover and Theme.withAlpha(Theme.colors.success, 0.4) or Theme.withAlpha(Theme.colors.success, 0.2)
+        Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 6, btnColor, Theme.colors.bg1, Theme.colors.success, Theme.effects.glowWeak * 0.7, false)
+        
+        Theme.setColor(hover and Theme.colors.success or Theme.colors.textHighlight)
+        love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+        love.graphics.printf("Turn In", btnX, btnY + 8, btnW, "center")
         table.insert(self.buttons, { x = btnX, y = btnY, w = btnW, h = btnH, action = "turnin", slot = i, quest = quest })
       else
         Theme.setColor(Theme.colors.textDisabled)
@@ -216,8 +312,8 @@ function Quests:mousepressed(player, x, y, button)
         local readinessCheck = QuestSystem.isQuestReadyToTurnIn or QuestSystem.isReady
         if readinessCheck and readinessCheck(player, slot.quest) then
           QuestSystem.completeQuest(player, slot.quest)
-          -- Start cooldown timer for this slot
-          local cooldown = (Config.QUESTS and Config.QUESTS.REFRESH_AFTER_TURNIN_SEC) or (15 * 60)
+          -- Start 30-minute cooldown timer for this slot (auto-replacement)
+          local cooldown = 30 * 60 -- 30 minutes in seconds
           slot.quest = nil
           slot.taken = false
           slot.cooldownUntil = (love.timer and love.timer.getTime() or os.time()) + cooldown
