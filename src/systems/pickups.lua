@@ -46,10 +46,11 @@ local function collect(player, pickup)
     if amount > 0 then
       player:addXP(amount)
       Sound.triggerEventAt("xp_collected", position and position.x, position and position.y)
-      Notifications.action("+" .. formatAmount(amount) .. " XP")
+      pickup.dead = true
+      return { type = "xp", amount = amount }
     end
     pickup.dead = true
-    return
+    return nil
   end
 
   local cargo = player.components and player.components.cargo
@@ -60,17 +61,17 @@ local function collect(player, pickup)
   cargo:add(id, qty)
   Sound.triggerEventAt("loot_collected", position and position.x or pickup.components.position.x, position and position.y or pickup.components.position.y)
 
-  -- Show pickup notification
   local itemName = id == "stones" and "Raw Stones" or (id == "ore_tritanium" and "Tritanium Ore" or id)
-  local notificationText = "+" .. qty .. " " .. itemName
-  Notifications.action(notificationText)
 
   pickup.dead = true
+  return { type = "item", id = id, name = itemName, qty = qty }
 end
 
 function Pickups.update(dt, world, player)
   if not player or not player.components or not player.components.position then return end
   local px, py = player.components.position.x, player.components.position.y
+  local collectedItems = {}
+  local totalXP = 0
 
   -- Update all pickups with velocity and drag
   for _, e in ipairs(gatherPickups(world, "position", "velocity")) do
@@ -106,10 +107,19 @@ function Pickups.update(dt, world, player)
     local e = item.entity
     local ex, ey = e.components.position.x, e.components.position.y
     local d, dx, dy = dist(ex, ey, px, py)
-    
+
     if d <= CAPTURE_RADIUS then
       -- Collect the item
-      collect(player, e)
+      local result = collect(player, e)
+      if result then
+        if result.type == "xp" then
+          totalXP = totalXP + result.amount
+        elseif result.type == "item" then
+          local key = result.id or result.name
+          collectedItems[key] = collectedItems[key] or { name = result.name, qty = 0 }
+          collectedItems[key].qty = collectedItems[key].qty + (result.qty or 0)
+        end
+      end
     else
       -- Pull the item towards the player
       local dirx, diry = dx / math.max(1e-6, d), dy / math.max(1e-6, d)
@@ -122,6 +132,20 @@ function Pickups.update(dt, world, player)
 
   -- Clear tractor beam (no longer used)
   player.tractorBeam = nil
+
+  if totalXP > 0 then
+    Notifications.action("+" .. formatAmount(totalXP) .. " XP")
+  end
+
+  local lootList = {}
+  for _, data in pairs(collectedItems) do
+    table.insert(lootList, { label = data.name, quantity = data.qty })
+  end
+
+  if #lootList > 0 then
+    table.sort(lootList, function(a, b) return (a.label or "") < (b.label or "") end)
+    Notifications.loot(lootList)
+  end
 end
 
 function Pickups.stopTractorBeam(player)
