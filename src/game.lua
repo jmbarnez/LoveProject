@@ -87,14 +87,15 @@ local function spawn_projectile(x, y, angle, friendly, opts)
         -- Explicit projectile visual kind override (e.g., 'salvaging_laser')
         kind = opts.kind,
         -- Movement/Guidance overrides
-        speed_override = opts.speedOverride or opts.projectileSpeed,
-        homing_strength = opts.homingStrength,
+        speedOverride = opts.speedOverride or opts.projectileSpeed,
+        homingStrength = opts.homingStrength,
+        missileTurnRate = opts.missileTurnRate,
         target = opts.target or opts.guaranteedTarget,
-        guaranteed_hit = opts.guaranteedHit,
-        guaranteed_target = opts.guaranteedTarget,
+        guaranteedHit = opts.guaranteedHit,
+        guaranteedTarget = opts.guaranteedTarget,
         -- Visual overrides
-        tracer_width = opts.tracerWidth,
-        core_radius = opts.coreRadius,
+        tracerWidth = opts.tracerWidth,
+        coreRadius = opts.coreRadius,
         color = opts.color,
         impact = opts.impact,
         length = opts.length,
