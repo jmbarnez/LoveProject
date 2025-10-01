@@ -50,7 +50,7 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
   local overUI = UIManager.isMouseOverUI and UIManager.isMouseOverUI() or false
 
   if not overUI then
-    Reticle.draw(player, camera)
+    Reticle.draw(player, world, camera)
   end
   Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, world:get_entities_with_components("mineable"))
   Hotbar.draw(player)
