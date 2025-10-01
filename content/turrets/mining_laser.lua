@@ -75,8 +75,8 @@ return {
     
     -- Overheating parameters
     maxHeat = 120,
-    heatPerShot = 8,
-    cooldownRate = 20,
+    heatPerShot = 60,
+    cooldownRate = 4,
     overheatCooldown = 3.0,
     heatCycleMult = 0.8,
     heatEnergyMult = 1.2,

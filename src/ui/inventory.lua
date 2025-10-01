@@ -118,6 +118,9 @@ function Inventory.refresh()
     Inventory.hoveredItem = nil
     Inventory.hoverTimer = 0
     Inventory.contextMenu.visible = false
+    -- Clear any active tooltips when inventory refreshes
+    local TooltipManager = require("src.ui.tooltip_manager")
+    TooltipManager.clearTooltip()
     local player = getCurrentPlayer()
     Inventory._cargoSnapshot = snapshotCargoState(player)
 end
@@ -805,6 +808,9 @@ end
 function Inventory.update(dt)
   if not Inventory.visible then
     setSearchActive(false)
+    -- Clear any active tooltips when inventory is not visible
+    local TooltipManager = require("src.ui.tooltip_manager")
+    TooltipManager.clearTooltip()
     return
   end
   if Inventory.hoveredItem then

@@ -127,7 +127,7 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     turret.cooldownOverride = 0
 
-    local heatPerSecond = (turret.heatPerShot or 5.0) / cycle
+    local heatPerSecond = (turret.heatPerShot or 60.0) / cycle
     HeatManager.addHeat(turret, heatPerSecond * dt)
 
     if not wasActive then
@@ -396,7 +396,7 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     turret.cooldownOverride = 0
 
-    local heatPerSecond = (turret.heatPerShot or 5.0) / cycle
+    local heatPerSecond = (turret.heatPerShot or 60.0) / cycle
     HeatManager.addHeat(turret, heatPerSecond * dt)
 
     if not wasActive then

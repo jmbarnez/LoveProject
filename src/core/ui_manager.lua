@@ -663,6 +663,9 @@ function UIManager.close(component)
     if component == "inventory" then
       Inventory.visible = false
       if Inventory.clearSearchFocus then Inventory.clearSearchFocus() end
+      -- Clear any active tooltips when inventory closes
+      local TooltipManager = require("src.ui.tooltip_manager")
+      TooltipManager.clearTooltip()
     elseif component == "ship" then
       Ship.visible = false
       Ship.hide()

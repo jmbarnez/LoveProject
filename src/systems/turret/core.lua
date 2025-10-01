@@ -126,25 +126,25 @@ function Turret.new(owner, params)
 end
 
 function Turret:update(dt, target, locked, world)
-    -- Update heat management
-    HeatManager.updateHeat(self, dt, locked)
-
     -- Update cooldown timer
     if self.cooldown > 0 then
         self.cooldown = math.max(0, self.cooldown - dt)
     end
-
 
     -- Check if we can fire
     if locked then
         self.firing = false
         self.currentTarget = nil
         self.beamActive = false
+        -- Update heat management after setting firing to false
+        HeatManager.updateHeat(self, dt, locked)
         return
     end
 
     -- Check firing timing (cooldown takes priority over old timing system)
     if self.cooldown > 0 then
+        -- Update heat management even when on cooldown
+        HeatManager.updateHeat(self, dt, locked)
         return
     end
 
@@ -181,6 +181,9 @@ function Turret:update(dt, target, locked, world)
 
         Log.debug("Turret:update - Cooldown set to: " .. tostring(self.cooldown) .. " for turret: " .. tostring(self.id))
     end
+
+    -- Update heat management AFTER weapon firing (so heat is added before being dissipated)
+    HeatManager.updateHeat(self, dt, locked)
 
     -- Update last fire time (legacy compatibility)
     self.lastFireTime = love.timer and love.timer.getTime() or 0

@@ -98,7 +98,7 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     turret.beamTarget = hitTarget
 
     -- Add heat and play effects
-    HeatManager.addHeat(turret, turret.heatPerShot or 25)
+    HeatManager.addHeat(turret, turret.heatPerShot or 300)
     TurretEffects.playFiringSound(turret)
 end
 

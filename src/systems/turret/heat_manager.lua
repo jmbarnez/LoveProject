@@ -2,12 +2,12 @@ local HeatManager = {}
 
 function HeatManager.initializeHeat(turret, params)
     turret.maxHeat = params.maxHeat or 100.0
-    turret.heatPerShot = params.heatPerShot or (turret.kind == "laser" and 25 or (turret.kind == "missile" and 15 or 10))
-    turret.cooldownRate = params.cooldownRate or (turret.kind == "laser" and 20 or 15)
+    turret.heatPerShot = params.heatPerShot or (turret.kind == "laser" and 300 or (turret.kind == "missile" and 200 or 150))
+    turret.cooldownRate = params.cooldownRate or (turret.kind == "laser" and 6 or 4)
     turret.heatCycleMult = params.heatCycleMult or (turret.kind == "mining_laser" and 0.5 or 0.8)
     turret.heatEnergyMult = params.heatEnergyMult or (turret.kind == "mining_laser" and 2.0 or 1.5)
 
-    turret.currentHeat = 15 -- Start with some heat for testing visibility
+    turret.currentHeat = 0
     turret.overheated = false
     turret.overheatStartTime = 0
     turret.overheatCooldown = params.overheatCooldown or params.overheatDuration or 3.0
@@ -51,11 +51,11 @@ function HeatManager.updateHeat(turret, dt, locked)
         -- Optional: play overheat sound effect
     end
 
-    -- Cool down when we're not actively firing, the turret is locked, or it's overheated
-    if locked or not turret.firing or turret.overheated then
-        local cooldownRate = turret.cooldownRate
+    -- Heat always dissipates, but at different rates based on state
+    local cooldownRate = turret.cooldownRate * 0.3  -- Much slower base dissipation
 
-        -- When overheated, drain the bar across the measured cooldown duration
+    if locked or turret.overheated then
+        -- Full cooldown rate when locked or overheated
         if turret.overheated then
             local cooldownWindow = turret.forcedOverheatCooldown or turret.overheatCooldown
             if cooldownWindow and cooldownWindow > 0 then
@@ -68,37 +68,48 @@ function HeatManager.updateHeat(turret, dt, locked)
                     cooldownRate = forcedRate
                 end
             end
+        else
+            -- When locked but not overheated, use normal rate
+            cooldownRate = turret.cooldownRate * 0.3
         end
+    elseif turret.firing then
+        -- Very slow dissipation when firing (heat builds up much faster than it dissipates)
+        cooldownRate = turret.cooldownRate * 0.05  -- Even slower when actively firing
+    end
+    -- When not firing and not locked/overheated, use slow dissipation rate
 
-        -- Track elapsed time while the heat bar is active but not yet empty
-        if not turret.overheated and turret.currentHeat > 0 and turret.heatLastAddTime then
-            turret.heatBuildElapsed = turret.heatBuildElapsed + math.max(0, now - turret.heatLastAddTime)
-            turret.heatLastAddTime = now
-        end
+    -- Track elapsed time while the heat bar is active but not yet empty
+    if not turret.overheated and turret.currentHeat > 0 and turret.heatLastAddTime then
+        turret.heatBuildElapsed = turret.heatBuildElapsed + math.max(0, now - turret.heatLastAddTime)
+        turret.heatLastAddTime = now
+    end
 
-        if not turret.overheated and turret.currentHeat <= 0 then
-            turret.heatBuildStartTime = nil
-            turret.heatLastAddTime = nil
-            turret.heatBuildElapsed = 0
-        end
+    if not turret.overheated and turret.currentHeat <= 0 then
+        turret.heatBuildStartTime = nil
+        turret.heatLastAddTime = nil
+        turret.heatBuildElapsed = 0
+    end
 
-        turret.currentHeat = math.max(0, turret.currentHeat - cooldownRate * dt)
+    turret.currentHeat = math.max(0, turret.currentHeat - cooldownRate * dt)
 
-        -- Clear the overheated state once the heat bar has fully depleted
-        if turret.overheated and turret.currentHeat <= 0 then
-            turret.overheated = false
-            turret.currentHeat = 0
-            turret.forcedOverheatCooldown = nil
-            turret.heatBuildStartTime = nil
-            turret.heatLastAddTime = nil
-            turret.heatBuildElapsed = 0
-        end
+    -- Clear the overheated state once the heat bar has fully depleted
+    if turret.overheated and turret.currentHeat <= 0 then
+        turret.overheated = false
+        turret.currentHeat = 0
+        turret.forcedOverheatCooldown = nil
+        turret.heatBuildStartTime = nil
+        turret.heatLastAddTime = nil
+        turret.heatBuildElapsed = 0
     end
 end
 
 function HeatManager.addHeat(turret, amount)
-    if not turret.maxHeat or turret.maxHeat <= 0 then return end
-    if turret.overheated then return end
+    if not turret.maxHeat or turret.maxHeat <= 0 then
+        return
+    end
+    if turret.overheated then
+        return
+    end
 
     local now
     if love.timer and love.timer.getTime then
@@ -123,7 +134,9 @@ function HeatManager.addHeat(turret, amount)
 end
 
 function HeatManager.getHeatFactor(turret)
-    if not turret.maxHeat or turret.maxHeat <= 0 then return 0 end
+    if not turret.maxHeat or turret.maxHeat <= 0 then
+        return 0
+    end
     return turret.currentHeat / turret.maxHeat
 end
 

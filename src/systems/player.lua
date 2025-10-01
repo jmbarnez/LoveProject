@@ -437,6 +437,11 @@ function PlayerSystem.update(dt, player, input, world, hub)
 
             -- All turrets are considered weapons and disabled in weapon disable zones
             local allow = (not modalActive) and canFire and (perSlotActive or manualFireAll)
+            
+            -- Debug output for turret firing
+            if t.kind == "gun" or t.kind == "laser" or t.kind == "missile" then
+                print("DEBUG: PlayerSystem - Turret", t.kind, "allow:", allow, "perSlotActive:", perSlotActive, "canFire:", canFire, "modalActive:", modalActive)
+            end
 
             -- Handle firing mode logic
             local firing = false

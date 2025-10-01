@@ -119,7 +119,7 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
     end
 
     -- Add heat and play effects (only once per volley, not per projectile)
-    HeatManager.addHeat(turret, turret.heatPerShot or 10)
+    HeatManager.addHeat(turret, turret.heatPerShot or 150)
     TurretEffects.playFiringSound(turret)
 end
 
@@ -206,7 +206,7 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         end
 
         -- Add heat and play effects
-        HeatManager.addHeat(turret, turret.heatPerShot or 15)
+        HeatManager.addHeat(turret, turret.heatPerShot or 200)
         TurretEffects.playFiringSound(turret)
     end
 end
