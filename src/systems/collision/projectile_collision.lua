@@ -6,8 +6,18 @@ local Radius = require("src.systems.collision.radius")
 local StationShields = require("src.systems.collision.station_shields")
 local CollisionEffects = require("src.systems.collision.effects")
 local Log = require("src.core.log")
+local ProjectileEvents = require("src.templates.projectile_system.event_dispatcher").EVENTS
 
 local ProjectileCollision = {}
+
+local function emit_projectile_event(projectile, event, payload)
+    if not projectile or not projectile.components then return end
+    local eventsComp = projectile.components.projectile_events
+    local dispatcher = eventsComp and eventsComp.dispatcher
+    if dispatcher then
+        dispatcher:emit(event, payload)
+    end
+end
 
 local function shouldIgnoreCollision(bullet, target)
     -- Ignore self and source
@@ -118,6 +128,13 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
 
             if StationShields.isStation(target) and not bullet.friendly and StationShields.hasActiveShield(target) then
                 Effects.spawnImpact('shield', ex, ey, target_radius, hx, hy, impact_angle, (bullet.components and bullet.components.bullet and bullet.components.bullet.impact), renderable.props.kind, target)
+                emit_projectile_event(bullet, ProjectileEvents.HIT, {
+                    projectile = bullet,
+                    target = target,
+                    hitPosition = { x = hx, y = hy },
+                    impactAngle = impact_angle,
+                    hitKind = 'shield',
+                })
                 bullet.dead = true
                 return
             end
@@ -125,6 +142,13 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
             -- Handle station safe zone
             if StationShields.checkStationSafeZone(bullet, target) then
                 Effects.spawnImpact('shield', ex, ey, target_radius, hx, hy, impact_angle, (bullet.components and bullet.components.bullet and bullet.components.bullet.impact), renderable.props.kind, target)
+                emit_projectile_event(bullet, ProjectileEvents.HIT, {
+                    projectile = bullet,
+                    target = target,
+                    hitPosition = { x = hx, y = hy },
+                    impactAngle = impact_angle,
+                    hitKind = 'shield',
+                })
                 bullet.dead = true
                 return
             end
@@ -152,6 +176,14 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
             end
 
             Effects.spawnImpact(impact_type, ex, ey, impact_radius, hx, hy, impact_angle, (bullet.components and bullet.components.bullet and bullet.components.bullet.impact), renderable.props.kind, target)
+
+            emit_projectile_event(bullet, ProjectileEvents.HIT, {
+                projectile = bullet,
+                target = target,
+                hitPosition = { x = hx, y = hy },
+                impactAngle = impact_angle,
+                hitKind = impact_type,
+            })
 
             -- Handle chain lightning
             local source = bullet.components and bullet.components.bullet and bullet.components.bullet.source

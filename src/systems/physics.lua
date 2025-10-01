@@ -7,6 +7,8 @@
     bridges the gap without forcing every entity into the physics engine.
 ]]
 
+local ProjectileEvents = require("src.templates.projectile_system.event_dispatcher").EVENTS
+
 local PhysicsSystem = {}
 
 function PhysicsSystem.update(dt, entities)
@@ -51,6 +53,14 @@ function PhysicsSystem.update(dt, entities)
             -- Debug: if this entity is a projectile/bullet, log any position change during physics update
             if entity.components.bullet then
                 -- (Debug removed) position-change logging removed for clean build
+            end
+
+            local projectileEvents = entity.components.projectile_events
+            if projectileEvents and projectileEvents.dispatcher then
+                projectileEvents.dispatcher:emit(ProjectileEvents.UPDATE, {
+                    projectile = entity,
+                    dt = dt,
+                })
             end
         end
     end
