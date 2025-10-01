@@ -12,6 +12,7 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
         return
     end
 
+
     -- Get turret world position first for accurate aiming
     local Turret = require("src.systems.turret.core")
     local sx, sy = Turret.getTurretWorldPosition(turret)
@@ -128,6 +129,7 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         return
     end
 
+
     -- For missiles, use cursor direction unless locked onto a target
     local angle = turret.owner.components.position.angle or 0
     
@@ -149,6 +151,18 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         local dx = turret.lockOnTarget.components.position.x - turret.owner.components.position.x
         local dy = turret.lockOnTarget.components.position.y - turret.owner.components.position.y
         angle = math.atan2(dy, dx)
+    elseif target and not turret.owner.isPlayer and not turret.owner.isFriendly then
+        -- Enemy AI: always fire homing missiles at target if available
+        missileTarget = target
+        isHoming = true
+        local dx = target.components.position.x - turret.owner.components.position.x
+        local dy = target.components.position.y - turret.owner.components.position.y
+        angle = math.atan2(dy, dx)
+        
+        -- Debug logging for enemy homing
+        if turret.owner and not turret.owner.isPlayer and not turret.owner.isFriendly then
+            Log.debug(string.format("Enemy firing homing missile at target: %s", target.id or "unknown"))
+        end
     else
         -- No lock-on: fire in cursor direction
         if turret.owner.cursorWorldPos then

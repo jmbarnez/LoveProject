@@ -58,7 +58,7 @@ return {
     optimal = 750,
     falloff = 400,
     damage_range = { min = 2, max = 3 },
-    cycle = 1.4,
+    cycle = 1.0,
     capCost = 4,
     maxRange = 1100,
     maxHeat = 85,

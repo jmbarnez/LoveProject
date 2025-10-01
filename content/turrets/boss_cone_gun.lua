@@ -34,7 +34,7 @@ return {
   },
   optimal = 700, falloff = 500,
   damage_range = { min = 2, max = 3 },
-  cycle = 0.9, capCost = 0,
+  cycle = 2.5, capCost = 0,
   projectileSpeed = 800,
   baseAccuracy = 0.9,
   overheatCooldown = 5.0,

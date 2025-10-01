@@ -61,8 +61,8 @@ return {
   -- Balanced medium range with moderate damage falloff
   optimal = 800, falloff = 600,
   damage_range = { min = 1, max = 2 },
-  cycle = 0.6, capCost = 2,
-  maxRange = 2000, -- Bullets disappear after traveling 2000 units
+  cycle = 3.0, capCost = 2,
+  maxRange = 3000, -- Bullets disappear after traveling 3000 units
   -- Overheating parameters
   maxHeat = 100, -- Heat capacity
   heatPerShot = 10, -- Heat generated per shot

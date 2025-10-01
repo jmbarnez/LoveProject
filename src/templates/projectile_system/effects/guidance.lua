@@ -45,7 +45,7 @@ local function create_guidance_component(projectile, args)
                 local newAngle = curAngle + diff
                 cvx, cvy = math.cos(newAngle) * speed, math.sin(newAngle) * speed
             end
-        elseif args.target and not args.target.dead and args.homingStrength and args.homingStrength > 0 then
+        elseif args.target and not args.target.dead and args.homing and args.homingStrength and args.homingStrength > 0 then
             local target = args.target
             local tx = target.components and target.components.position and target.components.position.x
             local ty = target.components and target.components.position and target.components.position.y

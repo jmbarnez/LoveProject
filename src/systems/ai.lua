@@ -13,10 +13,143 @@ local BOSS_MINION_INTERVAL_MIN = 4.0
 local BOSS_MINION_INTERVAL_MAX = 6.0
 local BOSS_MINION_OFFSET = 160
 
+-- Weapon-based behavior constants
+local WEAPON_BEHAVIORS = {
+    -- Long range weapons (rockets, snipers) - keep distance
+    long_range = {
+        optimal_range_multiplier = 1.2,  -- Stay at 120% of optimal range
+        approach_threshold = 0.8,        -- Only approach when below 80% of optimal
+        retreat_threshold = 1.5,         -- Retreat when closer than 150% of optimal
+        speed_multiplier = 0.8,          -- Slower, more deliberate movement
+        behavior_name = "kiting"
+    },
+    -- Medium range weapons (guns, lasers) - balanced approach
+    medium_range = {
+        optimal_range_multiplier = 1.0,  -- Stay at optimal range
+        approach_threshold = 0.7,        -- Approach when below 70% of optimal
+        retreat_threshold = 1.3,         -- Retreat when closer than 130% of optimal
+        speed_multiplier = 1.0,          -- Normal speed
+        behavior_name = "orbiting"
+    },
+    -- Short range weapons (shotguns, close combat) - aggressive approach
+    short_range = {
+        optimal_range_multiplier = 0.8,  -- Get closer than optimal range
+        approach_threshold = 1.2,        -- Always try to get closer
+        retreat_threshold = 0.6,         -- Only retreat when very close
+        speed_multiplier = 1.3,          -- Faster, more aggressive movement
+        behavior_name = "rushing"
+    },
+    -- Mixed weapons - use most common behavior
+    mixed = {
+        optimal_range_multiplier = 1.0,
+        approach_threshold = 0.8,
+        retreat_threshold = 1.2,
+        speed_multiplier = 1.0,
+        behavior_name = "adaptive"
+    }
+}
+
 -- Logging throttle to prevent spam
 local lastHuntingLog = 0
 local lastFiringLog = 0
 local LOG_THROTTLE = 2.0  -- Only log every 2 seconds
+
+-- Analyze enemy weapons and determine appropriate behavior
+local function analyzeWeaponBehavior(entity)
+    if not entity or not entity.components or not entity.components.equipment then
+        return WEAPON_BEHAVIORS.medium_range -- Default behavior
+    end
+    
+    local equipment = entity.components.equipment
+    if not equipment.grid then
+        return WEAPON_BEHAVIORS.medium_range
+    end
+    
+    local weapons = {}
+    local totalOptimalRange = 0
+    local weaponCount = 0
+    
+    -- Analyze all equipped turrets
+    for _, slot in ipairs(equipment.grid) do
+        if slot and slot.module and slot.type == "turret" and slot.enabled ~= false then
+            local turret = slot.module
+            if turret.optimal then
+                local weaponType = turret.type or "gun"
+                local optimalRange = turret.optimal
+                
+                table.insert(weapons, {
+                    type = weaponType,
+                    optimal = optimalRange,
+                    maxRange = turret.maxRange or optimalRange * 2
+                })
+                
+                totalOptimalRange = totalOptimalRange + optimalRange
+                weaponCount = weaponCount + 1
+            end
+        end
+    end
+    
+    if weaponCount == 0 then
+        return WEAPON_BEHAVIORS.medium_range
+    end
+    
+    -- Calculate average optimal range
+    local avgOptimalRange = totalOptimalRange / weaponCount
+    
+    -- Check for special weapon types first
+    local hasRockets = false
+    local hasLasers = false
+    local hasGuns = false
+    
+    for _, weapon in ipairs(weapons) do
+        if weapon.type == "missile" or weapon.type == "rocket" then
+            hasRockets = true
+        elseif weapon.type == "laser" then
+            hasLasers = true
+        elseif weapon.type == "gun" then
+            hasGuns = true
+        end
+    end
+    
+    -- Special behaviors for specific weapon combinations
+    if hasRockets and not hasGuns and not hasLasers then
+        -- Pure rocket loadout - extreme kiting
+        return {
+            optimal_range_multiplier = 1.5,  -- Stay at 150% of optimal range
+            approach_threshold = 0.6,        -- Only approach when very far
+            retreat_threshold = 2.0,         -- Retreat when closer than 200% of optimal
+            speed_multiplier = 0.7,          -- Slower, more deliberate
+            behavior_name = "rocket_kiting"
+        }
+    elseif hasLasers and not hasRockets and not hasGuns then
+        -- Pure laser loadout - precise positioning
+        return {
+            optimal_range_multiplier = 0.9,  -- Stay just under optimal range
+            approach_threshold = 0.8,        -- Approach when below 80% of optimal
+            retreat_threshold = 1.1,         -- Retreat when closer than 110% of optimal
+            speed_multiplier = 1.1,          -- Slightly faster for positioning
+            behavior_name = "laser_precision"
+        }
+    elseif hasGuns and not hasRockets and not hasLasers then
+        -- Pure gun loadout - aggressive brawling
+        return {
+            optimal_range_multiplier = 0.7,  -- Get closer than optimal
+            approach_threshold = 1.3,        -- Always try to get closer
+            retreat_threshold = 0.5,         -- Only retreat when very close
+            speed_multiplier = 1.4,          -- Fast and aggressive
+            behavior_name = "gun_brawling"
+        }
+    end
+    
+    -- Determine behavior based on average range for mixed loadouts
+    if avgOptimalRange >= 1200 then
+        return WEAPON_BEHAVIORS.long_range
+    elseif avgOptimalRange <= 600 then
+        return WEAPON_BEHAVIORS.short_range
+    else
+        return WEAPON_BEHAVIORS.medium_range
+    end
+end
 
 -- Simple damage reaction handler
 local function onEntityDamaged(eventData)
@@ -212,36 +345,72 @@ local function handleHunting(entity, dt, player, spawnProjectile, world)
     -- Throttled debug logging: Show hunting status (only every 2 seconds)
     local currentTime = love.timer.getTime()
     if currentTime - lastHuntingLog > LOG_THROTTLE then
-        Log.debug(string.format("Enemy hunting! Distance: %.1f, Detection range: %.1f", distance, ai.detectionRange))
+        local weaponBehavior = analyzeWeaponBehavior(entity)
+        Log.debug(string.format("Enemy hunting! Distance: %.1f, Behavior: %s", 
+            distance, weaponBehavior.behavior_name))
         lastHuntingLog = currentTime
     end
 
-    -- Orbit around player at optimal turret range
-    local optimalRange = 800  -- Default optimal range
+    -- Get weapon-based behavior configuration
+    local weaponBehavior = analyzeWeaponBehavior(entity)
+    local ai = entity.components.ai
+    
+    -- Calculate optimal range based on weapon behavior
+    local optimalRange = 800  -- Default fallback
     if entity.components.equipment and entity.components.equipment.grid then
+        local totalOptimalRange = 0
+        local weaponCount = 0
         for _, slot in ipairs(entity.components.equipment.grid) do
-            if slot and slot.module and slot.type == "turret" then
-                optimalRange = slot.module.optimal or optimalRange
-                break
+            if slot and slot.module and slot.type == "turret" and slot.enabled ~= false then
+                local turret = slot.module
+                if turret.optimal then
+                    totalOptimalRange = totalOptimalRange + turret.optimal
+                    weaponCount = weaponCount + 1
+                end
             end
+        end
+        if weaponCount > 0 then
+            optimalRange = (totalOptimalRange / weaponCount) * weaponBehavior.optimal_range_multiplier
         end
     end
 
-    -- Initialize orbit angle if not set
-    if not ai.orbitAngle then
-        ai.orbitAngle = math.random() * 2 * math.pi
+    -- Determine movement strategy based on weapon behavior
+    local targetX, targetY = playerPos.x, playerPos.y
+    local currentRange = distance
+    
+    -- Calculate desired range based on weapon behavior
+    local desiredRange = optimalRange
+    local approachThreshold = desiredRange * weaponBehavior.approach_threshold
+    local retreatThreshold = desiredRange * weaponBehavior.retreat_threshold
+    
+    -- Adjust movement based on current range vs desired range
+    if currentRange < retreatThreshold then
+        -- Too close - retreat while maintaining angle
+        local retreatAngle = math.atan2(dy, dx) + math.pi -- Opposite direction
+        targetX = pos.x + math.cos(retreatAngle) * (retreatThreshold - currentRange)
+        targetY = pos.y + math.sin(retreatAngle) * (retreatThreshold - currentRange)
+    elseif currentRange > approachThreshold then
+        -- Too far - approach player
+        targetX = playerPos.x
+        targetY = playerPos.y
+    else
+        -- In good range - orbit around player
+        if not ai.orbitAngle then
+            ai.orbitAngle = math.random() * 2 * math.pi
+        end
+        
+        -- Update orbit angle for continuous orbiting
+        local orbitSpeed = 0.3 * weaponBehavior.speed_multiplier
+        ai.orbitAngle = ai.orbitAngle + dt * orbitSpeed
+        
+        -- Calculate orbit position
+        targetX = playerPos.x + math.cos(ai.orbitAngle) * desiredRange
+        targetY = playerPos.y + math.sin(ai.orbitAngle) * desiredRange
     end
 
-    -- Calculate orbit position
-    local orbitX = playerPos.x + math.cos(ai.orbitAngle) * optimalRange
-    local orbitY = playerPos.y + math.sin(ai.orbitAngle) * optimalRange
-
-    -- Update orbit angle for continuous orbiting
-    ai.orbitAngle = ai.orbitAngle + dt * 0.5  -- Adjust speed as needed
-
-    -- Calculate direction to orbit position
-    local orbitDx = orbitX - pos.x
-    local orbitDy = orbitY - pos.y
+    -- Calculate direction to target position
+    local orbitDx = targetX - pos.x
+    local orbitDy = targetY - pos.y
     local orbitDistance = math.sqrt(orbitDx * orbitDx + orbitDy * orbitDy)
 
     -- Apply separation force to prevent stacking
@@ -270,7 +439,7 @@ local function handleHunting(entity, dt, player, spawnProjectile, world)
     local totalDy = orbitDy + separationY
     local totalDistance = math.sqrt(totalDx * totalDx + totalDy * totalDy)
 
-    local speed = ai.chaseSpeed
+    local speed = ai.chaseSpeed * weaponBehavior.speed_multiplier
     local moveX = (totalDx / totalDistance) * speed
     local moveY = (totalDy / totalDistance) * speed
 

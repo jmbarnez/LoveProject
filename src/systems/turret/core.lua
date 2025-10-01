@@ -170,6 +170,7 @@ function Turret:update(dt, target, locked, world)
     -- For manual mode, only fire if we're actively firing (button held)
     -- For automatic mode, fire if autoFire is enabled and cooldown allows
     if self.fireMode == "manual" or (self.fireMode == "automatic" and self.autoFire) then
+        
         -- Route to appropriate weapon handler
         if self.kind == "gun" or self.kind == "projectile" or not self.kind then
             ProjectileWeapons.updateGunTurret(self, dt, target, locked, world)
@@ -287,7 +288,28 @@ function Turret.updateLockOn(turret, dt, target, world)
         return
     end
 
-    -- Check if we're still aiming at the same target
+    -- For enemies (AI), automatically lock onto target without cursor requirements
+    if not turret.owner.isPlayer and not turret.owner.isFriendly then
+        -- Enemy AI: automatic lock-on to target
+        if not turret.lockOnTarget or turret.lockOnTarget ~= target then
+            -- New target, start lock-on timer
+            turret.lockOnTarget = target
+            turret.lockOnStartTime = love.timer.getTime()
+            turret.isLockedOn = false
+        else
+            -- Same target, check if lock-on duration has been met
+            local currentTime = love.timer.getTime()
+            local lockOnElapsed = currentTime - turret.lockOnStartTime
+            turret.lockOnProgress = math.min(1.0, lockOnElapsed / turret.lockOnDuration)
+            
+            if lockOnElapsed >= turret.lockOnDuration then
+                turret.isLockedOn = true
+            end
+        end
+        return
+    end
+
+    -- Player lock-on system (requires cursor aiming)
     local ownerPos = turret.owner.components.position
     local targetPos = target.components.position
 
