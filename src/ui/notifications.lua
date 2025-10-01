@@ -340,7 +340,7 @@ function Notifications.draw()
 
     local alpha = notif.alpha or 1
     local accent = Theme.withAlpha(getAccentColor(notif), alpha)
-    local bgColor = Theme.withAlpha(Theme.colors.bg2, alpha * 0.9)
+    local bgColor = Theme.withAlpha(Theme.colors.bg2, alpha * 0.9) -- Pure black background
     local borderColor = Theme.withAlpha(getAccentColor(notif), alpha * 0.5)
 
     Theme.setColor(bgColor)

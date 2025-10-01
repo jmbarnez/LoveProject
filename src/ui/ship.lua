@@ -545,8 +545,7 @@ function Ship:draw(player, x, y, w, h)
         local sx = slotsX + (slotIndex - 1) * (slotSize + slotGap)
         Theme.setColor(Theme.colors.bg1)
         love.graphics.rectangle("fill", sx, slotsY, slotSize, slotSize, 4, 4)
-        Theme.setColor(Theme.colors.border)
-        love.graphics.rectangle("line", sx, slotsY, slotSize, slotSize, 4, 4)
+        -- Border removed - no borders on hotbar slots
 
         local keyLabel = UIUtils.formatKeyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(slotIndex), "Unbound")
         Theme.setColor(Theme.colors.textSecondary)

@@ -504,6 +504,12 @@ end
 function Input.wheelmoved(dx, dy)
     -- Handle mouse wheel events for the game
     if not gameState or not gameState.camera then return false end
+    
+    -- Block camera zoom when UI is open
+    if mainState.UIManager and mainState.UIManager.isModalActive and mainState.UIManager:isModalActive() then
+        return false
+    end
+    
     -- Map/wheel events are handled in love_wheelmoved via dedicated calls
     
     -- Default behavior: zoom the camera

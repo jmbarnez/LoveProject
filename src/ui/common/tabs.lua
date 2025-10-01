@@ -15,15 +15,10 @@ function Tabs.draw(x, y, w, h, tabs, selected)
     local tabX = x + (i - 1) * (perTab + spacing)
     local isSelected = selected == name
     local hover = mx >= tabX and mx <= tabX + perTab and my >= y and my <= y + h
-    local tabColor = isSelected and Theme.colors.primary or (hover and Theme.colors.bg3 or Theme.colors.bg2)
-    local borderColor = isSelected and Theme.colors.accent or Theme.colors.border
-    Theme.drawGradientGlowRect(tabX, y, perTab, h, 4, tabColor, Theme.colors.bg1, borderColor, Theme.effects.glowWeak)
-    Theme.setColor(isSelected and Theme.colors.textHighlight or Theme.colors.textSecondary)
-    local oldFont = love.graphics.getFont()
-    love.graphics.setFont(Theme.fonts and Theme.fonts.small or oldFont)
-    local textW = love.graphics.getFont():getWidth(name)
-    love.graphics.print(name, tabX + (perTab - textW) * 0.5, y + (h - (love.graphics.getFont():getHeight())) * 0.5)
-    if oldFont then love.graphics.setFont(oldFont) end
+    
+    -- Use main button theme for consistent styling
+    Theme.drawStyledButton(tabX, y, perTab, h, name, hover, 1.0, nil, isSelected)
+    
     table.insert(rects, { x = tabX, y = y, w = perTab, h = h, name = name })
     if hover then hoveredName = name end
   end

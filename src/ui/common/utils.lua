@@ -296,21 +296,9 @@ function UIUtils.drawTabBar(x, y, w, h, tabs, activeTab, options)
     local isActive = (tab.id == activeTab)
     local hover = mx >= tabX and mx <= tabX + tabWidth and my >= y and my <= y + h
     
-    local bgColor = isActive and Theme.colors.bg3 or (hover and Theme.colors.bg2 or Theme.colors.bg1)
-    local borderColor = isActive and Theme.colors.accent or Theme.colors.border
-    
-    Theme.drawGradientGlowRect(tabX, y, tabWidth, h, 0,
-      bgColor, Theme.colors.bg0, borderColor, Theme.effects.glowWeak)
-    
-    -- Tab text
-    local textColor = isActive and Theme.colors.textHighlight or Theme.colors.text
-    Theme.setColor(textColor)
-    love.graphics.setFont(Theme.fonts.normal)
+    -- Use main button theme for consistent styling
     local tabText = tab.label or tab.id
-    local metrics = UIUtils.getCachedTextMetrics(tabText, Theme.fonts.normal)
-    local textX = tabX + (tabWidth - metrics.width) * 0.5
-    local textY = y + (h - metrics.height) * 0.5
-    love.graphics.print(tabText, textX, textY)
+    Theme.drawStyledButton(tabX, y, tabWidth, h, tabText, hover, 1.0, nil, isActive)
     
     tabRects[i] = { x = tabX, y = y, w = tabWidth, h = h, tab = tab }
   end

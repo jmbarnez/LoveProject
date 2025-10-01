@@ -658,26 +658,15 @@ local function drawTradingInterface(self, player, node, stats, x, y, w, h)
     local sellTabX = x + 4 + tabW
     local tabY = y + 4
 
-    -- Buy tab
+    -- Buy tab - use main button theme
     local buySelected = self.tradingMode == "buy"
-    Theme.drawGradientGlowRect(buyTabX, tabY, tabW - 4, tabH, 4,
-        buySelected and Theme.colors.success or Theme.colors.bg2,
-        Theme.colors.bg1,
-        buySelected and Theme.colors.success or Theme.colors.border,
-        Theme.effects.glowWeak)
-    Theme.setColor(buySelected and Theme.colors.textHighlight or Theme.colors.textSecondary)
-    love.graphics.setFont(Theme.fonts.small)
-    love.graphics.printf("BUY", buyTabX, tabY + 7, tabW - 4, "center")
+    local buyHover = mx >= buyTabX and mx <= buyTabX + tabW - 4 and my >= tabY and my <= tabY + tabH
+    Theme.drawStyledButton(buyTabX, tabY, tabW - 4, tabH, "BUY", buyHover, 1.0, buySelected and Theme.colors.success or nil, buySelected)
 
-    -- Sell tab
+    -- Sell tab - use main button theme
     local sellSelected = self.tradingMode == "sell"
-    Theme.drawGradientGlowRect(sellTabX, tabY, tabW - 4, tabH, 4,
-        sellSelected and Theme.colors.danger or Theme.colors.bg2,
-        Theme.colors.bg1,
-        sellSelected and Theme.colors.danger or Theme.colors.border,
-        Theme.effects.glowWeak)
-    Theme.setColor(sellSelected and Theme.colors.textHighlight or Theme.colors.textSecondary)
-    love.graphics.printf("SELL", sellTabX, tabY + 7, tabW - 4, "center")
+    local sellHover = mx >= sellTabX and mx <= sellTabX + tabW - 4 and my >= tabY and my <= tabY + tabH
+    Theme.drawStyledButton(sellTabX, tabY, tabW - 4, tabH, "SELL", sellHover, 1.0, sellSelected and Theme.colors.danger or nil, sellSelected)
 
     -- Store tab areas for click detection
     self._buyTab = { x = buyTabX, y = tabY, w = tabW - 4, h = tabH }

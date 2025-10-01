@@ -366,8 +366,10 @@ function UIManager.update(dt, player)
   UIManager.state.settings.open = SettingsPanel.visible or false
   UIManager.state.debug.open = DebugPanel.isVisible()
   
-  -- Update modal state
-  UIManager.modalActive = UIManager.state.escape.open or UIManager.state.warp.open or UIManager.state.ship.open or SettingsPanel.visible
+  -- Update modal state - block camera movement when ANY UI is open
+  UIManager.modalActive = UIManager.state.escape.open or UIManager.state.warp.open or UIManager.state.ship.open or SettingsPanel.visible or
+                         UIManager.state.inventory.open or UIManager.state.bounty.open or UIManager.state.docked.open or 
+                         UIManager.state.skills.open or UIManager.state.map.open or UIManager.state.debug.open
   if SettingsPanel.visible then
     UIManager.modalComponent = "settings"
   elseif UIManager.state.escape.open and UIManager.state.escape.showingSaveSlots then

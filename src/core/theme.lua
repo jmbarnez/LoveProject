@@ -9,11 +9,11 @@ local Sound = require("src.core.sound")
 
 -- === DARK CYAN/LAVENDER SPACE THEME ===
 Theme.colors = {
-  -- Dark gray space primaries
-  primary = {0.08, 0.08, 0.10, 1.00},      -- Dark space gray
-  primaryBright = {0.12, 0.12, 0.15, 1.00}, -- Brighter space gray
-  primaryDark = {0.05, 0.05, 0.07, 1.00},  -- Darker space gray
-  primaryDim = {0.06, 0.06, 0.08, 1.00},   -- Dim space gray
+  -- Pure black space primaries
+  primary = {0.0, 0.0, 0.0, 1.00},         -- Pure black
+  primaryBright = {0.0, 0.0, 0.0, 1.00},   -- Pure black
+  primaryDark = {0.0, 0.0, 0.0, 1.00},     -- Pure black
+  primaryDim = {0.0, 0.0, 0.0, 1.00},      -- Pure black
 
   -- Single monochrome accent color
   accent = {0.7, 0.7, 0.7, 1.00},          -- Medium gray (single accent)
@@ -27,16 +27,16 @@ Theme.colors = {
   danger = {0.9, 0.3, 0.5, 1.00},          -- Magenta red
   info = {0.5, 0.7, 0.9, 1.00},            -- Soft lavender
 
-  -- Dark gray backgrounds
-  bg0 = {0.05, 0.05, 0.07, 1.00},          -- Darkest gray
-  bg1 = {0.08, 0.08, 0.10, 1.00},          -- Dark gray
-  bg2 = {0.10, 0.10, 0.12, 1.00},          -- Medium dark gray
-  bg3 = {0.12, 0.12, 0.15, 1.00},          -- Lighter dark gray
-  bg4 = {0.15, 0.15, 0.18, 1.00},          -- Lightest dark gray
+  -- Pure black backgrounds
+  bg0 = {0.0, 0.0, 0.0, 1.00},             -- Pure black
+  bg1 = {0.0, 0.0, 0.0, 1.00},             -- Pure black
+  bg2 = {0.0, 0.0, 0.0, 1.00},             -- Pure black
+  bg3 = {0.0, 0.0, 0.0, 1.00},             -- Pure black
+  bg4 = {0.0, 0.0, 0.0, 1.00},             -- Pure black
 
-  -- Dark gray UI chrome
-  windowBg = {0.08, 0.08, 0.10, 1.00},     -- Dark gray
-  titleBar = {0.08, 0.08, 0.10, 1.00},     -- Dark gray
+  -- Pure black UI chrome
+  windowBg = {0.0, 0.0, 0.0, 1.00},        -- Pure black
+  titleBar = {0.0, 0.0, 0.0, 1.00},        -- Pure black
   titleBarAccent = {0.7, 0.7, 0.7, 1.00},  -- Gray accent
 
   -- Unified border color
@@ -63,7 +63,7 @@ Theme.colors = {
   -- Dark nebula effects
   glow = {0.5, 0.7, 0.9, 0.3},             -- Cyan nebula glow
   glowStrong = {0.5, 0.7, 0.9, 0.5},       -- Strong cyan glow
-  shadow = {0.05, 0.05, 0.07, 0.8},        -- Dark gray shadow
+  shadow = {0.0, 0.0, 0.0, 0.8},           -- Pure black shadow
   highlight = {0.8, 0.9, 1.0, 0.2},        -- Cyan highlight
 
   -- Dark space interaction states

@@ -139,7 +139,7 @@ function Hotbar.draw(player)
     local rx = x + (i - 1) * (size + gap)
     local ry = y
 
-    Theme.setColor(Theme.colors.bg2)
+    Theme.setColor(Theme.colors.bg2) -- Pure black background
     love.graphics.rectangle('fill', rx, ry, size, size)
 
     local drewIcon = false

@@ -497,17 +497,7 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
 
   -- Rarity indicator
   if def and def.rarity then
-    local rarityColors = {
-      Common = Theme.colors.textSecondary,
-      Uncommon = {0.3, 0.9, 0.3, 1.0},
-      Rare = {0.3, 0.6, 0.9, 1.0},
-      Epic = {0.8, 0.3, 0.9, 1.0},
-      Legendary = {0.9, 0.7, 0.2, 1.0}
-    }
-    local rarityColor = rarityColors[def.rarity] or Theme.colors.textSecondary
-    Theme.setColor(rarityColor)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", x + 1, y + 1, size - 2, size - 2)
+    -- Rarity borders removed - no borders on inventory slots
   end
 end
 
