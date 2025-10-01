@@ -31,6 +31,12 @@ function PhysicsSystem.update(dt, entities)
             -- we leave their position untouched and let the render system
             -- handle the visuals.
             if (hasVel and not hasPhysicsBody) and (not isLaserBullet) then
+                -- Apply space drag to velocity-based entities
+                local CorePhysics = require("src.core.physics")
+                local dragCoeff = CorePhysics.constants.SPACE_DRAG_COEFFICIENT
+                entity.components.velocity.x = (entity.components.velocity.x or 0) * dragCoeff
+                entity.components.velocity.y = (entity.components.velocity.y or 0) * dragCoeff
+                
                 entity.components.position.x = (entity.components.position.x or 0) + (entity.components.velocity.x or 0) * dt
                 entity.components.position.y = (entity.components.position.y or 0) + (entity.components.velocity.y or 0) * dt
             end

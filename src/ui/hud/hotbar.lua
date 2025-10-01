@@ -71,6 +71,8 @@ function Hotbar.draw(player)
   if player and player.components and player.components.physics and player.components.physics.body then
     local body = player.components.physics.body
     local speed = math.sqrt(body.vx * body.vx + body.vy * body.vy)
+    local maxSpeed = body.maxSpeed or 500
+    local speedPct = maxSpeed > 0 and math.min(speed / maxSpeed, 1.0) or 0
     local speedText = string.format("Speed: %.1f", speed)
 
     local oldFont = love.graphics.getFont()
@@ -95,6 +97,36 @@ function Hotbar.draw(player)
 
     Theme.setColor(Theme.colors.text)
     love.graphics.print(speedText, speedX, speedY)
+
+
+    -- Draw vertical energy bar in bottom left
+    if player.components and player.components.health then
+      local health = player.components.health
+      local energy = health.energy or 0
+      local maxEnergy = health.maxEnergy or 100
+      local energyPct = maxEnergy > 0 and (energy / maxEnergy) or 0
+      
+      -- Vertical energy bar dimensions
+      local energyBarWidth = 12 -- Thin vertical bar
+      local energyBarHeight = 200 -- Tall vertical bar
+      local energyBarX = 20 -- Left margin
+      local energyBarY = sh - energyBarHeight - 20 -- Bottom margin
+      
+      -- Energy bar background
+      Theme.setColor(Theme.withAlpha(Theme.colors.bg2, 0.8))
+      love.graphics.rectangle("fill", energyBarX, energyBarY, energyBarWidth, energyBarHeight, 2, 2)
+      Theme.setColor(Theme.withAlpha(Theme.colors.borderBright, 0.6))
+      love.graphics.setLineWidth(1)
+      love.graphics.rectangle("line", energyBarX, energyBarY, energyBarWidth, energyBarHeight, 2, 2)
+      
+      -- Energy bar fill (yellow) - fills from bottom up
+      local fillHeight = energyBarHeight * energyPct
+      if fillHeight > 0 then
+        Theme.setColor({1.0, 0.8, 0.2, 0.9}) -- Bright yellow
+        local fillY = energyBarY + energyBarHeight - fillHeight -- Start from bottom
+        love.graphics.rectangle("fill", energyBarX, fillY, energyBarWidth, fillHeight, 2, 2)
+      end
+    end
 
     if oldFont then love.graphics.setFont(oldFont) end
   end

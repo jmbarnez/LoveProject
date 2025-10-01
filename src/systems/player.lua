@@ -204,8 +204,13 @@ function PlayerSystem.update(dt, player, input, world, hub)
         end
         body.vx = newVx
         body.vy = newVy
-
     end
+    
+    -- Apply space drag every frame (regardless of thrusting)
+    local CorePhysics = require("src.core.physics")
+    local dragCoeff = body.dragCoefficient or CorePhysics.constants.SPACE_DRAG_COEFFICIENT
+    body.vx = body.vx * dragCoeff
+    body.vy = body.vy * dragCoeff
     
     -- Update thruster state based on input
     if w then 

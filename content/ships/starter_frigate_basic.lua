@@ -29,8 +29,8 @@ return {
 
   -- Basic drone stats
   hull = { hp = 10, shield = 5, cap = 110 },
-  -- Slower, more skill-based handling: lower accel/speed, a bit more drag
-  engine = { accel = 900, maxSpeed = 450, drag = 0.985, mass = 400 },
+  -- Much lighter for better maneuverability: lower mass, higher accel
+  engine = { accel = 1200, maxSpeed = 500, drag = 0.985, mass = 150 },
   sig = 110,
   cargo = { capacity = 120 },
   equipmentSlots = 3,

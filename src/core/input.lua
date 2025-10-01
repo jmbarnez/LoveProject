@@ -174,6 +174,7 @@ function Input.update(dt)
         if mainState.UIManager.isOpen("inventory")
             or mainState.UIManager.isOpen("bounty")
             or mainState.UIManager.isOpen("skills")
+            or mainState.UIManager.isOpen("escape")
             or mainState.UIManager.isModalActive() then
             return
         end

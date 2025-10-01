@@ -33,6 +33,9 @@ function Player.new(x, y, shipId)
   -- Set direct control mode for player physics (visual thrusters only, no force)
   if self.components.physics and self.components.physics.body then
     self.components.physics.body.skipThrusterForce = true
+    -- Set drag coefficient for space drag (uses constant from physics system)
+    local CorePhysics = require("src.core.physics")
+    self.components.physics.body.dragCoefficient = CorePhysics.constants.SPACE_DRAG_COEFFICIENT
   end
 
   -- Initialize shield HP based on equipped modules

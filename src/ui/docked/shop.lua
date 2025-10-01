@@ -7,7 +7,7 @@ local IconSystem = require("src.core.icon_system")
 
 local Shop = {}
 
-local MENU_WIDTH, MENU_HEIGHT = 220, 130
+local MENU_WIDTH, MENU_HEIGHT = 220, 160
 
 local function ensureContextMenu(DockedUI)
   DockedUI.contextMenu = DockedUI.contextMenu or { visible = false, quantity = "1", type = "buy" }
@@ -44,16 +44,20 @@ local function openContextMenu(DockedUI, item, menuType, anchorX, anchorY)
   menu.x = menuX
   menu.y = menuY
   menu.item = item
-  menu.type = menuType or "buy"
+  menu.type = menuType or "both" -- Can be "buy", "sell", or "both"
   menu.quantity = "1"
   DockedUI.contextMenuActive = false
   
-  -- Pre-calculate button rectangle to ensure it's available for click detection
-  local btnW, btnH = 100, 28
-  local btnX, btnY = menuX + (MENU_WIDTH - btnW) / 2, menuY + 80
-  menu._buttonRect = { x = btnX, y = btnY, w = btnW, h = btnH }
+  -- Pre-calculate button rectangles for both Buy and Sell buttons
+  local btnW, btnH = 80, 28
+  local btnSpacing = 8
+  local totalBtnWidth = (btnW * 2) + btnSpacing
+  local startX = menuX + (MENU_WIDTH - totalBtnWidth) / 2
   
-  -- Pre-calculate input rectangle as well
+  menu._buyButtonRect = { x = startX, y = menuY + 80, w = btnW, h = btnH }
+  menu._sellButtonRect = { x = startX + btnW + btnSpacing, y = menuY + 80, w = btnW, h = btnH }
+  
+  -- Pre-calculate input rectangle
   local inputW, inputH = 100, 28
   local inputX, inputY = menuX + (MENU_WIDTH - inputW) / 2, menuY + 28
   menu._inputRect = { x = inputX, y = inputY, w = inputW, h = inputH }
@@ -383,71 +387,81 @@ local function drawContextMenuContents(DockedUI, mx, my)
   Theme.setColor(Theme.colors.accentGold)
   love.graphics.printf("Total: " .. Util.formatNumber(totalPrice), x_, y_ + 64, w_, "center")
 
-  local btnW, btnH = 100, 28
-  local btnX, btnY = x_ + (w_ - btnW) / 2, y_ + 80
-  local btnHover = mx >= btnX and mx <= btnX + btnW and my >= btnY and my <= btnY + btnH
-  local actionText = menu.type == "sell" and "SELL" or "BUY"
-  local canAfford = true
-  local player = DockedUI.player
+  -- Draw both Buy and Sell buttons
+  local btnW, btnH = 80, 28
+  local btnSpacing = 8
+  local totalBtnWidth = (btnW * 2) + btnSpacing
+  local startX = x_ + (w_ - totalBtnWidth) / 2
+  local btnY = y_ + 80
   
-  -- For affordability check, use the actual quantity or default to 1 if empty
+  local buyBtnX = startX
+  local sellBtnX = startX + btnW + btnSpacing
+  
+  local buyBtnHover = mx >= buyBtnX and mx <= buyBtnX + btnW and my >= btnY and my <= btnY + btnH
+  local sellBtnHover = mx >= sellBtnX and mx <= sellBtnX + btnW and my >= btnY and my <= btnY + btnH
+  
+  local player = DockedUI.player
   local checkQty = qty > 0 and qty or 1
   local checkPrice = (menu.item.price or 0) * checkQty
   
-  if menu.type == "buy" then
-    canAfford = player and player:getGC() >= checkPrice
-    -- Debug: print affordability check
-    if player then
-      print("Affordability check - Player GC:", player:getGC(), "Check Price:", checkPrice, "Can Afford:", canAfford, "Qty:", qty, "CheckQty:", checkQty)
-    end
+  -- Check affordability for both buttons
+  local canBuy = player and player:getGC() >= checkPrice
+  local canSell = false
+  if player and player.components and player.components.cargo then
+    canSell = player.components.cargo:has(menu.item.id, checkQty)
+  end
+  
+  -- Draw Buy button
+  local buyBtnColor, buyTextColor, buyBorderColor
+  if not canBuy then
+    buyBtnColor = Theme.colors.bg1
+    buyTextColor = Theme.colors.textDisabled
+    buyBorderColor = Theme.colors.danger
+  elseif buyBtnHover then
+    buyBtnColor = Theme.colors.success
+    buyTextColor = Theme.colors.textHighlight
+    buyBorderColor = Theme.colors.success
   else
-    local cargo = player and player.components and player.components.cargo
-    canAfford = cargo and cargo:has(menu.item.id, checkQty)
+    buyBtnColor = Theme.colors.bg3
+    buyTextColor = Theme.colors.textHighlight
+    buyBorderColor = Theme.colors.border
   end
   
-  -- Enhanced button visual feedback
-  local btnColor
-  local textColor
-  local borderColor = Theme.colors.border
+  Theme.drawGradientGlowRect(buyBtnX, btnY, btnW, btnH, 3, buyBtnColor, Theme.colors.bg1, buyBorderColor, Theme.effects.glowWeak)
+  if buyBtnHover and canBuy then
+    Theme.drawGradientGlowRect(buyBtnX - 2, btnY - 2, btnW + 4, btnH + 4, 2, Theme.colors.success, Theme.colors.bg0, Theme.colors.success, Theme.effects.glowStrong)
+  end
   
-  if not canAfford then
-    -- Insufficient funds - red/grayed out
-    btnColor = Theme.colors.bg1
-    textColor = Theme.colors.textDisabled
-    borderColor = Theme.colors.danger
-  elseif btnHover then
-    -- Hover state - bright green
-    btnColor = Theme.colors.success
-    textColor = Theme.colors.textHighlight
-    borderColor = Theme.colors.success
+  Theme.setColor(buyTextColor)
+  love.graphics.printf("BUY", buyBtnX, btnY + 6, btnW, "center")
+  
+  -- Draw Sell button
+  local sellBtnColor, sellTextColor, sellBorderColor
+  if not canSell then
+    sellBtnColor = Theme.colors.bg1
+    sellTextColor = Theme.colors.textDisabled
+    sellBorderColor = Theme.colors.danger
+  elseif sellBtnHover then
+    sellBtnColor = Theme.colors.warning
+    sellTextColor = Theme.colors.textHighlight
+    sellBorderColor = Theme.colors.warning
   else
-    -- Normal state
-    btnColor = Theme.colors.bg3
-    textColor = Theme.colors.textHighlight
-    borderColor = Theme.colors.border
+    sellBtnColor = Theme.colors.bg3
+    sellTextColor = Theme.colors.textHighlight
+    sellBorderColor = Theme.colors.border
   end
   
-  -- Draw button with enhanced visual feedback
-  Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 3, btnColor, Theme.colors.bg1, borderColor, Theme.effects.glowWeak)
-  
-  -- Add hover glow effect
-  if btnHover and canAfford then
-    Theme.drawGradientGlowRect(btnX - 2, btnY - 2, btnW + 4, btnH + 4, 2, Theme.colors.success, Theme.colors.bg0, Theme.colors.success, Theme.effects.glowStrong)
+  Theme.drawGradientGlowRect(sellBtnX, btnY, btnW, btnH, 3, sellBtnColor, Theme.colors.bg1, sellBorderColor, Theme.effects.glowWeak)
+  if sellBtnHover and canSell then
+    Theme.drawGradientGlowRect(sellBtnX - 2, btnY - 2, btnW + 4, btnH + 4, 2, Theme.colors.warning, Theme.colors.bg0, Theme.colors.warning, Theme.effects.glowStrong)
   end
   
-  -- Draw button text
-  Theme.setColor(textColor)
-  love.graphics.printf(actionText, btnX, btnY + 6, btnW, "center")
+  Theme.setColor(sellTextColor)
+  love.graphics.printf("SELL", sellBtnX, btnY + 6, btnW, "center")
   
-  -- Draw insufficient funds message
-  if not canAfford and menu.type == "buy" then
-    Theme.setColor(Theme.colors.danger)
-    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-    love.graphics.printf("Insufficient Funds", x_, y_ + h_ - 20, w_, "center")
-  end
-  
-  -- Don't overwrite the pre-calculated button rectangle
-  -- menu._buttonRect = { x = btnX, y = btnY, w = btnW, h = btnH }
+  -- Update button rectangles for click detection
+  menu._buyButtonRect = { x = buyBtnX, y = btnY, w = btnW, h = btnH }
+  menu._sellButtonRect = { x = sellBtnX, y = btnY, w = btnW, h = btnH }
 end
 
 function Shop.drawContextMenu(DockedUI, mx, my)
@@ -475,24 +489,24 @@ local function handleContextMenuClick(DockedUI, x, y, button, player)
     return true
   end
 
-  if menu._buttonRect and x >= menu._buttonRect.x and x <= menu._buttonRect.x + menu._buttonRect.w and y >= menu._buttonRect.y and y <= menu._buttonRect.y + menu._buttonRect.h then
+  -- Handle Buy button click
+  if menu._buyButtonRect and x >= menu._buyButtonRect.x and x <= menu._buyButtonRect.x + menu._buyButtonRect.w and y >= menu._buyButtonRect.y and y <= menu._buyButtonRect.y + menu._buyButtonRect.h then
     local qty = tonumber(menu.quantity) or 0
-    print("Button clicked - Qty:", qty, "Player exists:", player and "yes" or "no")
     if qty > 0 and player then
-      if menu.type == "buy" then
-        local cost = (menu.item.price or 0) * qty
-        print("Buy attempt - Cost:", cost, "Player GC:", player:getGC())
-        if player:getGC() >= cost then
-          print("Purchase allowed - calling purchaseItem")
-          DockedUI.purchaseItem(menu.item, player, qty)
-        else
-          print("Purchase blocked - insufficient funds")
-        end
-      elseif menu.type == "sell" then
-        DockedUI.sellItem(menu.item, player, qty)
+      local cost = (menu.item.price or 0) * qty
+      if player:getGC() >= cost then
+        DockedUI.purchaseItem(menu.item, player, qty)
       end
-    else
-      print("Purchase blocked - invalid qty or no player")
+    end
+    Shop.hideContextMenu(DockedUI)
+    return true
+  end
+  
+  -- Handle Sell button click
+  if menu._sellButtonRect and x >= menu._sellButtonRect.x and x <= menu._sellButtonRect.x + menu._sellButtonRect.w and y >= menu._sellButtonRect.y and y <= menu._sellButtonRect.y + menu._sellButtonRect.h then
+    local qty = tonumber(menu.quantity) or 0
+    if qty > 0 and player then
+      DockedUI.sellItem(menu.item, player, qty)
     end
     Shop.hideContextMenu(DockedUI)
     return true
@@ -550,19 +564,11 @@ function Shop.mousepressed(DockedUI, x, y, button, player)
     end
   end
 
-  if DockedUI.activeShopTab == "Buy" and DockedUI._shopItems then
+  -- Handle clicks on shop items
+  if DockedUI._shopItems then
     for _, itemUI in ipairs(DockedUI._shopItems) do
       if x >= itemUI.x and x <= itemUI.x + itemUI.w and y >= itemUI.y and y <= itemUI.y + itemUI.h then
-        openContextMenu(DockedUI, itemUI.item, "buy", x + 10, y + 10)
-        return true, false
-      end
-    end
-  end
-
-  if DockedUI.activeShopTab == "Sell" and DockedUI._sellItems then
-    for _, itemUI in ipairs(DockedUI._sellItems) do
-      if x >= itemUI.x and x <= itemUI.x + itemUI.w and y >= itemUI.y and y <= itemUI.y + itemUI.h then
-        openContextMenu(DockedUI, itemUI.item, "sell", x + 10, y + 10)
+        openContextMenu(DockedUI, itemUI.item, "both", x + 10, y + 10)
         return true, false
       end
     end
@@ -587,7 +593,9 @@ function Shop.keypressed(DockedUI, key, scancode, isrepeat, player)
   if DockedUI.searchActive then
     if key == "backspace" then
       local text = DockedUI.searchText or ""
-      DockedUI.searchText = text:sub(1, -2)
+      if #text > 0 then
+        DockedUI.searchText = text:sub(1, -2)
+      end
       return true, false
     elseif key == "return" or key == "kpenter" then
       DockedUI.searchActive = false
@@ -596,6 +604,9 @@ function Shop.keypressed(DockedUI, key, scancode, isrepeat, player)
       DockedUI.searchActive = false
       DockedUI.searchText = DockedUI.searchText or ""
       return true, false
+    else
+      -- Allow other keys to be handled by textinput
+      return false, false
     end
   end
 
@@ -603,7 +614,10 @@ function Shop.keypressed(DockedUI, key, scancode, isrepeat, player)
   if menu.visible and menu.item then
     if DockedUI.contextMenuActive then
       if key == "backspace" then
-        menu.quantity = (menu.quantity or ""):sub(1, -2)
+        local qty = menu.quantity or ""
+        if #qty > 0 then
+          menu.quantity = qty:sub(1, -2)
+        end
         -- Don't reset to "1" when field becomes empty - let it stay empty
         return true, false
       elseif key == "return" or key == "kpenter" then
@@ -671,7 +685,7 @@ function Shop.textinput(DockedUI, text, player)
     end
   end
 
-  return nil
+  return false
 end
 
 return Shop

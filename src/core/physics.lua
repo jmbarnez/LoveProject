@@ -2,8 +2,10 @@ local Physics = {}
 
 -- Realistic space physics constants - True Newtonian mechanics
 Physics.constants = {
-    -- No linear drag in space (conservation of momentum)
-    dragCoefficient = 1.0,
+    -- Balanced space drag (solar wind, cosmic dust, etc.)
+    -- Applied to ALL moving objects for consistency
+    -- 0.9999 = 0.01% per frame = 0.6% per second = balanced gameplay drag
+    SPACE_DRAG_COEFFICIENT = 0.9999,
     -- Ship mass affects acceleration (in tons)
     defaultMass = 500,
     -- Thruster efficiency
@@ -15,7 +17,11 @@ Physics.constants = {
     -- Maximum velocity cap
     maxVelocity = 5000,
     -- Braking thruster power (percentage of main thrust)
-    brakingPower = 1.2
+    brakingPower = 1.2,
+    -- Gravity constants
+    GRAVITATIONAL_CONSTANT = 0.1, -- Gameplay-scaled gravitational constant
+    MAX_GRAVITY_DISTANCE = 5000,  -- Maximum distance for gravity effects
+    MIN_GRAVITY_FORCE = 0.001     -- Minimum gravity force to apply
 }
 
 -- Geometry utility functions
@@ -62,6 +68,7 @@ function PhysicsBody.new(mass, x, y)
     -- Properties
     self.mass = mass or Physics.constants.defaultMass
     self.radius = 20   -- collision radius
+    self.dragCoefficient = Physics.constants.SPACE_DRAG_COEFFICIENT
 
     -- Forces (reset each frame)
     self.forces = {}
@@ -218,8 +225,8 @@ function PhysicsBody:update(dt)
     self.vx = self.vx + self.ax * dt
     self.vy = self.vy + self.ay * dt
     
-    -- No drag in space - objects maintain velocity indefinitely (Newton's First Law)
-    -- Only apply drag if ship has special atmospheric systems or reaction wheels
+    -- Apply minimal space drag (solar wind, cosmic dust, etc.)
+    -- Objects will very slowly decelerate over time
     if self.dragCoefficient and self.dragCoefficient < 1.0 then
         self.vx = self.vx * self.dragCoefficient
         self.vy = self.vy * self.dragCoefficient

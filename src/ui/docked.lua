@@ -38,7 +38,7 @@ DockedUI.visible = false
 DockedUI.player = nil
 DockedUI.shopScroll = 0
 DockedUI.selectedCategory = "All"
-DockedUI.activeShopTab = "Buy" -- Buy | Sell | Buyback
+-- Removed activeShopTab - no longer using separate buy/sell tabs
 DockedUI.buybackItems = {}
 DockedUI.searchText = ""
 DockedUI.searchActive = false
@@ -730,21 +730,12 @@ function DockedUI.drawContent(window, x, y, w, h)
     local contentH = h - (contentY - y) - pad
 
     if DockedUI.activeTab == "Shop" then
-        -- Category tabs
-        local tabY = contentY
-        local tabH = (Theme.ui and Theme.ui.buttonHeight) or 28
-        DockedUI.drawCategoryTabs(x + pad, tabY, w - pad * 2, tabH, mx, my)
-
-        -- Shop content area
-        local shopContentY = tabY + tabH + ((Theme.ui and Theme.ui.buttonSpacing) or 8)
+        -- Shop content area (no more tabs)
+        local shopContentY = contentY
         local shopContentH = h - (shopContentY - y) - pad
-        if DockedUI.activeShopTab == "Buy" then
-            DockedUI.drawShopItems(x + pad, shopContentY, w - pad * 2, shopContentH, player)
-        elseif DockedUI.activeShopTab == "Sell" then
-            DockedUI.drawPlayerInventoryForSale(x + pad, shopContentY, w - pad * 2, shopContentH, player)
-        elseif DockedUI.activeShopTab == "Buyback" then
-            DockedUI.drawBuybackItems(x + pad, shopContentY, w - pad * 2, shopContentH, player)
-        end
+        
+        -- Draw combined shop interface
+        DockedUI.drawCombinedShop(x + pad, shopContentY, w - pad * 2, shopContentH, player, mx, my)
   elseif DockedUI.activeTab == "Quests" then
         DockedUI.quests:draw(player, x + pad, contentY, w - pad * 2, contentH)
     elseif DockedUI.activeTab == "Nodes" then
@@ -759,44 +750,56 @@ function DockedUI.drawMainTabs(x, y, w, h)
   DockedUI._mainTabs = res.rects
 end
 
--- Draw main Buy/Sell/Buyback tabs and category tabs
-function DockedUI.drawCategoryTabs(x, y, w, h, mx, my)
-  local shopTabs = {"Buy", "Sell", "Buyback"}
-  local res = UITabs.draw(x, y, math.min(w, 3 * 84 + 8), h, shopTabs, DockedUI.activeShopTab)
-  DockedUI._shopTabs = res.rects
-
-  -- Category dropdown and search bar (only for Buy tab)
+-- Draw combined shop interface with category dropdown and search
+function DockedUI.drawCombinedShop(x, y, w, h, player, mx, my)
   local searchWidth = 150
-  if DockedUI.activeShopTab == "Buy" then
-    local last = res.rects[#res.rects]
-    local filterX = (last and (last.x + last.w + 16)) or (x + 16)
-
-    -- Set up and draw the category dropdown
-    DockedUI.categoryDropdown:setPosition(filterX, y)
-    DockedUI.categoryDropdown:drawButtonOnly(mx, my)
-  end
+  local dropdownWidth = 120
+  local searchX = x + w - searchWidth
+  local dropdownX = x
+  
+  -- Category dropdown
+  DockedUI.categoryDropdown:setPosition(dropdownX, y)
+  DockedUI.categoryDropdown:drawButtonOnly(mx, my)
   
   -- Search bar
-  local searchX = x + w - searchWidth
   local searchIsActive = DockedUI.searchActive
-  Theme.drawGradientGlowRect(searchX, y, searchWidth, h, 3,
+  Theme.drawGradientGlowRect(searchX, y, searchWidth, 28, 3,
     Theme.colors.bg0, Theme.colors.bg1, searchIsActive and Theme.colors.accent or Theme.colors.border, Theme.effects.glowWeak)
   
   love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
   if DockedUI.searchText == "" and not searchIsActive then
     Theme.setColor(Theme.colors.textDisabled)
-    love.graphics.print("Search...", searchX + 6, y + (h - 12) * 0.5)
+    love.graphics.print("Search...", searchX + 6, y + 8)
   else
     Theme.setColor(Theme.colors.text)
-    love.graphics.print(DockedUI.searchText, searchX + 6, y + (h - 12) * 0.5)
+    love.graphics.print(DockedUI.searchText, searchX + 6, y + 8)
   end
   
   if searchIsActive and math.fmod(love.timer.getTime(), 1) > 0.5 then
     local textW = love.graphics.getFont():getWidth(DockedUI.searchText)
-    love.graphics.rectangle("fill", searchX + 6 + textW, y + 4, 2, h - 8)
+    love.graphics.rectangle("fill", searchX + 6 + textW, y + 4, 2, 20)
   end
   
-  DockedUI._searchBar = { x = searchX, y = y, w = searchWidth, h = h }
+  DockedUI._searchBar = { x = searchX, y = y, w = searchWidth, h = 28 }
+  
+  -- Draw combined shop and inventory content
+  local contentY = y + 28 + 8
+  local contentH = h - 28 - 8
+  DockedUI.drawCombinedShopContent(x, contentY, w, contentH, player)
+end
+
+-- Draw combined shop content (shop items only)
+function DockedUI.drawCombinedShopContent(x, y, w, h, player)
+  if not player then return end
+  
+  -- Shop items only - use full width
+  Theme.setColor(Theme.colors.text)
+  love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
+  love.graphics.print("Shop Items", x, y)
+  
+  local shopY = y + 20
+  local shopH = h - 20
+  DockedUI.drawShopItems(x, shopY, w, shopH, player)
 end
 
 -- Draw buyback items
@@ -933,16 +936,6 @@ function DockedUI.mousepressed(x, y, button, player)
 
     -- Delegate to active tab
     if DockedUI.activeTab == "Shop" then
-        if DockedUI._shopTabs then
-            for _, tab in ipairs(DockedUI._shopTabs) do
-                if x >= tab.x and x <= tab.x + tab.w and y >= tab.y and y <= tab.y + tab.h then
-                    DockedUI.activeShopTab = tab.name
-                    DockedUI.searchActive = false
-                    Shop.hideContextMenu(DockedUI)
-                    return true, false
-                end
-            end
-        end
         return Shop.mousepressed(DockedUI, x, y, button, currentPlayer)
     elseif DockedUI.activeTab == "Quests" and DockedUI.quests then
         return DockedUI.quests:mousepressed(currentPlayer, x, y, button)

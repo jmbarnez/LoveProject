@@ -482,6 +482,17 @@ function Game.update(dt)
     SkillXpPopup.update(dt)
     local input = Input.getInputState()
 
+    -- Check if game should be paused (escape menu or other modal UIs)
+    local shouldPause = false
+    if UIManager then
+        shouldPause = UIManager.isOpen("escape") or UIManager.isModalActive()
+    end
+    
+    if shouldPause then
+        -- Only update UI, skip all game logic including camera
+        return
+    end
+
     -- Update UI effects systems
     local Theme = require("src.core.theme")
     Theme.updateAnimations(dt)
@@ -498,9 +509,15 @@ function Game.update(dt)
         end
     end
     AISystem.update(dt, world, spawn_projectile)
+    -- Update gravity system before physics
+    local GravitySystem = require("src.systems.gravity")
+    GravitySystem.update(dt, world)
     -- Update physics and collisions first so any damage/death flags set by collisions
     -- are visible to the destruction system in the same frame.
     PhysicsSystem.update(dt, world:getEntities())
+    -- Update projectile lifecycle (timed life and max range expiration)
+    local ProjectileLifecycle = require("src.systems.projectile_lifecycle")
+    ProjectileLifecycle.update(dt, world)
     BoundarySystem.update(world)
     collisionSystem:update(world, dt)
     -- Process deaths: spawn effects, wreckage, loot before cleanup
