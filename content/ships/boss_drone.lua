@@ -304,6 +304,7 @@ return {
 
   loot = {
     drops = {
+      { id = "reward_crate", min = 1, max = 1, chance = 1.0 },
       { id = "ore_tritanium", min = 3, max = 6, chance = 0.9 },
       { id = "basic_gun", chance = 0.6 },
     }

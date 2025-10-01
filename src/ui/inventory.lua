@@ -22,6 +22,25 @@ local function hasEmptyEquipmentSlot(player)
   return false
 end
 
+local function pickCrateReward()
+    local candidates = {}
+    for _, item in ipairs(Content.items or {}) do
+        if item.id ~= "reward_crate" and item.id ~= "reward_crate_key" then
+            table.insert(candidates, item)
+        end
+    end
+    if #candidates == 0 then
+        return nil, 0
+    end
+    local choice = candidates[math.random(1, #candidates)]
+    local maxStack = (choice.stack and choice.stack > 0) and choice.stack or 1
+    local qty = 1
+    if maxStack > 1 then
+        qty = math.random(1, math.min(maxStack, 3))
+    end
+    return choice, qty
+end
+
 local snapshotCargoState
 local cargoStateChanged
 
@@ -948,6 +967,49 @@ function Inventory.useItem(player, itemId)
   local item = Content.getItem(itemId)
   if not item then return false end
   if not (item.consumable or item.type == "consumable") then return false end
+
+  if itemId == "reward_crate" then
+    local keyId = "reward_crate_key"
+    if not cargo:has(keyId, 1) then
+      local Notifications = require("src.ui.notifications")
+      Notifications.add("You need a Reward Key to open this crate.", "warning")
+      return false
+    end
+
+    cargo:remove(itemId, 1)
+    cargo:remove(keyId, 1)
+
+    local gcReward = math.random(150, 300)
+    player:addGC(gcReward)
+
+    local rewardItem, rewardQty = pickCrateReward()
+    local rewardSummary = string.format("+%d GC", gcReward)
+    if rewardItem then
+      local qty = (rewardQty and rewardQty > 0) and rewardQty or 1
+      local added = player:addItem(rewardItem.id, qty)
+      if not added then
+        local ItemPickup = require("src.entities.item_pickup")
+        local px, py = 0, 0
+        if player.components and player.components.position then
+          px = player.components.position.x or 0
+          py = player.components.position.y or 0
+        end
+        local pickup = ItemPickup.new(px, py, rewardItem.id, qty)
+        if pickup then
+          local Game = package.loaded["src.game"] or require("src.game")
+          if Game and Game.world and Game.world.addEntity then
+            Game.world:addEntity(pickup)
+          end
+        end
+      end
+      local itemName = rewardItem.name or rewardItem.id
+      rewardSummary = string.format("%s, %dx %s", rewardSummary, qty, itemName)
+    end
+
+    local Notifications = require("src.ui.notifications")
+    Notifications.add("Opened Reward Crate: " .. rewardSummary, "success")
+    return true
+  end
 
   if itemId == "node_wallet" then
     local PortfolioManager = require("src.managers.portfolio")

@@ -2,6 +2,40 @@ local QuestSystem = {}
 local Events = require("src.core.events")
 local QuestLog = require("src.components.quest_log")
 local Progression = require("src.components.progression")
+local ItemPickup = require("src.entities.item_pickup")
+
+local function deliverRewardItem(player, itemId, quantity)
+    if not player or not itemId then return end
+    if not player.addItem then return end
+    local qty = quantity or 1
+    if qty <= 0 then return end
+
+    local added = player:addItem(itemId, qty)
+    if added then return end
+
+    local px, py = 0, 0
+    if player.components and player.components.position then
+        px = player.components.position.x or 0
+        py = player.components.position.y or 0
+    end
+
+    local pickup = ItemPickup.new(px, py, itemId, qty)
+    if not pickup then return end
+
+    local Game = package.loaded["src.game"] or require("src.game")
+    if Game and Game.world and Game.world.addEntity then
+        Game.world:addEntity(pickup)
+    end
+end
+
+local function grantRewardItems(player, reward)
+    if not reward or not reward.items then return end
+    for _, entry in ipairs(reward.items) do
+        local itemId = entry.id
+        local qty = entry.qty or entry.count or entry.quantity or 1
+        deliverRewardItem(player, itemId, qty)
+    end
+end
 
 local function getObjectiveGoal(objective)
     if not objective then return nil end
@@ -361,9 +395,10 @@ function QuestSystem.complete(player, quest)
     local questLog = ensureQuestLog(player)
     local progression = ensureProgression(player)
     if questLog then questLog:remove(quest.id) end
-    if progression and quest.reward then
-        if quest.reward.gc then progression:addGC(quest.reward.gc) end
-        if quest.reward.xp then progression:addXP(quest.reward.xp) end
+    if quest.reward then
+        if progression and quest.reward.gc then progression:addGC(quest.reward.gc) end
+        if progression and quest.reward.xp then progression:addXP(quest.reward.xp) end
+        grantRewardItems(player, quest.reward)
     end
 end
 
