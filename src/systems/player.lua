@@ -473,55 +473,110 @@ end
 
 -- Find the best target for missile lock-on based on player aim direction
 function PlayerSystem.findBestTargetForLockOn(turret, world)
-    if not turret.owner or not turret.owner.components or not turret.owner.components.position then
+    if not turret or not world then
         return nil
     end
 
-    local ownerPos = turret.owner.components.position
-    local playerAngle = ownerPos.angle or 0
+    local owner = turret.owner
+    if not owner or not owner.components or not owner.components.position then
+        return nil
+    end
+  
+    local ownerPos = owner.components.position
+    local aimAngle = ownerPos.angle or 0
 
     -- Prefer the player's current aiming direction (cursor position) if available
-    if turret.owner and turret.owner.cursorWorldPos then
-        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
-        if cursorX and cursorY then
-            local aimDx = cursorX - ownerPos.x
-            local aimDy = cursorY - ownerPos.y
-            if aimDx ~= 0 or aimDy ~= 0 then
-                playerAngle = math.atan2(aimDy, aimDx)
-            end
+    local cursor = owner.cursorWorldPos
+    if cursor and cursor.x and cursor.y then
+        local aimDx = cursor.x - ownerPos.x
+        local aimDy = cursor.y - ownerPos.y
+        if aimDx ~= 0 or aimDy ~= 0 then
+            aimAngle = math.atan2(aimDy, aimDx)
         end
     end
 
-    -- Get all potential targets (enemies)
-    local candidates = world:get_entities_with_components("collidable")
+    local lockOnTolerance = math.pi / 6 -- 30 degrees
+
+    local function isValidEnemy(entity)
+        if not entity or entity == owner or entity.dead then
+            return false
+        end
+
+        if not entity.components or not entity.components.position then
+            return false
+        end
+
+        -- Treat AI-controlled or explicitly hostile entities as enemies
+        if entity.isEnemy then
+            return true
+        end
+
+        if entity.isFriendly then
+            return false
+        end
+
+        if entity.components.ai then
+            local aggressiveType = entity.components.ai.aggressiveType
+            if aggressiveType and aggressiveType ~= "neutral" then
+                return true
+            end
+            -- Basic AI component defaults to hostile behavior, so treat any non-friendly AI entity as a threat
+            return true
+        end
+
+        if entity.isEnemyShip then
+            return true
+        end
+
+        return false
+    end
+
+    local function getAngleDiff(targetPos)
+        local dx = targetPos.x - ownerPos.x
+        local dy = targetPos.y - ownerPos.y
+        local targetAngle = math.atan2(dy, dx)
+        local angleDiff = math.abs(targetAngle - aimAngle)
+        if angleDiff > math.pi then
+            angleDiff = 2 * math.pi - angleDiff
+        end
+        return angleDiff, dx, dy
+    end
+
+    local function isWithinAim(entity)
+        if not isValidEnemy(entity) then
+            return false
+        end
+        local angleDiff = getAngleDiff(entity.components.position)
+        return angleDiff <= lockOnTolerance
+    end
+
+    -- If we're already locking onto a target and still aiming at it, keep it to avoid resets
+    if isWithinAim(turret.lockOnTarget) then
+        return turret.lockOnTarget
+    end
+
+    -- Gather potential candidates. Prefer AI-tagged enemies, fallback to any collidable entities
+    local candidates = world:get_entities_with_components("ai", "position") or {}
+    if not candidates[1] then
+        candidates = world:get_entities_with_components("collidable", "position") or {}
+    end
+
     local bestTarget = nil
-    local bestScore = 0
+    local bestScore = -math.huge
 
     for _, entity in ipairs(candidates) do
-        if entity.isEnemy and entity.components and entity.components.position and not entity.dead then
-            local targetPos = entity.components.position
-
-            -- Calculate angle to this target
-            local dx = targetPos.x - ownerPos.x
-            local dy = targetPos.y - ownerPos.y
-            local targetAngle = math.atan2(dy, dx)
-
-            -- Calculate angle difference
-            local angleDiff = math.abs(targetAngle - playerAngle)
-            -- Normalize to [0, π]
-            if angleDiff > math.pi then
-                angleDiff = 2 * math.pi - angleDiff
-            end
-
-            -- Only consider targets within lock-on tolerance
-            local lockOnTolerance = math.pi / 6 -- 30 degrees
+        if isValidEnemy(entity) then
+            local angleDiff, dx, dy = getAngleDiff(entity.components.position)
             if angleDiff <= lockOnTolerance then
-                -- Score based on proximity and angle alignment
                 local distance = math.sqrt(dx * dx + dy * dy)
-                local angleScore = 1 - (angleDiff / lockOnTolerance) -- Closer to aim direction = higher score
-                local distanceScore = 1000 / (1 + distance) -- Closer = higher score
+                local angleScore = 1 - (angleDiff / lockOnTolerance)
+                local distanceScore = 1000 / (1 + distance)
 
+                -- Slightly prefer the previous target to stabilize selection
                 local totalScore = angleScore * distanceScore
+                if entity == turret.lockOnTarget then
+                    totalScore = totalScore * 1.25
+                end
 
                 if totalScore > bestScore then
                     bestScore = totalScore
