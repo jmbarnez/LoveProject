@@ -29,34 +29,39 @@ return {
   },
   -- Embedded projectile definition
   projectile = {
-    id = "missile",
-    name = "Guided Missile",
+    id = "rocket_mk1",
+    name = "Heavy Rocket",
     class = "Projectile",
     physics = {
-      speed = 600,
-      drag = 0,
+      speed = 800,
+      drag = 0.05,
     },
     renderable = {
       type = "bullet",
       props = {
-        kind = "missile",
-        radius = 4,
-        color = {1.0, 0.7, 0.25, 1.0}
+        kind = "rocket",
+        radius = 5,
+        length = 25,
+        color = {1.0, 0.4, 0.1, 1.0}
       }
     },
     damage = {
       value = 15,
     },
     timed_life = {
-      duration = 4.0,
+      duration = 5.0,
+    },
+    explosion = {
+      radius = 60,
+      damage = 8
     }
   },
   
   -- Visual effects
-  tracer = { color = {1.00, 0.70, 0.25}, width = 2, coreRadius = 6 },
+  tracer = { color = {1.0, 0.4, 0.1, 1.0}, width = 3, coreRadius = 4 },
   impact = {
-    shield = { spanDeg = 70, color1 = {1.0, 0.75, 0.35, 0.55}, color2 = {1.0, 0.55, 0.25, 0.40} },
-    hull = { spark = {1.0, 0.55, 0.15, 0.6}, ring = {1.0, 0.35, 0.05, 0.5} },
+    shield = { spanDeg = 90, color1 = {1.0, 0.6, 0.2, 0.7}, color2 = {1.0, 0.4, 0.1, 0.5} },
+    hull = { spark = {1.0, 0.5, 0.1, 0.8}, ring = {1.0, 0.3, 0.0, 0.6} },
   },
   -- Long range with homing, heavy damage but slow
   optimal = 1500, falloff = 2500,

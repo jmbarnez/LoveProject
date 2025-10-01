@@ -16,7 +16,7 @@ function AI.new(args)
 
     -- Simple basic configuration
     local config = AI.BASIC_CONFIG
-    ai.detectionRange = config.detectionRange
+    ai.detectionRange = (args and args.detectionRange) or config.detectionRange
     ai.chaseSpeed = config.chaseSpeed
     ai.patrolSpeed = config.patrolSpeed
     ai.retreatHealthPercent = config.retreatHealthPercent

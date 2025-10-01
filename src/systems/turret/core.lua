@@ -345,7 +345,10 @@ function Turret.updateLockOn(turret, dt, target, world)
         else
             -- Same target, check if lock-on duration has been met
             local currentTime = love.timer.getTime()
-            if currentTime - turret.lockOnStartTime >= turret.lockOnDuration then
+            local lockOnElapsed = currentTime - turret.lockOnStartTime
+            turret.lockOnProgress = math.min(1.0, lockOnElapsed / turret.lockOnDuration)
+            
+            if lockOnElapsed >= turret.lockOnDuration then
                 turret.isLockedOn = true
             end
         end

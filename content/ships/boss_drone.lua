@@ -8,6 +8,7 @@ return {
   ai = {
     intelligenceLevel = "STANDARD",
     aggressiveType = "hostile",
+    detectionRange = 4000,  -- Higher detection range for boss Mila
   },
 
   visuals = {
@@ -206,6 +207,79 @@ return {
         overheatCooldown = 4.2,
         heatCycleMult = 0.85,
         heatEnergyMult = 1.05,
+        fireMode = "automatic",
+        volleyCount = 1,
+        volleySpreadDeg = 0,
+      }
+    },
+    {
+      turret = {
+        id = "boss_rocket_launcher",
+        type = "missile",
+        name = "Heavy Rocket Launcher",
+        description = "Fires powerful explosive rockets at long range.",
+        price = 0,
+        module = { type = "turret" },
+        icon = {
+          size = 32,
+          shapes = {
+            { type = "rectangle", mode = "fill", color = {0.3, 0.3, 0.3, 1.0}, x = 8, y = 12, w = 16, h = 8, rx = 2 },
+            { type = "rectangle", mode = "fill", color = {0.6, 0.6, 0.6, 0.9}, x = 10, y = 10, w = 12, h = 12, rx = 1 },
+            { type = "circle", mode = "fill", color = {1.0, 0.4, 0.2, 0.9}, x = 16, y = 6, r = 3 },
+            { type = "polygon", mode = "fill", color = {0.8, 0.8, 0.8, 0.8}, points = { 16,2,  18,6,  16,4,  14,6 } },
+          }
+        },
+        spread = { minDeg = 0.0, maxDeg = 0.0, decay = 800 },
+
+        projectile = {
+          id = "boss_heavy_rocket",
+          name = "Heavy Rocket",
+          class = "Projectile",
+          physics = {
+            speed = 1200,
+            drag = 0.1,
+          },
+          renderable = {
+            type = "bullet",
+            props = {
+              kind = "missile",
+              length = 40,
+              tracerWidth = 3,
+              color = {1.0, 0.6, 0.2, 1.0},
+            }
+          },
+          collidable = {
+            radius = 6,
+          },
+          damage = {
+            min = 15,
+            max = 20,
+          },
+          timed_life = {
+            duration = 8.0,
+          },
+          explosion = {
+            radius = 80,
+            damage = 12
+          }
+        },
+
+        tracer = { color = {1.0, 0.6, 0.2, 1.0}, width = 3, coreRadius = 2 },
+        impact = {
+          shield = { spanDeg = 120, color1 = {1.0, 0.5, 0.3, 0.8}, color2 = {1.0, 0.3, 0.1, 0.6} },
+          hull = { spark = {1.0, 0.6, 0.2, 0.9}, ring = {1.0, 0.4, 0.1, 0.7} },
+        },
+        optimal = 3000, falloff = 1000,
+        damage_range = { min = 15, max = 20 },
+        cycle = 4.0, capCost = 0,
+        projectileSpeed = 1200,
+        maxRange = 4000,
+        maxHeat = 60,
+        heatPerShot = 15,
+        cooldownRate = 12,
+        overheatCooldown = 2.5,
+        heatCycleMult = 0.9,
+        heatEnergyMult = 1.0,
         fireMode = "automatic",
         volleyCount = 1,
         volleySpreadDeg = 0,

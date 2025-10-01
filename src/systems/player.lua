@@ -431,7 +431,7 @@ function PlayerSystem.update(dt, player, input, world, hub)
             local perSlotActive = HotbarSystem.isActive(actionName)
 
             -- All turrets are considered weapons and disabled in weapon disable zones
-            local allow = (not modalActive) and canFire and (perSlotActive or manualFireAll) and (not isMissile)
+            local allow = (not modalActive) and canFire and (perSlotActive or manualFireAll)
 
             -- Handle firing mode logic
             local firing = false

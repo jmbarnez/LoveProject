@@ -156,6 +156,7 @@ function Ship.new(x, y, angle, friendly, shipConfig)
       aiConfig.intelligenceLevel = shipConfig.ai.intelligenceLevel
       aiConfig.aggressiveType = shipConfig.ai.aggressiveType
       aiConfig.wanderSpeed = shipConfig.ai.wanderSpeed
+      aiConfig.detectionRange = shipConfig.ai.detectionRange
     end
 
     -- Create proper AI component with intelligence levels

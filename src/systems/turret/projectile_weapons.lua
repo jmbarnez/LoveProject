@@ -120,7 +120,7 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         return
     end
 
-    -- For missiles, use assigned target if available; otherwise fire straight ahead
+    -- For missiles, use cursor direction unless locked onto a target
     local angle = turret.owner.components.position.angle or 0
     
     -- Get projectile speed from embedded definition or fallback to turret setting
@@ -141,11 +141,14 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         local dx = turret.lockOnTarget.components.position.x - turret.owner.components.position.x
         local dy = turret.lockOnTarget.components.position.y - turret.owner.components.position.y
         angle = math.atan2(dy, dx)
-    elseif target and target.components and target.components.position then
-        -- Use provided target if no lock-on, but fire straight ahead (non-homing)
-        local dx = target.components.position.x - turret.owner.components.position.x
-        local dy = target.components.position.y - turret.owner.components.position.y
-        angle = math.atan2(dy, dx)
+    else
+        -- No lock-on: fire in cursor direction
+        if turret.owner.cursorWorldPos then
+            local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
+            local dx = cursorX - turret.owner.components.position.x
+            local dy = cursorY - turret.owner.components.position.y
+            angle = math.atan2(dy, dx)
+        end
     end
 
     turret.currentAimAngle = angle
