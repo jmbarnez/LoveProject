@@ -480,6 +480,18 @@ function PlayerSystem.findBestTargetForLockOn(turret, world)
     local ownerPos = turret.owner.components.position
     local playerAngle = ownerPos.angle or 0
 
+    -- Prefer the player's current aiming direction (cursor position) if available
+    if turret.owner and turret.owner.cursorWorldPos then
+        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
+        if cursorX and cursorY then
+            local aimDx = cursorX - ownerPos.x
+            local aimDy = cursorY - ownerPos.y
+            if aimDx ~= 0 or aimDy ~= 0 then
+                playerAngle = math.atan2(aimDy, aimDx)
+            end
+        end
+    end
+
     -- Get all potential targets (enemies)
     local candidates = world:get_entities_with_components("collidable")
     local bestTarget = nil
