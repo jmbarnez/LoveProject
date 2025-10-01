@@ -311,36 +311,59 @@ function Reticle.drawTargetMarker(lockInfo, camera)
 
   local t = love.timer.getTime()
   local pulse = 1 + 0.05 * math.sin(t * 6)
-  local radius = 20 * pulse
-
+  local baseRadius = 24
   local color = lockInfo.isLocked and Theme.colors.success or Theme.colors.warning
-  Theme.setColor(Theme.withAlpha(color, lockInfo.isLocked and 0.9 or 0.7))
-  love.graphics.setLineWidth(2)
-  love.graphics.circle('line', 0, 0, radius)
+  local progress = math.max(0, math.min(1, lockInfo.progress or 0))
 
-  -- Add small tick marks showing progress when not fully locked
-  if not lockInfo.isLocked then
-    local segments = 4
-    local segmentLength = 8
-    local filledSegments = math.floor((lockInfo.progress or 0) * segments + 0.5)
-    for i = 0, segments - 1 do
-      local angle = (i / segments) * math.pi * 2
-      local inner = radius - segmentLength
-      local outer = radius
-      if i < filledSegments then
-        Theme.setColor(Theme.withAlpha(color, 0.9))
-      else
-        Theme.setColor(Theme.withAlpha(color, 0.35))
-      end
-      love.graphics.line(math.cos(angle) * inner, math.sin(angle) * inner,
-        math.cos(angle) * outer, math.sin(angle) * outer)
-    end
-  else
-    -- Locked: draw crosshair lines for emphasis
-    Theme.setColor(Theme.withAlpha(color, 0.9))
-    local cross = radius + 6
+  -- Background ring provides the silhouette of the target indicator
+  Theme.setColor(Theme.withAlpha(color, 0.25))
+  love.graphics.setLineWidth(3)
+  love.graphics.circle('line', 0, 0, baseRadius)
+
+  -- Draw progress sweep around the enemy to mirror the reticle arc
+  local shouldShowProgress = progress > 0 or lockInfo.isLocked
+  if shouldShowProgress then
+    local startAngle = -math.pi * 0.5
+    local arcProgress = lockInfo.isLocked and 1 or progress
+    local endAngle = startAngle + arcProgress * math.pi * 2
+    Theme.setColor(Theme.withAlpha(color, lockInfo.isLocked and 0.95 or 0.85))
+    love.graphics.setLineWidth(4)
+    love.graphics.arc('line', 0, 0, baseRadius, startAngle, endAngle)
+  end
+
+  -- Locked: pulse an outer ring and add crosshair braces for clarity
+  if lockInfo.isLocked then
+    local pulseAlpha = 0.55 + 0.35 * math.sin(t * 4)
+    local outerRadius = baseRadius + 6 + 2 * math.sin(t * 6)
+    Theme.setColor(Theme.withAlpha(color, pulseAlpha))
+    love.graphics.setLineWidth(2)
+    love.graphics.circle('line', 0, 0, outerRadius)
+
+    Theme.setColor(Theme.withAlpha(color, 0.95))
+    local cross = baseRadius + 10
+    love.graphics.setLineWidth(2)
     love.graphics.line(-cross, 0, cross, 0)
     love.graphics.line(0, -cross, 0, cross)
+  else
+    -- While locking, show sweeping chevrons for directional emphasis
+    local chevronCount = 4
+    local chevronLength = 10
+    for i = 0, chevronCount - 1 do
+      local angle = (i / chevronCount) * math.pi * 2
+      local offset = baseRadius + 4
+      local inner = baseRadius - 4
+      local alpha = 0.3 + 0.4 * ((progress * chevronCount) - i)
+      alpha = math.max(0.15, math.min(0.7, alpha))
+      Theme.setColor(Theme.withAlpha(color, alpha))
+      love.graphics.line(
+        math.cos(angle) * inner,
+        math.sin(angle) * inner,
+        math.cos(angle) * (inner + chevronLength),
+        math.sin(angle) * (inner + chevronLength)
+      )
+      Theme.setColor(Theme.withAlpha(color, alpha * 0.6))
+      love.graphics.circle('fill', math.cos(angle) * offset, math.sin(angle) * offset, 2)
+    end
   end
 
   love.graphics.pop()
