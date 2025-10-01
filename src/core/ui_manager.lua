@@ -367,7 +367,7 @@ function UIManager.update(dt, player)
   UIManager.state.debug.open = DebugPanel.isVisible()
   
   -- Update modal state
-  UIManager.modalActive = UIManager.state.escape.open or UIManager.state.map.open or UIManager.state.warp.open or UIManager.state.ship.open or SettingsPanel.visible
+  UIManager.modalActive = UIManager.state.escape.open or UIManager.state.warp.open or UIManager.state.ship.open or SettingsPanel.visible
   if SettingsPanel.visible then
     UIManager.modalComponent = "settings"
   elseif UIManager.state.escape.open and UIManager.state.escape.showingSaveSlots then
@@ -376,8 +376,6 @@ function UIManager.update(dt, player)
     UIManager.modalComponent = "escape"
   elseif UIManager.state.ship.open then
     UIManager.modalComponent = "ship"
-  elseif UIManager.state.map.open then
-    UIManager.modalComponent = "map"
   elseif UIManager.state.warp.open then
     UIManager.modalComponent = "warp"
   else

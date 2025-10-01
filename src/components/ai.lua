@@ -3,7 +3,7 @@ AI.__index = AI
 
 -- Simple AI configuration - no complex intelligence levels
 AI.BASIC_CONFIG = {
-    detectionRange = 2400,    -- Simple radius-based detection
+    detectionRange = 500,    -- Reasonable detection range - enemies won't hunt from across map
     chaseSpeed = 150,        -- Speed when actively chasing
     patrolSpeed = 60,        -- Speed when patrolling
     retreatHealthPercent = 0.25,  -- Retreat when health drops below 25%

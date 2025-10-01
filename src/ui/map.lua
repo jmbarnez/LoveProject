@@ -430,17 +430,28 @@ function Map.draw(player, world, enemies, asteroids, wrecks, stations, lootDrops
     if not Map.visible then return end
     if not Map.window then Map.init() end
     Map.window.visible = Map.visible
+    
+    -- Store the data for use in drawContent
+    Map.currentPlayer = player
+    Map.currentWorld = world
+    Map.currentEnemies = enemies
+    Map.currentAsteroids = asteroids
+    Map.currentWrecks = wrecks
+    Map.currentStations = stations
+    Map.currentLootDrops = lootDrops
+    
     Map.window:draw()
 end
 
 function Map.drawContent(window, mapX, mapY, mapW, mapH)
-    local player = player
-    local world = world
-    local enemies = enemies
-    local asteroids = asteroids
-    local wrecks = wrecks
-    local stations = stations
-    local lootDrops = lootDrops
+    local player = Map.currentPlayer
+    local world = Map.currentWorld
+    local enemies = Map.currentEnemies
+    local asteroids = Map.currentAsteroids
+    local wrecks = Map.currentWrecks
+    local stations = Map.currentStations
+    local lootDrops = Map.currentLootDrops
+
 
     -- Draw grid
     drawGrid(mapX, mapY, mapW, mapH, world)

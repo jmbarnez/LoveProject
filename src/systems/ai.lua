@@ -7,7 +7,7 @@ local EntityFactory = require("src.templates.entity_factory")
 local AISystem = {}
 
 -- Simple constants for basic AI
-local PATROL_RADIUS = 200  -- How far enemies patrol from spawn point
+local PATROL_RADIUS = 400  -- How far enemies patrol from spawn point
 local BOSS_MINION_MAX = 3
 local BOSS_MINION_INTERVAL_MIN = 4.0
 local BOSS_MINION_INTERVAL_MAX = 6.0
@@ -50,9 +50,6 @@ local WEAPON_BEHAVIORS = {
 }
 
 -- Logging throttle to prevent spam
-local lastHuntingLog = 0
-local lastFiringLog = 0
-local LOG_THROTTLE = 2.0  -- Only log every 2 seconds
 
 -- Analyze enemy weapons and determine appropriate behavior
 local function analyzeWeaponBehavior(entity)
@@ -277,29 +274,70 @@ local function handlePatrolling(entity, dt)
     local pos = entity.components.position
     local body = entity.components.physics and entity.components.physics.body
 
-    -- Simple patrol behavior: move in circles around spawn point
+    -- Initialize patrol state if not present
     ai.patrolTimer = (ai.patrolTimer or 0) + dt
+    ai.patrolPauseTimer = ai.patrolPauseTimer or 0
+    ai.patrolTarget = ai.patrolTarget or {x = ai.patrolCenter.x, y = ai.patrolCenter.y}
 
-    -- Change direction every 10-15 seconds
-    if ai.patrolTimer >= 10 + math.random() * 5 then
+    -- Check if we need to pause or change direction
+    if ai.patrolPauseTimer > 0 then
+        -- Pause for a moment (idle behavior)
+        ai.patrolPauseTimer = ai.patrolPauseTimer - dt
+        if body then
+            body.vx = 0
+            body.vy = 0
+        else
+            entity.components.velocity.x = 0
+            entity.components.velocity.y = 0
+        end
+        return
+    end
+
+    -- Change direction or pause every 8-15 seconds
+    if ai.patrolTimer >= 8 + math.random() * 7 then
         ai.patrolTimer = 0
-        ai.patrolDirection = -ai.patrolDirection
+        
+        -- 30% chance to pause instead of changing direction
+        if math.random() < 0.3 then
+            ai.patrolPauseTimer = 2 + math.random() * 3  -- Pause for 2-5 seconds
+            return
+        end
+        
+        -- Change direction or pick new target
+        if math.random() < 0.6 then
+            -- 60% chance to change direction
+            ai.patrolDirection = -ai.patrolDirection
+        else
+            -- 40% chance to pick a new random target within patrol radius
+            local angle = math.random() * math.pi * 2
+            local radius = math.random() * PATROL_RADIUS * 0.8  -- Use 80% of max radius
+            ai.patrolTarget.x = ai.patrolCenter.x + math.cos(angle) * radius
+            ai.patrolTarget.y = ai.patrolCenter.y + math.sin(angle) * radius
+        end
     end
 
     -- Calculate patrol position
-    local patrolAngle = ai.patrolAngle + (ai.patrolDirection * dt * 0.5)  -- Slow rotation
-    ai.patrolAngle = patrolAngle
-
-    local patrolX = ai.patrolCenter.x + math.cos(patrolAngle) * PATROL_RADIUS
-    local patrolY = ai.patrolCenter.y + math.sin(patrolAngle) * PATROL_RADIUS
+    local patrolX, patrolY
+    
+    if ai.patrolTarget then
+        -- Move towards specific target
+        patrolX = ai.patrolTarget.x
+        patrolY = ai.patrolTarget.y
+    else
+        -- Circular patrol around center
+        local patrolAngle = ai.patrolAngle + (ai.patrolDirection * dt * 0.3)  -- Slower rotation
+        ai.patrolAngle = patrolAngle
+        patrolX = ai.patrolCenter.x + math.cos(patrolAngle) * PATROL_RADIUS
+        patrolY = ai.patrolCenter.y + math.sin(patrolAngle) * PATROL_RADIUS
+    end
 
     -- Move towards patrol point
     local dx = patrolX - pos.x
     local dy = patrolY - pos.y
     local distance = math.sqrt(dx * dx + dy * dy)
 
-    if distance > 20 then  -- Minimum distance to keep moving
-        local speed = ai.patrolSpeed
+    if distance > 30 then  -- Minimum distance to keep moving
+        local speed = ai.patrolSpeed * (0.8 + math.random() * 0.4)  -- Vary speed slightly
         local moveX = (dx / distance) * speed
         local moveY = (dy / distance) * speed
 
@@ -313,6 +351,9 @@ local function handlePatrolling(entity, dt)
             entity.components.velocity.y = moveY
             pos.angle = math.atan2(moveY, moveX)
         end
+    else
+        -- Reached target, pick a new one
+        ai.patrolTarget = nil
     end
 end
 
@@ -342,14 +383,6 @@ local function handleHunting(entity, dt, player, spawnProjectile, world)
         return
     end
 
-    -- Throttled debug logging: Show hunting status (only every 2 seconds)
-    local currentTime = love.timer.getTime()
-    if currentTime - lastHuntingLog > LOG_THROTTLE then
-        local weaponBehavior = analyzeWeaponBehavior(entity)
-        Log.debug(string.format("Enemy hunting! Distance: %.1f, Behavior: %s", 
-            distance, weaponBehavior.behavior_name))
-        lastHuntingLog = currentTime
-    end
 
     -- Get weapon-based behavior configuration
     local weaponBehavior = analyzeWeaponBehavior(entity)
@@ -502,19 +535,8 @@ local function handleHunting(entity, dt, player, spawnProjectile, world)
                     local locked = not canShoot
                     turret:update(dt, player, locked, world)
 
-                    -- Throttled debug logging: Print turret firing status (only every 2 seconds)
-                    if canShoot and currentTime - lastFiringLog > LOG_THROTTLE then
-                        Log.debug("Enemy turret firing!")
-                        lastFiringLog = currentTime
-                    end
                 end
             end
-        end
-    else
-        -- Debug: No equipment grid found (only log occasionally to avoid spam)
-        if math.random() < 0.01 and currentTime - lastFiringLog > LOG_THROTTLE then
-            Log.debug("Enemy has no equipment grid!")
-            lastFiringLog = currentTime
         end
     end
 end
@@ -598,6 +620,7 @@ local function updateAIState(entity, dt, player)
     if player and player.components and player.components.position then
         local entityPos = entity.components.position
         local playerPos = player.components.position
+        local distance = math.sqrt((playerPos.x - entityPos.x)^2 + (playerPos.y - entityPos.y)^2)
 
         if ai:isPlayerInRange(playerPos, entityPos) then
             -- Player entered detection radius, start hunting
@@ -630,6 +653,11 @@ local function updateAIState(entity, dt, player)
             ai.target = nil
         end
     end
+
+    -- Clear target if not hunting and not in range
+    if not ai.isHunting and ai.target then
+        ai.target = nil
+    end
 end
 
 function AISystem.update(dt, world, spawnProjectile)
@@ -641,19 +669,26 @@ function AISystem.update(dt, world, spawnProjectile)
 
         updateBossMinions(entity, dt, world)
 
-        -- Find player if we don't have a target
-        if not ai.target then
-            ai.target = findPlayer(world)
-        end
-
+        -- Find player for detection purposes
+        local player = findPlayer(world)
+        
         -- Update AI state (detection, damage response, etc.)
-        updateAIState(entity, dt, ai.target)
+        updateAIState(entity, dt, player)
 
         -- Execute current state behavior
         if ai.state == "patrolling" then
             handlePatrolling(entity, dt)
         elseif ai.state == "hunting" then
-            handleHunting(entity, dt, ai.target, spawnProjectile, world)
+            -- Only hunt if we have a valid target
+            if ai.target and ai.target.components and ai.target.components.position then
+                handleHunting(entity, dt, ai.target, spawnProjectile, world)
+            else
+                -- Invalid target, go back to patrolling
+                ai.state = "patrolling"
+                ai.isHunting = false
+                ai.target = nil
+                handlePatrolling(entity, dt)
+            end
         elseif ai.state == "retreating" then
             handleRetreating(entity, dt, ai.target)
         end

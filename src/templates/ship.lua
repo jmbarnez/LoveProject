@@ -159,6 +159,10 @@ function Ship.new(x, y, angle, friendly, shipConfig)
       aiConfig.detectionRange = shipConfig.ai.detectionRange
     end
 
+    -- Set spawn position and patrol center for AI
+    aiConfig.spawnPos = { x = x, y = y }
+    aiConfig.patrolCenter = { x = x, y = y }
+
     -- Create proper AI component with intelligence levels
     self.components.ai = AIComponent.new(aiConfig)
     
