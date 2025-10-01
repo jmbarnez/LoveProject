@@ -90,6 +90,7 @@ local function factory(context, config)
     local component = create_guidance_component(projectile, {
         kind = kind,
         speed = config.speed,
+        homing = config.homing,
         homingStrength = config.homingStrength,
         target = config.target,
         guaranteedHit = config.guaranteedHit,

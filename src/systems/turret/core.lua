@@ -102,6 +102,9 @@ function Turret.new(owner, params)
     self.lockOnTarget = nil -- Current target being locked onto
     self.lockOnStartTime = 0 -- When lock-on started
     self.lockOnDuration = params.lockOnDuration or 2.0 -- How long to hold aim for lock-on (seconds)
+    self.lockOnTolerance = params.lockOnTolerance or (math.pi / 6) -- Angular tolerance while locking
+    self.lockOnGraceTolerance = params.lockOnGraceTolerance or (self.lockOnTolerance * 1.5)
+    self.lockOnDecayTime = params.lockOnDecayTime or (self.lockOnDuration * 1.5)
     self.isLockedOn = false -- Whether lock-on has been achieved
     self.lockOnProgress = 0 -- 0-1 progress toward lock acquisition
 
@@ -295,14 +298,14 @@ function Turret.updateLockOn(turret, dt, target, world)
             -- New target, start lock-on timer
             turret.lockOnTarget = target
             turret.lockOnStartTime = love.timer.getTime()
+            turret.lockOnProgress = 0
             turret.isLockedOn = false
         else
-            -- Same target, check if lock-on duration has been met
-            local currentTime = love.timer.getTime()
-            local lockOnElapsed = currentTime - turret.lockOnStartTime
-            turret.lockOnProgress = math.min(1.0, lockOnElapsed / turret.lockOnDuration)
-            
-            if lockOnElapsed >= turret.lockOnDuration then
+            -- Same target, increment lock progress based on elapsed time
+            local duration = math.max(0.1, turret.lockOnDuration or 2.0)
+            turret.lockOnProgress = math.min(1.0, turret.lockOnProgress + dt / duration)
+
+            if turret.lockOnProgress >= 1.0 then
                 turret.isLockedOn = true
             end
         end
@@ -332,7 +335,8 @@ function Turret.updateLockOn(turret, dt, target, world)
         angleDiff = 2 * math.pi - angleDiff
     end
 
-    local lockOnTolerance = math.pi / 6 -- 30 degrees tolerance
+    local lockOnTolerance = turret.lockOnTolerance or (math.pi / 6)
+    local graceTolerance = turret.lockOnGraceTolerance or (lockOnTolerance * 1.5)
 
     if angleDiff <= lockOnTolerance then
         -- We're aiming at the target, start/update lock-on
@@ -340,19 +344,28 @@ function Turret.updateLockOn(turret, dt, target, world)
             -- New target, start lock-on timer
             turret.lockOnTarget = target
             turret.lockOnStartTime = love.timer.getTime()
+            turret.lockOnProgress = 0
             turret.isLockedOn = false
-        else
-            -- Same target, check if lock-on duration has been met
-            local currentTime = love.timer.getTime()
-            local lockOnElapsed = currentTime - turret.lockOnStartTime
-            turret.lockOnProgress = math.min(1.0, lockOnElapsed / turret.lockOnDuration)
-            
-            if lockOnElapsed >= turret.lockOnDuration then
-                turret.isLockedOn = true
-            end
+        end
+
+        local duration = math.max(0.1, turret.lockOnDuration or 2.0)
+        turret.lockOnProgress = math.min(1.0, turret.lockOnProgress + dt / duration)
+        if turret.lockOnProgress >= 1.0 then
+            turret.isLockedOn = true
+        end
+    elseif turret.lockOnTarget == target and angleDiff <= graceTolerance then
+        -- Slightly outside primary cone: bleed progress instead of instantly resetting
+        local decayTime = math.max(0.1, turret.lockOnDecayTime or turret.lockOnDuration or 2.0)
+        turret.lockOnProgress = math.max(0, turret.lockOnProgress - dt / decayTime)
+        if turret.lockOnProgress < 1.0 then
+            turret.isLockedOn = false
+        end
+
+        if turret.lockOnProgress <= 0 then
+            turret:resetLockOn()
         end
     else
-        -- Not aiming at target, reset lock-on
+        -- Far outside lock cone, reset lock-on completely
         turret:resetLockOn()
     end
 end

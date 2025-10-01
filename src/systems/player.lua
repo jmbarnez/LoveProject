@@ -495,7 +495,8 @@ function PlayerSystem.findBestTargetForLockOn(turret, world)
         end
     end
 
-    local lockOnTolerance = math.pi / 6 -- 30 degrees
+    local lockOnTolerance = turret.lockOnTolerance or (math.pi / 6) -- 30 degrees default
+    local graceTolerance = turret.lockOnGraceTolerance or (lockOnTolerance * 1.5)
 
     local function isValidEnemy(entity)
         if not entity or entity == owner or entity.dead then
@@ -542,16 +543,16 @@ function PlayerSystem.findBestTargetForLockOn(turret, world)
         return angleDiff, dx, dy
     end
 
-    local function isWithinAim(entity)
+    local function isWithinAim(entity, tolerance)
         if not isValidEnemy(entity) then
             return false
         end
         local angleDiff = getAngleDiff(entity.components.position)
-        return angleDiff <= lockOnTolerance
+        return angleDiff <= (tolerance or lockOnTolerance)
     end
 
     -- If we're already locking onto a target and still aiming at it, keep it to avoid resets
-    if isWithinAim(turret.lockOnTarget) then
+    if isWithinAim(turret.lockOnTarget, graceTolerance) then
         return turret.lockOnTarget
     end
 
@@ -582,6 +583,10 @@ function PlayerSystem.findBestTargetForLockOn(turret, world)
                     bestScore = totalScore
                     bestTarget = entity
                 end
+            elseif turret.lockOnTarget == entity and angleDiff <= graceTolerance then
+                -- Allow slight drift on the existing target so progress can decay gracefully
+                bestTarget = entity
+                bestScore = math.huge -- ensure we keep the current target
             end
         end
     end

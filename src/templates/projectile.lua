@@ -108,6 +108,7 @@ function Projectile.new(x, y, angle, friendly, config)
         type = "guidance",
         kind = kind,
         speed = speed,
+        homing = config.homing,
         homingStrength = config.homingStrength,
         target = config.target,
         guaranteedHit = config.guaranteedHit,

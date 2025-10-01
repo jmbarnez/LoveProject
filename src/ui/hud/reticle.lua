@@ -129,7 +129,7 @@ local function colorByName(name)
   return T.accent
 end
 
-function Reticle.draw(player)
+function Reticle.draw(player, camera)
   local mx, my = Viewport.getMousePosition()
   local t = love.timer.getTime()
 
@@ -145,8 +145,8 @@ function Reticle.draw(player)
   -- Preserve user's exact color choice - don't blend with theme colors
   local color = Theme.pulseColor(base, base, t, 1.0)
 
-  -- Check for missile lock-on status
-  local missileLockedOn = Reticle.checkMissileLockOn(player)
+  -- Gather missile lock-on status/progress
+  local lockInfo = Reticle.getMissileLockInfo(player)
 
   love.graphics.push()
   -- Reticle draws in screen-space; make it crisp
@@ -159,66 +159,169 @@ function Reticle.draw(player)
   Theme.setColor(Theme.withAlpha(color, 0.95))
   Reticle.drawPreset(style, scale, color)
 
-  -- Draw lock-on indicator if missile is locked on
-  if missileLockedOn then
-    Reticle.drawLockOnIndicator(scale)
+  -- Draw lock-on indicator when we're tracking a target
+  if lockInfo.progress > 0 or lockInfo.isLocked then
+    Reticle.drawLockOnIndicator(scale, lockInfo.progress, lockInfo.isLocked)
   end
 
   -- Do not alter reticle when shield ability is active (no arc/ring).
   -- No specific loot container targeting; item_pickup handled by pickups system
 
   love.graphics.pop()
+
+  -- Draw target marker in world space to show which enemy is being tracked
+  if lockInfo.target and (lockInfo.progress > 0 or lockInfo.isLocked) then
+    Reticle.drawTargetMarker(lockInfo, camera)
+  end
 end
 
--- Check if any missile turret is currently locked on
-function Reticle.checkMissileLockOn(player)
+-- Collect missile lock information from the player's turrets
+function Reticle.getMissileLockInfo(player)
+  local info = {
+    progress = 0,
+    isLocked = false,
+    target = nil,
+    turret = nil
+  }
+
   if not player or not player.components or not player.components.equipment then
-    return false
+    return info
   end
 
-  -- Check all turrets in the equipment grid
   for _, gridData in ipairs(player.components.equipment.grid) do
     if gridData.type == "turret" and gridData.module then
       local turret = gridData.module
-      if turret.kind == "missile" and turret.isLockedOn then
-        return true
+      if turret.kind == "missile" then
+        local turretProgress = turret.lockOnProgress or 0
+        local turretLocked = turret.isLockedOn and turret.lockOnTarget ~= nil
+
+        if turretLocked then
+          turretProgress = math.max(1.0, turretProgress)
+          if not info.isLocked or turretProgress >= info.progress then
+            info.isLocked = true
+            info.progress = turretProgress
+            info.target = turret.lockOnTarget
+            info.turret = turret
+          end
+        elseif turret.lockOnTarget and turretProgress > 0 then
+          if not info.isLocked and turretProgress > info.progress then
+            info.progress = turretProgress
+            info.target = turret.lockOnTarget
+            info.turret = turret
+          end
+        end
       end
     end
   end
 
-  return false
+  return info
 end
 
 -- Draw lock-on indicator around the reticle
-function Reticle.drawLockOnIndicator(scale)
+function Reticle.drawLockOnIndicator(scale, progress, isLocked)
   local t = love.timer.getTime()
-  local pulseAlpha = 0.5 + 0.5 * math.sin(t * 4) -- Pulsing effect
+  local baseRadius = 12 * scale
 
-  -- Draw a pulsing ring around the reticle to indicate lock-on
-  local ringRadius = (12 + 2 * math.sin(t * 3)) * scale -- Slightly pulsing ring
-  Theme.setColor(Theme.colors.success[1], Theme.colors.success[2], Theme.colors.success[3], pulseAlpha)
   love.graphics.setLineWidth(2 * scale)
+
+  -- Base ring showing the overall lock arc
+  Theme.setColor(Theme.withAlpha(Theme.colors.success, 0.25))
+  love.graphics.circle('line', 0, 0, baseRadius)
+
+  -- Progress arc fills clockwise as lock builds
+  if progress and progress > 0 then
+    local cappedProgress = math.min(1.0, progress)
+    local startAngle = -math.pi * 0.5
+    local endAngle = startAngle + cappedProgress * (math.pi * 2)
+    local arcColor = isLocked and Theme.colors.success or Theme.colors.warning
+    Theme.setColor(Theme.withAlpha(arcColor, isLocked and 0.9 or 0.8))
+    love.graphics.arc('line', 0, 0, baseRadius, startAngle, endAngle)
+  end
+
+  if not isLocked then
+    return
+  end
+
+  -- Locked: draw pulsing ring and brackets for strong feedback
+  local pulseAlpha = 0.5 + 0.5 * math.sin(t * 4)
+  local ringRadius = (12 + 2 * math.sin(t * 3)) * scale
+  Theme.setColor(Theme.colors.success[1], Theme.colors.success[2], Theme.colors.success[3], pulseAlpha)
   love.graphics.circle('line', 0, 0, ringRadius)
 
-  -- Draw corner brackets to indicate lock-on
   local bracketSize = 8 * scale
   local bracketOffset = 6 * scale
 
-  -- Top-left bracket
-  love.graphics.line(-bracketOffset, -bracketOffset, -bracketOffset + bracketSize, -bracketOffset)
-  love.graphics.line(-bracketOffset, -bracketOffset, -bracketOffset, -bracketOffset + bracketSize)
+  local function drawBracket(xSign, ySign)
+    love.graphics.line(xSign * bracketOffset, ySign * bracketOffset,
+      xSign * (bracketOffset - bracketSize), ySign * bracketOffset)
+    love.graphics.line(xSign * bracketOffset, ySign * bracketOffset,
+      xSign * bracketOffset, ySign * (bracketOffset - bracketSize))
+  end
 
-  -- Top-right bracket
-  love.graphics.line(bracketOffset, -bracketOffset, bracketOffset - bracketSize, -bracketOffset)
-  love.graphics.line(bracketOffset, -bracketOffset, bracketOffset, -bracketOffset + bracketSize)
+  drawBracket(-1, -1)
+  drawBracket(1, -1)
+  drawBracket(-1, 1)
+  drawBracket(1, 1)
+end
 
-  -- Bottom-left bracket
-  love.graphics.line(-bracketOffset, bracketOffset, -bracketOffset + bracketSize, bracketOffset)
-  love.graphics.line(-bracketOffset, bracketOffset, -bracketOffset, bracketOffset - bracketSize)
+-- Draw marker over the world target that we're locking onto
+function Reticle.drawTargetMarker(lockInfo, camera)
+  if not lockInfo or not lockInfo.target or not camera then
+    return
+  end
 
-  -- Bottom-right bracket
-  love.graphics.line(bracketOffset, bracketOffset, bracketOffset - bracketSize, bracketOffset)
-  love.graphics.line(bracketOffset, bracketOffset, bracketOffset, bracketOffset - bracketSize)
+  local target = lockInfo.target
+  if not target.components or not target.components.position then
+    return
+  end
+
+  local pos = target.components.position
+  local sw, sh = Viewport.getDimensions()
+  local camScale = camera.scale or 1
+  local camX = camera.x or 0
+  local camY = camera.y or 0
+
+  local screenX = (pos.x - camX) * camScale + sw * 0.5
+  local screenY = (pos.y - camY) * camScale + sh * 0.5
+
+  love.graphics.push()
+  love.graphics.translate(screenX, screenY)
+
+  local t = love.timer.getTime()
+  local pulse = 1 + 0.05 * math.sin(t * 6)
+  local radius = 20 * pulse
+
+  local color = lockInfo.isLocked and Theme.colors.success or Theme.colors.warning
+  Theme.setColor(Theme.withAlpha(color, lockInfo.isLocked and 0.9 or 0.7))
+  love.graphics.setLineWidth(2)
+  love.graphics.circle('line', 0, 0, radius)
+
+  -- Add small tick marks showing progress when not fully locked
+  if not lockInfo.isLocked then
+    local segments = 4
+    local segmentLength = 8
+    local filledSegments = math.floor((lockInfo.progress or 0) * segments + 0.5)
+    for i = 0, segments - 1 do
+      local angle = (i / segments) * math.pi * 2
+      local inner = radius - segmentLength
+      local outer = radius
+      if i < filledSegments then
+        Theme.setColor(Theme.withAlpha(color, 0.9))
+      else
+        Theme.setColor(Theme.withAlpha(color, 0.35))
+      end
+      love.graphics.line(math.cos(angle) * inner, math.sin(angle) * inner,
+        math.cos(angle) * outer, math.sin(angle) * outer)
+    end
+  else
+    -- Locked: draw crosshair lines for emphasis
+    Theme.setColor(Theme.withAlpha(color, 0.9))
+    local cross = radius + 6
+    love.graphics.line(-cross, 0, cross, 0)
+    love.graphics.line(0, -cross, 0, cross)
+  end
+
+  love.graphics.pop()
 end
 
 return Reticle
