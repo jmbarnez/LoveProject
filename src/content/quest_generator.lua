@@ -31,7 +31,12 @@ local function buildKillQuest(opts)
     title = title,
     description = desc,
     objective = { type = "kill", target = target, count = count },
-    reward = { xp = rewardXP }
+    reward = {
+      xp = rewardXP,
+      items = {
+        { id = "reward_crate_key", qty = 1 }
+      }
+    }
   }
 end
 
@@ -49,7 +54,12 @@ local function buildMineQuest(opts)
     title = title,
     description = desc,
     objective = { type = "mine", target = target, count = count },
-    reward = { xp = rewardXP }
+    reward = {
+      xp = rewardXP,
+      items = {
+        { id = "reward_crate_key", qty = 1 }
+      }
+    }
   }
 end
 
@@ -67,7 +77,12 @@ local function buildSalvageQuest(opts)
     title = title,
     description = desc,
     objective = { type = "salvage", target = resource, count = count },
-    reward = { xp = rewardXP }
+    reward = {
+      xp = rewardXP,
+      items = {
+        { id = "reward_crate_key", qty = 1 }
+      }
+    }
   }
 end
 

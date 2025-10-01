@@ -481,7 +481,7 @@ function PlayerSystem.findBestTargetForLockOn(turret, world)
     if not owner or not owner.components or not owner.components.position then
         return nil
     end
-
+  
     local ownerPos = owner.components.position
     local aimAngle = ownerPos.angle or 0
 

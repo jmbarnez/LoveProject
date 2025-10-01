@@ -38,7 +38,22 @@ local function drawRewardRow(quest, x, y)
     Theme.drawXPIcon(rewardX, y, iconSize)
     Theme.setColor(Theme.colors.success)
     love.graphics.print(quest.reward.xp, rewardX + 15, textY)
+    rewardX = rewardX + 60
   end
+  if quest.reward.items and #quest.reward.items > 0 then
+    Theme.setColor(Theme.colors.text)
+    for _, entry in ipairs(quest.reward.items) do
+      local itemId = entry.id
+      local qty = entry.qty or entry.count or entry.quantity or 1
+      if itemId then
+        local itemDef = Content.getItem(itemId)
+        local label = string.format("%dx %s", qty, (itemDef and itemDef.name) or itemId)
+        love.graphics.print(label, rewardX, textY)
+        rewardX = rewardX + love.graphics.getFont():getWidth(label) + 20
+      end
+    end
+  end
+  Theme.setColor(Theme.colors.text)
 end
 
 local function timeLeftText(seconds)

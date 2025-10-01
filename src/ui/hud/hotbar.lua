@@ -67,80 +67,51 @@ function Hotbar.draw(player)
   local x = math.floor((sw - w) * 0.5)
   local y = sh - size - 42
 
-  -- Draw speed display above hotbar
-  if player and player.components and player.components.physics and player.components.physics.body then
-    local body = player.components.physics.body
-    local speed = math.sqrt(body.vx * body.vx + body.vy * body.vy)
-    local maxSpeed = body.maxSpeed or 500
-    local speedPct = maxSpeed > 0 and math.min(speed / maxSpeed, 1.0) or 0
-    local speedText = string.format("Speed: %.1f", speed)
 
-    local oldFont = love.graphics.getFont()
-    if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
-
-    local font = love.graphics.getFont()
-    local metrics = UIUtils.getCachedTextMetrics(speedText, font)
-    local speedX = (sw - metrics.width) * 0.5 -- Center horizontally
-    local speedY = y - 30 -- Above hotbar
-
-    -- Draw speed background
-    local bgWidth = metrics.width + 16
-    local bgHeight = metrics.height + 8
-    local bgX = speedX - 8
-    local bgY = speedY - 4
+  -- Draw vertical energy bar next to hull bar (left side)
+  if player and player.components and player.components.health then
+    local health = player.components.health
+    local energy = health.energy or 0
+    local maxEnergy = health.maxEnergy or 100
+    local energyPct = maxEnergy > 0 and (energy / maxEnergy) or 0
     
+    -- Calculate position next to hull bar
+    local barWidth = 250
+    local barHeight = 18
+    local gap = 4
+    local centerX = sw / 2
+    local hullX = centerX - barWidth - gap
+    local bottomY = sh - barHeight - 12
+    
+    -- Vertical energy bar dimensions - extend to just above XP bar
+    local energyBarWidth = 12 -- Thin vertical bar
+    local xpBarHeight = 4 -- XP bar height
+    local energyBarHeight = (sh - xpBarHeight) - y -- From hotbar top to just above XP bar
+    local energyBarX = hullX - energyBarWidth - 10 -- Left of hull bar
+    local energyBarY = y -- Start at hotbar top
+    
+    -- Energy bar background
     Theme.setColor(Theme.withAlpha(Theme.colors.bg2, 0.8))
-    love.graphics.rectangle("fill", bgX, bgY, bgWidth, bgHeight, 4, 4)
+    love.graphics.rectangle("fill", energyBarX, energyBarY, energyBarWidth, energyBarHeight, 2, 2)
     Theme.setColor(Theme.withAlpha(Theme.colors.borderBright, 0.6))
     love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", bgX, bgY, bgWidth, bgHeight, 4, 4)
-
-    Theme.setColor(Theme.colors.text)
-    love.graphics.print(speedText, speedX, speedY)
-
-
-    -- Draw vertical energy bar next to hull bar (left side)
-    if player.components and player.components.health then
-      local health = player.components.health
-      local energy = health.energy or 0
-      local maxEnergy = health.maxEnergy or 100
-      local energyPct = maxEnergy > 0 and (energy / maxEnergy) or 0
-      
-      -- Calculate position next to hull bar
-      local barWidth = 250
-      local barHeight = 18
-      local gap = 4
-      local centerX = sw / 2
-      local hullX = centerX - barWidth - gap
-      local bottomY = sh - barHeight - 12
-      
-      -- Vertical energy bar dimensions - extend to just above XP bar
-      local energyBarWidth = 12 -- Thin vertical bar
-      local xpBarHeight = 4 -- XP bar height
-      local energyBarHeight = (sh - xpBarHeight) - y -- From hotbar top to just above XP bar
-      local energyBarX = hullX - energyBarWidth - 10 -- Left of hull bar
-      local energyBarY = y -- Start at hotbar top
-      
-      -- Energy bar background
-      Theme.setColor(Theme.withAlpha(Theme.colors.bg2, 0.8))
-      love.graphics.rectangle("fill", energyBarX, energyBarY, energyBarWidth, energyBarHeight, 2, 2)
-      Theme.setColor(Theme.withAlpha(Theme.colors.borderBright, 0.6))
-      love.graphics.setLineWidth(1)
-      love.graphics.rectangle("line", energyBarX, energyBarY, energyBarWidth, energyBarHeight, 2, 2)
-      
-      -- Energy bar fill (cyan) - fills from bottom up
-      local fillHeight = energyBarHeight * energyPct
-      if fillHeight > 0 then
-        Theme.setColor({0.2, 0.8, 1.0, 0.9}) -- Bright cyan
-        local fillY = energyBarY + energyBarHeight - fillHeight -- Start from bottom
-        love.graphics.rectangle("fill", energyBarX, fillY, energyBarWidth, fillHeight, 2, 2)
-      end
-      
-      -- Draw speed bar on right side next to shield bar
-      local shieldX = centerX + gap
-      local rightBarX = shieldX + barWidth + 10 -- Right of shield bar
-      
-      -- Calculate speed percentage
+    love.graphics.rectangle("line", energyBarX, energyBarY, energyBarWidth, energyBarHeight, 2, 2)
+    
+    -- Energy bar fill (cyan) - fills from bottom up
+    local fillHeight = energyBarHeight * energyPct
+    if fillHeight > 0 then
+      Theme.setColor({0.2, 0.8, 1.0, 0.9}) -- Bright cyan
+      local fillY = energyBarY + energyBarHeight - fillHeight -- Start from bottom
+      love.graphics.rectangle("fill", energyBarX, fillY, energyBarWidth, fillHeight, 2, 2)
+    end
+    
+    -- Draw speed bar on right side next to shield bar
+    local shieldX = centerX + gap
+    local rightBarX = shieldX + barWidth + 10 -- Right of shield bar
+    
+    -- Calculate speed percentage
+    if player.components.physics and player.components.physics.body then
+      local body = player.components.physics.body
       local speed = math.sqrt(body.vx * body.vx + body.vy * body.vy)
       local maxSpeed = body.maxSpeed or 500
       local speedPct = maxSpeed > 0 and math.min(speed / maxSpeed, 1.0) or 0
@@ -160,8 +131,6 @@ function Hotbar.draw(player)
         love.graphics.rectangle("fill", rightBarX, fillY, energyBarWidth, fillHeight, 2, 2)
       end
     end
-
-    if oldFont then love.graphics.setFont(oldFont) end
   end
 
   -- Mouse position tracking removed - no hover effects
