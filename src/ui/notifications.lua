@@ -220,53 +220,101 @@ local function getAccentColor(notif)
   return accentColors[notif.kind] or Theme.colors.text
 end
 
-local function measureNotification(notif, fonts, padding)
+local accentWidth = 4
+local itemSpacing = 4
+local itemTextIndent = itemSpacing + 6
+
+local function measureWrappedHeight(font, text, limit)
+  if not text or text == "" or limit <= 0 then
+    return 0
+  end
+
+  local _, lines = font:getWrap(text, limit)
+  local lineCount = math.max(1, #lines)
+  return lineCount * font:getHeight()
+end
+
+local function measureLootItemsHeight(notif, fonts, textWidth)
+  if not notif.items or #notif.items == 0 then
+    return 0
+  end
+
+  local itemFont = fonts.item
+  local availableWidth = math.max(textWidth - itemTextIndent, 0)
+  local height = 0
+
+  for index, item in ipairs(notif.items) do
+    local label = item.label or ""
+    local qty = item.quantity and (" x" .. tostring(item.quantity)) or ""
+    local text = label .. qty
+    local lineHeight = measureWrappedHeight(itemFont, text, availableWidth)
+    height = height + lineHeight
+    if index < #notif.items then
+      height = height + itemSpacing
+    end
+  end
+
+  return height
+end
+
+local function measureNotification(notif, fonts, padding, cardWidth)
   local height = padding * 2
+  local textWidth = math.max(cardWidth - (padding * 2 + accentWidth), 0)
   local hasTitle = notif.title and notif.title ~= ""
   local hasMessage = notif.message and notif.message ~= "" and (not hasTitle or notif.message ~= notif.title)
   local hasItems = notif.items and #notif.items > 0
 
   if hasTitle then
-    height = height + fonts.title:getHeight()
+    height = height + measureWrappedHeight(fonts.title, notif.title, textWidth)
   end
 
   if hasMessage then
     if hasTitle then
       height = height + 6
     end
-    height = height + fonts.body:getHeight()
+    height = height + measureWrappedHeight(fonts.body, notif.message, textWidth)
   end
 
   if hasItems then
     if hasTitle or hasMessage then
       height = height + 6
     end
-    height = height + (#notif.items * (fonts.item:getHeight() + 4))
+    height = height + measureLootItemsHeight(notif, fonts, textWidth)
   end
 
   if not hasTitle and not hasMessage and not hasItems and notif.text then
-    height = height + fonts.body:getHeight()
+    height = height + measureWrappedHeight(fonts.body, notif.text, textWidth)
   end
 
   return height
 end
 
-local function drawLootItems(notif, x, y, fonts, alpha)
+local function drawLootItems(notif, x, y, fonts, alpha, textWidth)
   local itemFont = fonts.item
   love.graphics.setFont(itemFont)
-  local lineHeight = itemFont:getHeight() + 4
   local textColor = Theme.withAlpha(Theme.colors.textSecondary, alpha)
   local bulletColor = Theme.withAlpha(Theme.colors.accent, alpha)
+  local availableWidth = math.max(textWidth - itemTextIndent, 0)
+  local cursorY = y
 
   for index, item in ipairs(notif.items) do
-    local lineY = y + (index - 1) * lineHeight
-    Theme.setColor(bulletColor)
-    love.graphics.circle("fill", x + 4, lineY + itemFont:getHeight() * 0.5, 2)
-
-    Theme.setColor(textColor)
     local label = item.label or ""
     local qty = item.quantity and (" x" .. tostring(item.quantity)) or ""
-    love.graphics.print(label .. qty, x + 10, lineY)
+    local text = label .. qty
+    local _, lines = itemFont:getWrap(text, availableWidth)
+    local lineCount = math.max(1, #lines)
+    local itemHeight = lineCount * itemFont:getHeight()
+
+    Theme.setColor(bulletColor)
+    love.graphics.circle("fill", x + 4, cursorY + itemHeight * 0.5, 2)
+
+    Theme.setColor(textColor)
+    love.graphics.printf(text, x + itemTextIndent, cursorY, availableWidth, "left")
+
+    cursorY = cursorY + itemHeight
+    if index < #notif.items then
+      cursorY = cursorY + itemSpacing
+    end
   end
 end
 
@@ -286,7 +334,7 @@ function Notifications.draw()
   }
 
   for _, notif in ipairs(notifications) do
-    local cardHeight = measureNotification(notif, fonts, padding)
+    local cardHeight = measureNotification(notif, fonts, padding, cardWidth)
     local cardY = cursorY - cardHeight
     cursorY = cardY - spacing
 
@@ -302,33 +350,38 @@ function Notifications.draw()
     love.graphics.rectangle("line", startX, cardY, cardWidth, cardHeight, 6, 6)
 
     Theme.setColor(accent)
-    love.graphics.rectangle("fill", startX, cardY, 4, cardHeight, 6, 6)
+    love.graphics.rectangle("fill", startX, cardY, accentWidth, cardHeight, 6, 6)
 
-    local textX = startX + padding + 4
+    local textX = startX + padding + accentWidth
     local textY = cardY + padding
+    local textWidth = math.max(cardWidth - (padding * 2 + accentWidth), 0)
+    local textColor = Theme.withAlpha(Theme.colors.text, alpha)
 
     if notif.title and notif.title ~= "" then
       love.graphics.setFont(fonts.title)
-      Theme.setColor(Theme.withAlpha(Theme.colors.text, alpha))
-      love.graphics.print(notif.title, textX, textY)
-      textY = textY + fonts.title:getHeight() + 6
+      Theme.setColor(textColor)
+      love.graphics.printf(notif.title, textX, textY, textWidth, "left")
+      local titleHeight = measureWrappedHeight(fonts.title, notif.title, textWidth)
+      textY = textY + titleHeight + 6
     end
 
     local hasMessage = notif.message and notif.message ~= "" and (not notif.title or notif.message ~= notif.title)
     if hasMessage then
       love.graphics.setFont(fonts.body)
-      Theme.setColor(Theme.withAlpha(Theme.colors.text, alpha))
-      love.graphics.print(notif.message, textX, textY)
-      textY = textY + fonts.body:getHeight() + 6
+      Theme.setColor(textColor)
+      love.graphics.printf(notif.message, textX, textY, textWidth, "left")
+      local messageHeight = measureWrappedHeight(fonts.body, notif.message, textWidth)
+      textY = textY + messageHeight + 6
     elseif not notif.title and notif.text then
       love.graphics.setFont(fonts.body)
-      Theme.setColor(Theme.withAlpha(Theme.colors.text, alpha))
-      love.graphics.print(notif.text, textX, textY)
-      textY = textY + fonts.body:getHeight() + 6
+      Theme.setColor(textColor)
+      love.graphics.printf(notif.text, textX, textY, textWidth, "left")
+      local textHeight = measureWrappedHeight(fonts.body, notif.text, textWidth)
+      textY = textY + textHeight + 6
     end
 
     if notif.items and #notif.items > 0 then
-      drawLootItems(notif, textX, textY, fonts, alpha)
+      drawLootItems(notif, textX, textY, fonts, alpha, textWidth)
     end
   end
 
