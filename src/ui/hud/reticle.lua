@@ -129,7 +129,7 @@ local function colorByName(name)
   return T.accent
 end
 
-function Reticle.draw(player, camera)
+function Reticle.draw(player, world, camera)
   local mx, my = Viewport.getMousePosition()
   local t = love.timer.getTime()
 
@@ -147,6 +147,7 @@ function Reticle.draw(player, camera)
 
   -- Gather missile lock-on status/progress
   local lockInfo = Reticle.getMissileLockInfo(player)
+  local incomingLockInfo = Reticle.getIncomingLockInfo(player, world)
 
   love.graphics.push()
   -- Reticle draws in screen-space; make it crisp
@@ -172,6 +173,10 @@ function Reticle.draw(player, camera)
   -- Draw target marker in world space to show which enemy is being tracked
   if lockInfo.target and (lockInfo.progress > 0 or lockInfo.isLocked) then
     Reticle.drawTargetMarker(lockInfo, camera)
+  end
+
+  if incomingLockInfo.total > 0 then
+    Reticle.drawIncomingLockWarning(incomingLockInfo, player, camera)
   end
 end
 
@@ -239,6 +244,14 @@ function Reticle.drawLockOnIndicator(scale, progress, isLocked)
   end
 
   if not isLocked then
+    local prevFont = love.graphics.getFont()
+    if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
+    local font = love.graphics.getFont()
+    local label = "LOCKING"
+    Theme.setColor(Theme.withAlpha(Theme.colors.warning, 0.95))
+    local textW = font:getWidth(label)
+    love.graphics.print(label, -textW * 0.5, baseRadius + 6 * scale)
+    if prevFont then love.graphics.setFont(prevFont) end
     return
   end
 
@@ -262,6 +275,15 @@ function Reticle.drawLockOnIndicator(scale, progress, isLocked)
   drawBracket(1, -1)
   drawBracket(-1, 1)
   drawBracket(1, 1)
+
+  local prevFont = love.graphics.getFont()
+  if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
+  local font = love.graphics.getFont()
+  local label = "LOCKED"
+  Theme.setColor(Theme.withAlpha(Theme.colors.success, 0.95))
+  local textW = font:getWidth(label)
+  love.graphics.print(label, -textW * 0.5, baseRadius + 8 * scale)
+  if prevFont then love.graphics.setFont(prevFont) end
 end
 
 -- Draw marker over the world target that we're locking onto
@@ -289,39 +311,213 @@ function Reticle.drawTargetMarker(lockInfo, camera)
 
   local t = love.timer.getTime()
   local pulse = 1 + 0.05 * math.sin(t * 6)
-  local radius = 20 * pulse
-
+  local baseRadius = 24
   local color = lockInfo.isLocked and Theme.colors.success or Theme.colors.warning
-  Theme.setColor(Theme.withAlpha(color, lockInfo.isLocked and 0.9 or 0.7))
-  love.graphics.setLineWidth(2)
-  love.graphics.circle('line', 0, 0, radius)
+  local progress = math.max(0, math.min(1, lockInfo.progress or 0))
 
-  -- Add small tick marks showing progress when not fully locked
-  if not lockInfo.isLocked then
-    local segments = 4
-    local segmentLength = 8
-    local filledSegments = math.floor((lockInfo.progress or 0) * segments + 0.5)
-    for i = 0, segments - 1 do
-      local angle = (i / segments) * math.pi * 2
-      local inner = radius - segmentLength
-      local outer = radius
-      if i < filledSegments then
-        Theme.setColor(Theme.withAlpha(color, 0.9))
-      else
-        Theme.setColor(Theme.withAlpha(color, 0.35))
-      end
-      love.graphics.line(math.cos(angle) * inner, math.sin(angle) * inner,
-        math.cos(angle) * outer, math.sin(angle) * outer)
-    end
-  else
-    -- Locked: draw crosshair lines for emphasis
-    Theme.setColor(Theme.withAlpha(color, 0.9))
-    local cross = radius + 6
+  -- Background ring provides the silhouette of the target indicator
+  Theme.setColor(Theme.withAlpha(color, 0.25))
+  love.graphics.setLineWidth(3)
+  love.graphics.circle('line', 0, 0, baseRadius)
+
+  -- Draw progress sweep around the enemy to mirror the reticle arc
+  local shouldShowProgress = progress > 0 or lockInfo.isLocked
+  if shouldShowProgress then
+    local startAngle = -math.pi * 0.5
+    local arcProgress = lockInfo.isLocked and 1 or progress
+    local endAngle = startAngle + arcProgress * math.pi * 2
+    Theme.setColor(Theme.withAlpha(color, lockInfo.isLocked and 0.95 or 0.85))
+    love.graphics.setLineWidth(4)
+    love.graphics.arc('line', 0, 0, baseRadius, startAngle, endAngle)
+  end
+
+  -- Locked: pulse an outer ring and add crosshair braces for clarity
+  if lockInfo.isLocked then
+    local pulseAlpha = 0.55 + 0.35 * math.sin(t * 4)
+    local outerRadius = baseRadius + 6 + 2 * math.sin(t * 6)
+    Theme.setColor(Theme.withAlpha(color, pulseAlpha))
+    love.graphics.setLineWidth(2)
+    love.graphics.circle('line', 0, 0, outerRadius)
+
+    Theme.setColor(Theme.withAlpha(color, 0.95))
+    local cross = baseRadius + 10
+    love.graphics.setLineWidth(2)
     love.graphics.line(-cross, 0, cross, 0)
     love.graphics.line(0, -cross, 0, cross)
+  else
+    -- While locking, show sweeping chevrons for directional emphasis
+    local chevronCount = 4
+    local chevronLength = 10
+    for i = 0, chevronCount - 1 do
+      local angle = (i / chevronCount) * math.pi * 2
+      local offset = baseRadius + 4
+      local inner = baseRadius - 4
+      local alpha = 0.3 + 0.4 * ((progress * chevronCount) - i)
+      alpha = math.max(0.15, math.min(0.7, alpha))
+      Theme.setColor(Theme.withAlpha(color, alpha))
+      love.graphics.line(
+        math.cos(angle) * inner,
+        math.sin(angle) * inner,
+        math.cos(angle) * (inner + chevronLength),
+        math.sin(angle) * (inner + chevronLength)
+      )
+      Theme.setColor(Theme.withAlpha(color, alpha * 0.6))
+      love.graphics.circle('fill', math.cos(angle) * offset, math.sin(angle) * offset, 2)
+    end
   end
 
   love.graphics.pop()
+end
+
+-- Scan the world for hostile turrets that are locking onto the player
+function Reticle.getIncomingLockInfo(player, world)
+  local info = {
+    total = 0,
+    lockedCount = 0,
+    highestProgress = 0,
+    threats = {},
+  }
+
+  if not world or not world.entities or not player then
+    return info
+  end
+
+  local function isHostile(entity)
+    if not entity or entity == player or entity.dead then return false end
+    if entity.isPlayer or entity.isFriendly then return false end
+    if entity.isEnemy or entity.isEnemyShip then return true end
+    local ai = entity.components and entity.components.ai
+    if ai then
+      if ai.aggressiveType and ai.aggressiveType == "neutral" then
+        return false
+      end
+      return true
+    end
+    return false
+  end
+
+  for _, entity in pairs(world.entities) do
+    if isHostile(entity) and entity.components and entity.components.equipment then
+      local grid = entity.components.equipment.grid
+      if grid then
+        for _, slot in ipairs(grid) do
+          if slot and slot.type == "turret" and slot.module then
+            local turret = slot.module
+            if turret.kind == "missile" and turret.lockOnTarget == player then
+              local progress = turret.lockOnProgress or 0
+              local locked = turret.isLockedOn or false
+              if locked then
+                progress = math.max(1.0, progress)
+                info.lockedCount = info.lockedCount + 1
+              end
+              info.total = info.total + 1
+              info.highestProgress = math.max(info.highestProgress, progress)
+              local threatPos
+              if entity.components and entity.components.position then
+                threatPos = {
+                  x = entity.components.position.x,
+                  y = entity.components.position.y,
+                }
+              end
+              table.insert(info.threats, {
+                entity = entity,
+                turret = turret,
+                progress = progress,
+                isLocked = locked,
+                position = threatPos,
+              })
+            end
+          end
+        end
+      end
+    end
+  end
+
+  return info
+end
+
+local function drawDirectionIndicator(cx, cy, angle, color, locked, radius)
+  radius = radius or 200
+  local x = cx + math.cos(angle) * radius
+  local y = cy + math.sin(angle) * radius
+  local size = locked and 14 or 10
+
+  Theme.setColor(Theme.withAlpha(color, locked and 0.95 or 0.75))
+  love.graphics.push()
+  love.graphics.translate(x, y)
+  love.graphics.rotate(angle)
+  love.graphics.polygon('fill', 0, -size * 0.5, size, 0, 0, size * 0.5)
+  love.graphics.setLineWidth(2)
+  love.graphics.polygon('line', 0, -size * 0.5, size, 0, 0, size * 0.5)
+  love.graphics.pop()
+end
+
+function Reticle.drawIncomingLockWarning(info, player, camera)
+  if not info or info.total <= 0 or not player or not player.components then
+    return
+  end
+
+  local playerPos = player.components.position
+  if not playerPos then return end
+
+  local sw, sh = Viewport.getDimensions()
+  local camScale = (camera and camera.scale) or 1
+  local camX = (camera and camera.x) or 0
+  local camY = (camera and camera.y) or 0
+
+  local playerScreenX = (playerPos.x - camX) * camScale + sw * 0.5
+  local playerScreenY = (playerPos.y - camY) * camScale + sh * 0.5
+
+  local message = info.lockedCount > 0 and "MISSILE LOCKED" or "LOCK WARNING"
+  local color = info.lockedCount > 0 and Theme.colors.danger or Theme.colors.warning
+  local pulse = 0.65 + 0.35 * math.sin(love.timer.getTime() * 6)
+
+  local bannerWidth = 220
+  local bannerHeight = 34
+  local bannerX = math.floor(sw * 0.5 - bannerWidth * 0.5)
+  local bannerY = math.floor(sh * 0.12 - bannerHeight * 0.5)
+
+  Theme.setColor(Theme.withAlpha(color, pulse * 0.5))
+  love.graphics.rectangle('fill', bannerX, bannerY, bannerWidth, bannerHeight, 6, 6)
+  Theme.setColor(Theme.withAlpha(color, 0.95))
+  love.graphics.setLineWidth(2)
+  love.graphics.rectangle('line', bannerX, bannerY, bannerWidth, bannerHeight, 6, 6)
+  love.graphics.setLineWidth(1)
+
+  local prevFont = love.graphics.getFont()
+  if Theme.fonts and Theme.fonts.medium then love.graphics.setFont(Theme.fonts.medium) end
+  local font = love.graphics.getFont()
+  local textW = font:getWidth(message)
+  Theme.setColor({1, 1, 1, 0.95})
+  love.graphics.print(message, bannerX + (bannerWidth - textW) * 0.5, bannerY + 4)
+
+  local progress = math.max(0, math.min(1, info.highestProgress))
+  local barMargin = 12
+  local barX = bannerX + barMargin
+  local barY = bannerY + bannerHeight - 10
+  local barW = bannerWidth - barMargin * 2
+  local barH = 6
+
+  Theme.setColor(Theme.withAlpha({0, 0, 0}, 0.35))
+  love.graphics.rectangle('fill', barX, barY, barW, barH, 3, 3)
+  Theme.setColor(Theme.withAlpha(color, 0.9))
+  love.graphics.rectangle('fill', barX, barY, barW * progress, barH, 3, 3)
+
+  if prevFont then love.graphics.setFont(prevFont) end
+
+  local edgeRadius = math.min(sw, sh) * 0.35
+
+  for _, threat in ipairs(info.threats) do
+    if threat.position then
+      local sx = (threat.position.x - camX) * camScale + sw * 0.5
+      local sy = (threat.position.y - camY) * camScale + sh * 0.5
+      local dx = sx - playerScreenX
+      local dy = sy - playerScreenY
+      local angle = math.atan2(dy, dx)
+      local threatColor = threat.isLocked and Theme.colors.danger or Theme.colors.warning
+      drawDirectionIndicator(playerScreenX, playerScreenY, angle, threatColor, threat.isLocked, edgeRadius)
+    end
+  end
 end
 
 return Reticle
