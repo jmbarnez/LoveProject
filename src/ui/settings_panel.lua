@@ -111,7 +111,7 @@ function SettingsPanel.calculateContentHeight()
     local keybindOrder = {
         "toggle_inventory", "toggle_ship", "toggle_bounty", "toggle_skills",
         "toggle_map", "dock",
-        "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5"
+        "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5", "hotbar_6", "hotbar_7"
     }
     yOffset = yOffset + 30 * #keybindOrder -- Each keybinding takes 30 pixels
 
@@ -471,7 +471,7 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     local keybindOrder = {
         "toggle_inventory", "toggle_ship", "toggle_bounty", "toggle_skills",
         "toggle_map", "dock",
-        "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5"
+        "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5", "hotbar_6", "hotbar_7"
     }
     
     for _, action in ipairs(keybindOrder) do
@@ -877,7 +877,7 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     yOffset = yOffset + 30 -- "Controls" label
     yOffset = yOffset + 30 -- "Keybindings" label
 
-    local keybindOrder = { "toggle_inventory", "toggle_ship", "toggle_bounty", "toggle_skills", "toggle_map", "dock", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5" }
+    local keybindOrder = { "toggle_inventory", "toggle_ship", "toggle_bounty", "toggle_skills", "toggle_map", "dock", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5", "hotbar_6", "hotbar_7" }
     for _, action in ipairs(keybindOrder) do
         local btnX, btnW, btnH = contentX + 200, 100, 24
         local btnY = yOffset - 2

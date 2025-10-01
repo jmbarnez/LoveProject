@@ -35,6 +35,8 @@ function Hotbar.load()
         { item = nil },
         { item = nil },
         { item = nil },
+        { item = nil },
+        { item = nil },
     }
 
     local hb = Settings.getHotbarSettings and Settings.getHotbarSettings()
@@ -77,6 +79,8 @@ function Hotbar.populateFromPlayer(player, newModuleId, slotNum)
     -- Ensure slots are initialized
     if not Hotbar.slots then
         Hotbar.slots = {
+            { item = nil },
+            { item = nil },
             { item = nil },
             { item = nil },
             { item = nil },

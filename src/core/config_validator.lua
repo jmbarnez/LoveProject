@@ -394,6 +394,8 @@ ConfigValidator.schemas.keymap = Schema.new()
     :field("hotbar_3", ConfigValidator.keyBinding())
     :field("hotbar_4", ConfigValidator.keyBinding())
     :field("hotbar_5", ConfigValidator.keyBinding())
+    :field("hotbar_6", ConfigValidator.keyBinding())
+    :field("hotbar_7", ConfigValidator.keyBinding())
     :field("repair_beacon", ConfigValidator.keyBinding())
 
 -- Hotbar schema

@@ -48,6 +48,8 @@ local settings = {
         hotbar_3 = { primary = "q" },
         hotbar_4 = { primary = "e" },
         hotbar_5 = { primary = "r" },
+        hotbar_6 = { primary = "t" },
+        hotbar_7 = { primary = "f" },
     },
     hotbar = {
         items = {
@@ -55,7 +57,9 @@ local settings = {
             "shield",        -- RMB
             nil,              -- Q
             nil,              -- E
-            nil,              -- R (new slot)
+            nil,              -- R
+            nil,              -- T
+            nil,              -- F
         }
     }
 }

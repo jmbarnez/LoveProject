@@ -191,6 +191,8 @@ local strings = {
             hotbar_3 = "Hotbar Slot 3",
             hotbar_4 = "Hotbar Slot 4",
             hotbar_5 = "Hotbar Slot 5",
+            hotbar_6 = "Hotbar Slot 6",
+            hotbar_7 = "Hotbar Slot 7",
             press_key = "Press key...",
         },
 
