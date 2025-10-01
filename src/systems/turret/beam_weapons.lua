@@ -1,6 +1,5 @@
 local CollisionHelpers = require("src.systems.turret.collision_helpers")
 local HeatManager = require("src.systems.turret.heat_manager")
-local Targeting = require("src.systems.turret.targeting")
 local TurretEffects = require("src.systems.turret.effects")
 local Log = require("src.core.log")
 
@@ -228,11 +227,7 @@ end
 
 -- Check if beam weapon can fire
 function BeamWeapons.canFire(turret, target)
-    return HeatManager.canFire(turret) and
-           Targeting.isValidTarget(turret, target) and
-           (not turret.maxRange or Targeting.canEngageTarget(turret, target,
-            math.sqrt((target.components.position.x - turret.owner.components.position.x)^2 +
-                     (target.components.position.y - turret.owner.components.position.y)^2)))
+    return HeatManager.canFire(turret)
 end
 
 return BeamWeapons

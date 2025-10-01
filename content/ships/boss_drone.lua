@@ -67,13 +67,13 @@ return {
 
   hardpoints = {
     {
-      turret = "basic_gun",
+      turret = "gun_turret",
     },
     {
-      turret = "laser_mk1",
+      turret = "combat_laser",
     },
     {
-      turret = "rocket_mk1",
+      turret = "missile_launcher",
     }
   },
 

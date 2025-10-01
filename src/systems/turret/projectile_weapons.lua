@@ -1,6 +1,5 @@
 local Content = require("src.content.content")
 local HeatManager = require("src.systems.turret.heat_manager")
-local Targeting = require("src.systems.turret.targeting")
 local TurretEffects = require("src.systems.turret.effects")
 local Skills = require("src.core.skills")
 local Log = require("src.core.log")
@@ -124,54 +123,42 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
     TurretEffects.playFiringSound(turret)
 end
 
--- Handle missile turret firing (homing projectiles)
+-- Handle missile turret firing (directional projectiles)
 function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world)
     if locked or not turret:canFire() then
         return
     end
 
+    -- Get turret world position first for accurate aiming
+    local Turret = require("src.systems.turret.core")
+    local sx, sy = Turret.getTurretWorldPosition(turret)
 
-    -- For missiles, use cursor direction unless locked onto a target
-    local angle = turret.owner.components.position.angle or 0
-    
-    -- Get projectile speed from embedded definition or fallback to turret setting
-    local projSpeed = 800 -- Default fallback for missiles
-    if turret.projectile and type(turret.projectile) == "table" and turret.projectile.physics then
-        projSpeed = turret.projectile.physics.speed or 800
-    elseif turret.projectileSpeed then
-        projSpeed = turret.projectileSpeed
+    -- Aim at target if available, otherwise use cursor or ship facing
+    local angle = 0
+    if target and target.components and target.components.position then
+        -- For automatic firing (AI), aim from turret position to target
+        local tx = target.components.position.x
+        local ty = target.components.position.y
+        local dx = tx - sx
+        local dy = ty - sy
+        angle = math.atan2(dy, dx)
+    elseif turret.owner.cursorWorldPos then
+        -- For manual firing, use the cursor direction from turret position
+        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
+        local dx = cursorX - sx
+        local dy = cursorY - sy
+        angle = math.atan2(dy, dx)
+    else
+        -- Fallback to ship facing if no target or cursor available
+        angle = turret.owner.components.position.angle or 0
     end
 
-    local missileTarget = nil
-    local isHoming = false
-
-    -- Check if we have a locked-on target
-    if turret.isLockedOn and turret.lockOnTarget then
-        missileTarget = turret.lockOnTarget
-        isHoming = true
-        local dx = turret.lockOnTarget.components.position.x - turret.owner.components.position.x
-        local dy = turret.lockOnTarget.components.position.y - turret.owner.components.position.y
-        angle = math.atan2(dy, dx)
-    elseif target and not turret.owner.isPlayer and not turret.owner.isFriendly then
-        -- Enemy AI: always fire homing missiles at target if available
-        missileTarget = target
-        isHoming = true
-        local dx = target.components.position.x - turret.owner.components.position.x
-        local dy = target.components.position.y - turret.owner.components.position.y
-        angle = math.atan2(dy, dx)
-        
-        -- Debug logging for enemy homing
-        if turret.owner and not turret.owner.isPlayer and not turret.owner.isFriendly then
-            Log.debug(string.format("Enemy firing homing missile at target: %s", target.id or "unknown"))
-        end
-    else
-        -- No lock-on: fire in cursor direction
-        if turret.owner.cursorWorldPos then
-            local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
-            local dx = cursorX - turret.owner.components.position.x
-            local dy = cursorY - turret.owner.components.position.y
-            angle = math.atan2(dy, dx)
-        end
+    -- Get projectile speed from embedded definition or fallback to turret setting
+    local projSpeed = 1200 -- Increased default speed for rockets (faster than bullets)
+    if turret.projectile and type(turret.projectile) == "table" and turret.projectile.physics then
+        projSpeed = turret.projectile.physics.speed or 1200
+    elseif turret.projectileSpeed then
+        projSpeed = turret.projectileSpeed
     end
 
     turret.currentAimAngle = angle
@@ -188,9 +175,6 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
     end
 
     if projectileTemplate then
-        -- Get turret world position instead of ship center
-        local Turret = require("src.systems.turret.core")
-        local sx, sy = Turret.getTurretWorldPosition(turret)
         local vx = math.cos(angle) * projSpeed
         local vy = math.sin(angle) * projSpeed
 
@@ -212,11 +196,7 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
                 vx = vx,
                 vy = vy,
                 source = turret.owner,
-                damage = damageConfig,
-                target = missileTarget,
-                homing = isHoming,
-                homingStrength = isHoming and (turret.homingStrength or 0.8) or 0,
-                missileTurnRate = isHoming and (turret.missileTurnRate or 4.5) or 0
+                damage = damageConfig
             })
         end
 
@@ -228,9 +208,6 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         -- Add heat and play effects
         HeatManager.addHeat(turret, turret.heatPerShot or 15)
         TurretEffects.playFiringSound(turret)
-
-        -- Reset lock-on after firing
-        turret:resetLockOn()
     end
 end
 
@@ -290,11 +267,7 @@ end
 
 -- Check if projectile weapon can fire
 function ProjectileWeapons.canFire(turret, target)
-    return HeatManager.canFire(turret) and
-           Targeting.isValidTarget(turret, target) and
-           (not turret.maxRange or Targeting.canEngageTarget(turret, target,
-            math.sqrt((target.components.position.x - turret.owner.components.position.x)^2 +
-                     (target.components.position.y - turret.owner.components.position.y)^2)))
+    return HeatManager.canFire(turret)
 end
 
 return ProjectileWeapons

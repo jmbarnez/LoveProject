@@ -457,86 +457,12 @@ function PlayerSystem.update(dt, player, input, world, hub)
                 t.autoFire = autoFire
             end
 
-            -- For missiles, we need to find the best target for lock-on detection
-            local targetForLockOn = nil
-            if isMissile then
-                -- Find the closest enemy the player is aiming at
-                targetForLockOn = PlayerSystem.findBestTargetForLockOn(t, world)
-            end
-
             -- Call update with firing state (for manual mode)
             t.firing = firing
-            t:update(dt, targetForLockOn, not allow, world)
+            t:update(dt, nil, not allow, world)
         end
     end
 end
 
--- Simple target finder for missile lock-on - finds closest enemy
-function PlayerSystem.findBestTargetForLockOn(turret, world)
-    if not turret or not world then
-        return nil
-    end
-
-    local owner = turret.owner
-    if not owner or not owner.components or not owner.components.position then
-        return nil
-    end
-  
-    local ownerPos = owner.components.position
-    local lockRange = turret.maxRange or 800 -- Use turret max range for lock range
-
-    local function isValidEnemy(entity)
-        if not entity or entity == owner or entity.dead then
-            return false
-        end
-
-        if not entity.components or not entity.components.position then
-            return false
-        end
-
-        -- Treat AI-controlled or explicitly hostile entities as enemies
-        if entity.isEnemy then
-            return true
-        end
-
-        if entity.isFriendly then
-            return false
-        end
-
-        if entity.components.ai then
-            local aggressiveType = entity.components.ai.aggressiveType
-            if aggressiveType and aggressiveType ~= "neutral" then
-                return true
-            end
-            -- Basic AI component defaults to hostile behavior, so treat any non-friendly AI entity as a threat
-            return true
-        end
-
-        if entity.isEnemyShip then
-            return true
-        end
-
-        return false
-    end
-
-    -- Find closest enemy within lock range
-    local bestTarget = nil
-    local closestDistance = math.huge
-
-    for _, entity in pairs(world.entities) do
-        if isValidEnemy(entity) then
-            local dx = entity.components.position.x - ownerPos.x
-            local dy = entity.components.position.y - ownerPos.y
-            local distance = math.sqrt(dx * dx + dy * dy)
-            
-            if distance <= lockRange and distance < closestDistance then
-                closestDistance = distance
-                bestTarget = entity
-            end
-        end
-    end
-
-    return bestTarget
-end
 
 return PlayerSystem

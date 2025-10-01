@@ -3,8 +3,9 @@ return {
     name = "Seeker Missile",
     class = "Projectile",
     physics = {
-        speed = 950,
-        drag = 0,
+        speed = 1200,
+        drag = 0.02,
+        acceleration = 200,
     },
     renderable = {
         type = "bullet",

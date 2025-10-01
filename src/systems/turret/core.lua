@@ -1,7 +1,6 @@
 local Util = require("src.core.util")
 local Content = require("src.content.content")
 local HeatManager = require("src.systems.turret.heat_manager")
-local Targeting = require("src.systems.turret.targeting")
 local ProjectileWeapons = require("src.systems.turret.projectile_weapons")
 local BeamWeapons = require("src.systems.turret.beam_weapons")
 local UtilityBeams = require("src.systems.turret.utility_beams")
@@ -98,15 +97,6 @@ function Turret.new(owner, params)
     self.fireMode = params.fireMode or "manual"
     self.autoFire = false -- For automatic mode, tracks toggle state
 
-    -- Lock-on system for missiles
-    self.lockOnTarget = nil -- Current target being locked onto
-    self.lockOnStartTime = 0 -- When lock-on started
-    self.lockOnDuration = params.lockOnDuration or 2.0 -- How long to hold aim for lock-on (seconds)
-    self.lockOnTolerance = params.lockOnTolerance or (math.pi / 6) -- Angular tolerance while locking
-    self.lockOnGraceTolerance = params.lockOnGraceTolerance or (self.lockOnTolerance * 1.5)
-    self.lockOnDecayTime = params.lockOnDecayTime or (self.lockOnDuration * 1.5)
-    self.isLockedOn = false -- Whether lock-on has been achieved
-    self.lockOnProgress = 0 -- 0-1 progress toward lock acquisition
 
     -- Track the turret's current aiming direction in world space so visuals,
     -- beams, and projectiles share the same muzzle origin.
@@ -144,20 +134,12 @@ function Turret:update(dt, target, locked, world)
         self.cooldown = math.max(0, self.cooldown - dt)
     end
 
-    -- Update lock-on system for missiles
-    if self.kind == "missile" then
-        Turret.updateLockOn(self, dt, target, world)
-    end
 
     -- Check if we can fire
     if locked then
         self.firing = false
         self.currentTarget = nil
         self.beamActive = false
-        -- Preserve missile lock progress even when not firing so the player can pre-aim
-        if self.kind ~= "missile" then
-            self:resetLockOn()
-        end
         return
     end
 
@@ -275,55 +257,6 @@ function Turret.getTurretBySlot(player, slot)
     return nil
 end
 
--- Reset lock-on state
-function Turret:resetLockOn()
-    self.lockOnTarget = nil
-    self.lockOnStartTime = 0
-    self.isLockedOn = false
-    self.lockOnProgress = 0
-end
-
--- Simple lock-on system for missiles
-function Turret.updateLockOn(turret, dt, target, world)
-    -- If no target provided, reset lock-on
-    if not target or not target.components or not target.components.position then
-        turret:resetLockOn()
-        return
-    end
-
-    -- Calculate distance to target
-    local ownerPos = turret.owner.components.position
-    local targetPos = target.components.position
-    local dx = targetPos.x - ownerPos.x
-    local dy = targetPos.y - ownerPos.y
-    local distance = math.sqrt(dx * dx + dy * dy)
-    
-    -- Simple lock-on: if target is within range, lock on after a short delay
-    local lockRange = turret.maxRange or 800 -- Use turret max range for lock range
-    local lockTime = turret.lockOnDuration or 1.0 -- How long to hold target for lock
-    
-    if distance <= lockRange then
-        -- Target is in range, start/update lock-on
-        if not turret.lockOnTarget or turret.lockOnTarget ~= target then
-            -- New target, start lock-on timer
-            turret.lockOnTarget = target
-            turret.lockOnStartTime = love.timer.getTime()
-            turret.lockOnProgress = 0
-            turret.isLockedOn = false
-        else
-            -- Same target, increment lock progress
-            local elapsed = love.timer.getTime() - turret.lockOnStartTime
-            turret.lockOnProgress = math.min(1.0, elapsed / lockTime)
-            
-            if turret.lockOnProgress >= 1.0 then
-                turret.isLockedOn = true
-            end
-        end
-    else
-        -- Target out of range, reset lock-on
-        turret:resetLockOn()
-    end
-end
 
 -- Calculate the world position of a turret based on ship position, rotation, and turret pivot
 function Turret.getTurretWorldPosition(turret)

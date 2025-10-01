@@ -103,18 +103,6 @@ function Projectile.new(x, y, angle, friendly, config)
         return effectManager:addEffect(effectDefinition)
     end
 
-    local kind = (self.components.renderable and self.components.renderable.props and self.components.renderable.props.kind) or 'bullet'
-    effectManager:addEffect({
-        type = "guidance",
-        kind = kind,
-        speed = speed,
-        homing = config.homing,
-        homingStrength = config.homingStrength,
-        target = config.target,
-        guaranteedHit = config.guaranteedHit,
-        guaranteedTarget = config.guaranteedTarget,
-        missileTurnRate = config.missileTurnRate,
-    })
 
     local pluginContext = {
         projectile = self,

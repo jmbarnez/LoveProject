@@ -1,83 +1,86 @@
 return {
-  id = "mining_laser",
-  type = "mining_laser",
-  name = "Mining Laser",
-  description = "Specialized mining equipment for extracting ore from asteroids.",
-  price = 2000,
-  module = { type = "turret" },
-  icon = {
-    size = 32,
-    shapes = {
-      -- Articulated mining frame
-      { type = "polygon", mode = "fill", color = {0.10, 0.11, 0.18, 1}, points = {6, 24, 9, 10, 23, 10, 26, 24, 16, 30} },
-      { type = "polygon", mode = "fill", color = {0.28, 0.20, 0.12, 1}, points = {8, 20, 12, 12, 20, 12, 24, 20, 16, 26} },
-      -- Power conduits
-      { type = "rectangle", mode = "fill", color = {0.72, 0.48, 0.22, 1}, x = 10, y = 14, w = 12, h = 3, rx = 1 },
-      { type = "rectangle", mode = "fill", color = {0.90, 0.64, 0.30, 1}, x = 12, y = 18, w = 8, h = 2, rx = 1 },
-      -- Focused emitter core
-      { type = "circle", mode = "fill", color = {0.25, 0.16, 0.10, 1}, x = 16, y = 12, r = 3 },
-      { type = "circle", mode = "fill", color = {1.00, 0.78, 0.36, 0.9}, x = 16, y = 12, r = 1.8 },
-      -- Mining beam
-      { type = "polygon", mode = "fill", color = {1.00, 0.86, 0.42, 0.75}, points = {14, 13, 18, 13, 21, 28, 11, 28} },
-      { type = "polygon", mode = "fill", color = {1.00, 0.95, 0.60, 0.8}, points = {15, 13, 17, 13, 19, 28, 13, 28} },
-      -- Target crystal
-      { type = "polygon", mode = "fill", color = {0.55, 0.80, 1.00, 0.9}, points = {13, 26, 16, 30, 19, 26, 16, 22} },
-      { type = "polygon", mode = "line", color = {0.80, 0.95, 1.00, 0.7}, points = {13, 26, 16, 30, 19, 26, 16, 22}, lineWidth = 1 },
-      -- Sensor lights
-      { type = "circle", mode = "fill", color = {1.00, 0.80, 0.35, 0.85}, x = 12, y = 18, r = 1.1 },
-      { type = "circle", mode = "fill", color = {1.00, 0.80, 0.35, 0.85}, x = 20, y = 18, r = 1.1 },
-    }
-  },
-  -- Embedded projectile definition for mining
-  projectile = {
-    id = "mining_beam",
-    name = "Mining Beam",
-    class = "Projectile",
-    physics = {
-      speed = 0, -- Beam doesn't move
-      drag = 0,
+    id = "mining_laser",
+    type = "mining_laser",
+    name = "Mining Laser",
+    description = "Industrial laser designed for extracting resources from asteroids.",
+    price = 1200,
+    module = { type = "turret" },
+    icon = {
+        size = 32,
+        shapes = {
+            -- Main chassis
+            { type = "polygon", mode = "fill", color = {0.15, 0.12, 0.08, 1}, points = {6, 24, 10, 10, 22, 10, 26, 24, 16, 30} },
+            { type = "polygon", mode = "fill", color = {0.25, 0.20, 0.15, 1}, points = {8, 20, 12, 13, 20, 13, 24, 20, 16, 26} },
+            -- Mining focuser
+            { type = "rectangle", mode = "fill", color = {0.8, 0.6, 0.2, 1}, x = 11, y = 14, w = 10, h = 3, rx = 1 },
+            { type = "rectangle", mode = "fill", color = {1.0, 0.7, 0.2, 0.9}, x = 12, y = 18, w = 8, h = 2, rx = 1 },
+            -- Laser emitter
+            { type = "circle", mode = "fill", color = {0.6, 0.4, 0.1, 1}, x = 16, y = 8, r = 5 },
+            { type = "circle", mode = "fill", color = {1.0, 0.7, 0.2, 0.95}, x = 16, y = 8, r = 3.2 },
+            { type = "circle", mode = "fill", color = {1.0, 0.9, 0.4, 0.8}, x = 16, y = 8, r = 1.6 },
+        }
     },
-    renderable = {
-      type = "bullet",
-      props = {
-        kind = "beam",
-        radius = 2.0,
-        color = {1.0, 1.0, 0.0, 0.8},
-      }
+    
+    -- Embedded projectile definition
+    projectile = {
+        id = "mining_laser_beam",
+        name = "Mining Laser Beam",
+        class = "Projectile",
+        physics = {
+            speed = 0, -- Hitscan
+            drag = 0,
+        },
+        renderable = {
+            type = "bullet",
+            props = {
+                kind = "mining_laser",
+                length = 1200,
+                tracerWidth = 5,
+                color = {1.0, 0.7, 0.2, 0.8},
+            }
+        },
+        collidable = {
+            radius = 4,
+        },
+        damage = {
+            value = 2.5,
+        },
+        timed_life = {
+            duration = 0.08,
+        },
+        charged_pulse = {
+            buildup_time = 0.05,
+            flash_time = 0.06,
+        }
     },
-    damage = {
-      value = 1.5,
-      miningPower = 2.5,
+    
+    -- Visual effects
+    tracer = { color = {1.0, 0.7, 0.2, 0.8}, width = 4, coreRadius = 3 },
+    impact = {
+        shield = { spanDeg = 80, color1 = {1.0, 0.7, 0.2, 0.6}, color2 = {0.8, 0.5, 0.1, 0.4} },
+        hull = { spark = {1.0, 0.8, 0.3, 0.8}, ring = {0.8, 0.6, 0.1, 0.6} },
     },
-    timed_life = {
-      duration = 0.2,
-    }
-  },
-  
-  -- Visual effects
-  tracer = { color = {1.0, 1.0, 0.0, 0.8}, width = 2.0, coreRadius = 2 },
-  impact = {
-    asteroid = {
-      spark = {1.0, 0.9, 0.5, 0.8},    -- Bright sparks for visible feedback
-      ring = {0.9, 0.7, 0.3, 0.6},     -- Visible ring effect
-      particles = {1.0, 0.8, 0.2, 0.7} -- Bright particles
-    },
-  },
-  -- Continuous mining beam, tuned for a gentle extraction rate
-  optimal = 850, falloff = 250,
-  damageMin = 1, damageMax = 2, -- Mining damage per pulse
-  cycle = 3.0, -- Seconds required to deal miningPower damage (controls DPS)
-  capCost = 25, -- Energy cost budget per cycle window
-  spread = { minDeg = 0.05, maxDeg = 0.1, decay = 1000 }, -- Very precise for mining
-  miningPower = 2.5, -- Total mining damage applied across each cycle window
-  beamDuration = 0.2, -- Legacy rendering hint for beam visuals
-  -- Heat management for continuous beam
-  maxHeat = 20.0, -- Higher max heat for sustained use
-  heatPerShot = 5.0, -- Heat generated across each cycle window
-  cooldownRate = 10.0, -- Fast cooling between pulses/pauses
-  overheatCooldown = 5.0, -- Fixed cooldown window after overheating
-
-  -- Firing mode: "manual" or "automatic"
-  fireMode = "manual" -- Mining lasers should be manually controlled
+    
+    -- Weapon stats
+    optimal = 1000, falloff = 500,
+    damage_range = { min = 2, max = 3 },
+    cycle = 1.5, capCost = 4,
+    maxRange = 1500,
+    spread = { minDeg = 0.0, maxDeg = 0.0, decay = 900 },
+    
+    -- Mining parameters
+    miningPower = 2.5,
+    miningCyclesPerResource = 4,
+    beamDuration = 0.08,
+    
+    -- Overheating parameters
+    maxHeat = 120,
+    heatPerShot = 8,
+    cooldownRate = 20,
+    overheatCooldown = 3.0,
+    heatCycleMult = 0.8,
+    heatEnergyMult = 1.2,
+    
+    -- Firing mode
+    fireMode = "manual"
 }
-

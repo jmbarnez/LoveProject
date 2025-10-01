@@ -61,8 +61,8 @@ return {
 
     hardpoints = {
         {
-            turret = "basic_gun",
-            randomTurrets = { "basic_gun", "laser_mk1", "rocket_mk1" },
+            turret = "gun_turret",
+            randomTurrets = { "gun_turret", "combat_laser", "missile_launcher" },
         }
     },
 
@@ -84,9 +84,9 @@ return {
         drops = {
             { id = "ore_tritanium", min = 1, max = 3, chance = 0.7 },
             { id = "ore_palladium", min = 1, max = 2, chance = 0.35 },
-            { id = "basic_gun", chance = 0.3 },
-            { id = "laser_mk1", chance = 0.15 },
-            { id = "rocket_mk1", chance = 0.1 },
+            { id = "gun_turret", chance = 0.3 },
+            { id = "combat_laser", chance = 0.15 },
+            { id = "missile_launcher", chance = 0.1 },
             { id = "node_wallet", min = 1, max = 1, chance = 1.0 },  -- 100% drop rate for testing
         }
     },
@@ -125,7 +125,7 @@ return {
             hull = { hp = 18, shield = 12, cap = 0 }, -- No energy system
             engine = { maxSpeed = 420, accel = 700 },
             hardpoints = {
-                { turret = "laser_mk1" }  -- Use existing tech 1 laser
+                { turret = "combat_laser" }  -- Use streamlined combat laser
             }
         }
     }
