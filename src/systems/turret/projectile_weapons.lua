@@ -3,6 +3,7 @@ local HeatManager = require("src.systems.turret.heat_manager")
 local Targeting = require("src.systems.turret.targeting")
 local TurretEffects = require("src.systems.turret.effects")
 local Skills = require("src.core.skills")
+local Log = require("src.core.log")
 
 local ProjectileWeapons = {}
 
