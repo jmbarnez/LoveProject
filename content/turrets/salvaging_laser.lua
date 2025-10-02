@@ -76,14 +76,6 @@ return {
     salvagePower = 3.0,
     beamDuration = 0.08,
     
-    -- Overheating parameters
-    maxHeat = 100,
-    heatPerShot = 50,
-    cooldownRate = 9,
-    overheatCooldown = 3.5,
-    heatCycleMult = 0.7,
-    heatEnergyMult = 1.3,
-    
     -- Firing mode
     fireMode = "manual"
 }

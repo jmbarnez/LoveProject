@@ -242,6 +242,7 @@ function EntityRenderers.reward_crate(entity, player)
     love.graphics.setColor(0.95, 0.8, 0.3, 1.0)
     love.graphics.rectangle('fill', S(-5), S(-10), S(10), S(20))
     
+    
     -- Lock highlight
     love.graphics.setColor(0.98, 0.9, 0.55, 1.0)
     love.graphics.rectangle('fill', S(-5), S(-5), S(10), S(10))

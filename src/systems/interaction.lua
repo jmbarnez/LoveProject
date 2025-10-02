@@ -37,6 +37,7 @@ function InteractionSystem.update(dt, player, world)
     end
   end
   
+  
   -- Store the closest object for rendering
   player._nearbyInteractable = closestObject
 end
@@ -59,8 +60,8 @@ function InteractionSystem.interact(player)
     end
   end
   
-  -- Handle reward crate interaction
-  if obj.subtype == "reward_crate" then
+  -- Handle reward crate interaction (world object)
+  if obj.components.renderable and obj.components.renderable.type == "reward_crate" then
     local cargo = player.components.cargo
     if not cargo then return false end
     
@@ -71,49 +72,57 @@ function InteractionSystem.interact(player)
       return false
     end
     
-    -- Remove key and crate
-    cargo:remove("reward_crate_key", 1)
+    -- Generate multiple possible rewards for the wheel
+    local possibleRewards = {}
     
-    -- Give rewards
-    local gcReward = math.random(200, 500)
-    player:addGC(gcReward)
+    -- Add GC rewards
+    for i = 1, 3 do
+      table.insert(possibleRewards, {
+        gc = math.random(200, 500),
+        item = nil,
+        qty = 0
+      })
+    end
     
-    -- Give random item reward
+    -- Add item rewards
     local rewardItems = {
       "ore_tritanium", "ore_palladium", "stones", "scraps"
     }
-    local rewardItem = rewardItems[math.random(1, #rewardItems)]
-    local rewardQty = math.random(5, 15)
-    
-    local added = player:addItem(rewardItem, rewardQty)
-    if not added then
-      -- Drop as pickup if inventory is full
-      local ItemPickup = require("src.entities.item_pickup")
-      local px, py = player.components.position.x, player.components.position.y
-      local pickup = ItemPickup.new(px, py, rewardItem, rewardQty)
-      if pickup then
-        local world = getWorld()
-        if world then
-          world:addEntity(pickup)
-        end
-      end
+    for i = 1, 4 do
+      local rewardItem = rewardItems[math.random(1, #rewardItems)]
+      local rewardQty = math.random(5, 15)
+      table.insert(possibleRewards, {
+        gc = 0,
+        item = rewardItem,
+        qty = rewardQty
+      })
     end
     
-    local Notifications = require("src.ui.notifications")
-    local itemName = rewardItem:gsub("_", " "):gsub("^%l", string.upper)
-    Notifications.add(string.format("Opened crate! +%d GC, %dx %s", gcReward, rewardQty, itemName), "success")
-    
-    -- Remove the crate from the world
-    local world = getWorld()
-    if world then
-      world:removeEntity(obj)
+    -- Add mixed rewards
+    for i = 1, 2 do
+      local gcReward = math.random(100, 300)
+      local rewardItem = rewardItems[math.random(1, #rewardItems)]
+      local rewardQty = math.random(3, 8)
+      table.insert(possibleRewards, {
+        gc = gcReward,
+        item = rewardItem,
+        qty = rewardQty
+      })
     end
+    
+    -- Show reward wheel panel
+    local RewardWheelPanel = require("src.ui.reward_wheel_panel")
+    RewardWheelPanel.show(player, possibleRewards)
+    
+    -- Consume the key
+    cargo:remove("reward_crate_key", 1)
     
     return true
   end
   
   return false
 end
+
 
 function InteractionSystem.mousepressed(x, y, button, player)
   if not player or not player._nearbyInteractable or button ~= 1 then return false end

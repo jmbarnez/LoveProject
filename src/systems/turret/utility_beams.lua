@@ -131,8 +131,6 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     turret.cooldownOverride = 0
 
-    local heatPerSecond = turret.heatPerShot / cycle
-
     if not wasActive then
         TurretEffects.playFiringSound(turret)
     end
@@ -403,8 +401,6 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     end
 
     turret.cooldownOverride = 0
-
-    local heatPerSecond = turret.heatPerShot / cycle
 
     if not wasActive then
         TurretEffects.playFiringSound(turret)

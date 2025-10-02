@@ -23,6 +23,7 @@ local SettingsPanel = require("src.ui.settings_panel")
 local Warp = require("src.ui.warp")
 local DebugPanel = require("src.ui.debug_panel")
 local Ship = require("src.ui.ship")
+local RewardWheelPanel = require("src.ui.reward_wheel_panel")
 
 -- Normalize potentially-broken modules (protect against empty/incomplete inventory module)
 if type(Inventory) ~= "table" then
@@ -54,6 +55,7 @@ UIManager.state = {
   warp = { open = false, zIndex = 60 },
   escape = { open = false, zIndex = 100, showingSaveSlots = false }, -- Escape menu should be on top
   settings = { open = false, zIndex = 110 }, -- Settings panel should be on top of escape
+  rewardWheel = { open = false, zIndex = 115 }, -- Reward wheel panel
   debug = { open = false, zIndex = 120 } -- Debug panel should be on top of everything
 }
 UIManager.topZ = 120
@@ -69,6 +71,7 @@ UIManager.layerOrder = {
   "warp",
   "escape",
   "settings",
+  "rewardWheel",
   "debug"
 }
 
@@ -166,6 +169,7 @@ local componentFallbacks = {
     end,
   },
   settings = { module = SettingsPanel },
+  rewardWheel = { module = RewardWheelPanel },
   debug = { module = DebugPanel },
 }
 
@@ -238,6 +242,7 @@ function UIManager.init()
   if SkillsPanel.init then SkillsPanel.init() end
   if warpInstance.init then warpInstance:init() end
   if DebugPanel.init then DebugPanel.init() end
+  if RewardWheelPanel.init then RewardWheelPanel.init() end
   if Ship.init then Ship.init() end
   -- Register components in the UI registry once
   if not UIManager._registryInitialized then
@@ -329,6 +334,19 @@ function UIManager.init()
       end,
     })
     Registry.register({
+      id = "rewardWheel",
+      isVisible = function()
+        return (UIManager.state.rewardWheel and UIManager.state.rewardWheel.open) or false
+      end,
+      getZ = function() return (UIManager.state.rewardWheel and UIManager.state.rewardWheel.zIndex) or 0 end,
+      getRect = function()
+        local RewardWheelPanel = require("src.ui.reward_wheel_panel")
+        local win = RewardWheelPanel and RewardWheelPanel.window
+        if win then return { x = win.x, y = win.y, w = win.width, h = win.height } end
+        return nil
+      end,
+    })
+    Registry.register({
       id = "debug",
       isVisible = function() return UIManager.state.debug.open end,
       getZ = function() return (UIManager.state.debug and UIManager.state.debug.zIndex) or 0 end,
@@ -364,12 +382,13 @@ function UIManager.update(dt, player)
   UIManager.state.map.open = Map.isVisible()
   UIManager.state.warp.open = warpInstance.visible or false
   UIManager.state.settings.open = SettingsPanel.visible or false
+  UIManager.state.rewardWheel.open = RewardWheelPanel.visible or false
   UIManager.state.debug.open = DebugPanel.isVisible()
   
   -- Update modal state - block camera movement when ANY UI is open
   UIManager.modalActive = UIManager.state.escape.open or UIManager.state.warp.open or UIManager.state.ship.open or SettingsPanel.visible or
                          UIManager.state.inventory.open or UIManager.state.bounty.open or UIManager.state.docked.open or 
-                         UIManager.state.skills.open or UIManager.state.map.open or UIManager.state.debug.open
+                         UIManager.state.skills.open or UIManager.state.map.open or UIManager.state.rewardWheel.open or UIManager.state.debug.open
   if SettingsPanel.visible then
     UIManager.modalComponent = "settings"
   elseif UIManager.state.escape.open and UIManager.state.escape.showingSaveSlots then
@@ -393,6 +412,7 @@ function UIManager.update(dt, player)
   if EscapeMenu.update then EscapeMenu.update(dt) end
   if Map.update then Map.update(dt, player) end
   if warpInstance.update then warpInstance:update(dt) end
+  if RewardWheelPanel.update then RewardWheelPanel.update(dt) end
   if DebugPanel.update then DebugPanel.update(dt) end
   
   -- Update HUD notifications
@@ -493,6 +513,11 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
         Map.draw(player, world, enemies, asteroids, wrecks, stations, lootDrops)
       elseif component == "warp" then
         warpInstance:draw()
+      elseif component == "rewardWheel" then
+        if RewardWheelPanel.window then
+          RewardWheelPanel.window.visible = RewardWheelPanel.visible
+          RewardWheelPanel.window:draw()
+        end
       end
     end
   end
