@@ -33,6 +33,36 @@ local function worldPolygon(entity)
     return Geometry.transformPolygon(pos.x, pos.y, angle, collidable.vertices)
 end
 
+-- Get the collision radius for an entity, properly handling polygon shapes
+local function getEntityCollisionRadius(entity)
+    local collidable = entity.components and entity.components.collidable
+    if not collidable then
+        return 0
+    end
+    
+    -- For polygon shapes, calculate radius from vertices only (not visual elements)
+    if collidable.shape == "polygon" and collidable.vertices then
+        local maxRadius = 0
+        for i = 1, #collidable.vertices, 2 do
+            local vx = collidable.vertices[i] or 0
+            local vy = collidable.vertices[i + 1] or 0
+            local distance = math.sqrt(vx * vx + vy * vy)
+            if distance > maxRadius then
+                maxRadius = distance
+            end
+        end
+        return maxRadius
+    end
+    
+    -- For circular shapes, use the radius directly
+    if collidable.radius and collidable.radius > 0 then
+        return collidable.radius
+    end
+    
+    -- Fallback to hull radius for other entities
+    return Radius.getHullRadius(entity)
+end
+
 local function getCollisionShape(entity)
     local pos = entity.components.position
 
@@ -45,9 +75,22 @@ local function getCollisionShape(entity)
         }
     end
 
-    local verts = worldPolygon(entity)
-    if verts then
-        return { type = "polygon", vertices = verts }
+    -- Check for polygon collision shape directly (same as projectile collision system)
+    local collidable = entity.components and entity.components.collidable
+    if collidable and collidable.shape == "polygon" and collidable.vertices then
+        local pos = entity.components.position
+        local angle = (pos and pos.angle) or 0
+        local verts = Geometry.transformPolygon(pos.x, pos.y, angle, collidable.vertices)
+        if verts then
+            return { type = "polygon", vertices = verts }
+        end
+    end
+
+    -- For stations, only use polygon shapes - no circular fallback
+    if entity.tag == "station" or (entity.components and entity.components.station) then
+        -- Stations must have polygon collision shapes - no circular fallback
+        -- If no polygon shape is available, return nil (no collision)
+        return nil
     end
 
     return {
@@ -65,6 +108,11 @@ end
 local function checkEntityCollision(entity1, entity2)
     local shape1 = getCollisionShape(entity1)
     local shape2 = getCollisionShape(entity2)
+
+    -- If either entity has no collision shape, no collision occurs
+    if not shape1 or not shape2 then
+        return false
+    end
 
     if shape1.type == "polygon" and shape2.type == "polygon" then
         return Geometry.polygonVsPolygon(shape1.vertices, shape2.vertices)
@@ -160,11 +208,33 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt)
     local nx = dx / distance
     local ny = dy / distance
 
-    -- Calculate overlap amount using hull/shield radii without broad-phase buffer
-    local e1Radius = hasActiveShield(entity1) and Radius.getShieldRadius(entity1) or Radius.getHullRadius(entity1)
-    local e2Radius = hasActiveShield(entity2) and Radius.getShieldRadius(entity2) or Radius.getHullRadius(entity2)
-
-    local overlap = (e1Radius + e2Radius) - distance
+    -- Get collision shapes for proper overlap calculation
+    local shape1 = getCollisionShape(entity1)
+    local shape2 = getCollisionShape(entity2)
+    
+    -- If either entity has no collision shape, no collision occurs
+    if not shape1 or not shape2 then
+        return
+    end
+    
+    -- Calculate overlap based on collision shapes
+    local overlap = 0
+    if shape1.type == "polygon" and shape2.type == "polygon" then
+        -- For polygon vs polygon, use distance between centers as overlap approximation
+        local e1Radius = getEntityCollisionRadius(entity1)
+        local e2Radius = getEntityCollisionRadius(entity2)
+        overlap = (e1Radius + e2Radius) - distance
+    elseif shape1.type == "polygon" or shape2.type == "polygon" then
+        -- For polygon vs circle, use distance between centers
+        local e1Radius = getEntityCollisionRadius(entity1)
+        local e2Radius = getEntityCollisionRadius(entity2)
+        overlap = (e1Radius + e2Radius) - distance
+    else
+        -- For circle vs circle, use standard radius calculation
+        local e1Radius = hasActiveShield(entity1) and Radius.getShieldRadius(entity1) or getEntityCollisionRadius(entity1)
+        local e2Radius = hasActiveShield(entity2) and Radius.getShieldRadius(entity2) or getEntityCollisionRadius(entity2)
+        overlap = (e1Radius + e2Radius) - distance
+    end
 
     if overlap > 0 then
         -- Check for station shield special handling
@@ -233,6 +303,8 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt)
         local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
         if CollisionEffects.canEmitCollisionFX(entity1, entity2, now) then
             -- Create visual effects for both entities
+            local e1Radius = getEntityCollisionRadius(entity1)
+            local e2Radius = getEntityCollisionRadius(entity2)
             CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x, e2y, nx, ny, e1Radius, e2Radius)
         end
     end
