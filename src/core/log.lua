@@ -7,6 +7,11 @@ for name, value in pairs(LEVELS) do
   LABELS_BY_VALUE[value] = name
 end
 
+local tableUnpack = table.unpack or unpack
+local tablePack = table.pack or function(...)
+  return { n = select('#', ...), ... }
+end
+
 -- Default to info level for production; can be changed via Log.setLevel
 local current = LEVELS.info
 Log._infoEnabled = true
@@ -80,6 +85,36 @@ local function startsWith(str, prefix)
   return str:sub(1, #prefix) == prefix
 end
 
+local function firstStringArgument(args)
+  local count = args.n or #args
+  for i = 1, count do
+    local value = args[i]
+    if type(value) == 'string' then
+      return value
+    end
+  end
+  return nil
+end
+
+local function passesWhitelist(args)
+  if not Log._whitelist or #Log._whitelist == 0 then
+    return true
+  end
+
+  local firstString = firstStringArgument(args)
+  if not firstString then
+    return false
+  end
+
+  for _, prefix in ipairs(Log._whitelist) do
+    if startsWith(firstString, prefix) then
+      return true
+    end
+  end
+
+  return false
+end
+
 local function out(prefix, ...)
   local parts = { ... }
   for i = 1, #parts do
@@ -89,27 +124,33 @@ local function out(prefix, ...)
   print(line)
 end
 
-function Log.debug(flag, ...)
+function Log.debug(flagOrMessage, ...)
   if not Log.isLevelEnabled('debug') then return end
-  if Log._whitelist and #Log._whitelist > 0 then
-    local first = select(1, ...)
-    if type(first) ~= 'string' then return end
-    local allowed = false
-    for _, prefix in ipairs(Log._whitelist) do
-      if startsWith(first, prefix) then
-        allowed = true
-        break
-      end
+
+  local args = tablePack(...)
+
+  local isDebugFlag = type(flagOrMessage) == 'string' and Debug.flags and Debug.flags[flagOrMessage] ~= nil
+
+  if isDebugFlag then
+    if args.n == 0 then return end
+    if not passesWhitelist(args) then return end
+    Debug.debug(flagOrMessage, tableUnpack(args, 1, args.n))
+    return
+  end
+
+  if flagOrMessage ~= nil then
+    local count = args.n
+    for i = count, 1, -1 do
+      args[i + 1] = args[i]
     end
-    if not allowed then return end
+    args[1] = flagOrMessage
+    args.n = count + 1
   end
-  
-  -- Use debug system if flag is provided, otherwise use legacy format
-  if flag and type(flag) == 'string' then
-    Debug.debug(flag, ...)
-  else
-    out('DEBUG', ...)
-  end
+
+  if args.n == 0 then return end
+  if not passesWhitelist(args) then return end
+
+  out('DEBUG', tableUnpack(args, 1, args.n))
 end
 
 function Log.info(...)
