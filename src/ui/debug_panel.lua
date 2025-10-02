@@ -123,7 +123,11 @@ function DebugPanel.keypressed(key)
 end
 
 -- Empty textinput handler (needed to prevent input from reaching the game)
-function DebugPanel.textinput()
+function DebugPanel.textinput(text)
+    -- Currently we don't consume any text input, but returning false ensures
+    -- other systems can continue receiving characters. The "text" parameter is
+    -- accepted to match Love2D's callback signature and to allow future
+    -- extensions.
     return false
 end
 
