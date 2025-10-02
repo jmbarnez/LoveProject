@@ -1,5 +1,13 @@
 local Geometry = {}
 
+local function normalize(ax, ay)
+  local len = math.sqrt(ax * ax + ay * ay)
+  if len == 0 then
+    return 0, 0, 0
+  end
+  return ax / len, ay / len, len
+end
+
 local function distSqPointSegment(px, py, x1, y1, x2, y2)
   local dx, dy = x2 - x1, y2 - y1
   if dx == 0 and dy == 0 then
@@ -222,6 +230,180 @@ function Geometry.calculateShieldHitPoint(x1, y1, x2, y2, ex, ey, shieldRadius)
             return false
         end
     end
+end
+
+local function polygonCentroid(verts)
+  if not verts or #verts < 6 then
+    if not verts or #verts < 2 then
+      return 0, 0
+    end
+    local sumX, sumY = 0, 0
+    local count = #verts / 2
+    for i = 1, #verts, 2 do
+      sumX = sumX + (verts[i] or 0)
+      sumY = sumY + (verts[i + 1] or 0)
+    end
+    return sumX / count, sumY / count
+  end
+
+  local area = 0
+  local cx, cy = 0, 0
+  local count = #verts
+  for i = 1, count, 2 do
+    local j = i + 2
+    if j > count then j = 1 end
+    local x0, y0 = verts[i], verts[i + 1]
+    local x1, y1 = verts[j], verts[j + 1]
+    local cross = x0 * y1 - x1 * y0
+    area = area + cross
+    cx = cx + (x0 + x1) * cross
+    cy = cy + (y0 + y1) * cross
+  end
+
+  area = area * 0.5
+  if area == 0 then
+    return verts[1] or 0, verts[2] or 0
+  end
+
+  cx = cx / (6 * area)
+  cy = cy / (6 * area)
+  return cx, cy
+end
+
+local function projectPolygon(axisX, axisY, verts)
+  local minProj = math.huge
+  local maxProj = -math.huge
+  for i = 1, #verts, 2 do
+    local proj = (verts[i] or 0) * axisX + (verts[i + 1] or 0) * axisY
+    if proj < minProj then minProj = proj end
+    if proj > maxProj then maxProj = proj end
+  end
+  return minProj, maxProj
+end
+
+local function projectCircle(axisX, axisY, cx, cy, radius)
+  local center = cx * axisX + cy * axisY
+  return center - radius, center + radius
+end
+
+local function appendPolygonAxes(axes, verts)
+  if not verts or #verts < 6 then
+    return
+  end
+
+  local count = #verts
+  for i = 1, count, 2 do
+    local j = i + 2
+    if j > count then j = 1 end
+    local x1, y1 = verts[i], verts[i + 1]
+    local x2, y2 = verts[j], verts[j + 1]
+    local edgeX, edgeY = x2 - x1, y2 - y1
+    local axisX, axisY = normalize(-edgeY, edgeX)
+    if axisX ~= 0 or axisY ~= 0 then
+      table.insert(axes, { axisX, axisY })
+    end
+  end
+end
+
+local function selectDirection(axisX, axisY, centerA, centerB)
+  if (axisX == 0 and axisY == 0) then
+    return axisX, axisY
+  end
+
+  if centerB > centerA then
+    return axisX, axisY
+  else
+    return -axisX, -axisY
+  end
+end
+
+function Geometry.polygonCircleMTV(verts, cx, cy, radius)
+  if not verts or #verts < 6 then
+    return false
+  end
+
+  local axes = {}
+  appendPolygonAxes(axes, verts)
+
+  -- Axis from closest vertex to circle center helps handle containment cases
+  local closestDx, closestDy
+  local closestDistSq = math.huge
+  for i = 1, #verts, 2 do
+    local vx, vy = verts[i], verts[i + 1]
+    local dx = cx - vx
+    local dy = cy - vy
+    local distSq = dx * dx + dy * dy
+    if distSq < closestDistSq and distSq > 0 then
+      closestDistSq = distSq
+      closestDx, closestDy = dx, dy
+    end
+  end
+  if closestDx and closestDy then
+    local axisX, axisY = normalize(closestDx, closestDy)
+    if axisX ~= 0 or axisY ~= 0 then
+      table.insert(axes, { axisX, axisY })
+    end
+  end
+
+  local minOverlap = math.huge
+  local bestAxisX, bestAxisY = 0, 0
+  local polyCentroidX, polyCentroidY = polygonCentroid(verts)
+
+  for _, axis in ipairs(axes) do
+    local axisX, axisY = axis[1], axis[2]
+    local minA, maxA = projectPolygon(axisX, axisY, verts)
+    local minB, maxB = projectCircle(axisX, axisY, cx, cy, radius)
+    local overlap = math.min(maxA, maxB) - math.max(minA, minB)
+    if overlap <= 0 then
+      return false
+    end
+    if overlap < minOverlap then
+      minOverlap = overlap
+      local centerA = polyCentroidX * axisX + polyCentroidY * axisY
+      local centerB = cx * axisX + cy * axisY
+      bestAxisX, bestAxisY = selectDirection(axisX, axisY, centerA, centerB)
+    end
+  end
+
+  return true, minOverlap, bestAxisX, bestAxisY
+end
+
+function Geometry.polygonPolygonMTV(vertsA, vertsB)
+  if not vertsA or not vertsB or #vertsA < 6 or #vertsB < 6 then
+    return false
+  end
+
+  local axes = {}
+  appendPolygonAxes(axes, vertsA)
+  appendPolygonAxes(axes, vertsB)
+
+  if #axes == 0 then
+    return false
+  end
+
+  local centroidAX, centroidAY = polygonCentroid(vertsA)
+  local centroidBX, centroidBY = polygonCentroid(vertsB)
+
+  local minOverlap = math.huge
+  local bestAxisX, bestAxisY = 0, 0
+
+  for _, axis in ipairs(axes) do
+    local axisX, axisY = axis[1], axis[2]
+    local minA, maxA = projectPolygon(axisX, axisY, vertsA)
+    local minB, maxB = projectPolygon(axisX, axisY, vertsB)
+    local overlap = math.min(maxA, maxB) - math.max(minA, minB)
+    if overlap <= 0 then
+      return false
+    end
+    if overlap < minOverlap then
+      minOverlap = overlap
+      local centerA = centroidAX * axisX + centroidAY * axisY
+      local centerB = centroidBX * axisX + centroidBY * axisY
+      bestAxisX, bestAxisY = selectDirection(axisX, axisY, centerA, centerB)
+    end
+  end
+
+  return true, minOverlap, bestAxisX, bestAxisY
 end
 
 return Geometry
