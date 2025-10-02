@@ -90,6 +90,13 @@ function Turret.new(owner, params)
     -- Firing mode: manual (hold to fire) or automatic (toggle to fire)
     self.fireMode = params.fireMode
     self.autoFire = false -- For automatic mode, tracks toggle state
+    
+    -- Initialize clip system
+    self.clipSize = params.clipSize or 30
+    self.currentClip = self.clipSize -- Start with full clip
+    self.reloadTime = params.reloadTime or 3.0
+    self.reloadTimer = 0 -- Time remaining for reload
+    self.isReloading = false
 
 
     -- Track the turret's current aiming direction in world space so visuals,
@@ -124,6 +131,15 @@ function Turret:update(dt, target, locked, world)
     -- Update cooldown timer
     if self.cooldown > 0 then
         self.cooldown = math.max(0, self.cooldown - dt)
+    end
+    
+    -- Update reload timer
+    if self.isReloading then
+        self.reloadTimer = math.max(0, self.reloadTimer - dt)
+        if self.reloadTimer <= 0 then
+            self.isReloading = false
+            self.currentClip = self.clipSize
+        end
     end
 
 
@@ -217,7 +233,31 @@ end
 
 -- Check if turret can fire (cooldown and heat)
 function Turret:canFire()
-    return self.cooldown <= 0
+    local canFire = self.cooldown <= 0
+    -- Only check clip status for gun turrets
+    if self.kind == "gun" then
+        canFire = canFire and not self.isReloading and self.currentClip > 0
+    end
+    return canFire
+end
+
+-- Start reloading if not already reloading and clip is empty
+function Turret:startReload()
+    if not self.isReloading and self.currentClip < self.clipSize then
+        self.isReloading = true
+        self.reloadTimer = self.reloadTime
+        self.firing = false -- Stop firing when reloading
+    end
+end
+
+-- Get clip status for UI display
+function Turret:getClipStatus()
+    return {
+        current = self.currentClip,
+        max = self.clipSize,
+        isReloading = self.isReloading,
+        reloadProgress = self.isReloading and (1.0 - (self.reloadTimer / self.reloadTime)) or 1.0
+    }
 end
 
 -- Static function to get turret by slot (legacy compatibility)

@@ -117,6 +117,14 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
         end
     end
 
+    -- Consume ammo and check for reload (only for gun turrets)
+    if turret.kind == "gun" and turret.clipSize and turret.clipSize > 0 then
+        turret.currentClip = math.max(0, turret.currentClip - 1)
+        if turret.currentClip <= 0 then
+            turret:startReload()
+        end
+    end
+    
     -- Add heat and play effects (only once per volley, not per projectile)
     TurretEffects.playFiringSound(turret)
 end
@@ -203,6 +211,14 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
             ProjectileWeapons.fireSecondaryProjectile(turret, target, angle, world)
         end
 
+        -- Consume ammo and check for reload (only for gun turrets)
+        if turret.kind == "gun" and turret.clipSize and turret.clipSize > 0 then
+            turret.currentClip = math.max(0, turret.currentClip - 1)
+            if turret.currentClip <= 0 then
+                turret:startReload()
+            end
+        end
+        
         -- Add heat and play effects
         TurretEffects.playFiringSound(turret)
     end

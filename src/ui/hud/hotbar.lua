@@ -149,6 +149,78 @@ function Hotbar.draw(player)
       drewIcon = true
     end
 
+    -- Draw clip status above slot for gun turrets
+    if player and slot.item and type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
+      local idx = tonumber(slot.item:match('^turret_slot_(%d+)$'))
+      if player.components and player.components.equipment and player.components.equipment.grid and idx then
+        local gridData = player.components.equipment.grid[idx]
+        if gridData and gridData.module then
+          local t = gridData.module
+          if t and t.kind == "gun" and t.clipSize and t.clipSize > 0 then
+            local clipStatus = t:getClipStatus()
+            if clipStatus then
+              local barHeight = 4 -- Slim bar height
+              local barY = ry - barHeight - 2 -- Above the slot
+              local barWidth = size
+              local clipPct = clipStatus.current / clipStatus.max
+              
+              -- Clip bar background (dark)
+              love.graphics.setColor(0.1, 0.1, 0.1, 0.8)
+              love.graphics.rectangle('fill', rx, barY, barWidth, barHeight)
+              
+              -- Clip bar fill (depletes from right to left)
+              local fillWidth = math.floor(barWidth * clipPct)
+              local clipColor = {0.2, 0.8, 0.2, 1.0} -- Green
+              if clipPct < 0.3 then
+                clipColor = {0.8, 0.8, 0.2, 1.0} -- Yellow
+              end
+              if clipPct <= 0 then
+                clipColor = {0.8, 0.2, 0.2, 1.0} -- Red
+              end
+              
+              love.graphics.setColor(clipColor)
+              love.graphics.rectangle('fill', rx, barY, fillWidth, barHeight)
+              
+              -- Clip bar border
+              love.graphics.setColor(0.4, 0.4, 0.4, 1.0)
+              love.graphics.setLineWidth(1)
+              love.graphics.rectangle('line', rx, barY, barWidth, barHeight)
+              
+              -- Reloading text and use ammunition bar as progress
+              if clipStatus.isReloading then
+                local textY = barY - 16 -- Above the clip bar
+                local text = "Reloading..."
+                local fOld = love.graphics.getFont()
+                if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
+                local font = love.graphics.getFont()
+                local metrics = UIUtils.getCachedTextMetrics(text, font)
+                local fw = metrics.width
+                local fh = metrics.height
+                local tx = rx + (barWidth - fw) * 0.5 -- Center the text
+                
+                -- Text shadow
+                Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.8))
+                love.graphics.print(text, tx + 1, textY + 1)
+                -- Text
+                Theme.setColor(Theme.colors.text)
+                love.graphics.print(text, tx, textY)
+                
+                -- Use the ammunition bar as reload progress bar
+                local reloadPct = clipStatus.reloadProgress
+                local progressWidth = math.floor(barWidth * reloadPct)
+                
+                -- Reload progress fill (yellow) on top of the clip bar
+                love.graphics.setColor(0.8, 0.8, 0.2, 1.0) -- Yellow
+                love.graphics.rectangle('fill', rx, barY, progressWidth, barHeight)
+                
+                if fOld then love.graphics.setFont(fOld) end
+              end
+            end
+          end
+        end
+      end
+    end
+
     -- Cooldown overlay per slot (reflect module in slot)
     if player and slot.item then
       if slot.item == 'shield' then
@@ -219,6 +291,7 @@ function Hotbar.draw(player)
                 if fOld then love.graphics.setFont(fOld) end
               end
             end
+            
           end
         end
       elseif slot.item == 'turret' then

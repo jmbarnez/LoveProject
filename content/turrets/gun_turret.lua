@@ -58,7 +58,7 @@ return {
     -- Weapon stats
     optimal = 800, falloff = 600,
     damage_range = { min = 1, max = 2 },
-    cycle = 3.0, capCost = 2,
+    cycle = 0.8, capCost = 2,
     maxRange = 2000,
     spread = { minDeg = 0.15, maxDeg = 1.2, decay = 600 },
     
@@ -66,13 +66,10 @@ return {
     volleyCount = 1,
     volleySpreadDeg = 0,
     
-    -- Overheating parameters
-    maxHeat = 100,
-    heatPerShot = 50,
-    cooldownRate = 7.5,
-    overheatCooldown = 5.0,
-    heatCycleMult = 0.7,
-    heatEnergyMult = 1.3,
+    -- Clip system
+    clipSize = 10,        -- Number of rounds per clip
+    reloadTime = 3.0,     -- Time to reload in seconds
+    
     
     -- Firing mode
     fireMode = "manual"
