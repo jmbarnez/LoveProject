@@ -1,6 +1,6 @@
 # Novus - Space Trading & Combat Game
 
-A Love2D-based space trading and combat game inspired by DarkOrbit, featuring ship customization, quests, mining, trading, and multiplayer capabilities.
+A single-player LÖVE 11.x experience that blends top-down space combat, asteroid mining, node-based trading, and quest progression. The project uses a modular Lua codebase with distinct systems for simulation, UI, and content management.
 
 ## Table of Contents
 
@@ -12,344 +12,222 @@ A Love2D-based space trading and combat game inspired by DarkOrbit, featuring sh
 6. [File Structure](#file-structure)
 7. [Getting Started](#getting-started)
 8. [Development Guide](#development-guide)
+9. [Debugging & Tooling](#debugging--tooling)
+10. [AI Contributor Standards](#ai-contributor-standards)
+11. [Performance Considerations](#performance-considerations)
 
 ## Project Overview
 
-**Novus** is a 2D space game built with Love2D (Lua) featuring:
+**Novus** drops the player into a persistent sector anchored by a central hub station. Core gameplay pillars include:
 
-- **Space Combat**: Ship-to-ship combat with various weapons and projectiles
-- **Trading System**: Buy/sell items, ships, and equipment
-- **Mining**: Extract resources from asteroids
-- **Quest System**: Procedural and scripted missions
-- **Ship Customization**: Equip different turrets and modules
-- **Multiplayer**: Basic multiplayer support
-- **Trading Nodes**: Stock market simulation with technical analysis
-- **Sector Warping**: Travel between different galactic sectors
+- **Space Combat** – Player-controlled ships fight AI enemies using configurable turrets and abilities.
+- **Mining & Salvage** – Asteroids can be mined for ore; wreckage drops salvageable resources and loot.
+- **Docking & Trade** – Stations expose shop, quest, and node-market tabs. Furnace stations convert ore into refined items or credits.
+- **Procedural Economy** – The node market simulates multiple tickers with candlestick data, allowing buy/sell orders and portfolio tracking.
+- **Quest Progression** – Generated and scripted quests drive objectives and rewards.
+- **Warp Network** – Warp gates (and the warp UI) let the player travel to configured sectors once unlocked.
 
-### Key Features
-
-- **Entity-Component System**: Modular entity architecture
-- **Procedural Content**: Auto-discovery of content files
-- **Real-time Combat**: Physics-based movement and collision
-- **Persistent World**: Save/load game state
-- **Modular UI**: Tabbed interface with multiple panels
-- **Sound System**: Music and SFX with distance-based attenuation
+Multiplayer is not implemented; all systems run locally in a single-player loop.
 
 ## Architecture
 
-### Core Architecture Pattern
+### Entry Points
 
-The game follows an **Entity-Component-System (ECS)** pattern with some variations:
+- **`conf.lua`** – Sets window defaults, vsync, and save identity before the engine loads the game.
+- **`main.lua`** – Initializes logging, debugging, theme/fonts, sound settings, and the start screen. It forwards Love callbacks into the `Input` module and `src/game.lua` once a session begins.
+- **`src/game.lua`** – Coordinates world creation, content loading, system initialization, and per-frame updates/draws. It also manages the central hub station, warp gates, and auto-save cadence.
 
-- **Entities**: Game objects (ships, projectiles, stations, etc.)
-- **Components**: Data containers (position, health, renderable, etc.)
-- **Systems**: Logic processors that operate on entities with specific components
+### Entity-Component Style
 
-### Main Entry Points
+Entities are Lua tables composed of component tables (position, physics, health, ai, cargo, etc.). Systems iterate over the world and mutate entities based on their components. Factories in `src/templates` standardize how ships, projectiles, stations, and pickups are created.
 
-- **`main.lua`**: Love2D entry point, handles screen transitions and main loop
-- **`src/game.lua`**: Core game logic, system orchestration, and world management
-- **`conf.lua`**: Love2D configuration (window settings, etc.)
+### Major Managers & Services
 
-### Key Architectural Components
-
-#### 1. Entity Factory System
-- **Location**: `src/templates/entity_factory.lua`
-- **Purpose**: Universal entity creation from content definitions
-- **Supports**: Ships, projectiles, world objects, stations, warp gates
-
-#### 2. Content System
-- **Location**: `src/content/`
-- **Purpose**: Auto-discovery and loading of game content
-- **Features**: Validation, normalization, icon generation
-
-#### 3. World Management
-- **Location**: `src/core/world.lua`
-- **Purpose**: Entity storage, spatial queries, background rendering
-- **Features**: Quadtree for collision detection, parallax starfield
-
-#### 4. System Orchestration
-- **Location**: `src/systems/`
-- **Purpose**: Game logic systems (AI, physics, rendering, etc.)
-- **Pattern**: Each system operates on entities with specific components
+- **World (`src/core/world.lua`)** – Spatial registry with optional quadtree acceleration and background rendering hooks.
+- **UI Manager (`src/core/ui_manager.lua`)** – Routes input, manages modal state, and draws registered panels.
+- **State Manager (`src/managers/state_manager.lua`)** – Handles save/load, autosave timers, and migration hooks.
+- **Portfolio Manager (`src/managers/portfolio.lua`)** – Tracks player market holdings and transaction history.
 
 ## Core Systems
 
-### Game Loop Systems (in order)
+The simulation loop in `src/game.lua` updates systems in a defined order each frame:
 
-1. **Input System** (`src/systems/player.lua`)
-   - Processes player input
-   - Handles movement, combat, UI interactions
+1. **Input** (`src/core/input.lua`) – Refreshes input state and early-outs if modal UI is active.
+2. **UI Manager Update** (`UIManager.update`) – Drives UI animation and modal logic.
+3. **Status/HUD Systems** – Updates HUD-specific effects (`StatusBars`, `SkillXpPopup`).
+4. **Player System** (`src/systems/player.lua`) – Applies movement, combat, warp readiness, dash/boost, and thruster state.
+5. **Audio Listener** – Follows the player for positional audio (`src/core/sound.lua`).
+6. **AI System** (`src/systems/ai.lua`) – Runs enemy behavior trees, target selection, and combat responses.
+7. **Physics System** (`src/systems/physics.lua`) – Integrates velocities, applies thruster forces, and updates physics bodies.
+8. **Projectile Lifecycle** (`src/systems/projectile_lifecycle.lua`) – Handles ranged expiration and beam lifetimes.
+9. **Boundary System** (`src/systems/boundary_system.lua`) – Keeps entities within the world bounds.
+10. **Collision System** (`src/systems/collision/core.lua`) – Resolves entity/projectile collisions and applies damage.
+11. **Destruction System** (`src/systems/destruction.lua`) – Cleans up dead entities, spawns wreckage/loot, and fires destruction events.
+12. **Spawning System** (`src/systems/spawning.lua`) – Manages AI spawn waves, hub safety radii, and spawn timers.
+13. **Repair System** (`src/systems/repair_system.lua`) – Allows repair beacon interactions near damaged stations.
+14. **Hub/Station System** (`src/systems/hub.lua`) – Updates docking proximity and station services.
+15. **Mining System** (`src/systems/mining.lua`) – Drives mining channel progress and ore yield.
+16. **Pickups System** (`src/systems/pickups.lua`) – Applies magnetic attraction and resolves pickup collection.
+17. **Interaction System** (`src/systems/interaction.lua`) – Handles context prompts (docking, warp, loot) and input gating.
+18. **Engine Trail System** (`src/systems/engine_trail.lua`) – Updates thruster visuals based on player movement state.
+19. **Effects System** (`src/systems/effects.lua`) – Manages transient visual effects (explosions, particles).
+20. **Quest System** (`src/systems/quest_system.lua`) – Progresses active quests, updates UI, and awards rewards.
+21. **Node Market** (`src/systems/node_market.lua`) – Simulates ticker prices, candles, and processes buy/sell orders.
+22. **Warp Gate System** (`src/systems/warp_gate_system.lua`) – Tracks gate states and unlock logic.
+23. **Camera & World Update** (`camera:update`, `world:update`) – Moves the camera and prunes dead entities.
+24. **State Manager** (`StateManager.update`) – Advances autosave timers.
+25. **Docking Check** – Updates docking eligibility for nearby stations.
+26. **Events Queue** (`Events.processQueue`) – Flushes queued events to listeners.
+27. **Hotbar System** (`src/systems/hotbar.lua`) – Updates ability/turret cooldown UI and manual firing state.
 
-2. **AI System** (`src/systems/ai.lua`)
-   - Enemy ship behavior
-   - State machines (idle, hunting, retreating)
-   - Target acquisition and combat logic
-
-3. **Physics System** (`src/systems/physics.lua`)
-   - Movement and velocity updates
-   - Thruster effects and engine trails
-
-4. **Collision System** (`src/systems/collision/`)
-   - Entity-to-entity collisions
-   - Projectile hits and damage application
-   - Spatial queries using quadtree
-
-5. **Destruction System** (`src/systems/destruction.lua`)
-   - Handles entity death
-   - Spawns wreckage and loot
-   - Triggers death events
-
-6. **Spawning System** (`src/systems/spawning.lua`)
-   - Enemy spawn management
-   - Safe zone enforcement
-   - Difficulty scaling
-
-7. **Mining System** (`src/systems/mining.lua`)
-   - Asteroid mining mechanics
-   - Resource extraction
-   - Mining progression
-
-8. **Pickup System** (`src/systems/pickups.lua`)
-   - Item collection
-   - Magnetic pickup effects
-   - Inventory management
-
-9. **Quest System** (`src/systems/quest_system.lua`)
-   - Quest tracking and completion
-   - Event-based progress updates
-   - Reward distribution
-
-10. **Render System** (`src/systems/render/`)
-    - Entity rendering
-    - UI overlay
-    - Special effects
-
-### Supporting Systems
-
-- **Sound System** (`src/core/sound.lua`): Audio management with distance attenuation
-- **Event System** (`src/core/events.lua`): Decoupled event communication
-- **State Manager** (`src/managers/state_manager.lua`): Save/load functionality
-- **Multiplayer** (`src/core/multiplayer.lua`): Network synchronization
-- **Node Market** (`src/systems/node_market.lua`): Trading node simulation
+Rendering is handled by `RenderSystem.draw` and UI overlays executed via `UIManager.draw` and HUD helpers once the world is drawn.
 
 ## Content System
 
-### Content Structure
+Game data lives under `content/` and is loaded on boot by `src/content/content.lua`. The pipeline:
 
-The game uses a **file-based content system** with auto-discovery:
+1. **Discovery** – `src/content/design_loader.lua` crawls the content tree, indexing files for ships, items, turrets (with embedded projectiles), world objects, quests, and sounds.
+2. **Validation** – `src/content/validator.lua` enforces schema requirements (required keys, value ranges, tag usage) to prevent runtime crashes.
+3. **Normalization** – `src/content/normalizer.lua` applies defaults, expands shorthand definitions, and harmonizes numeric fields.
+4. **Icon Rendering** – `src/content/icon_renderer.lua` generates procedural icons consumed by the UI.
+5. **Runtime Registry** – `src/content/content.lua` exposes accessor APIs (`getShip`, `getItem`, etc.) for systems and UI panels.
+
+Key content directories:
 
 ```
 content/
-├── items/          # Equipment, resources, modules
-├── ships/          # Ship definitions
-├── turrets/        # Weapon systems
-├── projectiles/    # Ammunition types
-├── world_objects/  # Stations, asteroids, planets
-└── sounds/         # Audio files
+├── items/           # Equipment, consumables, crafting resources
+├── ships/           # Player and AI ship definitions
+├── turrets/         # Turret definitions with embedded projectile data
+├── projectiles/     # Legacy projectile overrides (still referenced by some systems)
+├── world_objects/   # Stations, asteroids, and interactive scenery
+├── sounds/          # Event-to-sound mappings consumed by the audio system
+├── quests/          # Quest templates and generators (via quest_generator.lua)
+└── version_log.json # Patch notes displayed on the start screen
 ```
-
-### Content Loading Process
-
-1. **Discovery** (`src/content/design_loader.lua`): Scans content directories
-2. **Validation** (`src/content/validator.lua`): Ensures content integrity
-3. **Normalization** (`src/content/normalizer.lua`): Standardizes data format
-4. **Icon Generation** (`src/content/icon_renderer.lua`): Creates UI icons
-5. **Storage** (`src/content/content.lua`): Caches loaded content
-
-### Adding New Content
-
-1. **Create Definition File**: Add `.lua` file in appropriate content directory
-2. **Define Structure**: Follow existing patterns for your content type
-3. **Auto-Discovery**: Content will be automatically loaded on game start
-4. **Validation**: Ensure your content passes validation rules
-
-### Content Types
-
-#### Items
-- **Equipment**: Shields, engines, weapons
-- **Resources**: Ores, materials, currency
-- **Modules**: Upgrade components
-
-#### Ships
-- **Player Ships**: Different starting vessels
-- **Enemy Ships**: Various AI-controlled threats
-- **NPC Ships**: Freighters, traders
-
-#### Turrets
-- **Weapons**: Guns, lasers, missiles
-- **Mining Tools**: Mining lasers, salvaging equipment
-- **Special**: Repair beams, shield generators
 
 ## UI System
 
-### UI Architecture
+The UI layer combines HUD overlays with modal panels managed by `UIManager`.
 
-The UI system uses a **modular panel approach**:
+### Start Screen (`src/ui/start_screen.lua`)
 
-- **UIManager** (`src/core/ui_manager.lua`): Central UI coordination
-- **Individual Panels**: Self-contained UI components
-- **Theme System** (`src/core/theme.lua`): Consistent styling
+- **Start Game** – Launches a new session.
+- **Load Game** – Opens the save slot panel (`src/ui/save_load.lua`).
+- **Settings** – Toggles the settings panel overlay (`src/ui/settings_panel.lua`).
+- **Version Log** – Displays patch notes sourced from `content/version_log.json`.
 
-#### UI Sizing Source of Truth
-- All UI spacing and control sizes are defined in `Theme.ui` (`src/core/theme.lua`).
-- Tokens: `titleBarHeight`, `borderWidth`, `contentPadding`, `buttonHeight`, `buttonSpacing`, `menuButtonPaddingX`.
-- Windows, panels, and common widgets read these tokens instead of hardcoded values.
+### In-Game Panels
 
-### Main UI Panels
+- **HUD (`src/ui/hud/`)** – Renders reticle, health/energy/shield bars, quest log, minimap, and hotbar.
+- **Docked UI (`src/ui/docked.lua`)** – Tabbed station services (Shop, Quests, Node Market, Furnace handling, inventory interactions).
+- **Inventory (`src/ui/inventory.lua`)** – Item management with search and drag/drop.
+- **Skills (`src/ui/skills.lua`)** – Shows skill levels and XP progress.
+- **Nodes (`src/ui/nodes.lua`)** – Advanced trading UI with candlestick charts, technical indicators, and order placement.
+- **Warp (`src/ui/warp.lua`)** – Displays available sectors and warp requirements.
+- **Escape Menu (`src/ui/escape_menu.lua`)** – Save/load access, settings shortcut, and quit.
+- **Debug Panel (`src/ui/debug_panel.lua`)** – F1-toggled overlay that surfaces FPS, timings, and AI proximity.
 
-#### 1. Start Screen (`src/ui/start_screen.lua`)
-- Game launcher
-- Multiplayer menu
-- Settings access
-- Save/load slots
-
-#### 2. Docked Interface (`src/ui/docked.lua`)
-- **Shop Tab**: Buy/sell items and ships
-- **Ship Tab**: Equipment and customization
-- **Quests Tab**: Mission management
-- **Nodes Tab**: Trading node interface
-
-#### 3. HUD (`src/ui/hud/`)
-- **Status Bars**: Health, energy, shields
-- **Minimap**: World overview
-- **Quest Log**: Active mission display
-- **Hotbar**: Quick actions
-
-#### 4. Specialized Panels
-- **Inventory** (`src/ui/inventory.lua`): Item management
-- **Settings** (`src/ui/settings_panel.lua`): Game configuration
-- **Warp** (`src/ui/warp.lua`): Sector navigation
-- **Debug** (`src/ui/debug_panel.lua`): Development tools
-
-#### Modal Behavior and Input
-- When modal UI (escape menu, settings, map) is open, input is consumed by UI.
-- `PlayerSystem` additionally gates gameplay controls via `UIManager.isModalActive()`.
-
-### UI Interaction Patterns
-
-- **Modal Windows**: Full-screen overlays (docked, settings)
-- **Tooltips**: Context-sensitive help
-- **Drag & Drop**: Equipment management
-- **Context Menus**: Right-click actions
+Modal panels signal `UIManager.isModalActive()` so gameplay input (movement, firing) can be paused while menus are open.
 
 ## File Structure
 
 ```
 LoveProject/
-├── main.lua                    # Entry point
-├── conf.lua                    # Love2D configuration
-├── src/                        # Source code
-│   ├── core/                   # Core systems (camera, events, input, etc.)
-│   ├── components/             # ECS components (ai, health, position, etc.)
-│   ├── entities/               # Entity implementations (player, remote_player, etc.)
-│   ├── systems/                # Game systems (ai, collision, mining, etc.)
-│   ├── templates/              # Entity templates (ship, projectile, etc.)
-│   ├── ui/                     # User interface panels and components
-│   ├── content/                # Content management (loader, validator, etc.)
-│   ├── effects/                # Visual effects
-│   ├── libs/                   # Third-party libraries
-│   ├── managers/               # High-level managers (state, portfolio)
-│   ├── shaders/                # GLSL shaders
-│   └── tools/                  # Development tools
-├── content/                    # Game content
-│   ├── items/                  # Item definitions
-│   ├── ships/                  # Ship definitions
-│   ├── turrets/                # Weapon definitions
-│   ├── projectiles/            # Projectile definitions
-│   ├── world_objects/          # World object definitions
-│   └── sounds/                 # Audio files
-└── assets/                     # Static assets
-    └── fonts/                  # Font files
+├── assets/
+│   └── fonts/
+├── content/
+│   ├── items/
+│   ├── ships/
+│   ├── turrets/
+│   ├── projectiles/
+│   ├── world_objects/
+│   ├── sounds/
+│   └── version_log.json
+├── docs/
+│   ├── ARCHITECTURE_GUIDE.md
+│   ├── CONTENT_GUIDE.md
+│   ├── PROJECT_DOCUMENTATION.md
+│   ├── SYSTEMS_GUIDE.md
+│   └── AI_AGENT_GUIDE.md
+├── src/
+│   ├── components/
+│   ├── content/
+│   ├── core/
+│   ├── effects/
+│   ├── entities/
+│   ├── libs/
+│   ├── managers/
+│   ├── shaders/
+│   ├── systems/
+│   ├── templates/
+│   └── ui/
+├── main.lua
+├── conf.lua
+├── build_love.bat
+└── love.exe / dlls (Windows runtime helpers for testing)
 ```
 
 ## Getting Started
 
-### Prerequisites
-
-- **Love2D 11.x**: Download from [love2d.org](https://love2d.org)
-- **Lua 5.1**: Included with Love2D
-
-### Running the Game
-
-1. **Install Love2D** on your system
-2. **Navigate** to the project directory
-3. **Run**: `love .` (or drag folder onto Love2D executable)
-
-### Building Distribution
-
-- **Windows**: Use `build_love.bat` to create `.love` file
-- **Distribution**: Package with Love2D executable for standalone
+1. **Install LÖVE 11.x** and ensure `love` is available on your PATH.
+2. **Clone** the repository and open a terminal in the project root.
+3. **Run** `love .` to launch the start screen.
+4. **Package** (Windows): Run `build_love.bat` to create a `.love` archive for distribution alongside the LÖVE executable.
 
 ## Development Guide
 
-### Adding New Features
+### Adding a New Entity Type
 
-#### 1. New Entity Type
-1. Create template in `src/templates/`
-2. Add to `entity_factory.lua`
-3. Create content definitions in `content/`
-4. Add rendering support in `src/systems/render/`
+1. Define a template in `src/templates/` (or extend `entity_factory.lua`).
+2. Register content definitions under `content/` if the entity is data-driven.
+3. Update relevant systems (rendering, AI, interaction) to recognize the new entity type.
 
-#### 2. New Game System
-1. Create system file in `src/systems/`
-2. Add update call in `src/game.lua`
-3. Implement component interactions
-4. Add UI integration if needed
+### Adding a New System
 
-#### 3. New UI Panel
-1. Create panel file in `src/ui/`
-2. Register with `UIManager`
-3. Add navigation/input handling
-4. Follow theme system for styling
+1. Create the system module inside `src/systems/`.
+2. Require and invoke it from the update loop in `src/game.lua` at the appropriate spot.
+3. Expose any events or hooks via `src/core/events.lua` for decoupled communication.
+4. Update documentation and manual test instructions.
 
-### Debugging
+### Extending the UI
 
-- **Debug Panel**: Press F1 for debug information
-- **Console Logging**: Use `Log` module for output
-- **Entity Inspection**: Debug panel shows entity details
-- **Performance**: Debug panel shows frame timing
+1. Build the panel or widget under `src/ui/` and register it with `UIManager` (either via the registry or direct integration).
+2. Respect the theme spacing tokens defined in `src/core/theme.lua`.
+3. Use `UIManager.toggle`/`open`/`close` patterns to participate in modal flow.
 
-### Code Style Guidelines
+### Content Updates
 
-- **Lua Conventions**: Follow standard Lua style
-- **Module Pattern**: Use `local Module = {}` pattern
-- **Error Handling**: Use `pcall` for risky operations
-- **Documentation**: Comment complex logic
-- **Naming**: Use descriptive, consistent names
+1. Add or modify files in `content/`.
+2. Run the game to ensure the loader validates and surfaces the new data.
+3. Update `docs/CONTENT_GUIDE.md` if new schema fields or workflows are introduced.
 
-### Common Patterns
+## Debugging & Tooling
 
-#### Entity Creation
-```lua
-local entity = EntityFactory.create("ship", "ship_id", x, y, extraConfig)
-world:addEntity(entity)
-```
+- **F1** – Toggle the debug panel overlay.
+- **F5 / F9** – Quick save / quick load via `StateManager`.
+- **Version Log** – Accessible from the start screen for recent changes.
+- **Logging** – Uses `src/core/log.lua` with levels controlled by `src/core/debug.lua`.
+- **Manual Testing** – Launch the game (`love .`) and exercise scenarios (combat, docking, mining, trading) described in PR summaries.
 
-#### System Update
-```lua
-function MySystem.update(dt, world)
-    for _, entity in ipairs(world:get_entities_with_components("my_component")) do
-        -- Process entity
-    end
-end
-```
+## AI Contributor Standards
 
-#### Event Handling
-```lua
-Events.on(Events.GAME_EVENTS.MY_EVENT, function(data)
-    -- Handle event
-end)
-```
+Automated contributors must:
 
-### Performance Considerations
+- Obey all relevant `AGENTS.md` instructions.
+- Plan work before editing and surface risks or ambiguities.
+- Validate builds or document why commands could not be executed.
+- Update documentation when behavior changes affect gameplay or workflows.
+- Provide detailed PR summaries including manual testing steps.
 
-- **Quadtree**: Used for spatial queries and collision detection
-- **Entity Cleanup**: Dead entities are removed each frame
-- **Icon Caching**: Generated icons are cached for performance
-- **LOD System**: Distance-based rendering optimizations
-- **Batch Operations**: Group similar operations together
+Refer to `docs/AI_AGENT_GUIDE.md` for the full checklist.
 
----
+## Performance Considerations
 
-This documentation provides a comprehensive guide to navigating and extending the Novus codebase. For specific implementation details, refer to the individual source files and their inline documentation.
+- **Quadtree Queries** – `world:getEntitiesInBounds` uses the optional quadtree when attached; keep bounding boxes conservative to avoid missed collisions.
+- **Entity Cleanup** – `world:update` prunes dead entities each frame; ensure systems mark `entity.dead = true` instead of removing directly.
+- **Icon Caching** – Icon generation caches procedurally created images. When adding new icon shapes, ensure `icon_renderer` caches are invalidated appropriately.
+- **Economy Simulation** – `NodeMarket` caps candle history and throttles order generation; maintain those limits to avoid runaway memory.
+- **Shader Usage** – Shaders reside in `src/shaders/`; when adding new ones, guard against unsupported hardware by providing fallbacks.
+
+For deeper architectural details, see `docs/ARCHITECTURE_GUIDE.md` and `docs/SYSTEMS_GUIDE.md`.
