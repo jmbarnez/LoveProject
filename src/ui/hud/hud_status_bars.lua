@@ -459,6 +459,7 @@ end
 
 function HUDStatusBars.draw(player, world)
     if not initialized then initialize() end
+    if not player or not player.components or not player.components.health then return end
 
     local sw, sh = Viewport.getDimensions()
     local s = math.min(sw / 1920, sh / 1080)
@@ -466,15 +467,54 @@ function HUDStatusBars.draw(player, world)
     local barWidth = 250
     local barHeight, gap = math.floor(18 * s), math.floor(4 * s)
 
+    local h = player.components.health
 
-    -- Hull and Shield at bottom-center
-    local centerX = sw / 2
-    local hullX = centerX - barWidth - gap
-    local shieldX = centerX + gap
-    local bottomY = sh - barHeight - 12
-
-    bars.hull:draw(hullX, bottomY, barWidth, barHeight)
-    bars.shield:draw(shieldX, bottomY, barWidth, barHeight)
+    -- Combined hull + shield bar (shield overlays hull)
+    local topLeftX = 16 -- 16px from left edge
+    local topLeftY = 16 -- 16px from top edge
+    
+    -- Calculate shield percentage for overlay
+    local shield = h.shield or 0
+    local maxShield = h.maxShield or (h.shield or 0)
+    local shieldPct = maxShield > 0 and (shield / maxShield) or 0
+    
+    -- Draw full-width hull bar as base (always red, full width)
+    Theme.drawSciFiBar(topLeftX, topLeftY, barWidth, barHeight, 1.0, Theme.semantic.statusHull)
+    
+    -- Draw shield bar overlaying hull (blue overlay, only shield portion)
+    if shield > 0 then
+        local shieldWidth = shieldPct * barWidth
+        Theme.drawSciFiBar(topLeftX, topLeftY, shieldWidth, barHeight, 1.0, Theme.semantic.statusShield)
+    end
+    
+    -- Slim energy bar underneath (shorter than hull/shield bar)
+    local slimBarHeight = math.floor(8 * s)
+    local slimGap = math.floor(4 * s)
+    local energyY = topLeftY + barHeight + slimGap
+    
+    local energy = h.energy or 0
+    local maxEnergy = h.maxEnergy or (h.energy or 0)
+    local energyPct = maxEnergy > 0 and (energy / maxEnergy) or 0
+    
+    -- Make energy bar shorter than hull/shield bar
+    local energyBarWidth = math.floor(barWidth * 0.7) -- 70% of hull/shield bar width
+    local energyBarX = topLeftX -- Align with left edge of hull/shield bar
+    
+    -- Draw energy bar with no rounded corners
+    Theme.setColor(Theme.colors.bg1)
+    love.graphics.rectangle("fill", energyBarX, energyY, energyBarWidth, slimBarHeight)
+    
+    -- Energy fill
+    if energyPct > 0 then
+        local fillWidth = energyBarWidth * energyPct
+        Theme.setColor(Theme.semantic.statusCapacitor)
+        love.graphics.rectangle("fill", energyBarX, energyY, fillWidth, slimBarHeight)
+    end
+    
+    -- Border
+    Theme.setColor(Theme.colors.border)
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", energyBarX, energyY, energyBarWidth, slimBarHeight)
 
     -- XP bar at the bottom of the screen
     local xpBarHeight = 4

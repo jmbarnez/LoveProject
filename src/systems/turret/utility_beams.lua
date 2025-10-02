@@ -50,6 +50,11 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
         return
     end
 
+    -- Initialize timer if it doesn't exist
+    if not turret._beamImpactTimer then
+        turret._beamImpactTimer = IMPACT_INTERVAL
+    end
+    
     turret._beamImpactTimer = math.max(0, turret._beamImpactTimer - dt)
 
     -- Get turret world position first for accurate aiming
@@ -321,6 +326,11 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
         return
     end
 
+    -- Initialize timer if it doesn't exist
+    if not turret._beamImpactTimer then
+        turret._beamImpactTimer = IMPACT_INTERVAL
+    end
+    
     turret._beamImpactTimer = math.max(0, turret._beamImpactTimer - dt)
 
     -- Get turret world position first for accurate aiming

@@ -64,73 +64,10 @@ function Hotbar.draw(player)
   local totalSlots = #HotbarSystem.slots
   local w = totalSlots * size + (totalSlots - 1) * gap
   local x = math.floor((sw - w) * 0.5)
-  local y = sh - size - 42
+  local y = sh - size - 8 -- Much closer to bottom, just 8px above XP bar
 
 
-  -- Draw vertical energy bar next to hull bar (left side)
-  if player and player.components and player.components.health then
-    local health = player.components.health
-    local energy = health.energy or 0
-    local maxEnergy = health.maxEnergy or 100
-    local energyPct = maxEnergy > 0 and (energy / maxEnergy) or 0
-    
-    -- Calculate position next to hull bar
-    local barWidth = 250
-    local barHeight = 18
-    local gap = 4
-    local centerX = sw / 2
-    local hullX = centerX - barWidth - gap
-    local bottomY = sh - barHeight - 12
-    
-    -- Vertical energy bar dimensions - extend to just above XP bar
-    local energyBarWidth = 12 -- Thin vertical bar
-    local xpBarHeight = 4 -- XP bar height
-    local energyBarHeight = (sh - xpBarHeight) - y -- From hotbar top to just above XP bar
-    local energyBarX = hullX - energyBarWidth - 10 -- Left of hull bar
-    local energyBarY = y -- Start at hotbar top
-    
-    -- Energy bar background
-    Theme.setColor(Theme.withAlpha(Theme.colors.bg2, 0.8))
-    love.graphics.rectangle("fill", energyBarX, energyBarY, energyBarWidth, energyBarHeight, 2, 2)
-    Theme.setColor(Theme.withAlpha(Theme.colors.borderBright, 0.6))
-    love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", energyBarX, energyBarY, energyBarWidth, energyBarHeight, 2, 2)
-    
-    -- Energy bar fill (cyan) - fills from bottom up
-    local fillHeight = energyBarHeight * energyPct
-    if fillHeight > 0 then
-      Theme.setColor({0.2, 0.8, 1.0, 0.9}) -- Bright cyan
-      local fillY = energyBarY + energyBarHeight - fillHeight -- Start from bottom
-      love.graphics.rectangle("fill", energyBarX, fillY, energyBarWidth, fillHeight, 2, 2)
-    end
-    
-    -- Draw speed bar on right side next to shield bar
-    local shieldX = centerX + gap
-    local rightBarX = shieldX + barWidth + 10 -- Right of shield bar
-    
-    -- Calculate speed percentage
-    if player.components.physics and player.components.physics.body then
-      local body = player.components.physics.body
-      local speed = math.sqrt(body.vx * body.vx + body.vy * body.vy)
-      local maxSpeed = body.maxSpeed or 500
-      local speedPct = maxSpeed > 0 and math.min(speed / maxSpeed, 1.0) or 0
-      
-      -- Right side bar background
-      Theme.setColor(Theme.withAlpha(Theme.colors.bg2, 0.8))
-      love.graphics.rectangle("fill", rightBarX, energyBarY, energyBarWidth, energyBarHeight, 2, 2)
-      Theme.setColor(Theme.withAlpha(Theme.colors.borderBright, 0.6))
-      love.graphics.setLineWidth(1)
-      love.graphics.rectangle("line", rightBarX, energyBarY, energyBarWidth, energyBarHeight, 2, 2)
-      
-      -- Speed bar fill (yellow) - fills from bottom up
-      local fillHeight = energyBarHeight * speedPct
-      if fillHeight > 0 then
-        Theme.setColor({1.0, 0.8, 0.2, 0.9}) -- Bright yellow
-        local fillY = energyBarY + energyBarHeight - fillHeight -- Start from bottom
-        love.graphics.rectangle("fill", rightBarX, fillY, energyBarWidth, fillHeight, 2, 2)
-      end
-    end
-  end
+  -- Status bars are now handled by hud_status_bars.lua
 
 
   for i, slot in ipairs(HotbarSystem.slots) do
