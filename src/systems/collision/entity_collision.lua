@@ -101,31 +101,50 @@ local function getCollisionShape(entity)
     }
 end
 
-local function polygonVsCircle(polygon, circle)
-    return Geometry.polygonVsCircle(polygon.vertices, circle.x, circle.y, circle.radius)
-end
-
 local function checkEntityCollision(entity1, entity2)
     local shape1 = getCollisionShape(entity1)
     local shape2 = getCollisionShape(entity2)
 
-    -- If either entity has no collision shape, no collision occurs
     if not shape1 or not shape2 then
         return false
     end
 
     if shape1.type == "polygon" and shape2.type == "polygon" then
-        return Geometry.polygonVsPolygon(shape1.vertices, shape2.vertices)
-    elseif shape1.type == "polygon" then
-        return polygonVsCircle(shape1, shape2)
-    elseif shape2.type == "polygon" then
-        return polygonVsCircle(shape2, shape1)
+        local collided, overlap, nx, ny = Geometry.polygonPolygonMTV(shape1.vertices, shape2.vertices)
+        if not collided then
+            return false
+        end
+        return true, { overlap = overlap, normalX = nx, normalY = ny, shape1 = shape1, shape2 = shape2 }
+    elseif shape1.type == "polygon" and shape2.type == "circle" then
+        local collided, overlap, nx, ny = Geometry.polygonCircleMTV(shape1.vertices, shape2.x, shape2.y, shape2.radius)
+        if not collided then
+            return false
+        end
+        return true, { overlap = overlap, normalX = nx, normalY = ny, shape1 = shape1, shape2 = shape2 }
+    elseif shape1.type == "circle" and shape2.type == "polygon" then
+        local collided, overlap, nx, ny = Geometry.polygonCircleMTV(shape2.vertices, shape1.x, shape1.y, shape1.radius)
+        if not collided then
+            return false
+        end
+        return true, { overlap = overlap, normalX = -nx, normalY = -ny, shape1 = shape1, shape2 = shape2 }
     else
-        local dx = shape1.x - shape2.x
-        local dy = shape1.y - shape2.y
+        local dx = shape2.x - shape1.x
+        local dy = shape2.y - shape1.y
         local distanceSq = dx * dx + dy * dy
         local minDistance = shape1.radius + shape2.radius
-        return distanceSq < (minDistance * minDistance)
+        if distanceSq < (minDistance * minDistance) then
+            local distance = math.sqrt(distanceSq)
+            local nx, ny
+            if distance > 0 then
+                nx = dx / distance
+                ny = dy / distance
+            else
+                nx, ny = 1, 0
+                distance = minDistance
+            end
+            return true, { overlap = (minDistance - distance), normalX = nx, normalY = ny, shape1 = shape1, shape2 = shape2 }
+        end
+        return false
     end
 end
 
@@ -187,53 +206,32 @@ local function pushEntity(entity, pushX, pushY, normalX, normalY, dt, restitutio
 end
 
 -- Resolve collision between two entities
-function EntityCollision.resolveEntityCollision(entity1, entity2, dt)
+function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
     local e1x = entity1.components.position.x
     local e1y = entity1.components.position.y
     local e2x = entity2.components.position.x
     local e2y = entity2.components.position.y
 
-    -- Calculate collision normal (direction from entity2 to entity1)
-    local dx = e1x - e2x
-    local dy = e1y - e2y
-    local distance = math.sqrt(dx * dx + dy * dy)
-
-    if distance < 0.1 then
-        -- Avoid division by zero, use arbitrary direction
-        dx, dy = 1, 0
-        distance = 1
-    end
-
-    -- Normalize collision normal
-    local nx = dx / distance
-    local ny = dy / distance
-
-    -- Get collision shapes for proper overlap calculation
-    local shape1 = getCollisionShape(entity1)
-    local shape2 = getCollisionShape(entity2)
-    
-    -- If either entity has no collision shape, no collision occurs
-    if not shape1 or not shape2 then
+    if not collision then
         return
     end
-    
-    -- Calculate overlap based on collision shapes
-    local overlap = 0
-    if shape1.type == "polygon" and shape2.type == "polygon" then
-        -- For polygon vs polygon, use distance between centers as overlap approximation
-        local e1Radius = getEntityCollisionRadius(entity1)
-        local e2Radius = getEntityCollisionRadius(entity2)
-        overlap = (e1Radius + e2Radius) - distance
-    elseif shape1.type == "polygon" or shape2.type == "polygon" then
-        -- For polygon vs circle, use distance between centers
-        local e1Radius = getEntityCollisionRadius(entity1)
-        local e2Radius = getEntityCollisionRadius(entity2)
-        overlap = (e1Radius + e2Radius) - distance
-    else
-        -- For circle vs circle, use standard radius calculation
-        local e1Radius = hasActiveShield(entity1) and Radius.getShieldRadius(entity1) or getEntityCollisionRadius(entity1)
-        local e2Radius = hasActiveShield(entity2) and Radius.getShieldRadius(entity2) or getEntityCollisionRadius(entity2)
-        overlap = (e1Radius + e2Radius) - distance
+
+    local overlap = collision.overlap or 0
+    if overlap <= 0 then
+        return
+    end
+
+    local nx = collision.normalX or 0
+    local ny = collision.normalY or 0
+    if nx == 0 and ny == 0 then
+        local dx = e1x - e2x
+        local dy = e1y - e2y
+        local d = math.sqrt(dx * dx + dy * dy)
+        if d < 0.1 then
+            nx, ny = 1, 0
+        else
+            nx, ny = dx / d, dy / d
+        end
     end
 
     if overlap > 0 then
@@ -360,9 +358,9 @@ function EntityCollision.handleEntityCollisions(collisionSystem, entity, world, 
             end
 
             -- Check for collision
-            local collided = checkEntityCollision(entity, other)
+            local collided, collision = checkEntityCollision(entity, other)
             if collided then
-                EntityCollision.resolveEntityCollision(entity, other, dt)
+                EntityCollision.resolveEntityCollision(entity, other, dt, collision)
             end
 
             ::continue::
