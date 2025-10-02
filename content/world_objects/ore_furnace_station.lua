@@ -17,6 +17,33 @@ return {
         stone_cracking = true,
     },
 
+    collidable = {
+        shape = "polygon",
+        friendly = true,
+        vertices = {
+            18, -132,
+            -18, -132,
+            -18, -82,
+            -82, -82,
+            -82, -30,
+            -132, -30,
+            -132, 30,
+            -82, 30,
+            -82, 82,
+            -18, 82,
+            -18, 132,
+            18, 132,
+            18, 82,
+            82, 82,
+            82, 30,
+            132, 30,
+            132, -30,
+            82, -30,
+            82, -82,
+            18, -82,
+        }
+    },
+
     description = "A sprawling refinery that superheats ore shipments into refined alloys.",
 
     visuals = {

@@ -16,6 +16,10 @@ function Station.new(x, y, config)
 
     local visuals = config.visuals or (config.renderable and config.renderable.props and config.renderable.props.visuals)
     visuals = visuals or {}
+    local visualSize = visuals.size or 1.0
+
+    local hasCustomWeaponDisable = config.weapon_disable_radius ~= nil
+    local hasCustomShieldRadius = config.shield_radius ~= nil
 
     self.components = {
         position = Position.new({ x = x, y = y }),
@@ -70,6 +74,38 @@ function Station.new(x, y, config)
     self.components.renderable = Renderable.new("station", {
         visuals = visuals
     })
+
+    if config.collidable then
+        local collidableDef = {}
+        for k, v in pairs(config.collidable) do
+            collidableDef[k] = v
+        end
+
+        if collidableDef.vertices and type(collidableDef.vertices) == "table" then
+            local scaled = {}
+            for i, coord in ipairs(collidableDef.vertices) do
+                scaled[i] = coord * visualSize
+            end
+            collidableDef.vertices = scaled
+        end
+
+        if collidableDef.radius then
+            collidableDef.radius = collidableDef.radius * visualSize
+        end
+
+        self.components.collidable = Collidable.new(collidableDef)
+
+        local collidableRadius = self.components.collidable.radius
+        if collidableRadius and collidableRadius > (self.radius or 0) then
+            self.radius = collidableRadius
+            if not hasCustomWeaponDisable then
+                self.weaponDisableRadius = self.radius * 1.5
+            end
+            if not hasCustomShieldRadius then
+                self.shieldRadius = self.radius * 5
+            end
+        end
+    end
 
     return self
 end

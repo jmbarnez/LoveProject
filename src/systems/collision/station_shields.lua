@@ -6,6 +6,10 @@ function StationShields.isStation(e)
   return (e and (e.tag == 'station' or (e.components and e.components.station))) or false
 end
 
+local function hasPhysicalHull(e)
+  return e and e.components and e.components.collidable ~= nil
+end
+
 function StationShields.isFriendly(e)
   if not e then return false end
   if e.isPlayer or (e.components and e.components.player) then return true end
@@ -15,8 +19,8 @@ function StationShields.isFriendly(e)
 end
 
 function StationShields.shouldIgnoreEntityCollision(a, b)
-  if StationShields.isStation(a) and StationShields.isFriendly(b) then return true end
-  if StationShields.isStation(b) and StationShields.isFriendly(a) then return true end
+  if StationShields.isStation(a) and not hasPhysicalHull(a) and StationShields.isFriendly(b) then return true end
+  if StationShields.isStation(b) and not hasPhysicalHull(b) and StationShields.isFriendly(a) then return true end
   return false
 end
 
