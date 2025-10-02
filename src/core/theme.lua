@@ -98,7 +98,7 @@ Theme.fonts = {
   small = love.graphics.newFont(12),
   xsmall = love.graphics.newFont(10),
   title = love.graphics.newFont(20),
-  monospace = love.graphics.newFont(12, "mono"),
+  monospace = love.graphics.newFont("assets/fonts/PressStart2P-Regular.ttf", 12),
 }
 
 function Theme.loadFonts()
