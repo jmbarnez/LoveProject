@@ -983,36 +983,6 @@ function Nodes:wheelmoved(player, dx, dy)
     return false
 end
 
-function Nodes:keypressed(player, key)
-    local ctrl = love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")
-    if ctrl and key == "z" and self.history then
-        local s = self.history:undo()
-        if s then
-            self.range = s.range
-            self.zoom = s.zoom
-            self.yScale = s.yScale
-            self.yOffset = s.yOffset
-            self.xPanBars = s.xPanBars
-            self.selectedSymbol = s.selectedSymbol
-            self.chartType = s.chartType or self.chartType
-            return true
-        end
-    elseif ctrl and key == "y" and self.history then
-        local s = self.history:redo()
-        if s then
-            self.range = s.range
-            self.zoom = s.zoom
-            self.yScale = s.yScale
-            self.yOffset = s.yOffset
-            self.xPanBars = s.xPanBars
-            self.selectedSymbol = s.selectedSymbol
-            self.chartType = s.chartType or self.chartType
-            return true
-        end
-    end
-    return false
-end
-
 function Nodes:textinput(text)
     -- Handle numeric input for trading amounts
     if text:match("^[0-9%.]+$") then  -- Only allow numbers and decimal points
@@ -1035,7 +1005,49 @@ function Nodes:textinput(text)
     return false
 end
 
-function Nodes:keypressed(key)
+function Nodes:keypressed(playerOrKey, maybeKey)
+    local player, key
+    if maybeKey == nil then
+        player = nil
+        key = playerOrKey
+    else
+        player = playerOrKey
+        key = maybeKey
+    end
+
+    if not key then
+        return false
+    end
+
+    local ctrl = love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")
+    if ctrl and self.history then
+        if key == "z" then
+            local s = self.history:undo()
+            if s then
+                self.range = s.range
+                self.zoom = s.zoom
+                self.yScale = s.yScale
+                self.yOffset = s.yOffset
+                self.xPanBars = s.xPanBars
+                self.selectedSymbol = s.selectedSymbol
+                self.chartType = s.chartType or self.chartType
+                return true
+            end
+        elseif key == "y" then
+            local s = self.history:redo()
+            if s then
+                self.range = s.range
+                self.zoom = s.zoom
+                self.yScale = s.yScale
+                self.yOffset = s.yOffset
+                self.xPanBars = s.xPanBars
+                self.selectedSymbol = s.selectedSymbol
+                self.chartType = s.chartType or self.chartType
+                return true
+            end
+        end
+    end
+
     if key == "backspace" then
         if self.buyInputActive then
             if #self.buyAmount > 0 then
@@ -1050,11 +1062,12 @@ function Nodes:keypressed(key)
         end
     elseif key == "return" or key == "kpenter" then
         -- Execute trade on Enter
+        local contextPlayer = player or self.player
         if self.buyInputActive and self._executeBuyButton and self._executeBuyButton.enabled then
-            self:executeBuy(self.player)
+            self:executeBuy(contextPlayer)
             return true
         elseif self.sellInputActive and self._executeSellButton and self._executeSellButton.enabled then
-            self:executeSell(self.player)
+            self:executeSell(contextPlayer)
             return true
         end
     elseif key == "escape" then
@@ -1063,6 +1076,7 @@ function Nodes:keypressed(key)
         self.sellInputActive = false
         return true
     end
+
     return false
 end
 
