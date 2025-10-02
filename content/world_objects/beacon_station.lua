@@ -11,7 +11,32 @@ return {
         }
     },
 
-    -- No collidable component for stations (no physics collisions)
+    collidable = {
+        shape = "polygon",
+        friendly = true,
+        vertices = {
+            6, -40,
+            -6, -40,
+            -6, -28,
+            -28, -28,
+            -28, -6,
+            -40, -6,
+            -40, 6,
+            -28, 6,
+            -28, 28,
+            -6, 28,
+            -6, 40,
+            6, 40,
+            6, 28,
+            28, 28,
+            28, 6,
+            40, 6,
+            40, -6,
+            28, -6,
+            28, -28,
+            6, -28,
+        }
+    },
 
     -- Repair system properties
     repairable = true,

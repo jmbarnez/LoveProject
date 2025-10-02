@@ -11,7 +11,32 @@ return {
         }
     },
 
-    -- No collidable component for stations (no physics collisions)
+    collidable = {
+        shape = "polygon",
+        friendly = true,
+        vertices = {
+            -100, -12,
+            -70, -12,
+            -70, -40,
+            -12, -40,
+            -12, -100,
+            12, -100,
+            12, -40,
+            70, -40,
+            70, -12,
+            100, -12,
+            100, 12,
+            70, 12,
+            70, 40,
+            12, 40,
+            12, 100,
+            -12, 100,
+            -12, 40,
+            -70, 40,
+            -70, 12,
+            -100, 12,
+        }
+    },
 
     -- Simple Clean Station Design
     visuals = {
