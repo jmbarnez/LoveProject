@@ -253,6 +253,54 @@ function Game.load(fromSave, saveSlot, loadingScreen)
     local spawn_dist = weapon_disable_radius * 1.2 -- Spawn 20% outside the weapon disable zone
     local px = (hub and hub.components and hub.components.position and hub.components.position.x or Constants.SPAWNING.MARGIN) + math.cos(angle) * spawn_dist
     local py = (hub and hub.components and hub.components.position and hub.components.position.y or Constants.SPAWNING.MARGIN) + math.sin(angle) * spawn_dist
+    
+    -- Check for collision with all stations to ensure we don't spawn inside one
+    local attempts = 0
+    local maxAttempts = 50
+    local spawnValid = false
+    
+    while not spawnValid and attempts < maxAttempts do
+      attempts = attempts + 1
+      spawnValid = true
+      
+      -- Check collision with all stations
+      local all_stations = world:get_entities_with_components("station")
+      for _, station in ipairs(all_stations) do
+        if station and station.components and station.components.position and station.components.collidable then
+          local sx, sy = station.components.position.x, station.components.position.y
+          local dx = px - sx
+          local dy = py - sy
+          local distance = math.sqrt(dx * dx + dy * dy)
+          
+          -- Check if player would spawn inside station collision area
+          local stationRadius = 50 -- Default safe radius
+          if station.components.collidable.radius then
+            stationRadius = station.components.collidable.radius
+          elseif station.radius then
+            stationRadius = station.radius
+          end
+          
+          -- Add some buffer to ensure we're not touching the station
+          local safeDistance = stationRadius + 30
+          
+          if distance < safeDistance then
+            spawnValid = false
+            -- Try a new random position
+            angle = math.random() * math.pi * 2
+            px = (hub and hub.components and hub.components.position and hub.components.position.x or Constants.SPAWNING.MARGIN) + math.cos(angle) * spawn_dist
+            py = (hub and hub.components and hub.components.position and hub.components.position.y or Constants.SPAWNING.MARGIN) + math.sin(angle) * spawn_dist
+            break
+          end
+        end
+      end
+    end
+    
+    -- If we couldn't find a valid spawn after max attempts, use a fallback position
+    if not spawnValid then
+      px = Constants.SPAWNING.MARGIN
+      py = Constants.SPAWNING.MARGIN
+    end
+    
     -- Start player with basic combat drone
     player = Player.new(px, py, "starter_frigate_basic")
   end
