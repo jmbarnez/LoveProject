@@ -125,6 +125,7 @@ function Projectile.new(x, y, angle, friendly, config)
     end
 
     effectManager:loadConfig(config.effects or {})
+    effectManager:loadConfig(config.additionalEffects or {})
 
     dispatcher:emit(ProjectileEvents.SPAWN, {
         projectile = self,

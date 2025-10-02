@@ -98,6 +98,8 @@ local function spawn_projectile(x, y, angle, friendly, opts)
         length = opts.length,
         -- Lifetime override (useful for beam pulses)
         timed_life = opts.timed_life,
+        -- Attach runtime projectile effects (e.g., homing guidance)
+        additionalEffects = opts.additionalEffects,
     }
     -- Tag the projectile's source so collision can ignore self-hit
     extra_config.source = opts.source
