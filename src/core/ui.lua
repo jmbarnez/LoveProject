@@ -376,7 +376,7 @@ function UI.drawHelpers(player, world, hub, camera)
             local dy = cy - py
             local distance = math.sqrt(dx * dx + dy * dy)
             
-            if distance < nearestDistance and distance <= 280 then
+            if distance < nearestDistance and distance <= 500 then
               nearestDistance = distance
               nearestCrate = crate
             end
@@ -395,7 +395,7 @@ function UI.drawHelpers(player, world, hub, camera)
         local screenX = (px - camX) * camScale + sw * 0.5
         local screenY = (py - camY) * camScale + sh * 0.5
 
-        if nearestDistance <= 280 and screenX >= -80 and screenX <= sw + 80 and screenY >= -80 and screenY <= sh + 80 then
+        if nearestDistance <= 500 and screenX >= -80 and screenX <= sw + 80 and screenY >= -80 and screenY <= sh + 80 then
           cratePromptState.visible = true
           cratePromptState.pickup = nearestCrate
 

@@ -7,7 +7,7 @@ local IconSystem = require("src.core.icon_system")
 
 local Shop = {}
 
-local MENU_WIDTH, MENU_HEIGHT = 220, 160
+local MENU_WIDTH, MENU_HEIGHT = 200, 120
 
 local function ensureContextMenu(DockedUI)
   DockedUI.contextMenu = DockedUI.contextMenu or { visible = false, quantity = "1", type = "buy" }
@@ -339,14 +339,23 @@ local function drawContextMenuContents(DockedUI, mx, my)
   if not menu.visible or not menu.item then return end
 
   local x_, y_, w_, h_ = menu.x, menu.y, MENU_WIDTH, MENU_HEIGHT
-  Theme.drawGradientGlowRect(x_, y_, w_, h_, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak, false)
+  
+  -- Draw main border with enhanced styling
+  Theme.drawGradientGlowRect(x_, y_, w_, h_, 6, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak, false)
+  
+  -- Add inner border for more definition
+  Theme.setColor(Theme.colors.border)
+  love.graphics.setLineWidth(2)
+  love.graphics.rectangle("line", x_ + 2, y_ + 2, w_ - 4, h_ - 4)
 
+  -- Item name with compact spacing
   Theme.setColor(Theme.colors.textHighlight)
   love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-  love.graphics.printf(menu.item.name or "Unknown Item", x_, y_ + 6, w_, "center")
+  love.graphics.printf(menu.item.name or "Unknown Item", x_ + 4, y_ + 8, w_ - 8, "center")
 
-  local inputW, inputH = 100, 28
-  local inputX, inputY = x_ + (w_ - inputW) / 2, y_ + 28
+  -- Compact input field
+  local inputW, inputH = 80, 24
+  local inputX, inputY = x_ + (w_ - inputW) / 2, y_ + 24
   local inputHover = mx >= inputX and mx <= inputX + inputW and my >= inputY and my <= inputY + inputH
   
   -- Enhanced input field visual feedback
@@ -374,25 +383,25 @@ local function drawContextMenuContents(DockedUI, mx, my)
   
   local textWidth = font:getWidth(displayText)
   local textX = inputX + (inputW - textWidth) / 2
-  love.graphics.print(displayText, textX, inputY + 6)
+  love.graphics.print(displayText, textX, inputY + 4)
 
   if math.floor(love.timer.getTime() * 2) % 2 == 0 and DockedUI.contextMenuActive then
-    love.graphics.rectangle("fill", textX + textWidth + 2, inputY + 4, 2, inputH - 8)
+    love.graphics.rectangle("fill", textX + textWidth + 2, inputY + 2, 2, inputH - 4)
   end
-  -- Don't overwrite the pre-calculated input rectangle
-  -- menu._inputRect = { x = inputX, y = inputY, w = inputW, h = inputH }
+  -- Store input rectangle for click detection
+  menu._inputRect = { x = inputX, y = inputY, w = inputW, h = inputH }
 
   local qty = tonumber(quantityText) or 0
   local totalPrice = (menu.item.price or 0) * qty
   Theme.setColor(Theme.colors.accentGold)
-  love.graphics.printf("Total: " .. Util.formatNumber(totalPrice), x_, y_ + 64, w_, "center")
+  love.graphics.printf("Total: " .. Util.formatNumber(totalPrice), x_ + 4, y_ + 52, w_ - 8, "center")
 
-  -- Draw both Buy and Sell buttons
-  local btnW, btnH = 80, 28
-  local btnSpacing = 8
+  -- Compact Buy and Sell buttons
+  local btnW, btnH = 70, 24
+  local btnSpacing = 6
   local totalBtnWidth = (btnW * 2) + btnSpacing
   local startX = x_ + (w_ - totalBtnWidth) / 2
-  local btnY = y_ + 80
+  local btnY = y_ + 68
   
   local buyBtnX = startX
   local sellBtnX = startX + btnW + btnSpacing
@@ -427,13 +436,19 @@ local function drawContextMenuContents(DockedUI, mx, my)
     buyBorderColor = Theme.colors.border
   end
   
-  Theme.drawGradientGlowRect(buyBtnX, btnY, btnW, btnH, 3, buyBtnColor, Theme.colors.bg1, buyBorderColor, Theme.effects.glowWeak)
+  -- Draw Buy button with enhanced borders
+  Theme.drawGradientGlowRect(buyBtnX, btnY, btnW, btnH, 4, buyBtnColor, Theme.colors.bg1, buyBorderColor, Theme.effects.glowWeak)
   if buyBtnHover and canBuy then
     Theme.drawGradientGlowRect(buyBtnX - 2, btnY - 2, btnW + 4, btnH + 4, 2, Theme.colors.success, Theme.colors.bg0, Theme.colors.success, Theme.effects.glowStrong)
   end
   
+  -- Add inner border for Buy button
+  Theme.setColor(buyBorderColor)
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("line", buyBtnX + 1, btnY + 1, btnW - 2, btnH - 2)
+  
   Theme.setColor(buyTextColor)
-  love.graphics.printf("BUY", buyBtnX, btnY + 6, btnW, "center")
+  love.graphics.printf("BUY", buyBtnX, btnY + 4, btnW, "center")
   
   -- Draw Sell button
   local sellBtnColor, sellTextColor, sellBorderColor
@@ -451,13 +466,19 @@ local function drawContextMenuContents(DockedUI, mx, my)
     sellBorderColor = Theme.colors.border
   end
   
-  Theme.drawGradientGlowRect(sellBtnX, btnY, btnW, btnH, 3, sellBtnColor, Theme.colors.bg1, sellBorderColor, Theme.effects.glowWeak)
+  -- Draw Sell button with enhanced borders
+  Theme.drawGradientGlowRect(sellBtnX, btnY, btnW, btnH, 4, sellBtnColor, Theme.colors.bg1, sellBorderColor, Theme.effects.glowWeak)
   if sellBtnHover and canSell then
     Theme.drawGradientGlowRect(sellBtnX - 2, btnY - 2, btnW + 4, btnH + 4, 2, Theme.colors.warning, Theme.colors.bg0, Theme.colors.warning, Theme.effects.glowStrong)
   end
   
+  -- Add inner border for Sell button
+  Theme.setColor(sellBorderColor)
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("line", sellBtnX + 1, btnY + 1, btnW - 2, btnH - 2)
+  
   Theme.setColor(sellTextColor)
-  love.graphics.printf("SELL", sellBtnX, btnY + 6, btnW, "center")
+  love.graphics.printf("SELL", sellBtnX, btnY + 4, btnW, "center")
   
   -- Update button rectangles for click detection
   menu._buyButtonRect = { x = buyBtnX, y = btnY, w = btnW, h = btnH }
