@@ -2,8 +2,49 @@ local Content = require("src.content.content")
 local TurretEffects = require("src.systems.turret.effects")
 local Skills = require("src.core.skills")
 local Log = require("src.core.log")
+local BeamWeapons = require("src.systems.turret.beam_weapons")
 
 local ProjectileWeapons = {}
+
+local function findNearestEnemyTarget(turret, world)
+    if not turret or not world or not world.get_entities_with_components then
+        return nil
+    end
+
+    local owner = turret.owner
+    if not owner or owner.dead or not owner.components then
+        return nil
+    end
+
+    local Turret = require("src.systems.turret.core")
+    local sx, sy = Turret.getTurretWorldPosition(turret)
+
+    local maxRangeSq = math.huge
+    if turret.maxRange and turret.maxRange > 0 then
+        maxRangeSq = turret.maxRange * turret.maxRange
+    end
+
+    local nearestTarget
+    local nearestDistSq = math.huge
+
+    local entities = world:get_entities_with_components("position")
+    for _, entity in ipairs(entities) do
+        if entity ~= owner and not entity.dead and entity.components and entity.components.position then
+            if BeamWeapons.isEnemyTarget(entity, owner) then
+                local pos = entity.components.position
+                local dx = pos.x - sx
+                local dy = pos.y - sy
+                local distSq = dx * dx + dy * dy
+                if distSq <= maxRangeSq and distSq < nearestDistSq then
+                    nearestTarget = entity
+                    nearestDistSq = distSq
+                end
+            end
+        end
+    end
+
+    return nearestTarget
+end
 
 -- Handle gun turret firing (bullets, shells, etc.)
 function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
@@ -139,6 +180,16 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
     local Turret = require("src.systems.turret.core")
     local sx, sy = Turret.getTurretWorldPosition(turret)
 
+    local nearestTarget = findNearestEnemyTarget(turret, world)
+    if nearestTarget then
+        target = nearestTarget
+        turret.lockOnTarget = nearestTarget
+        turret.lockOnProgress = 1
+    else
+        turret.lockOnTarget = nil
+        turret.lockOnProgress = 0
+    end
+
     -- Aim at target if available, otherwise use cursor or ship facing
     local angle = 0
     if target and target.components and target.components.position then
@@ -195,6 +246,18 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
             damageConfig = { min = 2, max = 4, skill = turret.skillId }
         end
 
+        local additionalEffects = {
+            {
+                type = "homing",
+                world = world,
+                target = target,
+                turnRate = turret.missileTurnRate,
+                maxRange = turret.maxRange,
+                speed = projSpeed,
+                reacquireDelay = 0.1,
+            }
+        }
+
         -- Use world's spawn_projectile function to avoid circular dependency
         if world and world.spawn_projectile then
             world.spawn_projectile(sx, sy, angle, turret.owner.isPlayer or turret.owner.isFriendly, {
@@ -202,7 +265,8 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
                 vx = vx,
                 vy = vy,
                 source = turret.owner,
-                damage = damageConfig
+                damage = damageConfig,
+                additionalEffects = additionalEffects
             })
         end
 
