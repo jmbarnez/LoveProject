@@ -264,14 +264,16 @@ function DestructionSystem.update(world, gameState, hub)
           })
           e._destructionProcessed = true
         elseif isPlayerShip then
-          -- Prevent multiple death processing
+          -- Prevent multiple death processing in the same frame
           if e._destructionProcessed then
-            e.dead = false -- Reset death flag to prevent getting stuck
             goto skip_entity
           end
 
+          -- Mark as processed immediately to prevent multiple processing in same frame
+          e._destructionProcessed = true
+
           if e.isPlayer then
-            Events.emit('player_death', {player = e})
+            Events.emit(Events.GAME_EVENTS.PLAYER_DIED, {player = e})
           end
           
           -- Player death: respawn at the station without nearby spawns
@@ -289,7 +291,6 @@ function DestructionSystem.update(world, gameState, hub)
           end
           
           -- Restore player state (keep entity alive)
-          e.dead = false -- No longer dead
           e.components.position.x = px
           e.components.position.y = py
           e.components.position.angle = 0 -- Reset angle
@@ -376,6 +377,15 @@ function DestructionSystem.update(world, gameState, hub)
 
             if not created then
               Log.error("DestructionSystem - Unable to create a valid physics body after " .. attempts .. " attempts for entity " .. (e.id or "unknown") .. ". Player may be non-responsive.")
+              -- Create a minimal fallback physics component to prevent complete failure
+              local Physics = require("src.components.physics")
+              local fallbackPhys = Physics.new({ mass = mass, x = px, y = py })
+              if fallbackPhys then
+                e.components.physics = fallbackPhys
+                Log.warn("DestructionSystem - Created fallback physics body for entity " .. (e.id or "unknown"))
+              else
+                Log.error("DestructionSystem - Even fallback physics creation failed for entity " .. (e.id or "unknown"))
+              end
             end
           end
           
@@ -405,6 +415,7 @@ function DestructionSystem.update(world, gameState, hub)
               end)
               if not velSuccess then
                 -- If setting velocity fails, the body might be invalid
+                Log.warn("DestructionSystem - Failed to set physics body properties, marking for recreation")
                 phys.body = nil
               else
                 if e.isPlayer then
@@ -420,8 +431,11 @@ function DestructionSystem.update(world, gameState, hub)
               end
             else
               -- Body is destroyed or check failed, mark for recreation
+              Log.warn("DestructionSystem - Physics body is destroyed or invalid, marking for recreation")
               phys.body = nil
             end
+          elseif not phys then
+            Log.warn("DestructionSystem - No physics component found for entity " .. (e.id or "unknown"))
           end
           
           -- Restore full health and shields
@@ -433,17 +447,35 @@ function DestructionSystem.update(world, gameState, hub)
           if e.isPlayer then
             -- Deduct 100 credit death penalty (minimum 0 credits remaining)
             local deathCost = 100
-            if e.spendGC then
-              e:spendGC(deathCost)
-            elseif e.components and e.components.progression and e.components.progression.spendGC then
-              e.components.progression:spendGC(deathCost)
+            local currentCredits = 0
+            
+            -- Get current credit amount
+            if e.components and e.components.progression then
+              currentCredits = e.components.progression.gc or 0
+            elseif e.gc then
+              currentCredits = e.gc
+            end
+            
+            -- Only deduct if player has enough credits
+            if currentCredits >= deathCost then
+              if e.spendGC then
+                e:spendGC(deathCost)
+              elseif e.components and e.components.progression and e.components.progression.spendGC then
+                e.components.progression:spendGC(deathCost)
+              end
+            else
+              -- Player doesn't have enough credits, set to 0
+              if e.components and e.components.progression then
+                e.components.progression.gc = 0
+              elseif e.gc then
+                e.gc = 0
+              end
             end
             
             -- Ensure player is not docked after respawn (override any save data)
             e.docked = false
             e.weaponsDisabled = false
             e.frozen = false
-            e.dead = false
             
             -- Force undock if player was docked
             if e.undock and type(e.undock) == "function" then
@@ -451,6 +483,12 @@ function DestructionSystem.update(world, gameState, hub)
             end
             
             Events.emit('player_respawn', {player = e})
+            
+            -- Mark player as no longer dead after successful respawn
+            e.dead = false
+            
+            -- Reset destruction processed flag to allow future death processing
+            e._destructionProcessed = false
             
             -- Recreate engine trail component if missing
             if not e.components.engine_trail then
@@ -485,11 +523,8 @@ function DestructionSystem.update(world, gameState, hub)
               end
             end
           end
-          
-          e._destructionProcessed = true
         end
       end
-      e._destructionProcessed = true
     end
     ::skip_entity::
     ::continue::

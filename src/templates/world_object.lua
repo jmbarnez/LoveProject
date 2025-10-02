@@ -34,7 +34,7 @@ function WorldObject.new(x, y, angle, friendly, config)
     if config.interactable then
         self.components.interactable = {
             range = config.interactable.range or 50,
-            prompt = config.interactable.prompt or "Press Space to interact",
+            prompt = config.interactable.prompt or "Click to interact",
             requiresKey = config.interactable.requiresKey
         }
     end

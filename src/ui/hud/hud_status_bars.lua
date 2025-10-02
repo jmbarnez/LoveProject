@@ -148,7 +148,9 @@ end
 
 function StatusBar:update(dt)
     -- Animate the bar towards its target value for a smooth transition.
-    self.currentValue = Util.lerp(self.currentValue, self.targetValue, 1 - math.exp(-10 * dt))
+    -- Use faster animation for hull bar to make damage more visible
+    local animationSpeed = (self.label == "Hull") and 20 or 10
+    self.currentValue = Util.lerp(self.currentValue, self.targetValue, 1 - math.exp(-animationSpeed * dt))
 
     -- Handle the flashing alert for low status.
     local criticalThreshold = 0.25
@@ -426,9 +428,17 @@ function HUDStatusBars.update(dt, player, world)
     if not player or not player.components or not player.components.health then return end
 
     local h = player.components.health
-    bars.hull:setValue(h.hp or 0, h.maxHP or (h.hp or 0))
-    bars.shield:setValue(h.shield or 0, h.maxShield or (h.shield or 0))
-    bars.energy:setValue(h.energy or 0, h.maxEnergy or (h.energy or 0))
+    local currentHP = h.hp or 0
+    local maxHP = h.maxHP or 100  -- Use a proper default instead of current HP
+    local currentShield = h.shield or 0
+    local maxShield = h.maxShield or 0
+    local currentEnergy = h.energy or 0
+    local maxEnergy = h.maxEnergy or 0
+    
+    bars.hull:setValue(currentHP, maxHP)
+    bars.shield:setValue(currentShield, maxShield)
+    bars.energy:setValue(currentEnergy, maxEnergy)
+    
     if player.components.progression then
         bars.xp:setValue(player.components.progression.xp or 0, (player.components.progression.level or 1) * 100)
     end
@@ -473,13 +483,17 @@ function HUDStatusBars.draw(player, world)
     local topLeftX = 16 -- 16px from left edge
     local topLeftY = 16 -- 16px from top edge
     
-    -- Calculate shield percentage for overlay
+    -- Calculate hull and shield percentages
+    local hull = h.hp or 0
+    local maxHull = h.maxHP or 100
+    local hullPct = maxHull > 0 and (hull / maxHull) or 0
+    
     local shield = h.shield or 0
     local maxShield = h.maxShield or (h.shield or 0)
     local shieldPct = maxShield > 0 and (shield / maxShield) or 0
     
-    -- Draw full-width hull bar as base (always red, full width)
-    Theme.drawSciFiBar(topLeftX, topLeftY, barWidth, barHeight, 1.0, Theme.semantic.statusHull)
+    -- Draw hull bar as base (red, actual hull percentage)
+    Theme.drawSciFiBar(topLeftX, topLeftY, barWidth, barHeight, hullPct, Theme.semantic.statusHull)
     
     -- Draw shield bar overlaying hull (blue overlay, only shield portion)
     if shield > 0 then

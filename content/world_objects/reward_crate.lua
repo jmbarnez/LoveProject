@@ -18,7 +18,6 @@ return {
     
     interactable = {
         range = 50,
-        prompt = "Press Space to open crate",
         requiresKey = "reward_crate_key"
     }
 }
