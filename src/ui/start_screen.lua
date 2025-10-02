@@ -444,10 +444,12 @@ function Start:draw()
 end
 
 function Start:mousepressed(x, y, button)
+  local screenX, screenY = Viewport.toScreen(x, y)
+
   -- Check load UI first (highest priority)
   if self.showLoadUI and self.loadSlotsUI then
     -- Handle SaveLoad panel interactions
-    if self.loadSlotsUI.window and self.loadSlotsUI.window:mousepressed(x, y, button) then
+    if self.loadSlotsUI.window and self.loadSlotsUI.window:mousepressed(screenX, screenY, button) then
       if not self.loadSlotsUI.window.visible then
         -- Panel was closed
         self.showLoadUI = false
@@ -457,7 +459,7 @@ function Start:mousepressed(x, y, button)
     end
 
     -- Handle content area clicks
-    local loadResult = self.loadSlotsUI:mousepressed(x, y, button)
+    local loadResult = self.loadSlotsUI:mousepressed(screenX, screenY, button)
     if loadResult then
       if loadResult == "loaded" then
         -- Game was successfully loaded, close the load UI and start the game
@@ -486,15 +488,15 @@ function Start:mousepressed(x, y, button)
   end
   
   
-  if SettingsPanel.mousepressed(x, y, button) then
+  if SettingsPanel.mousepressed(screenX, screenY, button) then
     return false
   end
 
   if VersionLog.visible then
-    if self.versionWindow:mousepressed(x, y, button) then
+    if self.versionWindow:mousepressed(screenX, screenY, button) then
       return false
     end
-    if VersionLog.mousepressed(x, y, button) then
+    if VersionLog.mousepressed(screenX, screenY, button) then
       return false
     end
   end
@@ -503,38 +505,42 @@ function Start:mousepressed(x, y, button)
 end
 
 function Start:mousereleased(x, y, button)
+  local screenX, screenY = Viewport.toScreen(x, y)
   if self.showLoadUI and self.loadSlotsUI and self.loadSlotsUI.window then
-    self.loadSlotsUI.window:mousereleased(x, y, button)
+    self.loadSlotsUI.window:mousereleased(screenX, screenY, button)
   end
-  SettingsPanel.mousereleased(x, y, button)
+  SettingsPanel.mousereleased(screenX, screenY, button)
   if VersionLog.visible then
-    self.versionWindow:mousereleased(x, y, button)
-    VersionLog.mousereleased(x, y, button)
+    self.versionWindow:mousereleased(screenX, screenY, button)
+    VersionLog.mousereleased(screenX, screenY, button)
   end
 end
 
 function Start:mousemoved(x, y, dx, dy)
+  local screenX, screenY = Viewport.toScreen(x, y)
   if self.showLoadUI and self.loadSlotsUI and self.loadSlotsUI.window then
-    self.loadSlotsUI.window:mousemoved(x, y, dx, dy)
+    self.loadSlotsUI.window:mousemoved(screenX, screenY, dx, dy)
   end
-  SettingsPanel.mousemoved(x, y, dx, dy)
+  SettingsPanel.mousemoved(screenX, screenY, dx, dy)
   if VersionLog.visible then
-    self.versionWindow:mousemoved(x, y, dx, dy)
-    VersionLog.mousemoved(x, y, dx, dy)
+    self.versionWindow:mousemoved(screenX, screenY, dx, dy)
+    VersionLog.mousemoved(screenX, screenY, dx, dy)
   end
 end
 
 function Start:wheelmoved(x, y, dx, dy)
-  if SettingsPanel.visible and SettingsPanel.wheelmoved(x, y, dx, dy) then
+  local screenX, screenY = Viewport.toScreen(x, y)
+
+  if SettingsPanel.visible and SettingsPanel.wheelmoved(screenX, screenY, dx, dy) then
     return true
   end
 
   if VersionLog.visible then
     local windowWheel = self.versionWindow and self.versionWindow.wheelmoved
-    if windowWheel and windowWheel(self.versionWindow, x, y, dx, dy) then
+    if windowWheel and windowWheel(self.versionWindow, screenX, screenY, dx, dy) then
       return true
     end
-    if VersionLog.wheelmoved(x, y, dx, dy) then
+    if VersionLog.wheelmoved(screenX, screenY, dx, dy) then
       return true
     end
   end

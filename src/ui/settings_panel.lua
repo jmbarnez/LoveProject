@@ -825,12 +825,13 @@ end
 function SettingsPanel.mousepressed(raw_x, raw_y, button)
     if not SettingsPanel.window.visible then return false end
 
-    if SettingsPanel.window:mousepressed(raw_x, raw_y, button) then
+    local screenX, screenY = Viewport.toScreen(raw_x, raw_y)
+    local x = screenX or raw_x
+    local y = screenY or raw_y
+
+    if SettingsPanel.window:mousepressed(x, y, button) then
         return true
     end
-
-    -- Use raw screen coordinates for all checks
-    local x, y = raw_x, raw_y
 
     -- Get geometry from the window object
     local win = SettingsPanel.window
@@ -842,9 +843,6 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     local valueX = contentX + 150
     local dropdownW = 150
     local itemHeight = 40
-    -- Also have screen coords for popups drawn in screen space
-    local screenX, screenY = Viewport.toScreen(x, y)
-
     -- Check if click is outside the panel
     local isInsidePanel = x >= panelX and x <= panelX + w and y >= panelY and y <= panelY + h
     if not isInsidePanel then
@@ -917,14 +915,14 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
 
     -- Handle reticle gallery pop-up interactions (popup is drawn in screen coords)
     if reticleGalleryOpen then
-        if SettingsPanel._reticleDone and screenX >= SettingsPanel._reticleDone._rect.x and screenX <= SettingsPanel._reticleDone._rect.x + SettingsPanel._reticleDone._rect.w and
-           screenY >= SettingsPanel._reticleDone._rect.y and screenY <= SettingsPanel._reticleDone._rect.y + SettingsPanel._reticleDone._rect.h then
+        if SettingsPanel._reticleDone and x >= SettingsPanel._reticleDone._rect.x and x <= SettingsPanel._reticleDone._rect.x + SettingsPanel._reticleDone._rect.w and
+           y >= SettingsPanel._reticleDone._rect.y and y <= SettingsPanel._reticleDone._rect.y + SettingsPanel._reticleDone._rect.h then
             reticleGalleryOpen = false
             return true
         end
-        if SettingsPanel._reticlePopup and screenX >= SettingsPanel._reticlePopup.x and screenY >= SettingsPanel._reticlePopup.y then
-            local col = math.floor((screenX - SettingsPanel._reticlePopup.x) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
-            local row = math.floor((screenY - SettingsPanel._reticlePopup.y) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
+        if SettingsPanel._reticlePopup and x >= SettingsPanel._reticlePopup.x and y >= SettingsPanel._reticlePopup.y then
+            local col = math.floor((x - SettingsPanel._reticlePopup.x) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
+            local row = math.floor((y - SettingsPanel._reticlePopup.y) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
             if col >= 0 and col < SettingsPanel._reticlePopup.cols and row >= 0 and row < SettingsPanel._reticlePopup.rows then
                 local index = row * SettingsPanel._reticlePopup.cols + col + 1
                 if index >= 1 and index <= 50 then
@@ -935,7 +933,7 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         end
         if SettingsPanel._colorSliders then
             for _, slider in ipairs(SettingsPanel._colorSliders) do
-                if screenX >= slider.x and screenX <= slider.x + slider.w and screenY >= slider.y - 10 and screenY <= slider.y + slider.h + 10 then
+                if x >= slider.x and x <= slider.x + slider.w and y >= slider.y - 10 and y <= slider.y + slider.h + 10 then
                     draggingSlider = 'reticle_color_' .. slider.key
                     return true
                 end
@@ -945,7 +943,7 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
         local gw, gh = 560, 420
         local gx, gy = (sw - gw) / 2, (sh - gh) / 2
-        if screenX >= gx and screenX <= gx + gw and screenY >= gy and screenY <= gy + gh then
+        if x >= gx and x <= gx + gw and y >= gy and y <= gy + gh then
             return true
         end
     end
@@ -1064,8 +1062,12 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     return true -- Consume click inside panel
 end
 
-function SettingsPanel.mousereleased(x, y, button)
+function SettingsPanel.mousereleased(raw_x, raw_y, button)
     if not SettingsPanel.window.visible then return false end
+
+    local screenX, screenY = Viewport.toScreen(raw_x, raw_y)
+    local x = screenX or raw_x
+    local y = screenY or raw_y
 
     if SettingsPanel.window:mousereleased(x, y, button) then
         return true
@@ -1086,8 +1088,12 @@ end
 function SettingsPanel.wheelmoved(x, y, dx, dy)
     if not SettingsPanel.window.visible then return false end
 
+    local screenX, screenY = Viewport.toScreen(x, y)
+    local wx = screenX or x
+    local wy = screenY or y
+
     local win = SettingsPanel.window
-    if not win:containsPoint(x, y) then return false end
+    if not win:containsPoint(wx, wy) then return false end
 
     local content = win:getContentBounds()
     local innerH = content.h -- Consistent with drawContent
@@ -1107,12 +1113,15 @@ end
 function SettingsPanel.mousemoved(raw_x, raw_y, dx, dy)
     if not SettingsPanel.window.visible then return false end
 
+    local screenX, screenY = Viewport.toScreen(raw_x, raw_y)
+    local x = screenX or raw_x
+    local y = screenY or raw_y
+
     -- Handle window dragging first
-    if SettingsPanel.window:mousemoved(raw_x, raw_y, dx, dy) then
+    if SettingsPanel.window:mousemoved(x, y, dx, dy) then
         return true
     end
 
-    local x, y = raw_x, raw_y
     local win = SettingsPanel.window
     local panelX, panelY, w, h = win.x, win.y, win.width, win.height
     local content = win:getContentBounds()
