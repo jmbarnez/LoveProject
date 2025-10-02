@@ -42,6 +42,8 @@ local function getEntityRendererType(entity)
             entity._rendererType = 'station'
         elseif entity.type == "world_object" and entity.subtype == "planet_massive" then
             entity._rendererType = 'planet'
+        elseif entity.type == "world_object" and entity.subtype == "reward_crate" then
+            entity._rendererType = 'reward_crate'
         elseif entity.components.lootable then
             entity._rendererType = 'lootContainer'
         else
@@ -206,6 +208,49 @@ function EntityRenderers.planet(entity, player)
             love.graphics.circle('line', 0, 0, rr)
         end
     end
+end
+
+-- Reward crate renderer
+function EntityRenderers.reward_crate(entity, player)
+    local props = entity.components.renderable.props or {}
+    local size = props.size or 1.0
+    local S = RenderUtils.createScaler(size)
+    local radius = props.radius or 25
+    
+    -- Energy glow effect (outer rings)
+    love.graphics.setColor(0.0, 0.8, 1.0, 0.6)
+    love.graphics.setLineWidth(1)
+    love.graphics.circle('line', 0, 0, S(radius + 10))
+    
+    love.graphics.setColor(0.0, 0.6, 0.8, 0.4)
+    love.graphics.circle('line', 0, 0, S(radius + 20))
+    
+    -- Main crate body
+    love.graphics.setColor(0.18, 0.2, 0.28, 1.0)
+    love.graphics.rectangle('fill', S(-20), S(-15), S(40), S(30), S(4), S(4))
+    
+    -- Crate border
+    love.graphics.setColor(0.42, 0.46, 0.68, 1.0)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle('line', S(-20), S(-15), S(40), S(30), S(4), S(4))
+    
+    -- Lock mechanism
+    love.graphics.setColor(0.26, 0.3, 0.46, 1.0)
+    love.graphics.rectangle('fill', S(-15), S(-5), S(30), S(10))
+    
+    -- Golden lock
+    love.graphics.setColor(0.95, 0.8, 0.3, 1.0)
+    love.graphics.rectangle('fill', S(-5), S(-10), S(10), S(20))
+    
+    -- Lock highlight
+    love.graphics.setColor(0.98, 0.9, 0.55, 1.0)
+    love.graphics.rectangle('fill', S(-5), S(-5), S(10), S(10))
+    
+    -- Lock center
+    love.graphics.setColor(0.9, 0.6, 0.2, 1.0)
+    love.graphics.circle('fill', 0, S(5), S(3))
+    
+    love.graphics.setLineWidth(1)
 end
 
 -- Item pickup renderer (simple small icon with name and amount label)
@@ -1082,6 +1127,8 @@ function EntityRenderers.draw(world, camera, player)
                 renderer = EntityRenderers.station
             elseif rendererType == 'planet' then
                 renderer = EntityRenderers.planet
+            elseif rendererType == 'reward_crate' then
+                renderer = EntityRenderers.reward_crate
             elseif rendererType == 'lootContainer' then
                 renderer = EntityRenderers.lootContainer
             else

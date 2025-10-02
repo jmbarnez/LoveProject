@@ -34,6 +34,7 @@ local SpaceStationSystem = require("src.systems.hub")
 local MiningSystem = require("src.systems.mining")
 local Pickups = require("src.systems.pickups")
 local DestructionSystem = require("src.systems.destruction")
+local InteractionSystem = require("src.systems.interaction")
 local EntityFactory = require("src.templates.entity_factory")
 local StatusBars = require("src.ui.hud.status_bars")
 local SkillXpPopup = require("src.ui.hud.skill_xp_popup")
@@ -203,6 +204,30 @@ function Game.load(fromSave, saveSlot, loadingScreen)
       world:addEntity(planet)
     else
       Debug.warn("game", "Failed to create planet")
+    end
+  end
+  
+  -- Create 8 reward crates scattered around the world
+  do
+    local cratePositions = {
+      {x = 3000, y = 3000},   -- Top-left quadrant
+      {x = 8000, y = 2000},   -- Top-center
+      {x = 12000, y = 3000},  -- Top-right quadrant
+      {x = 2000, y = 8000},   -- Left-center
+      {x = 10000, y = 8000},  -- Right-center
+      {x = 3000, y = 12000},  -- Bottom-left quadrant
+      {x = 8000, y = 13000},  -- Bottom-center
+      {x = 12000, y = 12000}, -- Bottom-right quadrant
+    }
+    
+    for i, pos in ipairs(cratePositions) do
+      local crate = EntityFactory.create("world_object", "reward_crate", pos.x, pos.y)
+      if crate then
+        world:addEntity(crate)
+        Debug.info("game", "Created reward crate %d at (%d, %d)", i, pos.x, pos.y)
+      else
+        Debug.warn("game", "Failed to create reward crate %d", i)
+      end
     end
   end
 
@@ -548,6 +573,8 @@ function Game.update(dt)
     MiningSystem.update(dt, world, player)
     -- Magnetic item pickup system
     Pickups.update(dt, world, player)
+    -- Interaction system
+    InteractionSystem.update(dt, player, world)
 
     -- Update engine trail after physics so thruster state is preserved
     local EngineTrailSystem = require("src.systems.engine_trail")
@@ -641,6 +668,8 @@ function Game.draw()
     -- Non-modal HUD (reticle, status bars, minimap, hotbar)
     UI.drawHUD(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, camera, {})
     
+    -- Draw interaction prompts
+    InteractionSystem.draw(player)
 
     -- UI overlay (windows/menus) via UIManager
     QuestLogHUD.draw(player)

@@ -230,6 +230,15 @@ function DestructionSystem.update(world, gameState, hub)
             if players and #players > 0 and e.xpReward then
               players[1]:addXP(e.xpReward)
             end
+            
+            -- Special drop for boss Mila - reward key
+            if e.shipId == "boss_drone" or e.name == "MILA" then
+              local keyPickup = ItemPickup.new(x, y, "reward_crate_key", 1, 1.2)
+              if keyPickup then
+                world:addEntity(keyPickup)
+                Debug.info("destruction", "Boss Mila dropped reward key at (%d, %d)", x, y)
+              end
+            end
 
             -- Grant relevant weapon skill XP if the player landed the killing blow
             local killer = e._killedBy
