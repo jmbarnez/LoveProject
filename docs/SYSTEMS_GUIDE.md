@@ -1,462 +1,206 @@
 # Systems Guide - Novus Space Game
 
-This document provides detailed information about all game systems, their interactions, and how to modify or extend them.
+This guide describes the gameplay and support systems that power Novus. Use it as a reference when extending functionality or debugging interactions between subsystems.
 
 ## Table of Contents
 
 1. [System Overview](#system-overview)
-2. [Core Systems](#core-systems)
-3. [Gameplay Systems](#gameplay-systems)
-4. [Rendering Systems](#rendering-systems)
-5. [UI Systems](#ui-systems)
-6. [Support Systems](#support-systems)
-7. [System Interactions](#system-interactions)
+2. [Frame Update Order](#frame-update-order)
+3. [Core Simulation Systems](#core-simulation-systems)
+4. [Gameplay Systems](#gameplay-systems)
+5. [Rendering & Effects](#rendering--effects)
+6. [UI & Input Systems](#ui--input-systems)
+7. [Support Services](#support-services)
+8. [System Interactions](#system-interactions)
 
 ## System Overview
 
-The game is organized into several categories of systems:
+Systems consume entities, services, and content to drive the game loop. They are grouped broadly as:
 
-- **Core Systems**: Essential game functionality (physics, collision, rendering)
-- **Gameplay Systems**: Game mechanics (combat, mining, quests)
-- **Rendering Systems**: Visual output and effects
-- **UI Systems**: User interface and interaction
-- **Support Systems**: Utilities and infrastructure
+- **Core Simulation** – Physics, collisions, boundaries, destruction.
+- **Gameplay** – Player control, AI, spawning, mining, pickups, quests, economy, warp gates.
+- **Rendering & Effects** – Visual presentation of the world and transient effects.
+- **UI & Input** – HUD panels, modal windows, action maps, and input dispatch.
+- **Support Services** – State management, audio, events, portfolios, and utilities that other systems rely on.
 
-## Core Systems
+## Frame Update Order
 
-### 1. Physics System (`src/systems/physics.lua`)
+`src/game.lua` orchestrates systems every frame in the following order (after early UI updates and pause checks):
 
-**Purpose**: Handles movement, velocity, and basic physics simulation.
+1. **PlayerSystem.update** – Processes movement, dash/boost, turret firing, and warp readiness for the player entity.
+2. **Sound Listener Update** – Positions the listener at the player for positional SFX.
+3. **AISystem.update** – Advances enemy behavior states, targeting, and attack logic.
+4. **PhysicsSystem.update** – Integrates velocities and applies thruster forces.
+5. **ProjectileLifecycle.update** – Expires timed projectiles and capped-range ordnance.
+6. **BoundarySystem.update** – Prevents entities leaving world bounds.
+7. **CollisionSystem:update** – Detects entity/projectile collisions and applies damage/shields.
+8. **DestructionSystem.update** – Handles entity death, loot spawning, and cleanup hooks.
+9. **SpawningSystem.update** – Spawns enemy waves and enforces safe zones around stations.
+10. **RepairSystem.update** – Allows repair beacon interactions near damaged stations.
+11. **SpaceStationSystem.update** – Maintains docking state, station services, and hub timers.
+12. **MiningSystem.update** – Progresses mining beams and awards ore.
+13. **Pickups.update** – Applies magnetic collection to nearby loot crates and rewards.
+14. **InteractionSystem.update** – Manages context prompts (dock, warp, interact) and handles queued actions.
+15. **EngineTrailSystem.update** – Updates engine trail emitters from player thruster state.
+16. **Effects.update** – Advances transient visual effects.
+17. **QuestSystem.update** – Tracks quest objectives, completion, and rewards.
+18. **NodeMarket.update** – Simulates node price movement and processes queued orders.
+19. **WarpGateSystem.updateWarpGates** – Handles warp gate charge timers and unlocks.
+20. **camera:update** – Follows the player and applies shake/zoom.
+21. **world:update** – Removes dead entities and performs end-of-frame cleanup.
+22. **StateManager.update** – Advances autosave timers and writes saves when necessary.
+23. **refreshDockingState** – Re-evaluates docking eligibility for stations near the player.
+24. **Events.processQueue** – Flushes queued events for deferred processing.
+25. **HotbarSystem.update** – Updates ability cooldowns, manual turret firing, and UI bindings.
 
-**Key Functions**:
-- Updates entity positions based on velocity
-- Applies thruster forces (for non-player entities)
-- Manages physics body properties
+UI elements (`StatusBars`, `SkillXpPopup`, `Theme` animations) are updated before the player system runs, and rendering occurs later via `RenderSystem.draw` and UI manager draw calls.
 
-**Dependencies**: Position, Velocity, Physics components
+## Core Simulation Systems
 
-**Update Order**: Early in frame (after input, before collision)
+### Physics System (`src/systems/physics.lua`)
+* Integrates positions using accumulated forces and velocities.
+* Supports thruster forces, drag, and clamps for maximum speed.
+* Requires `position`, `velocity`, and optional `physics` components.
 
-```lua
--- Example usage
-PhysicsSystem.update(dt, world:getEntities())
-```
+### Collision System (`src/systems/collision/`)
+* Uses quadtree-assisted broad-phase queries when available.
+* Resolves entity/entity, projectile/entity, and radius-based interactions.
+* Applies damage, shields, and triggers collision callbacks (loot spawning, death events).
 
-### 2. Collision System (`src/systems/collision/`)
+### Boundary System (`src/systems/boundary_system.lua`)
+* Keeps entities inside the configured world rectangle.
+* Handles bounce/clamp behavior for stray physics bodies.
 
-**Purpose**: Detects and handles collisions between entities.
-
-**Components**:
-- `core.lua`: Main collision detection logic
-- `entity_collision.lua`: Entity-to-entity collisions
-- `projectile_collision.lua`: Projectile hit detection
-- `radius.lua`: Circular collision detection
-- `station_shields.lua`: Station shield interactions
-
-**Key Features**:
-- Quadtree-based spatial partitioning
-- Damage application and health updates
-- Collision response and effects
-- Shield system integration
-
-**Dependencies**: Collidable, Health, Position components
-
-### 3. Boundary System (`src/systems/boundary_system.lua`)
-
-**Purpose**: Manages world boundaries and entity containment.
-
-**Key Functions**:
-- Prevents entities from leaving world bounds
-- Handles boundary collision responses
-- Manages world wrapping (if enabled)
-
-**Dependencies**: Position, Velocity components
-
-### 4. Destruction System (`src/systems/destruction.lua`)
-
-**Purpose**: Handles entity death and cleanup.
-
-**Key Functions**:
-- Processes dead entities
-- Spawns wreckage and loot
-- Triggers death events
-- Manages entity cleanup
-
-**Dependencies**: Health, Position components
-
-**Events Emitted**:
-- `ENTITY_DESTROYED`: When an entity is destroyed
-- `PLAYER_DIED`: When player dies
-- `LOOT_SPAWNED`: When loot is created
+### Destruction System (`src/systems/destruction.lua`)
+* Processes `entity.dead` flags, spawns wreckage/pickups, and dispatches destruction events.
+* Notifies bounty tracking and quest systems about kills.
 
 ## Gameplay Systems
 
-### 1. Player System (`src/systems/player.lua`)
+### Player System (`src/systems/player.lua`)
+* Reads input state (via `Input.getInputState`) to drive acceleration, boost, braking, and strafing.
+* Manages dash cooldowns, shield channel slow, thruster state for VFX, and warp readiness.
+* Coordinates with `HotbarSystem` for manual weapon control and listens to player death/respawn events.
 
-**Purpose**: Handles all player-specific logic and input processing.
+### AI System (`src/systems/ai.lua`)
+* Implements behavior states (idle, hunting, retreating) with configurable aggression.
+* Uses world queries for target acquisition and pathing.
+* Fires projectiles via `world.spawn_projectile` when in range.
 
-**Key Functions**:
-- Processes player input (movement, combat, abilities)
-- Manages player abilities (boost, shield, dash)
-- Handles player state transitions
-- Updates player-specific UI elements
-
-**Dependencies**: Player entity, Input system, World
+### Spawning System (`src/systems/spawning.lua`)
+* Controls enemy wave timers, hub safe zones, and spawn radii.
+* Scales difficulty based on elapsed time and player state.
 
-**Player Abilities**:
-- **Movement**: WASD/Arrow keys for movement
-- **Boost**: Sustained thrust with energy cost
-- **Shield**: Damage reduction with channeling
-- **Dash**: Quick movement with invulnerability frames
-
-### 2. AI System (`src/systems/ai.lua`)
-
-**Purpose**: Controls enemy ship behavior and decision making.
-
-**AI States**:
-- **Idle**: Patrol or wait for targets
-- **Hunting**: Pursue and attack targets
-- **Retreating**: Flee when low on health
-
-**Key Functions**:
-- Target acquisition and tracking
-- State machine management
-- Combat behavior execution
-- Energy management
-
-**Dependencies**: AI, Position, Velocity, Health components
-
-**AI Behavior Patterns**:
-```lua
--- Target finding
-local function findTarget(entity, world)
-    -- Find nearest player or friendly entity
-end
-
--- State handling
-if ai.state == "hunting" then
-    handleHuntingState(entity, dt, world, spawnProjectile)
-end
-```
+### Mining System (`src/systems/mining.lua`)
+* Drives mining beams, channel durations, and ore payouts from asteroids.
+* Works with content-defined mining stats and turret metadata.
 
-### 3. Spawning System (`src/systems/spawning.lua`)
-
-**Purpose**: Manages enemy and entity spawning.
-
-**Key Functions**:
-- Spawns enemies based on difficulty
-- Enforces safe zones around stations
-- Manages spawn timing and intervals
-- Handles difficulty scaling
+### Pickups System (`src/systems/pickups.lua`)
+* Finds nearby loot and applies magnetic attraction toward the player.
+* Collects pickups when within range and dispatches reward notifications.
 
-**Spawn Rules**:
-- No spawning within station safe zones
-- Minimum distance from player
-- Respects maximum enemy limits
-- Difficulty-based spawn rates
+### Interaction System (`src/systems/interaction.lua`)
+* Provides context prompts for docking, warp gates, repair beacons, and loot.
+* Queues interactions to avoid conflicts with UI state and pauses player control when necessary.
 
-### 4. Mining System (`src/systems/mining.lua`)
-
-**Purpose**: Handles asteroid mining and resource extraction.
-
-**Key Functions**:
-- Processes mining laser interactions
-- Manages mining progression
-- Spawns extracted resources
-- Handles mining tool requirements
+### Repair System (`src/systems/repair_system.lua`)
+* Lets the player repair damaged stations using carried resources.
+* Emits notifications and updates station state on success/failure.
 
-**Mining Mechanics**:
-- Different asteroids have different resources
-- Mining tools have different effectiveness
-- Resources spawn as collectible items
-- Mining progression is tracked per asteroid
+### Hub/Station System (`src/systems/hub.lua`)
+* Tracks player proximity to stations and toggles the docked UI state.
+* Handles station cooldowns, services, and beacon states.
 
-### 5. Pickup System (`src/systems/pickups.lua`)
+### Quest System (`src/systems/quest_system.lua`)
+* Loads quest definitions from `content/quests`.
+* Updates objective counters, awards rewards, and feeds the HUD quest log.
 
-**Purpose**: Manages item collection and inventory management.
+### Node Market (`src/systems/node_market.lua`)
+* Simulates candlestick data, random trend shifts, and trade volume.
+* Processes buy/sell orders from the node UI, updating the player's portfolio via `portfolio.lua`.
+* Maintains history caps to control memory usage.
 
-**Key Functions**:
-- Detects item pickups
-- Handles magnetic collection
-- Updates player inventory
-- Manages pickup effects
+### Warp Gate System (`src/systems/warp_gate_system.lua`)
+* Tracks gate charge timers, unlock conditions, and travel requests.
+* Coordinates with the warp UI to display available destinations.
 
-**Pickup Types**:
-- **Magnetic**: Automatically drawn to player
-- **Manual**: Require player interaction
-- **Loot**: Dropped from destroyed entities
+## Rendering & Effects
 
-### 6. Quest System (`src/systems/quest_system.lua`)
+### Render System (`src/systems/render.lua`)
+* Draws entities based on `renderable` components, including ships, projectiles, and world objects.
+* Delegates to specialized renderers (`src/systems/render/entity_renderers.lua`, indicators, HUD helpers).
 
-**Purpose**: Manages quests, missions, and objectives.
+### Effects System (`src/systems/effects.lua`)
+* Manages transient particle systems and hit effects.
+* Works closely with mining lasers, explosions, and environmental feedback.
 
-**Key Functions**:
-- Tracks quest progress
-- Handles quest completion
-- Manages quest rewards
-- Generates procedural quests
+### Engine Trail System (`src/systems/engine_trail.lua`)
+* Spawns and updates engine trail sprites tied to thruster state from the player and certain AI ships.
 
-**Quest Types**:
-- **Kill Quests**: Destroy specific enemies
-- **Mining Quests**: Collect specific resources
-- **Delivery Quests**: Transport items
-- **Exploration Quests**: Visit locations
+## UI & Input Systems
 
-**Quest Events**:
-```lua
-Events.on(Events.GAME_EVENTS.ENTITY_DESTROYED, function(data)
-    QuestSystem.handleEntityDestroyed(data)
-end)
-```
+### Input (`src/core/input.lua`)
+* Bridges Love callbacks (`love.keypressed`, `love.mousepressed`, etc.) with in-game state.
+* Uses `ActionMap` (`src/core/action_map.lua`) for configurable hotkeys (inventory, ship, map, repair beacon, fullscreen toggle).
+* Manages screen transitions between the start menu and in-game UI.
 
-### 7. Turret System (`src/systems/turret/`)
+### UIManager (`src/core/ui_manager.lua`)
+* Registers and orchestrates UI components (inventory, docked panels, map, warp, escape menu, debug panel, etc.).
+* Maintains modal state (`isModalActive`) to pause gameplay input when overlays are open.
+* Routes input events to the top-most visible component using a registry/priority system.
 
-**Purpose**: Manages weapon systems and combat mechanics.
+### HUD Systems (`src/ui/hud/`)
+* `StatusBars`, `SkillXpPopup`, `QuestLogHUD`, and indicator modules render gameplay feedback overlays.
+* `HotbarSystem` integrates with HUD widgets to display weapon cooldowns and manual fire state.
 
-**Key Components**:
-- `core.lua`: Main turret logic and initialization
-- `projectile_weapons.lua`: Handles projectile weapon firing
-- `beam_weapons.lua`: Handles hitscan beam weapons
-- `utility_beams.lua`: Handles mining and salvaging lasers
-- `heat_manager.lua`: Manages weapon overheating
+## Support Services
 
-**Streamlined Turret System**:
-- **5 Core Turrets**: Combat Laser, Gun Turret, Missile Launcher, Mining Laser, Salvaging Laser
-- **Embedded Projectiles**: Each turret contains its own projectile definition
-- **No Targeting**: All weapons fire in shot direction only - no homing or guidance
-- **Directional Combat**: Weapons aim at cursor (player) or ship facing (AI)
+### Events (`src/core/events.lua`)
+* Provides synchronous and queued event dispatch for decoupled communication.
+* Systems queue work (e.g., loot collected, quests updated) for later processing in `Events.processQueue`.
 
-**Key Functions**:
-- Turret initialization and configuration
-- Weapon firing and projectile spawning
-- Heat management and overheating
-- Visual effects and audio
+### State Manager (`src/managers/state_manager.lua`)
+* Serializes/deserializes game state, manages autosave intervals, and exposes quick save/load helpers (F5/F9).
 
-**Dependencies**: Position, Velocity, Physics, Equipment components
+### Portfolio Manager (`src/managers/portfolio.lua`)
+* Tracks player funds, holdings, and transaction history for the node market.
+* Integrates with the node UI to refresh balances and enforce trade rules.
 
-### 8. Repair System (`src/systems/repair_system.lua`)
+### Sound System (`src/core/sound.lua`)
+* Registers SFX/music from `content/sounds` and attaches them to gameplay events.
+* Updates listener position each frame for positional audio.
 
-**Purpose**: Handles ship repair and maintenance.
-
-**Key Functions**:
-- Processes repair requests
-- Manages repair costs and time
-- Updates ship health and modules
-- Handles repair station interactions
-
-### 9. Node Market System (`src/systems/node_market.lua`)
-
-**Purpose**: Manages the trading node simulation and stock market.
-
-**Key Functions**:
-- Simulates market price fluctuations
-- Handles buy/sell orders
-- Manages portfolio tracking
-- Generates market data
-
-**Market Features**:
-- Real-time price updates
-- Technical analysis indicators
-- Portfolio management
-- Trading history
-
-## Rendering Systems
-
-### 1. Main Render System (`src/systems/render.lua`)
-
-**Purpose**: Coordinates all rendering operations.
-
-**Key Functions**:
-- Manages render order
-- Coordinates entity rendering
-- Handles special effects
-- Manages UI overlay
-
-### 2. Entity Renderers (`src/systems/render/entity_renderers.lua`)
-
-**Purpose**: Renders different types of entities.
-
-**Entity Types**:
-- Ships (player and AI)
-- Projectiles
-- World objects (stations, asteroids)
-- Effects and particles
-
-**Rendering Features**:
-- Sprite batching for performance
-- Visual effects and animations
-- Damage indicators
-- Shield visualization
-
-### 3. Player Renderer (`src/systems/render/player_renderer.lua`)
-
-**Purpose**: Specialized rendering for player ship.
-
-**Key Features**:
-- Player-specific visual effects
-- Targeting reticle
-- Thruster effects
-- Shield visualization
-
-### 4. Effects System (`src/systems/effects.lua`)
-
-**Purpose**: Manages visual effects and particles.
-
-**Effect Types**:
-- Explosions
-- Engine trails
-- Shield impacts
-- Mining effects
-
-## UI Systems
-
-### 1. UI Manager (`src/core/ui_manager.lua`)
-
-**Purpose**: Central coordination of all UI elements.
-
-**Key Functions**:
-- Manages UI panel visibility
-- Handles input routing
-- Coordinates panel interactions
-- Manages UI state
-
-### 2. HUD System (`src/ui/hud/`)
-
-**Purpose**: In-game heads-up display.
-
-**Components**:
-- **Status Bars**: Health, energy, shields
-- **Minimap**: World overview
-- **Quest Log**: Active mission display
-- **Hotbar**: Quick actions
-
-### 3. Docked Interface (`src/ui/docked.lua`)
-
-**Purpose**: Main interface when docked at stations.
-
-**Tabs**:
-- **Shop**: Buy/sell items and ships
-- **Ship**: Equipment and customization
-- **Quests**: Mission management
-- **Nodes**: Trading interface
-
-### 4. Inventory System (`src/ui/inventory.lua`)
-
-**Purpose**: Item and equipment management.
-
-**Features**:
-- Item grid display
-- Drag and drop functionality
-- Equipment slots
-- Item tooltips
-
-## Support Systems
-
-### 1. Event System (`src/core/events.lua`)
-
-**Purpose**: Decoupled communication between systems.
-
-**Key Functions**:
-- Event emission and listening
-- Event queuing and processing
-- Event debugging and logging
-
-### 2. Sound System (`src/core/sound.lua`)
-
-**Purpose**: Audio management and playback.
-
-**Features**:
-- Music and SFX playback
-- Distance-based volume attenuation
-- Sound event triggers
-- Audio settings management
-
-### 3. State Manager (`src/managers/state_manager.lua`)
-
-**Purpose**: Save/load game state.
-
-**Key Functions**:
-- Serializes game state
-- Handles save/load operations
-- Manages auto-save
-- Version compatibility
-
-### 4. Multiplayer System (`src/core/multiplayer.lua`)
-
-**Purpose**: Network synchronization and multiplayer support.
-
-**Features**:
-- Player synchronization
-- Event broadcasting
-- Connection management
-- State reconciliation
-
-### 5. Action Map (`src/core/action_map.lua`)
-
-**Purpose**: Centralizes keyboard shortcuts and contextual actions so gameplay and UI teams can add behaviors without editing the low-level input loop.
-
-**Key Concepts**:
-- **Action Descriptors**: Each action is registered through `ActionMap.registerAction` with a descriptor that defines a `name`, how to read bound keys (`getKeys`), an optional `enabled` predicate, and the `callback` that performs the work.
-- **Settings Integration**: Use `Settings.getBinding("action_name")` or `ActionMap.bindingKeys("action_name")` to resolve default/user-assigned keys. `Settings.setKeyBinding` updates the stored binding, and `Settings.getKeymap()` still returns the flattened table for legacy UI.
-- **Execution Context**: `src/core/input.lua` constructs a context containing the active `player`, `world`, `UIManager`, `Events`, `notifications`, `util`, and injected services (e.g., `repairSystem`). `ActionMap.dispatch` passes this context into callbacks so they can call high-level facades instead of requiring UI modules directly.
-
-**Registering a New Action**:
-1. **Declare a Binding** – Add a default entry in `Settings` (e.g., `settings.keymap.new_action = { primary = "k" }`). Expose it through `Settings.getBinding` if other systems need to inspect it.
-2. **Register the Descriptor** – Extend `src/core/action_map.lua` (or require it from a feature module) and call `ActionMap.registerAction({ name = "new_action", getKeys = function() return ActionMap.bindingKeys("new_action") end, callback = function(ctx) ... end })`.
-3. **Use Facades** – Inside the callback, prefer `ctx.UIManager`, `ctx.Events`, or other injected services. If you need additional data, modify `Input.keypressed` to pass it through the context rather than requiring new modules inside the action.
-4. **Prioritize & Guard** – Set `priority` when multiple actions share keys and add an `enabled` predicate to short-circuit actions when the relevant context is missing.
-
-This structure allows teams to introduce new shortcuts or interaction contexts by working in the action map, keeping `input.lua` focused on wiring and state handoff.
+### Theme & Settings (`src/core/theme.lua`, `src/core/settings.lua`)
+* Supplies fonts, colors, and spacing tokens for UI components.
+* Stores keybindings and graphics options exposed via the settings panel.
 
 ## System Interactions
 
-### Update Flow
-
 ```mermaid
 graph TD
-    A[Input System] --> B[Player System]
-    B --> C[AI System]
-    C --> D[Physics System]
-    D --> E[Collision System]
-    E --> F[Destruction System]
-    F --> G[Spawning System]
-    G --> H[Mining System]
-    H --> I[Pickup System]
-    I --> J[Quest System]
-    J --> K[Render System]
-    K --> L[UI System]
+    Input --> Player
+    Player --> Physics
+    Player --> Interaction
+    Player --> EngineTrail
+    AI --> Physics
+    AI --> Collision
+    Physics --> Collision
+    Collision --> Destruction
+    Destruction --> Effects
+    Destruction --> Pickups
+    Pickups --> InventoryUI
+    Mining --> Pickups
+    Spawning --> AI
+    Quest --> UI
+    NodeMarket --> Portfolio
+    Portfolio --> NodesUI
+    WarpGate --> UI
+    UIManager --> Hotbar
 ```
 
-### Event Flow
+When adding or modifying systems:
 
-```mermaid
-graph LR
-    A[Collision System] --> B[ENTITY_DESTROYED]
-    B --> C[Destruction System]
-    C --> D[LOOT_SPAWNED]
-    D --> E[Pickup System]
-    
-    F[Player System] --> G[PLAYER_DAMAGED]
-    G --> H[UI System]
-    
-    I[Quest System] --> J[QUEST_COMPLETED]
-    J --> K[Player System]
-```
-
-### Data Dependencies
-
-- **World State**: Shared between all systems
-- **Player Entity**: Referenced by most systems
-- **Event System**: Used for decoupled communication
-- **Content System**: Provides data for entity creation
-
-### Performance Considerations
-
-- **System Order**: Optimized for data locality
-- **Entity Filtering**: Only process relevant entities
-- **Spatial Indexing**: Use quadtree for efficient queries
-- **Event Batching**: Process events in batches
-
----
-
-This systems guide provides detailed information about each game system and how they interact. For specific implementation details, refer to the individual source files and their inline documentation.
+- Keep their responsibilities narrow and operate on explicit components.
+- Insert update calls in `src/game.lua` near related systems to maintain deterministic ordering.
+- Emit events for cross-cutting concerns instead of requiring systems directly.
+- Document new interactions in this guide to aid future maintainers.
