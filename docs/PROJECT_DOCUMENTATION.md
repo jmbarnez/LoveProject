@@ -318,6 +318,17 @@ LoveProject/
 - **Documentation**: Comment complex logic
 - **Naming**: Use descriptive, consistent names
 
+### AI Contributor Standards
+
+- **Obey Instruction Files**: Identify applicable `AGENTS.md` files before modifying code or data. Document any instruction
+  conflicts in the PR discussion.
+- **Plan and Communicate**: Provide a short implementation plan in work notes or PR descriptions so maintainers understand the
+  rationale for automated changes.
+- **Validate Changes**: Run accessible scripts (`love .`, formatters) or clearly state why a check could not be executed.
+- **Update Documentation**: When behavior changes, refresh relevant guides and mention the updates in commit/PR summaries.
+- **Respect Safety Boundaries**: Do not introduce secrets, and flag operations that might affect save data or player accounts for
+  manual review.
+
 ### Common Patterns
 
 #### Entity Creation

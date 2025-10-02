@@ -12,6 +12,7 @@ This project is a LÖVE2D game, featuring an ECS-like architecture with a clear 
 *   [Code Entry Point](#code-entry-point)
 *   [Dependencies](#dependencies)
 *   [License](#license)
+*   [AI Collaboration Guide](#ai-collaboration-guide)
 
 ## Project Structure
 
@@ -68,3 +69,9 @@ The project primarily relies on the LÖVE2D framework. Additionally, it includes
 ## License
 
 This project is licensed under the MIT License. See the `license.txt` file for more details.
+
+## AI Collaboration Guide
+
+Automated contributors should read the [AI Agent Contribution Guide](./AI_AGENT_GUIDE.md) before proposing changes. The guide
+outlines required instructions discovery, safe planning habits, validation expectations, and communication standards so that
+agent-authored work stays consistent with Novus development practices.
