@@ -227,10 +227,10 @@ end
 
 function love.textinput(text)
   -- Let debug panel handle text input first
-  if DebugPanel.textinput and DebugPanel.textinput() then
+  if DebugPanel.textinput and DebugPanel.textinput(text) then
     return
   end
-  
+
   -- Pass to input module
   if Input.love_textinput then
     Input.love_textinput(text)
