@@ -143,6 +143,10 @@ function Turret:update(dt, target, locked, world)
     end
 
 
+    if self.kind == "missile" then
+        ProjectileWeapons.updateMissileLockState(self, dt, target, world)
+    end
+
     -- Check if we can fire
     if locked then
         self.firing = false
