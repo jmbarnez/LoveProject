@@ -8,6 +8,9 @@ local History = require("src.core.history")
 local ChartAnimations = require("src.systems.chart_animations")
 local PortfolioManager = require("src.managers.portfolio")
 local Dropdown = require("src.ui.common.dropdown")
+local Log = require("src.core.log")
+local Notifications = require("src.ui.notifications")
+local Strings = require("src.core.strings")
 
 local Nodes = {}
 
@@ -372,7 +375,11 @@ local function drawBottomPanel(self, player, x, y, w, h)
     elseif self.activeBottomTab == "transactions" then
         local node = NodeMarket.getNodeBySymbol(self.selectedSymbol)
         local transactions = node and NodeMarket.getNodeTransactions(self.selectedSymbol) or {}
-        print("UI: Checking transactions for", self.selectedSymbol, "found:", #transactions)  -- Debug output
+        Log.debug(string.format(
+            "ui.nodes.transactions - symbol=%s count=%d",
+            tostring(self.selectedSymbol),
+            #transactions
+        ))
         love.graphics.setFont(Theme.fonts.small)
 
         -- Table headers
@@ -949,12 +956,20 @@ function Nodes:wheelmoved(player, dx, dy)
     
     -- Debug output
     if self._chartRect then
-        print(string.format("Chart zoom attempt: mx=%.1f, my=%.1f, chartRect={x=%.1f, y=%.1f, w=%.1f, h=%.1f}, zoom=%.2f", 
-            mx or 0, my or 0, self._chartRect.x, self._chartRect.y, self._chartRect.w, self._chartRect.h, self.zoom or 1.0))
+        Log.debug(string.format(
+            "ui.nodes.zoom - attempt mx=%.1f my=%.1f rect={x=%.1f y=%.1f w=%.1f h=%.1f} zoom=%.2f",
+            mx or 0,
+            my or 0,
+            self._chartRect.x,
+            self._chartRect.y,
+            self._chartRect.w,
+            self._chartRect.h,
+            self.zoom or 1.0
+        ))
     end
     
     if self._chartRect and Util.rectContains(mx, my, self._chartRect.x, self._chartRect.y, self._chartRect.w, self._chartRect.h) then
-        print("Chart zoom: Inside chart area, applying zoom")
+        Log.debug("ui.nodes.zoom - inside chart area, applying zoom")
         
         if self.history then
             self.history:push({
@@ -970,15 +985,15 @@ function Nodes:wheelmoved(player, dx, dy)
         local factor = (dy > 0) and 1.2 or 1 / 1.2
         if love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift") then
             self.yScale = math.max(0.1, math.min(20.0, (self.yScale or 1.0) * factor))
-            print(string.format("Y-scale zoom: %.2f", self.yScale))
+            Log.debug(string.format("ui.nodes.zoom - y-scale %.2f", self.yScale))
         else
             self.zoom = math.max(0.05, math.min(32.0, (self.zoom or 1.0) * factor))
             self.yScale = math.max(0.1, math.min(20.0, (self.yScale or 1.0) * factor))
-            print(string.format("Full zoom: zoom=%.2f, yScale=%.2f", self.zoom, self.yScale))
+            Log.debug(string.format("ui.nodes.zoom - full zoom %.2f y-scale %.2f", self.zoom, self.yScale))
         end
         return true
     else
-        print("Chart zoom: Outside chart area or no chart rect")
+        Log.debug("ui.nodes.zoom - outside chart area or no chart rect")
     end
     return false
 end
@@ -1095,7 +1110,9 @@ function Nodes:executeBuy(player)
     local funds = PortfolioManager.getAvailableFunds()
 
     if totalCost > funds then
-        print(Strings.getError("insufficient_funds"))
+        local errorText = (Strings and Strings.getError and Strings.getError("insufficient_funds")) or "Insufficient funds"
+        Notifications.add(errorText, "error")
+        Log.debug("ui.nodes.trade - buy blocked: insufficient funds")
         return
     end
 
@@ -1108,9 +1125,25 @@ function Nodes:executeBuy(player)
         self.buyInputActive = false
 
         -- Show success message or notification
-        print("Successfully bought", amount, self.selectedSymbol, "for", formatPrice(totalCost), "GC")
+        local successText = (type(message) == "string" and message ~= "" and message)
+            or string.format("Bought %.4f %s for %s GC", amount, self.selectedSymbol, formatPrice(totalCost))
+        Notifications.add(successText, "success")
+        Log.debug(string.format(
+            "ui.nodes.trade - buy success symbol=%s amount=%.4f price=%s",
+            tostring(self.selectedSymbol),
+            amount,
+            formatPrice(stats.price)
+        ))
     else
-        print(Strings.getError("trade_execution_failed"))
+        local errorText = (type(message) == "string" and message ~= "" and message)
+            or (Strings and Strings.getError and Strings.getError("trade_execution_failed"))
+            or "Trade execution failed"
+        Notifications.add(errorText, "error")
+        Log.debug(string.format(
+            "ui.nodes.trade - buy failed symbol=%s reason=%s",
+            tostring(self.selectedSymbol),
+            tostring(errorText)
+        ))
     end
 end
 
@@ -1127,7 +1160,10 @@ function Nodes:executeSell(player)
     local holding = holdings[self.selectedSymbol] or { quantity = 0 }
 
     if amount > holding.quantity then
-        print(Strings.getError("insufficient_holdings"))
+        local errorText = (Strings and Strings.getError and Strings.getError("insufficient_holdings"))
+            or "Insufficient holdings"
+        Notifications.add(errorText, "error")
+        Log.debug("ui.nodes.trade - sell blocked: insufficient holdings")
         return
     end
 
@@ -1143,11 +1179,27 @@ function Nodes:executeSell(player)
         self.sellInputActive = false
 
         -- Show success message or notification
-        print("Successfully sold", amount, self.selectedSymbol, "for", formatPrice(totalRevenue), "GC")
+        local successText = (type(message) == "string" and message ~= "" and message)
+            or string.format("Sold %.4f %s for %s GC", amount, self.selectedSymbol, formatPrice(totalRevenue))
+        Notifications.add(successText, "success")
+        Log.debug(string.format(
+            "ui.nodes.trade - sell success symbol=%s amount=%.4f price=%s",
+            tostring(self.selectedSymbol),
+            amount,
+            formatPrice(stats.price)
+        ))
 
         -- PortfolioManager already updated holdings and funds
     else
-        print(Strings.getError("trade_execution_failed"))
+        local errorText = (type(message) == "string" and message ~= "" and message)
+            or (Strings and Strings.getError and Strings.getError("trade_execution_failed"))
+            or "Trade execution failed"
+        Notifications.add(errorText, "error")
+        Log.debug(string.format(
+            "ui.nodes.trade - sell failed symbol=%s reason=%s",
+            tostring(self.selectedSymbol),
+            tostring(errorText)
+        ))
     end
 end
 
