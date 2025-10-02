@@ -1,6 +1,7 @@
 local Pickups = {}
 local Sound = require("src.core.sound")
 local Notifications = require("src.ui.notifications")
+local Content = require("src.content.content")
 
 local ATTRACT_RADIUS = 600  -- Increased from 400 to 600 for better item collection
 local CAPTURE_RADIUS = 35  -- Increased to ensure items are collected when they get under the ship
@@ -65,6 +66,92 @@ local function collect(player, pickup)
 
   pickup.dead = true
   return { type = "item", id = id, name = itemName, qty = qty }
+end
+
+function Pickups.collectPickup(player, pickup)
+  return collect(player, pickup)
+end
+
+local function resolveItemName(result)
+  if not result or result.type ~= "item" then return nil end
+  local name = result.name
+  if not name or name == result.id then
+    local def = Content.getItem(result.id)
+    if def and def.name then
+      name = def.name
+    end
+  end
+  return name or result.id
+end
+
+function Pickups.notifySingleResult(result)
+  if not result then return end
+
+  if result.type == "xp" then
+    local amount = result.amount or 0
+    if amount > 0 then
+      Notifications.action("+" .. formatAmount(amount) .. " XP")
+    end
+    return
+  end
+
+  if result.type == "item" then
+    local qty = result.qty or 0
+    if qty <= 0 then return end
+    local label = resolveItemName(result)
+    Notifications.loot({ { label = label or "Item", quantity = qty } })
+  end
+end
+
+local function extractItemId(entity)
+  if not entity then return nil end
+  if entity.itemId then return entity.itemId end
+  if entity.components then
+    if entity.components.item_pickup and entity.components.item_pickup.itemId then
+      return entity.components.item_pickup.itemId
+    end
+    if entity.components.renderable and entity.components.renderable.props and entity.components.renderable.props.itemId then
+      return entity.components.renderable.props.itemId
+    end
+  end
+  return nil
+end
+
+function Pickups.findNearestPickup(world, player, itemId, maxDistance)
+  if not world or not player or not player.components or not player.components.position then
+    return nil, nil
+  end
+
+  local px = player.components.position.x
+  local py = player.components.position.y
+  local limit = maxDistance or math.huge
+
+  local bestEntity
+  local bestDist = math.huge
+  local candidates = world.get_entities_with_components and world:get_entities_with_components("item_pickup", "position") or {}
+
+  for _, entity in ipairs(candidates) do
+    if entity and not entity.dead and entity.components and entity.components.position then
+      local id = extractItemId(entity)
+      if not itemId or id == itemId then
+        local ex = entity.components.position.x
+        local ey = entity.components.position.y
+        local dx = ex - px
+        local dy = ey - py
+        local dist = math.sqrt(dx * dx + dy * dy)
+        if dist <= limit and dist < bestDist then
+          bestDist = dist
+          bestEntity = entity
+        end
+      end
+    end
+  end
+
+  if bestEntity then
+    return bestEntity, bestDist
+  end
+
+  return nil, nil
 end
 
 function Pickups.update(dt, world, player)

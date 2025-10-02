@@ -107,6 +107,23 @@ local function spawn_projectile(x, y, angle, friendly, opts)
     end
 end
 
+local function tryCollectNearbyRewardCrate(playerEntity, activeWorld)
+  if not playerEntity or not activeWorld then return false end
+  if playerEntity.docked then return false end
+  if not playerEntity.components or not playerEntity.components.position then return false end
+
+  if not Pickups or not Pickups.findNearestPickup then return false end
+
+  local pickup = Pickups.findNearestPickup(activeWorld, playerEntity, "reward_crate", 280)
+  if not pickup or pickup.dead then return false end
+
+  local result = Pickups.collectPickup(playerEntity, pickup)
+  if not result then return false end
+
+  Pickups.notifySingleResult(result)
+  return true
+end
+
 
 --[[
     Game.load
@@ -387,6 +404,9 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   end)
 
   Events.on(Events.GAME_EVENTS.DOCK_REQUESTED, function()
+    if tryCollectNearbyRewardCrate(player, world) then
+      return
+    end
     if not player.canDock then return end
     if player.docked then
       player:undock()
