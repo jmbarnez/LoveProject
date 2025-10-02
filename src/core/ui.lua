@@ -1,6 +1,7 @@
 local Util = require("src.core.util")
 local Theme = require("src.core.theme")
 local Content = require("src.content.content")
+local IconSystem = require("src.core.icon_system")
 local Viewport = require("src.core.viewport")
 local UIUtils = require("src.ui.common.utils")
 local Events = require("src.core.events")
@@ -23,6 +24,12 @@ local dockPromptState = {
 local warpPromptState = {
   visible = false,
   warpRect = nil,
+}
+
+local cratePromptState = {
+  visible = false,
+  collectRect = nil,
+  pickup = nil,
 }
 
 -- Helper function to check if player has required turret type
@@ -66,6 +73,9 @@ function UI.drawHelpers(player, world, hub, camera)
   dockPromptState.stationName = nil
   warpPromptState.visible = false
   warpPromptState.warpRect = nil
+  cratePromptState.visible = false
+  cratePromptState.collectRect = nil
+  cratePromptState.pickup = nil
 
   -- Helper tooltip above stations (docking prompt and repair requirements)
   do
@@ -347,6 +357,88 @@ function UI.drawHelpers(player, world, hub, camera)
     end
   end
 
+  -- Reward crate collection prompt
+  do
+    if not player.docked and world and camera then
+      local Pickups = require("src.systems.pickups")
+      local pickup, distance = Pickups.findNearestPickup(world, player, "reward_crate", 280)
+      if pickup and pickup.components and pickup.components.position then
+        local sw, sh = Viewport.getDimensions()
+        local camScale = camera and camera.scale or 1
+        local camX = (camera and camera.x) or 0
+        local camY = (camera and camera.y) or 0
+
+        local px = pickup.components.position.x
+        local py = pickup.components.position.y
+        local screenX = (px - camX) * camScale + sw * 0.5
+        local screenY = (py - camY) * camScale + sh * 0.5
+
+        if distance <= 280 and screenX >= -80 and screenX <= sw + 80 and screenY >= -80 and screenY <= sh + 80 then
+          cratePromptState.visible = true
+          cratePromptState.pickup = pickup
+
+          local buttonW, buttonH = 110, 36
+          local buttonX = math.floor(screenX - buttonW * 0.5 + 0.5)
+          local buttonY = math.floor(screenY - buttonH - 48 + 0.5)
+          buttonX = math.max(8, math.min(sw - buttonW - 8, buttonX))
+          buttonY = math.max(8, math.min(sh - buttonH - 8, buttonY))
+
+          local mouseX, mouseY = Viewport.getMousePosition()
+          local hover = UIUtils.pointInRect(mouseX, mouseY, {
+            x = buttonX,
+            y = buttonY,
+            w = buttonW,
+            h = buttonH,
+          })
+
+          local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
+          local previousFont = love.graphics.getFont()
+          local cargo = player.components and player.components.cargo
+          local keyId = "reward_crate_key"
+          local keyDef = Content.getItem(keyId)
+          local requiredKeys = 1
+          local keyCount = (cargo and cargo.getQuantity and cargo:getQuantity(keyId)) or 0
+          local hasKeys = keyCount >= requiredKeys
+
+          cratePromptState.collectRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "Open", hover, false, {
+            font = buttonFont,
+            bg = {0, 0, 0, 1},
+            hoverBg = {0.1, 0.1, 0.1, 1},
+            activeBg = {0.2, 0.2, 0.2, 1},
+            textColor = hasKeys and Theme.colors.text or Theme.colors.danger,
+          })
+
+          local itemDef = Content.getItem("reward_crate")
+          local label = (itemDef and itemDef.name) or "Reward Crate"
+          local labelFont = (Theme.fonts and Theme.fonts.small) or love.graphics.getFont()
+          love.graphics.setFont(labelFont)
+          Theme.setColor(Theme.colors.text)
+          love.graphics.printf(label, cratePromptState.collectRect.x, cratePromptState.collectRect.y - labelFont:getHeight() - 6, cratePromptState.collectRect.w, "center")
+
+          local requirementFont = (Theme.fonts and Theme.fonts.tiny) or labelFont
+          local ratioFont = (Theme.fonts and Theme.fonts.tiny) or labelFont
+          local iconSize = 24
+          local iconX = cratePromptState.collectRect.x + (cratePromptState.collectRect.w - iconSize) * 0.5
+          local iconY = cratePromptState.collectRect.y + cratePromptState.collectRect.h + 6
+
+          IconSystem.drawIcon(keyDef or keyId, iconX, iconY, iconSize, 1.0)
+
+          love.graphics.setFont(requirementFont)
+          Theme.setColor(Theme.colors.textSecondary or Theme.colors.text)
+          love.graphics.printf((keyDef and keyDef.name) or "Reward Key", cratePromptState.collectRect.x, iconY + iconSize + 2, cratePromptState.collectRect.w, "center")
+
+          love.graphics.setFont(ratioFont)
+          Theme.setColor(hasKeys and (Theme.colors.success or Theme.colors.text) or Theme.colors.danger)
+          love.graphics.printf(string.format("%d / %d", keyCount, requiredKeys), cratePromptState.collectRect.x, iconY + iconSize + requirementFont:getHeight() + 4, cratePromptState.collectRect.w, "center")
+
+          if previousFont then
+            love.graphics.setFont(previousFont)
+          end
+        end
+      end
+    end
+  end
+
   -- Helper tooltip for nearby asteroid or wreckage (shows hotkeys for mining/salvaging)
   do
     if not player.docked and world and camera then
@@ -503,15 +595,41 @@ function UI.drawHelpers(player, world, hub, camera)
 
 end
 
--- Export universal icon drawing helper
-local IconSystem = require("src.core.icon_system")
 UI.drawIcon = IconSystem.drawIconAny
 UI.drawTurretIcon = IconSystem.drawIconAny
 
 function UI.handleHelperMousePressed(x, y, button, player)
   if button ~= 1 then return false end
-  if not dockPromptState.visible and not warpPromptState.visible then return false end
+  if not dockPromptState.visible and not warpPromptState.visible and not cratePromptState.visible then return false end
   if not player or player.docked then return false end
+
+  if cratePromptState.collectRect and UIUtils.pointInRect(x, y, cratePromptState.collectRect) then
+    local cargo = player.components and player.components.cargo
+    local keyId = "reward_crate_key"
+    local requiredKeys = 1
+    local keyCount = (cargo and cargo.getQuantity and cargo:getQuantity(keyId)) or 0
+
+    if not cargo or keyCount < requiredKeys then
+      local Notifications = require("src.ui.notifications")
+      Notifications.add("You need a Reward Key to open this crate.", "warning")
+      return true
+    end
+
+    local pickup = cratePromptState.pickup
+    if pickup and not pickup.dead then
+      local Pickups = require("src.systems.pickups")
+      local result = Pickups.collectPickup(player, pickup)
+      if result and result.type == "item" then
+        local Inventory = require("src.ui.inventory")
+        Inventory.useItem(player, "reward_crate")
+      end
+    end
+
+    cratePromptState.visible = false
+    cratePromptState.collectRect = nil
+    cratePromptState.pickup = nil
+    return true
+  end
 
   if dockPromptState.dockRect and UIUtils.pointInRect(x, y, dockPromptState.dockRect) then
     if player.canDock then

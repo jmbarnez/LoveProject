@@ -107,7 +107,6 @@ local function spawn_projectile(x, y, angle, friendly, opts)
     end
 end
 
-
 --[[
     Game.load
 
