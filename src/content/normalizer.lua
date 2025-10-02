@@ -110,7 +110,28 @@ function Normalizer.normalizeWorldObject(def)
     out.renderable = { type = "asteroid", props = { visuals = visuals } }
   end
   local radius = (def.collidable and def.collidable.radius) or def.radius or 20
-  out.collidable = { type = (def.collidable and def.collidable.type) or "circle", radius = radius }
+  if type(def.collidable) == "table" then
+    local collidable = deepCopy(def.collidable)
+    collidable.shape = collidable.shape or collidable.type or "circle"
+    collidable.type = collidable.type or collidable.shape
+
+    if collidable.shape == "polygon" then
+      if type(collidable.vertices) ~= "table" or #collidable.vertices < 6 then
+        collidable.shape = "circle"
+        collidable.type = "circle"
+        collidable.radius = collidable.radius or radius
+        if Log and Log.warn then
+          Log.warn("Normalizer", "Polygon collidable missing vertices on %s; falling back to circle", tostring(def.id))
+        end
+      end
+    else
+      collidable.radius = collidable.radius or radius
+    end
+
+    out.collidable = collidable
+  else
+    out.collidable = { type = "circle", shape = "circle", radius = radius }
+  end
   if def.mineable then
     local m = def.mineable
     out.mineable = {
