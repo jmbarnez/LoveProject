@@ -1,5 +1,4 @@
 local CollisionHelpers = require("src.systems.turret.collision_helpers")
-local HeatManager = require("src.systems.turret.heat_manager")
 local TurretEffects = require("src.systems.turret.effects")
 local Log = require("src.core.log")
 
@@ -98,7 +97,6 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     turret.beamTarget = hitTarget
 
     -- Add heat and play effects
-    HeatManager.addHeat(turret, turret.heatPerShot)
     TurretEffects.playFiringSound(turret)
 end
 
@@ -227,7 +225,7 @@ end
 
 -- Check if beam weapon can fire
 function BeamWeapons.canFire(turret, target)
-    return HeatManager.canFire(turret)
+    return turret:canFire()
 end
 
 return BeamWeapons

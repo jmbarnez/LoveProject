@@ -1,6 +1,5 @@
 local Util = require("src.core.util")
 local Content = require("src.content.content")
-local HeatManager = require("src.systems.turret.heat_manager")
 local ProjectileWeapons = require("src.systems.turret.projectile_weapons")
 local BeamWeapons = require("src.systems.turret.beam_weapons")
 local UtilityBeams = require("src.systems.turret.utility_beams")
@@ -81,8 +80,6 @@ function Turret.new(owner, params)
     self.volleyCount = params.volleyCount
     self.volleySpreadDeg = params.volleySpreadDeg
 
-    -- Initialize heat management
-    HeatManager.initializeHeat(self, params)
 
     -- Initialize state variables
     self.lastFireTime = 0
@@ -123,8 +120,6 @@ function Turret.new(owner, params)
 end
 
 function Turret:update(dt, target, locked, world)
-    -- Update heat management
-    HeatManager.updateHeat(self, dt, locked)
 
     -- Update cooldown timer
     if self.cooldown > 0 then
@@ -145,7 +140,7 @@ function Turret:update(dt, target, locked, world)
         return
     end
 
-    local effectiveCycle = HeatManager.getHeatModifiedCycle(self)
+    local effectiveCycle = self.cycle
 
     -- No facing direction restrictions - enemies can shoot in any direction
 
@@ -191,24 +186,9 @@ end
 
 -- Legacy compatibility functions
 function Turret:updateHeat(dt, locked)
-    return HeatManager.updateHeat(self, dt, locked)
+    return true
 end
 
-function Turret:getHeatFactor()
-    return HeatManager.getHeatFactor(self)
-end
-
-function Turret:getHeatModifiedCycle()
-    return HeatManager.getHeatModifiedCycle(self)
-end
-
-function Turret:getHeatModifiedEnergyCost()
-    return HeatManager.getHeatModifiedEnergyCost(self)
-end
-
-function Turret:drawHeatIndicator(x, y, size)
-    return HeatManager.drawHeatIndicator(self, x, y, size)
-end
 
 function Turret:updateMiningLaser(dt, target, locked, world)
     return UtilityBeams.updateMiningLaser(self, dt, target, locked, world)
@@ -237,7 +217,7 @@ end
 
 -- Check if turret can fire (cooldown and heat)
 function Turret:canFire()
-    return self.cooldown <= 0 and HeatManager.canFire(self)
+    return self.cooldown <= 0
 end
 
 -- Static function to get turret by slot (legacy compatibility)

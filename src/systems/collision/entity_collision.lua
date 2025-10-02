@@ -136,11 +136,11 @@ local function checkEntityCollision(entity1, entity2)
             local distance = math.sqrt(distanceSq)
             local nx, ny
             if distance > 0 then
-                nx = dx / distance
+                nx = dx / distance  -- Normal points from shape1 to shape2 (entity1 to entity2)
                 ny = dy / distance
             else
-                nx, ny = 1, 0
-                distance = minDistance
+                nx, ny = 1, 0  -- Default normal when entities are at same position
+                distance = 0  -- Don't override distance, keep it 0 for proper overlap calculation
             end
             return true, { overlap = (minDistance - distance), normalX = nx, normalY = ny, shape1 = shape1, shape2 = shape2 }
         end
@@ -259,7 +259,16 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
         local e1CanMove = e1Physics or (entity1.isPlayer or entity1.components.player or entity1.components.ai) or e1Wreckage
         local e2CanMove = e2Physics or (entity2.isPlayer or entity2.components.player or entity2.components.ai) or e2Wreckage
 
-        local pushDistance = overlap * 0.55 -- Split the separation
+        -- Increase push distance for station collisions to prevent getting stuck inside
+        local isStationCollision = (entity1.tag == "station" or entity2.tag == "station") or 
+                                   (entity1.components and entity1.components.station) or 
+                                   (entity2.components and entity2.components.station)
+        local pushDistance = overlap * (isStationCollision and 0.8 or 0.55) -- More aggressive push for stations
+        
+        -- Ensure minimum push distance for station collisions
+        if isStationCollision then
+            pushDistance = math.max(pushDistance, 5) -- Minimum 5 pixel push for stations
+        end
 
         -- Choose restitution based on shields (make shields bouncier)
         local HULL_REST = getCombatValue("HULL_RESTITUTION") or 0.28
@@ -268,13 +277,14 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
         local e2Rest = hasActiveShield(entity2) and SHIELD_REST or HULL_REST
 
         -- Push entities apart based on their mobility
+        -- Normal points from entity1 to entity2, so we need to negate it for entity1
         if e1CanMove and e2CanMove then
-            pushEntity(entity1, nx * pushDistance, ny * pushDistance, nx, ny, dt, e1Rest)
-            pushEntity(entity2, -nx * pushDistance, -ny * pushDistance, -nx, -ny, dt, e2Rest)
+            pushEntity(entity1, -nx * pushDistance, -ny * pushDistance, -nx, -ny, dt, e1Rest)
+            pushEntity(entity2, nx * pushDistance, ny * pushDistance, nx, ny, dt, e2Rest)
         elseif e1CanMove then
-            pushEntity(entity1, nx * overlap, ny * overlap, nx, ny, dt, e1Rest)
+            pushEntity(entity1, -nx * overlap, -ny * overlap, -nx, -ny, dt, e1Rest)
         elseif e2CanMove then
-            pushEntity(entity2, -nx * overlap, -ny * overlap, -nx, -ny, dt, e2Rest)
+            pushEntity(entity2, nx * overlap, ny * overlap, nx, ny, dt, e2Rest)
         end
 
         -- Momentum transfer: allow the player to impart motion to wreckage pieces

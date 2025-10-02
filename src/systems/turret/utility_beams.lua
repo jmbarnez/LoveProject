@@ -1,5 +1,4 @@
 local CollisionHelpers = require("src.systems.turret.collision_helpers")
-local HeatManager = require("src.systems.turret.heat_manager")
 local TurretEffects = require("src.systems.turret.effects")
 local CollisionEffects = require("src.systems.collision.effects")
 local Effects = require("src.systems.effects")
@@ -133,7 +132,6 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     turret.cooldownOverride = 0
 
     local heatPerSecond = turret.heatPerShot / cycle
-    HeatManager.addHeat(turret, heatPerSecond * dt)
 
     if not wasActive then
         TurretEffects.playFiringSound(turret)
@@ -407,7 +405,6 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     turret.cooldownOverride = 0
 
     local heatPerSecond = turret.heatPerShot / cycle
-    HeatManager.addHeat(turret, heatPerSecond * dt)
 
     if not wasActive then
         TurretEffects.playFiringSound(turret)

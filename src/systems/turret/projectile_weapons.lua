@@ -1,5 +1,4 @@
 local Content = require("src.content.content")
-local HeatManager = require("src.systems.turret.heat_manager")
 local TurretEffects = require("src.systems.turret.effects")
 local Skills = require("src.core.skills")
 local Log = require("src.core.log")
@@ -119,7 +118,6 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
     end
 
     -- Add heat and play effects (only once per volley, not per projectile)
-    HeatManager.addHeat(turret, turret.heatPerShot)
     TurretEffects.playFiringSound(turret)
 end
 
@@ -206,7 +204,6 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         end
 
         -- Add heat and play effects
-        HeatManager.addHeat(turret, turret.heatPerShot)
         TurretEffects.playFiringSound(turret)
     end
 end
@@ -267,7 +264,7 @@ end
 
 -- Check if projectile weapon can fire
 function ProjectileWeapons.canFire(turret, target)
-    return HeatManager.canFire(turret)
+    return turret:canFire()
 end
 
 return ProjectileWeapons

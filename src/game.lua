@@ -248,8 +248,9 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   else
     -- Start new game - create player at random spawn location
     local angle = math.random() * math.pi * 2
-    -- Spawn within the station weapons-disable zone
-    local spawn_dist = (hub and hub:getWeaponDisableRadius() or Constants.STATION.WEAPONS_DISABLE_DURATION * 200) * 0.5
+    -- Spawn outside the station weapons-disable zone
+    local weapon_disable_radius = hub and hub:getWeaponDisableRadius() or Constants.STATION.WEAPONS_DISABLE_DURATION * 200
+    local spawn_dist = weapon_disable_radius * 1.2 -- Spawn 20% outside the weapon disable zone
     local px = (hub and hub.components and hub.components.position and hub.components.position.x or Constants.SPAWNING.MARGIN) + math.cos(angle) * spawn_dist
     local py = (hub and hub.components and hub.components.position and hub.components.position.y or Constants.SPAWNING.MARGIN) + math.sin(angle) * spawn_dist
     -- Start player with basic combat drone

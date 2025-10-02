@@ -17,8 +17,6 @@ ProceduralGen.modifiers = {
   heat = {
     { name = "Cool", mult = 0.6, desc = "Lower heat generation" },
     { name = "Standard", mult = 1.0, desc = "Standard heat generation" },
-    { name = "Hot", mult = 1.4, desc = "Higher heat generation" },
-    { name = "Overheating", mult = 1.8, desc = "Very high heat generation" }
   }
 }
 
@@ -97,7 +95,6 @@ function ProceduralGen.generateProceduralName(baseName, modifiers)
       elseif mod.type == "heat" then
         if mod.name == "Cool" then name = "Cool " .. name
         elseif mod.name == "Hot" then name = "Hot " .. name
-        elseif mod.name == "Overheating" then name = "Volatile " .. name
         end
       end
     end

@@ -171,18 +171,8 @@ function UI.drawHelpers(player, world, hub, camera)
                 love.graphics.setFont(previousFont)
               end
             else
-              local lines = { station.components.station.name or "Ore Furnace" }
-              local services = station.components.station.services
-              if services and type(services) == "table" then
-                local serviceNames = {}
-                if services.ore_processing then table.insert(serviceNames, "Ore Smelting") end
-                if services.stone_cracking then table.insert(serviceNames, "Stone Cracking") end
-                if #serviceNames > 0 then
-                  table.insert(lines, table.concat(serviceNames, " • "))
-                end
-              end
-              table.insert(lines, "Automated refinery operations active")
-              text = table.concat(lines, "\n")
+              -- No tooltip for furnace station when not in docking range
+              text = nil
             end
           elseif player.canDock and player.nearbyStation == station then
             dockPromptState.visible = true
