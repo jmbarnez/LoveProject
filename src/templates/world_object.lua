@@ -31,6 +31,14 @@ function WorldObject.new(x, y, angle, friendly, config)
         self.components.collidable = Collidable.new(config.collidable)
     end
 
+    if config.interactable then
+        self.components.interactable = {
+            range = config.interactable.range or 50,
+            prompt = config.interactable.prompt or "Press Space to interact",
+            requiresKey = config.interactable.requiresKey
+        }
+    end
+
     if config.mineable then
         self.components.mineable = Mineable.new(config.mineable)
         -- Provide simple mining hooks expected by turret system

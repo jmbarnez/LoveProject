@@ -230,7 +230,7 @@ function Ship.new(x, y, angle, friendly, shipConfig)
 end
 
 -- Ship update function
-function Ship:update(dt, player, shootCallback)
+function Ship:update(dt, player, shootCallback, world)
   if self.weaponsDisabled then return end
   if self.updateMovement then
     self:updateMovement(dt)
@@ -240,7 +240,7 @@ function Ship:update(dt, player, shootCallback)
   if self.components.equipment and self.components.equipment.grid then
     for _, gridData in ipairs(self.components.equipment.grid) do
       if gridData.type == "turret" and gridData.module and gridData.enabled and gridData.module.update and type(gridData.module.update) == "function" then
-        gridData.module:update(dt, self.target, true, shootCallback)
+        gridData.module:update(dt, self.target, true, world)
       end
     end
   end

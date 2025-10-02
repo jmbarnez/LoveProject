@@ -359,24 +359,50 @@ function UI.drawHelpers(player, world, hub, camera)
   -- Reward crate collection prompt
   do
     if not player.docked and world and camera then
-      local Pickups = require("src.systems.pickups")
-      local pickup, distance = Pickups.findNearestPickup(world, player, "reward_crate", 280)
-      if pickup and pickup.components and pickup.components.position then
+      -- Look for reward crate world objects instead of pickups
+      local rewardCrates = world:get_entities_with_components("interactable", "position")
+      local nearestCrate = nil
+      local nearestDistance = math.huge
+      
+      for _, crate in ipairs(rewardCrates) do
+        if crate and crate.components and crate.components.position and crate.components.interactable then
+          -- Check if this is a reward crate by looking for the reward key requirement
+          if crate.components.interactable.requiresKey == "reward_crate_key" then
+            local px = player.components.position.x
+            local py = player.components.position.y
+            local cx = crate.components.position.x
+            local cy = crate.components.position.y
+            local dx = cx - px
+            local dy = cy - py
+            local distance = math.sqrt(dx * dx + dy * dy)
+            
+            if distance < nearestDistance and distance <= 280 then
+              nearestDistance = distance
+              nearestCrate = crate
+            end
+          end
+        end
+      end
+      
+      if nearestCrate and nearestCrate.components and nearestCrate.components.position then
         local sw, sh = Viewport.getDimensions()
         local camScale = camera and camera.scale or 1
         local camX = (camera and camera.x) or 0
         local camY = (camera and camera.y) or 0
 
-        local px = pickup.components.position.x
-        local py = pickup.components.position.y
+        local px = nearestCrate.components.position.x
+        local py = nearestCrate.components.position.y
         local screenX = (px - camX) * camScale + sw * 0.5
         local screenY = (py - camY) * camScale + sh * 0.5
 
-        if distance <= 280 and screenX >= -80 and screenX <= sw + 80 and screenY >= -80 and screenY <= sh + 80 then
+        if nearestDistance <= 280 and screenX >= -80 and screenX <= sw + 80 and screenY >= -80 and screenY <= sh + 80 then
           cratePromptState.visible = true
-          cratePromptState.pickup = pickup
+          cratePromptState.pickup = nearestCrate
 
-          local buttonW, buttonH = 110, 36
+          local hasKey = player.components and player.components.cargo and player.components.cargo:has("reward_crate_key", 1)
+          local keyCount = player.components and player.components.cargo and player.components.cargo:getQuantity("reward_crate_key") or 0
+
+          local buttonW, buttonH = 120, 36
           local buttonX = math.floor(screenX - buttonW * 0.5 + 0.5)
           local buttonY = math.floor(screenY - buttonH - 48 + 0.5)
           buttonX = math.max(8, math.min(sw - buttonW - 8, buttonX))
@@ -392,13 +418,20 @@ function UI.drawHelpers(player, world, hub, camera)
 
           local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
           local previousFont = love.graphics.getFont()
-          cratePromptState.collectRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "Collect", hover, false, {
+          
+          -- Button color based on key availability
+          local buttonColor = hasKey and {0, 0.3, 0, 1} or {0.3, 0, 0, 1}
+          local hoverColor = hasKey and {0, 0.4, 0, 1} or {0.4, 0, 0, 1}
+          local activeColor = hasKey and {0, 0.5, 0, 1} or {0.5, 0, 0, 1}
+          
+          cratePromptState.collectRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "Open", hover, false, {
             font = buttonFont,
-            bg = {0, 0, 0, 1},
-            hoverBg = {0.1, 0.1, 0.1, 1},
-            activeBg = {0.2, 0.2, 0.2, 1},
+            bg = buttonColor,
+            hoverBg = hoverColor,
+            activeBg = activeColor,
           })
 
+          -- Draw reward crate icon and label
           local itemDef = Content.getItem("reward_crate")
           local label = (itemDef and itemDef.name) or "Reward Crate"
           local labelFont = (Theme.fonts and Theme.fonts.small) or love.graphics.getFont()
@@ -406,12 +439,28 @@ function UI.drawHelpers(player, world, hub, camera)
           Theme.setColor(Theme.colors.text)
           love.graphics.printf(label, cratePromptState.collectRect.x, cratePromptState.collectRect.y - labelFont:getHeight() - 6, cratePromptState.collectRect.w, "center")
 
-          local hasKey = player.components and player.components.cargo and player.components.cargo:has("reward_crate_key", 1)
-          if not hasKey then
-            local noteFont = (Theme.fonts and Theme.fonts.tiny) or labelFont
-            love.graphics.setFont(noteFont)
-            Theme.setColor(Theme.colors.textSecondary or {0.7, 0.7, 0.7, 1})
-            love.graphics.printf("Requires Reward Key to open", cratePromptState.collectRect.x - 40, cratePromptState.collectRect.y + cratePromptState.collectRect.h + 6, cratePromptState.collectRect.w + 80, "center")
+          -- Draw key requirement with icon
+          local keyDef = Content.getItem("reward_crate_key")
+          local keyName = (keyDef and keyDef.name) or "Reward Key"
+          local noteFont = (Theme.fonts and Theme.fonts.tiny) or labelFont
+          love.graphics.setFont(noteFont)
+          
+          local keyColor = hasKey and (Theme.colors.success or {0, 0.8, 0, 1}) or (Theme.colors.danger or {0.8, 0, 0, 1})
+          Theme.setColor(keyColor)
+          
+          -- Draw key icon if available
+          if keyDef and keyDef.icon then
+            local iconSize = 12
+            local iconX = cratePromptState.collectRect.x + 8
+            local iconY = cratePromptState.collectRect.y + cratePromptState.collectRect.h + 6
+            UI.drawIcon(keyDef.icon, iconX, iconY, iconSize)
+            
+            -- Draw key count next to icon
+            local keyText = string.format("%s: %d/1", keyName, keyCount)
+            love.graphics.print(keyText, iconX + iconSize + 4, iconY + 2)
+          else
+            local keyText = string.format("%s: %d/1", keyName, keyCount)
+            love.graphics.printf(keyText, cratePromptState.collectRect.x - 40, cratePromptState.collectRect.y + cratePromptState.collectRect.h + 6, cratePromptState.collectRect.w + 80, "center")
           end
 
           if previousFont then
@@ -589,11 +638,27 @@ function UI.handleHelperMousePressed(x, y, button, player)
   if not player or player.docked then return false end
 
   if cratePromptState.collectRect and UIUtils.pointInRect(x, y, cratePromptState.collectRect) then
-    local pickup = cratePromptState.pickup
-    if pickup and not pickup.dead then
-      local Pickups = require("src.systems.pickups")
-      local result = Pickups.collectPickup(player, pickup)
-      Pickups.notifySingleResult(result)
+    local crate = cratePromptState.pickup
+    if crate and not crate.dead then
+      local hasKey = player.components and player.components.cargo and player.components.cargo:has("reward_crate_key", 1)
+      if not hasKey then
+        local Notifications = require("src.ui.notifications")
+        Notifications.add("You need a Reward Key to open this crate.", "warning")
+        cratePromptState.visible = false
+        cratePromptState.collectRect = nil
+        cratePromptState.pickup = nil
+        return true
+      end
+      
+      -- Set the nearby interactable and use the interaction system
+      player._nearbyInteractable = crate
+      local InteractionSystem = require("src.systems.interaction")
+      local success = InteractionSystem.interact(player)
+      if success then
+        -- Mark the crate as used/removed
+        crate.dead = true
+      end
+      player._nearbyInteractable = nil
     end
     cratePromptState.visible = false
     cratePromptState.collectRect = nil

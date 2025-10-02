@@ -62,7 +62,9 @@ local function collect(player, pickup)
   cargo:add(id, qty)
   Sound.triggerEventAt("loot_collected", position and position.x or pickup.components.position.x, position and position.y or pickup.components.position.y)
 
-  local itemName = id == "stones" and "Raw Stones" or (id == "ore_tritanium" and "Tritanium Ore" or id)
+  -- Use Content system for proper item name resolution
+  local itemDef = Content.getItem(id)
+  local itemName = (itemDef and itemDef.name) or id
 
   pickup.dead = true
   return { type = "item", id = id, name = itemName, qty = qty }
@@ -79,6 +81,12 @@ local function resolveItemName(result)
     local def = Content.getItem(result.id)
     if def and def.name then
       name = def.name
+    else
+      -- Fallback to turret lookup for turret items
+      local turretDef = Content.getTurret(result.id)
+      if turretDef and turretDef.name then
+        name = turretDef.name
+      end
     end
   end
   return name or result.id

@@ -162,6 +162,10 @@ function Normalizer.normalizeWorldObject(def)
   if def.station_services then
     out.station_services = copy(def.station_services)
   end
+
+  if def.interactable then
+    out.interactable = copy(def.interactable)
+  end
   if def.description then
     out.description = def.description
   end

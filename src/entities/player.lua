@@ -126,7 +126,7 @@ end
 -- Player update method
 function Player:update(dt, world, shootCallback)
     -- Call parent Ship update first
-    Ship.update(self, dt, self, shootCallback)
+    Ship.update(self, dt, self, shootCallback, world)
     
 end
 
