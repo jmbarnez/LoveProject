@@ -1,3 +1,5 @@
+local Log = require("src.core.log")
+
 local util = {}
 
 function util.clamp(x, a, b)
@@ -88,7 +90,7 @@ function util.generateAsteroidGeometry(radius, opts)
     local x = r * math.cos(angle)
     local y = r * math.sin(angle)
     table.insert(vertices, {x, y})
-    print("  Vertex " .. (i+1) .. ": (" .. x .. "," .. y .. ")")
+    Log.debug("development", "Asteroid vertex %d: (%.3f, %.3f)", i + 1, x, y)
   end
 
   local chunkCountRange = opts.chunkCount or {1, 3}
