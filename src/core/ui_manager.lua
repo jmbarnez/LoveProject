@@ -985,37 +985,8 @@ function UIManager.keypressed(key, scancode, isrepeat)
 
   -- Check for global hotkeys first
   if key == "escape" then
-    -- Priority order: escape menu > docked UI > other modals
-
-    -- Check escape menu is open, let it handle the keypress internally.
-    -- This allows it to close the settings panel without closing itself.
-    if UIManager.state.escape.open and EscapeMenu.keypressed(key) then
-      return true
-    end
-
-    -- If docked UI is open, let it handle escape key (it will close/undock)
-    if UIManager.state.docked.open then
-      local handled, shouldClose = DockedUI.keypressed(key, nil, nil, DockedUI.player or UIManager._player)
-      if shouldClose then
-        -- Trigger undocking via player
-        local player = DockedUI.player
-        if player and player.undock then
-          player:undock()
-        end
-      end
-      return true
-    end
-
-    if UIManager.isModalActive() then
-      -- Close other active modals if escape menu isn't handling it
-      if UIManager.modalComponent and UIManager.modalComponent ~= "settings" then
-        UIManager.close(UIManager.modalComponent)
-      end
-    else
-      -- Open escape menu
-      UIManager.toggle("escape")
-    end
-    return true
+    -- Skip escape handling - it's now handled by input.lua
+    return false
   end
 
   -- Let the action map handle configured hotkeys (toggles etc.) so bindings in Settings take precedence

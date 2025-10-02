@@ -216,12 +216,53 @@ function Input.love_keypressed(key)
     end
   elseif mainState.screen == "game" then
     if key == "escape" then
-      if mainState.UIManager and mainState.UIManager.isModalActive() then
-        local modal = mainState.UIManager.getModalComponent()
-        if modal then
-          mainState.UIManager.close(modal)
-          return
+      if mainState.UIManager then
+        -- First, try to close any open UI windows/modals
+        if mainState.UIManager.isModalActive() then
+          local modal = mainState.UIManager.getModalComponent()
+          if modal then
+            mainState.UIManager.close(modal)
+            return
+          end
         end
+        
+        -- Check if any other UI components are open (inventory, ship, map, etc.)
+        local hasOpenWindows = false
+        local layerOrder = mainState.UIManager.layerOrder or {}
+        for _, component in ipairs(layerOrder) do
+          if mainState.UIManager.state[component] and mainState.UIManager.state[component].open then
+            hasOpenWindows = true
+            -- Close the topmost open window
+            if component == "inventory" then
+              mainState.UIManager.close("inventory")
+            elseif component == "ship" then
+              mainState.UIManager.close("ship")
+            elseif component == "map" then
+              mainState.UIManager.close("map")
+            elseif component == "bounty" then
+              mainState.UIManager.close("bounty")
+            elseif component == "skills" then
+              mainState.UIManager.close("skills")
+            elseif component == "settings" then
+              mainState.UIManager.close("settings")
+            elseif component == "warp" then
+              mainState.UIManager.close("warp")
+            elseif component == "docked" then
+              -- For docked UI, trigger undocking
+              local player = mainState.UIManager._player
+              if player and player.undock then
+                player:undock()
+              end
+            end
+            return
+          end
+        end
+        
+        -- If no windows are open, open the escape menu
+        if not hasOpenWindows then
+          mainState.UIManager.toggle("escape")
+        end
+        return
       end
     end
     if key == "f5" then
