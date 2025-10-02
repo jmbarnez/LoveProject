@@ -105,7 +105,6 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         end
     end
 
-    -- Shield system removed - shields now provided by equipment modules
     local hadShield = (health.shield or 0) > 0
     local shieldBefore = health.shield or 0
     local shieldDamage = math.min(shieldBefore, incoming)

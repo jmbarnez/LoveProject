@@ -90,7 +90,6 @@ function Projectile.new(x, y, angle, friendly, config)
         end)(),
     }
 
-    -- (Debug removed) laser projectile visual props logging was removed for clean build
 
     local dispatcher = EventDispatcher.new()
     self.event_dispatcher = dispatcher

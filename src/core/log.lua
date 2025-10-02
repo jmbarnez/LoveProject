@@ -1,3 +1,4 @@
+local Debug = require("src.core.debug")
 local Log = {}
 
 local LEVELS = { debug = 1, info = 2, warn = 3, error = 4 }
@@ -6,8 +7,8 @@ for name, value in pairs(LEVELS) do
   LABELS_BY_VALUE[value] = name
 end
 
--- Default to debug during active debugging; can be lowered via Log.setLevel
-local current = LEVELS.debug
+-- Default to info level for production; can be changed via Log.setLevel
+local current = LEVELS.info
 Log._infoEnabled = true
 Log._whitelist = nil
 
@@ -88,7 +89,7 @@ local function out(prefix, ...)
   print(line)
 end
 
-function Log.debug(...)
+function Log.debug(flag, ...)
   if not Log.isLevelEnabled('debug') then return end
   if Log._whitelist and #Log._whitelist > 0 then
     local first = select(1, ...)
@@ -102,7 +103,13 @@ function Log.debug(...)
     end
     if not allowed then return end
   end
-  out('DEBUG', ...)
+  
+  -- Use debug system if flag is provided, otherwise use legacy format
+  if flag and type(flag) == 'string' then
+    Debug.debug(flag, ...)
+  else
+    out('DEBUG', ...)
+  end
 end
 
 function Log.info(...)

@@ -6,9 +6,7 @@ local Minimap = {}
 
 -- Debug log to verify enemies passed to minimap
 function Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, asteroids)
-  -- Debug logging removed for production cleanliness
 
-  -- (Debug removed) Minimap inspection logging removed for clean build
 
   local sw, sh = Viewport.getDimensions()
   local s = math.min(sw / 1920, sh / 1080)

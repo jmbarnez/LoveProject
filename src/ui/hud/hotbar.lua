@@ -17,7 +17,6 @@ local function getCombatValue(key)
   return combatConstants[key]
 end
 
--- HotbarSelection removed - slot assignment disabled
 
 local IconSystem = require("src.core.icon_system")
 
@@ -133,7 +132,6 @@ function Hotbar.draw(player)
     end
   end
 
-  -- Mouse position tracking removed - no hover effects
 
   for i, slot in ipairs(HotbarSystem.slots) do
     local rx = x + (i - 1) * (size + gap)
@@ -400,7 +398,6 @@ function Hotbar.draw(player)
     elseif slot.item == 'boost' and (HotbarSystem.isActive and HotbarSystem.isActive('boost')) then
       borderColor = Theme.colors.warning
     end
-    -- Hover effects removed - hotbar is display-only
     Theme.drawEVEBorder(rx, ry, size, size, 8, borderColor, 6)
 
     local label = UIUtils.formatKeyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(i) or slot.key)
@@ -411,11 +408,9 @@ function Hotbar.draw(player)
     if Theme.fonts and Theme.fonts.small and oldFont then love.graphics.setFont(oldFont) end
   end
 
-  -- HotbarSelection.draw() removed - slot assignment disabled
 end
 
 function Hotbar.mousepressed(player, mx, my, button)
-  -- Hotbar clicking for slot assignment has been removed
   -- Only handle turret firing through the systems/hotbar.lua mousepressed function
   return false
 end
@@ -430,6 +425,5 @@ function Hotbar.drawTurretIcon(subject, x, y, size)
 end
 Hotbar.drawBoostIcon = drawBoostIcon
 
--- getRect function removed - hotbar no longer blocks UI interactions
 
 return Hotbar

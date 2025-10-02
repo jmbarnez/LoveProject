@@ -16,7 +16,6 @@ local EntityRenderers = {}
 local cachedRenderers = {}
 local rendererCounter = 0
 
--- Spatial culling disabled - entities only disappear when completely off-screen
 -- This ensures that even when zoomed out all the way, important entities like stations remain visible
 
 -- Cache entity renderer type to avoid repeated component checks
@@ -637,7 +636,6 @@ end
 function EntityRenderers.bullet(entity, player)
     local props = entity.components.renderable.props or {}
     local kind = props.kind
-    -- (Debug removed) render-time projectile logging was removed for clean build
 
     if kind == 'laser' or kind == 'salvaging_laser' or kind == 'mining_laser' then
         -- Draw along +X in local space; outer renderer applies rotation.
@@ -1054,9 +1052,6 @@ function EntityRenderers.draw(world, camera, player)
         local pos = entity.components.position
         if not pos then goto continue end
 
-        -- Spatial culling: disabled to ensure entities only disappear when completely off-screen
-        -- Even when zoomed out all the way, entities should remain visible if they're on screen
-        -- Removed culling to prevent important entities like stations from disappearing unexpectedly
         love.graphics.push()
         love.graphics.translate(pos.x, pos.y)
         love.graphics.rotate(pos.angle or 0)
@@ -1140,7 +1135,6 @@ function EntityRenderers.draw(world, camera, player)
         ::continue::
     end
 
-    -- Tractor beam removed - player ship is now magnetic for all nearby items
 end
 
 return EntityRenderers

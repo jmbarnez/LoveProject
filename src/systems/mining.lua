@@ -31,7 +31,6 @@ local function ensureHotspotDefaults(entity, mineable)
 end
 
 
--- Old array-based hotspot system removed - now using Hotspots class
 
 -- Updates mining progress on all mineable entities being mined.
 -- Yields resources to the player every N cycles.

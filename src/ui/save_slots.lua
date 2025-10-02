@@ -419,7 +419,7 @@ function SaveSlots:mousepressed(mx, my, button)
 
     if layout.saveButton and mx and my and UIUtils.pointInRect(mx, my, layout.saveButton) then
         if self.disableSave then
-            return "noop" -- Save button is disabled
+            return "noop"
         end
         if not selectedSlotName then
             return "noop"

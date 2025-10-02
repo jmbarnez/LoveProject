@@ -4,7 +4,6 @@ local Content = require("src.content.content")
 local Config = require("src.content.config")
 local EntityFactory = require("src.templates.entity_factory")
 local Log = require("src.core.log")
--- ShieldDurability removed - shields now provided by equipment modules
 
 -- Inherit from the Ship template to get shared functionality like the 'hit' method.
 local Ship = require("src.templates.ship")
@@ -21,7 +20,6 @@ function Player.new(x, y, shipId)
   local self = setmetatable(ship, Player)
   self.ship = shipConfig -- Store the ship's definition data
   self.isPlayer = true -- Ensure this flag is set.
-  -- Shield system removed - shields now provided by equipment modules
     if not self.components.physics then
         self.components.physics = require("src.components.physics").new({
             mass = (shipConfig.engine and shipConfig.engine.mass) or 500,
@@ -60,7 +58,6 @@ function Player.new(x, y, shipId)
       self.components.questLog = QuestLogComponent.new()
   end
 
-  -- Lock-on targeting system removed - combat works differently now
 
   if self.components and self.components.renderable then
       self.components.renderable.type = "player"
@@ -131,15 +128,9 @@ function Player:update(dt, world, shootCallback)
     -- Call parent Ship update first
     Ship.update(self, dt, self, shootCallback)
     
-    -- Lock-on targeting removed - combat works differently now
 end
 
--- Lock-on targeting system update
--- Lock-on targeting system removed - combat works differently now
 
--- Lock-on targeting system removed - combat works differently now
-
--- Missile launcher check removed - combat works differently now
 
 function Player:dock(station)
     self.docked = true
@@ -189,7 +180,6 @@ end
 function Player:addXP(amount)
   if self.components and self.components.progression then
     local leveledUp = self.components.progression:addXP(amount)
-    -- Level up effects disabled - no HP or shield changes
     return leveledUp
   end
   return false

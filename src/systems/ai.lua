@@ -235,7 +235,6 @@ local function updateBossMinions(entity, dt, world)
     entity._bossMinionTimer = math.random() * (BOSS_MINION_INTERVAL_MAX - BOSS_MINION_INTERVAL_MIN) + BOSS_MINION_INTERVAL_MIN
 end
 
--- Check if an enemy is within any station's weapons disabled zone
 local function isEnemyInWeaponsDisabledZone(entity, world)
     if not entity or not entity.components or not entity.components.position then
         return false
@@ -490,7 +489,6 @@ local function handleHunting(entity, dt, player, spawnProjectile, world)
     -- Firing logic - check if we can shoot at the player
     local canShoot = false
 
-    -- Check if enemy is in weapons disabled zone
     local stations = world:get_entities_with_components("station")
     local inWeaponsDisabledZone = false
     for _, station in ipairs(stations) do

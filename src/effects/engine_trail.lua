@@ -1,6 +1,5 @@
 -- DEPRECATED: This standalone effect class has been replaced by the engine_trail component.
 -- Use src/components/engine_trail.lua for new implementations.
--- This file is kept for backwards compatibility but will be removed in a future version.
 
 local Log = require("src.core.log")
 local EngineTrail = {}

@@ -364,7 +364,6 @@ function ChartRenderer.draw(self, node, x, y, w, h)
     love.graphics.print(priceText, labelX, labelY)
   end
 
-  -- X-axis time labels removed as requested
 end
 
 return ChartRenderer

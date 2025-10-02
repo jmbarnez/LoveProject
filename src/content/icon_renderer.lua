@@ -15,7 +15,6 @@ function IconRenderer.renderIcon(iconDef, size, id)
     return iconCache[key]
   end
 
-  -- Debug removed to keep console clean
 
   -- Create a canvas for the icon
   local canvas = love.graphics.newCanvas(size, size)

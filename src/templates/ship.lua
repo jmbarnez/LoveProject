@@ -207,12 +207,10 @@ function Ship.new(x, y, angle, friendly, shipConfig)
     self.components.equipment.layout = shipConfig.equipmentLayout
   end
 
-  -- Note: Default turret equipping removed temporarily to avoid initialization issues
   -- Will be re-added once the basic fitting system is working
 
   -- Legacy turret setup for backward compatibility (will be migrated to grid)
   if shipConfig.hardpoints then
-    -- Legacy auto-equipping disabled so ships spawn without modules; fitting UI handles loadout.
   end
 
   -- Combat properties

@@ -58,7 +58,6 @@ function PhysicsSystem.update(dt, entities)
 
             -- Debug: if this entity is a projectile/bullet, log any position change during physics update
             if entity.components.bullet then
-                -- (Debug removed) position-change logging removed for clean build
             end
 
             local projectileEvents = entity.components.projectile_events

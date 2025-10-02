@@ -118,7 +118,8 @@ function SettingsPanel.calculateContentHeight()
         local cb = SettingsPanel.window:getContentBounds()
         contentX, contentY, contentW, contentH = cb.x, cb.y, cb.w, cb.h
     else
-        contentX, contentY, contentW, contentH = Viewport.getDimensions(), 0, Viewport.getDimensions(), 0
+        local sw, sh = Viewport.getDimensions()
+        contentX, contentY, contentW, contentH = 0, 0, sw, sh
     end
 
     local yOffset = contentY + 10 + 60 -- start padding + initial offset
@@ -150,7 +151,7 @@ function SettingsPanel.calculateContentHeight()
     yOffset = yOffset + itemHeight + 30 -- "Keybindings" label + spacing
     local keybindOrder = {
         "toggle_inventory", "toggle_ship", "toggle_bounty", "toggle_skills",
-        "toggle_map", "dock",
+        "toggle_map",
         "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5", "hotbar_6", "hotbar_7"
     }
     yOffset = yOffset + 30 * #keybindOrder -- Each keybinding takes 30 pixels
@@ -274,7 +275,6 @@ function SettingsPanel.init()
         selectedFullscreenTypeIndex = 1 -- windowed
     end
 
-    -- Debug logging removed for production cleanliness
 
     -- Apply the current accent theme or custom color
     if currentGraphicsSettings.accent_color_rgb and currentGraphicsSettings.accent_theme == "Custom" then
@@ -362,10 +362,11 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     local scrolledMouseY = my + scrollY
 
     love.graphics.push()
-    -- Get the actual title bar height from the window
-    local innerTop = y  -- Start below the title bar
-    local innerH = h   -- Content height is now handled by window's getContentBounds()
-    love.graphics.setScissor(x, innerTop, w, innerH)
+    -- Get the actual content bounds from the window (accounts for title bar and bottom bar)
+    local content = window:getContentBounds()
+    local innerTop = content.y
+    local innerH = content.h
+    love.graphics.setScissor(content.x, innerTop, content.w, innerH)
     love.graphics.translate(0, -scrollY)
 
     -- Settings content with organized sections
@@ -540,13 +541,12 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     -- Use consistent order for keybindings
     local keybindOrder = {
         "toggle_inventory", "toggle_ship", "toggle_bounty", "toggle_skills",
-        "toggle_map", "dock",
+        "toggle_map",
         "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5", "hotbar_6", "hotbar_7"
     }
     
     for _, action in ipairs(keybindOrder) do
         local key = keymap[action]
-        -- Debug: Always show the action name, even if key is missing
         Theme.setColor(Theme.colors.text)
         love.graphics.print(action, x + 20, yOffset)
         
@@ -556,8 +556,8 @@ function SettingsPanel.drawContent(window, x, y, w, h)
             local keyText = bindingAction == action and Strings.getControl("press_key") or key
             local hover = mx >= btnX and mx <= btnX + btnW and scrolledMouseY >= btnY and scrolledMouseY <= btnY + btnH
             
-            -- Use themed button drawing
-            Theme.drawStyledButton(btnX, btnY, btnW, btnH, keyText, hover, love.timer.getTime(), nil, bindingAction == action)
+            -- Use themed button drawing with compact option for smaller font
+            Theme.drawStyledButton(btnX, btnY, btnW, btnH, keyText, hover, love.timer.getTime(), nil, bindingAction == action, { compact = true })
         else
             -- Show "Not Set" if no key is configured
             Theme.setColor(Theme.colors.textDisabled)
@@ -569,7 +569,6 @@ function SettingsPanel.drawContent(window, x, y, w, h)
 
     -- Calculate content height
     SettingsPanel.calculateContentHeight()
-    -- Debug logging removed for production cleanliness
 
     love.graphics.pop() -- End of scrollable content translation
 
@@ -1051,7 +1050,7 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     yOffset = yOffset + 30 -- "Controls" label
     yOffset = yOffset + 30 -- "Keybindings" label
 
-    local keybindOrder = { "toggle_inventory", "toggle_ship", "toggle_bounty", "toggle_skills", "toggle_map", "dock", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5", "hotbar_6", "hotbar_7" }
+    local keybindOrder = { "toggle_inventory", "toggle_ship", "toggle_bounty", "toggle_skills", "toggle_map", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5", "hotbar_6", "hotbar_7" }
     for _, action in ipairs(keybindOrder) do
         local btnX, btnW, btnH = contentX + 200, 100, 24
         local btnY = yOffset - 2

@@ -497,7 +497,6 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
 
   -- Rarity indicator
   if def and def.rarity then
-    -- Rarity borders removed - no borders on inventory slots
   end
 end
 

@@ -115,6 +115,10 @@ local function seedRandom()
 end
 
 function love.load()
+    -- Initialize debug system first
+    local Debug = require("src.core.debug")
+    Debug.init()
+    
     -- Configure logging defaults so startup diagnostics flow through the console.
     Log.setLevel("info")
     Log.clearDebugWhitelist()

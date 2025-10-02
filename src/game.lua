@@ -48,6 +48,7 @@ local NodeMarket = require("src.systems.node_market")
 local PortfolioManager = require("src.managers.portfolio")
 local PlayerRef = require("src.core.player_ref")
 local Log = require("src.core.log")
+local Debug = require("src.core.debug")
 local Constants = require("src.core.constants")
 
 local Game = {}
@@ -101,15 +102,11 @@ local function spawn_projectile(x, y, angle, friendly, opts)
     extra_config.source = opts.source
     
     local projectile = EntityFactory.create("projectile", projectile_id, x, y, extra_config)
-  -- (Debug removed) spawnProjectile call tracing removed for clean build
     if projectile then
         world:addEntity(projectile)
-  -- (Debug removed) post-addEntity logging removed for clean build
     end
 end
 
--- All legacy update functions are being removed.
--- Their logic will be handled by dedicated systems in the future.
 
 --[[
     Game.load
@@ -171,7 +168,7 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   if hub then
     world:addEntity(hub)
   else
-    Log.error("Failed to create hub station")
+    Debug.error("game", "Failed to create hub station")
     return false
   end
 
@@ -180,7 +177,7 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   if furnace_station then
     world:addEntity(furnace_station)
   else
-    Log.error("Failed to create ore furnace station")
+    Debug.error("game", "Failed to create ore furnace station")
     return false
   end
 
@@ -190,7 +187,7 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   if beacon_station then
     world:addEntity(beacon_station)
   else
-    Log.error("Failed to create beacon station")
+    Debug.error("game", "Failed to create beacon station")
     return false
   end
 
@@ -205,32 +202,13 @@ function Game.load(fromSave, saveSlot, loadingScreen)
     if planet then
       world:addEntity(planet)
     else
-      Log.warn("Failed to create planet")
+      Debug.warn("game", "Failed to create planet")
     end
   end
 
   -- Step 8: Create warp gate (DISABLED)
   updateProgress(0.8, "Creating warp gate...")
-  --[[
-  do
-    -- Place warp gate in a clear area away from all stations
-    -- Hub is at (5000, 5000), beacon at (7500, 7500)
-    -- Place warp gate at (12000, 12000) - well away from stations but within 30000x30000 world
-    local warp_gate = EntityFactory.create("warp_gate", "basic_warp_gate", 12000, 12000, {
-        name = "Warp Gate",
-        isActive = true,
-        activationCost = 0,
-        requiresPower = false
-    })
-
-    if warp_gate and world then
-      world:addEntity(warp_gate)
-    else
-      Log.error("Failed to create warp gate")
-      return false
-    end
-  end
-  --]]
+  -- Warp gate creation disabled for now
 
   -- Step 9: Spawn the player
   updateProgress(0.9, "Spawning player...")
@@ -246,7 +224,7 @@ function Game.load(fromSave, saveSlot, loadingScreen)
     -- Use pcall for better error handling
     local success, error = pcall(StateManager.loadGame, slotName, true)
     if not success then
-      Log.error("Save load failed with error:", error)
+      Debug.error("game", "Save load failed with error: %s", tostring(error))
       -- Show user-friendly error message
       local Notifications = require("src.ui.notifications")
       Notifications.add("Save file corrupted or incompatible", "error")
@@ -254,7 +232,7 @@ function Game.load(fromSave, saveSlot, loadingScreen)
     end
     
     if not error then -- StateManager.loadGame returns the loaded state or false
-      Log.error("Failed to load game from " .. slotName)
+      Debug.error("game", "Failed to load game from %s", slotName)
       local Notifications = require("src.ui.notifications")
       Notifications.add("Save file not found or invalid", "error")
       return false
@@ -262,7 +240,7 @@ function Game.load(fromSave, saveSlot, loadingScreen)
     
     player = StateManager.getCurrentPlayer()
     if not player then
-      Log.error("Failed to get player from save data")
+      Debug.error("game", "Failed to get player from save data")
       local Notifications = require("src.ui.notifications")
       Notifications.add("Save file missing player data", "error")
       return false
@@ -283,7 +261,7 @@ function Game.load(fromSave, saveSlot, loadingScreen)
     -- Set global player reference for UI systems
     PlayerRef.set(player)
   else
-    Log.error("Failed to create player")
+    Debug.error("game", "Failed to create player")
     return false
   end
 
@@ -459,8 +437,6 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   -- Initialize state manager for save/load functionality
   StateManager.init(player, world)
   
-  -- Enable event debug logging temporarily
-  -- Events.setDebug(true) -- Disabled to reduce console spam
   
   -- Step 10: Complete
   updateProgress(1.0, "Complete!")
@@ -561,9 +537,6 @@ function Game.update(dt)
         end
     end
 
-    -- Debug: enemies list can be noisy; suppress in normal play
-    -- local enemies = world:getEntitiesWithComponents("ai")
-    -- Log.debug("Enemies in world:", enemies)
 end
 
 function Game.resize(w, h)
@@ -619,7 +592,6 @@ function Game.draw()
     -- Non-modal HUD (reticle, status bars, minimap, hotbar)
     UI.drawHUD(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, camera, {})
     
-    -- Selection box removed (manual combat)
 
     -- UI overlay (windows/menus) via UIManager
     QuestLogHUD.draw(player)

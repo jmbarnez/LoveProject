@@ -183,7 +183,6 @@ end
 
 -- This is the existing game-logic keypressed
 function Input.keypressed(key)
-    Log.debug("Input.keypressed", key)
 
     if isUiTextInputFocused() then
         return
@@ -205,7 +204,6 @@ function Input.keypressed(key)
         return
     end
 
-    Log.debug("Input.keypressed: forwarding to Hotbar", key)
     Hotbar.keypressed(key, gameState.player)
 end
 
@@ -438,7 +436,6 @@ function Input.mousereleased(x, y, button)
         mouseState.rightButtonDown = false
     end
 
-    -- Hotbar mouse interactions removed
     
     if SkillsPanel.isVisible() then
         local consumed, shouldClose = SkillsPanel.mousereleased(x, y, button)

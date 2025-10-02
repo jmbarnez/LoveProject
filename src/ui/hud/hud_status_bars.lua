@@ -97,7 +97,6 @@ local function drawLiquidSpiralEnergy(x, y, size, energyPct, time)
         love.graphics.setLineWidth(oldLineWidth)
     end
     
-    -- Energy percentage text in center - REMOVED
     --[[
     local oldFont = love.graphics.getFont()
     love.graphics.setFont(Theme.fonts and Theme.fonts.small or oldFont)

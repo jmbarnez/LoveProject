@@ -220,7 +220,6 @@ function Hotbar.keyreleased(key, player)
     end
 end
 
--- Mouse interactions with hotbar removed - hotbar is now display-only
 
 function Hotbar.activate(slotIndex, player)
     local slot = Hotbar.slots[slotIndex]

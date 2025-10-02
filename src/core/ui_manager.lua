@@ -417,16 +417,13 @@ function UIManager.isMouseOverUI()
 
   -- Hotbar
   local Hotbar = require("src.ui.hud.hotbar")
-  -- Hotbar rect check removed - hotbar no longer blocks UI interactions
 
-  -- HotbarSelection removed - slot assignment disabled
 
   return false
 end
 
 -- Draw all UI components in proper order
 function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty)
-  -- Overlay drawing removed as per user request
 
   -- Keep a reference for input routing needing player context
   UIManager._player = player
@@ -581,7 +578,6 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
   if oldFont then love.graphics.setFont(oldFont) end
 end
 
--- The drawOverlay function was removed as per user instruction to not dim the screen.
 
 -- Toggle UI component visibility
 function UIManager.toggle(component)
@@ -608,7 +604,6 @@ function UIManager.toggle(component)
     else
       UIManager.open(component)
     end
-    Log.debug("UI toggle", component, "->", not wasOpen)
     return not wasOpen
   end
   return false

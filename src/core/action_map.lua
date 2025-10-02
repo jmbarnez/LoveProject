@@ -174,7 +174,6 @@ toggleAction("toggle_bounty", "toggle_bounty", "bounty")
 toggleAction("toggle_skills", "toggle_skills", "skills")
 toggleAction("toggle_map", "toggle_map", "map")
 
--- Docking action removed - no hotkey for docking
 
 ActionMap.registerAction({
     name = "repair_beacon",

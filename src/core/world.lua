@@ -178,7 +178,6 @@ function World.new(width, height)
   self.starW, self.starH = 0, 0
   self.nebulaW, self.nebulaH = 0, 0
   self.nebulaCanvas = nil
-  -- No planets - removed completely
   self.planets = {}
   -- Initial stars build
   local sw, sh = Viewport.getDimensions()
@@ -460,7 +459,6 @@ function World:drawBackground(camera)
       end
     end
   end
-  -- Planets removed - clean space background only
   love.graphics.pop()
 end
 

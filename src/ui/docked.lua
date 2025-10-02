@@ -38,7 +38,6 @@ DockedUI.visible = false
 DockedUI.player = nil
 DockedUI.shopScroll = 0
 DockedUI.selectedCategory = "All"
--- Removed activeShopTab - no longer using separate buy/sell tabs
 DockedUI.buybackItems = {}
 DockedUI.searchText = ""
 DockedUI.searchActive = false
@@ -933,7 +932,6 @@ function DockedUI.mousepressed(x, y, button, player)
                     DockedUI.searchActive = false
                     Shop.hideContextMenu(DockedUI)
                 end
-                -- ship tab removed
                 return true, false
             end
         end

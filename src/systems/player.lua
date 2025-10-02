@@ -364,7 +364,6 @@ function PlayerSystem.update(dt, player, input, world, hub)
     -- i-frames decay (kept for compatibility with other effects)
     player.iFrames = math.max(0, (player.iFrames or 0) - dt)
 
-    -- Parry removed in simple manual mode
 
     -- No locking system: manual fire only
 
@@ -408,9 +407,8 @@ function PlayerSystem.update(dt, player, input, world, hub)
     -- Also allow utility turrets (mining/salvaging) even in safe zones
     local canFire = not player.weaponsDisabled
     -- Hotbar-driven actions: turret fire
-    local manualFireAll = false -- legacy 'turret' action removed; use per-slot hotkeys only
+    local manualFireAll = false
 
-    -- Shield system removed - shields now provided by equipment modules
 
     -- Process all turrets from the grid, but apply different rules for weapons vs utility turrets
     for _, gridData in ipairs(player.components.equipment.grid) do
@@ -435,7 +433,6 @@ function PlayerSystem.update(dt, player, input, world, hub)
             local actionName = 'turret_slot_' .. tostring(gridData.slot)
             local perSlotActive = HotbarSystem.isActive(actionName)
 
-            -- All turrets are considered weapons and disabled in weapon disable zones
             local allow = (not modalActive) and canFire and (perSlotActive or manualFireAll)
 
             -- Handle firing mode logic

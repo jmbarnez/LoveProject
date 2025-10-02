@@ -350,7 +350,6 @@ function UIUtils.drawProgressBar(x, y, w, h, progress, color, options)
   return { x = x, y = y, w = w, h = h }
 end
 
--- Note: drawTooltip function removed - use Ship.drawModuleTooltip for unified tooltips
 
 -- Layout helpers
 function UIUtils.layoutVertical(items, startX, startY, spacing)

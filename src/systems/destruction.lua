@@ -11,6 +11,7 @@ local Skills = require("src.core.skills")
 local DestructionSystem = {}
 
 local Log = require("src.core.log")
+local Debug = require("src.core.debug")
 
 -- Add bounty rewards to uncollected bounties
 local function addBountyReward(gameState, enemy, enemyName)
@@ -66,15 +67,12 @@ local function rollLoot(drops)
 end
 
 local function findHubStation(world)
-  Log.debug("DestructionSystem - Searching for hub station in", #world:getEntities(), "entities")
   
   -- First try to find by renderable type
   for _, ent in pairs(world:getEntities()) do
     local r = ent.components and ent.components.renderable
     if r then
-      Log.debug("DestructionSystem - Found entity with renderable type:", r.type)
       if r.type == "station" then
-        Log.debug("DestructionSystem - Found station entity!")
         return ent
       end
     end
@@ -85,13 +83,12 @@ local function findHubStation(world)
     if ent.components and ent.components.position and ent.components.renderable then
       local r = ent.components.renderable
       if r.props and r.props.visuals and ent.radius then
-        Log.debug("DestructionSystem - Found station-like entity with radius:", ent.radius)
         return ent
       end
     end
   end
   
-  Log.warn("DestructionSystem - No hub station found in world")
+  Debug.warn("destruction", "No hub station found in world")
   return nil
 end
 
@@ -270,25 +267,16 @@ function DestructionSystem.update(world, gameState, hub)
           
           -- Player death: respawn at the station without nearby spawns
           local px, py = x, y
-          Log.debug("DestructionSystem - Player died at:", px, py)
           
           local hubStation = hub or findHubStation(world)
-          Log.debug("DestructionSystem - Hub station found:", hubStation ~= nil)
-          if hubStation then
-            Log.debug("DestructionSystem - Hub station components:", hubStation.components ~= nil)
-            if hubStation.components then
-              Log.debug("DestructionSystem - Hub station position component:", hubStation.components.position ~= nil)
-            end
-          end
           
           if hubStation and hubStation.components and hubStation.components.position then
             local stationPos = hubStation.components.position
             px, py = stationPos.x, stationPos.y
-            Log.debug("DestructionSystem - Player respawning at station:", px, py)
             -- Flag prevents spawn system from placing enemies near the player this frame
             world._suppressPlayerDeathSpawn = true
           else
-            Log.warn("DestructionSystem - No hub station found, respawning at death location:", px, py)
+            Debug.warn("destruction", "No hub station found, respawning at death location: %d, %d", px, py)
           end
           
           -- Restore player state (keep entity alive)
@@ -296,7 +284,6 @@ function DestructionSystem.update(world, gameState, hub)
           e.components.position.x = px
           e.components.position.y = py
           e.components.position.angle = 0 -- Reset angle
-          Log.debug("DestructionSystem - Set player position to:", px, py)
           
           local phys = e.components.physics
           local needsNewBody = not phys or not phys.body
@@ -305,11 +292,9 @@ function DestructionSystem.update(world, gameState, hub)
           if phys and phys.body then
             local success, isDestroyed = pcall(function() return phys.body:isDestroyed() end)
             if success and isDestroyed then
-              Log.debug("DestructionSystem - Physics body was destroyed for entity " .. (e.id or "unknown"))
               needsNewBody = true
               phys.body = nil
             elseif not success then
-              Log.debug("DestructionSystem - Failed to check if physics body is destroyed for entity " .. (e.id or "unknown"))
               needsNewBody = true
               phys.body = nil
             end
@@ -324,7 +309,6 @@ function DestructionSystem.update(world, gameState, hub)
             -- Recreate physics body (with a retry path) to avoid leaving the player without a body
             local Physics = require("src.components.physics")
             local mass = (e.ship and e.ship.engine and e.ship.engine.mass) or 500
-            Log.debug("DestructionSystem - Creating new physics body at:", px, py)
 
             local created = false
             local attempts = 0
@@ -336,7 +320,6 @@ function DestructionSystem.update(world, gameState, hub)
               else
                 e.components.physics = phys
                 if phys.body then
-                  Log.debug("DestructionSystem - Physics body created successfully on attempt " .. attempts)
 
                   -- Try to set initial properties; if this fails, try recreating the body instead
                   local ok = true
@@ -371,7 +354,6 @@ function DestructionSystem.update(world, gameState, hub)
                     break
                   else
                     -- Attempt to retry creation
-                    Log.debug("DestructionSystem - Retrying physics body creation (attempt " .. attempts + 1 .. ")")
                     -- clear the reference and loop to retry
                     phys = nil
                     e.components.physics = nil
@@ -414,15 +396,8 @@ function DestructionSystem.update(world, gameState, hub)
               end)
               if not velSuccess then
                 -- If setting velocity fails, the body might be invalid
-                Log.debug("DestructionSystem - Failed to reset velocity for entity " .. (e.id or "unknown"))
                 phys.body = nil
               else
-                Log.debug("DestructionSystem - Updated physics body position to:", px, py)
-                -- Check physics body state
-                if phys.body.getPosition then
-                  local bx, by = phys.body:getPosition()
-                  Log.debug("DestructionSystem - Physics body actual position:", bx, by)
-                end
                 if e.isPlayer then
                   restorePlayerPhysicsTuning(e, phys.body)
                   if phys.body.resetThrusters then
@@ -436,9 +411,6 @@ function DestructionSystem.update(world, gameState, hub)
               end
             else
               -- Body is destroyed or check failed, mark for recreation
-              if not success then
-                Log.debug("DestructionSystem - Failed to check if body is destroyed for entity " .. (e.id or "unknown"))
-              end
               phys.body = nil
             end
           end
@@ -470,7 +442,6 @@ function DestructionSystem.update(world, gameState, hub)
             end
             
             Events.emit('player_respawn', {player = e})
-            Log.debug("DestructionSystem - Player respawned, docked state reset to:", e.docked)
             
             -- Recreate engine trail component if missing
             if not e.components.engine_trail then
@@ -488,7 +459,6 @@ function DestructionSystem.update(world, gameState, hub)
               }
               
               e.components.engine_trail = EngineTrail.new(engineColors)
-              Log.debug("DestructionSystem - Recreated engine trail component for player")
             end
             
             -- Ensure player is properly added to world if not already
@@ -502,14 +472,11 @@ function DestructionSystem.update(world, gameState, hub)
               end
               
               if not alreadyInWorld then
-                Log.debug("DestructionSystem - Re-adding player to world")
                 world:addEntity(e)
               end
             end
           end
           
-          -- Final debug check
-          Log.debug("DestructionSystem - Final player position after respawn:", e.components.position.x, e.components.position.y)
           e._destructionProcessed = true
         end
       end
