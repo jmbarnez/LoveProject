@@ -25,6 +25,12 @@ local warpPromptState = {
   warpRect = nil,
 }
 
+local cratePromptState = {
+  visible = false,
+  collectRect = nil,
+  pickup = nil,
+}
+
 -- Helper function to check if player has required turret type
 local function hasRequiredTurret(player, requiredType)
   if not player.components or not player.components.equipment or not player.components.equipment.grid then
@@ -66,6 +72,9 @@ function UI.drawHelpers(player, world, hub, camera)
   dockPromptState.stationName = nil
   warpPromptState.visible = false
   warpPromptState.warpRect = nil
+  cratePromptState.visible = false
+  cratePromptState.collectRect = nil
+  cratePromptState.pickup = nil
 
   -- Helper tooltip above stations (docking prompt and repair requirements)
   do
@@ -347,6 +356,72 @@ function UI.drawHelpers(player, world, hub, camera)
     end
   end
 
+  -- Reward crate collection prompt
+  do
+    if not player.docked and world and camera then
+      local Pickups = require("src.systems.pickups")
+      local pickup, distance = Pickups.findNearestPickup(world, player, "reward_crate", 280)
+      if pickup and pickup.components and pickup.components.position then
+        local sw, sh = Viewport.getDimensions()
+        local camScale = camera and camera.scale or 1
+        local camX = (camera and camera.x) or 0
+        local camY = (camera and camera.y) or 0
+
+        local px = pickup.components.position.x
+        local py = pickup.components.position.y
+        local screenX = (px - camX) * camScale + sw * 0.5
+        local screenY = (py - camY) * camScale + sh * 0.5
+
+        if distance <= 280 and screenX >= -80 and screenX <= sw + 80 and screenY >= -80 and screenY <= sh + 80 then
+          cratePromptState.visible = true
+          cratePromptState.pickup = pickup
+
+          local buttonW, buttonH = 110, 36
+          local buttonX = math.floor(screenX - buttonW * 0.5 + 0.5)
+          local buttonY = math.floor(screenY - buttonH - 48 + 0.5)
+          buttonX = math.max(8, math.min(sw - buttonW - 8, buttonX))
+          buttonY = math.max(8, math.min(sh - buttonH - 8, buttonY))
+
+          local mouseX, mouseY = Viewport.getMousePosition()
+          local hover = UIUtils.pointInRect(mouseX, mouseY, {
+            x = buttonX,
+            y = buttonY,
+            w = buttonW,
+            h = buttonH,
+          })
+
+          local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
+          local previousFont = love.graphics.getFont()
+          cratePromptState.collectRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "Collect", hover, false, {
+            font = buttonFont,
+            bg = {0, 0, 0, 1},
+            hoverBg = {0.1, 0.1, 0.1, 1},
+            activeBg = {0.2, 0.2, 0.2, 1},
+          })
+
+          local itemDef = Content.getItem("reward_crate")
+          local label = (itemDef and itemDef.name) or "Reward Crate"
+          local labelFont = (Theme.fonts and Theme.fonts.small) or love.graphics.getFont()
+          love.graphics.setFont(labelFont)
+          Theme.setColor(Theme.colors.text)
+          love.graphics.printf(label, cratePromptState.collectRect.x, cratePromptState.collectRect.y - labelFont:getHeight() - 6, cratePromptState.collectRect.w, "center")
+
+          local hasKey = player.components and player.components.cargo and player.components.cargo:has("reward_crate_key", 1)
+          if not hasKey then
+            local noteFont = (Theme.fonts and Theme.fonts.tiny) or labelFont
+            love.graphics.setFont(noteFont)
+            Theme.setColor(Theme.colors.textSecondary or {0.7, 0.7, 0.7, 1})
+            love.graphics.printf("Requires Reward Key to open", cratePromptState.collectRect.x - 40, cratePromptState.collectRect.y + cratePromptState.collectRect.h + 6, cratePromptState.collectRect.w + 80, "center")
+          end
+
+          if previousFont then
+            love.graphics.setFont(previousFont)
+          end
+        end
+      end
+    end
+  end
+
   -- Helper tooltip for nearby asteroid or wreckage (shows hotkeys for mining/salvaging)
   do
     if not player.docked and world and camera then
@@ -510,8 +585,21 @@ UI.drawTurretIcon = IconSystem.drawIconAny
 
 function UI.handleHelperMousePressed(x, y, button, player)
   if button ~= 1 then return false end
-  if not dockPromptState.visible and not warpPromptState.visible then return false end
+  if not dockPromptState.visible and not warpPromptState.visible and not cratePromptState.visible then return false end
   if not player or player.docked then return false end
+
+  if cratePromptState.collectRect and UIUtils.pointInRect(x, y, cratePromptState.collectRect) then
+    local pickup = cratePromptState.pickup
+    if pickup and not pickup.dead then
+      local Pickups = require("src.systems.pickups")
+      local result = Pickups.collectPickup(player, pickup)
+      Pickups.notifySingleResult(result)
+    end
+    cratePromptState.visible = false
+    cratePromptState.collectRect = nil
+    cratePromptState.pickup = nil
+    return true
+  end
 
   if dockPromptState.dockRect and UIUtils.pointInRect(x, y, dockPromptState.dockRect) then
     if player.canDock then

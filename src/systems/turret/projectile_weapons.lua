@@ -5,7 +5,6 @@ local Log = require("src.core.log")
 local BeamWeapons = require("src.systems.turret.beam_weapons")
 
 local ProjectileWeapons = {}
-
 local PLAYER_LOCK_ANGLE_TOLERANCE = math.rad(25)
 local PLAYER_LOCK_HOLD_TOLERANCE_SCALE = 1.5
 local LOCK_PROGRESS_DECAY_MULT = 2.0
@@ -50,7 +49,6 @@ local function findNearestEnemyTarget(turret, world, sx, sy, maxRangeSq)
 
     local nearestTarget
     local nearestDistSq = math.huge
-
     local entities = world:get_entities_with_components("position")
     for _, entity in ipairs(entities) do
         if entity ~= owner and isTargetValid(entity, owner) then
@@ -101,7 +99,6 @@ local function findLockCandidate(turret, world, sx, sy, aimAngle, angleTolerance
             end
         end
     end
-
     return bestTarget
 end
 

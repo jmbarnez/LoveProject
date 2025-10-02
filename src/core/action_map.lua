@@ -175,6 +175,7 @@ toggleAction("toggle_skills", "toggle_skills", "skills")
 toggleAction("toggle_map", "toggle_map", "map")
 
 
+
 ActionMap.registerAction({
     name = "repair_beacon",
     priority = 20,

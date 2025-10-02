@@ -448,6 +448,14 @@ function Input.mousepressed(x, y, button)
     end
     -- UI interactions are handled earlier via UIManager in love_* callbacks
 
+    -- Interaction system mouse handling
+    if gameState.player then
+        local InteractionSystem = require("src.systems.interaction")
+        if InteractionSystem.mousepressed(x, y, button, gameState.player) then
+            return
+        end
+    end
+
     -- Hotbar mouse interactions
     if button == 1 then
         Hotbar.keypressed("mouse1", gameState.player)
