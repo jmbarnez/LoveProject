@@ -72,28 +72,6 @@ function updateFPSLimit()
   minFrameTime = (graphicsSettings.max_fps and graphicsSettings.max_fps > 0) and (1 / graphicsSettings.max_fps) or 0
 end
 
-local function applyWindowMode(graphicsSettings)
-    local ok, err = pcall(function()
-        love.window.setMode(
-            graphicsSettings.resolution.width,
-            graphicsSettings.resolution.height,
-            {
-                fullscreen = graphicsSettings.fullscreen,
-                fullscreentype = graphicsSettings.fullscreen_type,
-                borderless = graphicsSettings.borderless,
-                vsync = graphicsSettings.vsync,
-                resizable = true,
-                minwidth = Constants.RESOLUTION.MIN_WINDOW_WIDTH_1024PX,
-                minheight = Constants.RESOLUTION.MIN_WINDOW_HEIGHT_1024PX,
-            }
-        )
-    end)
-
-    if not ok then
-        Log.warn("Failed to apply window mode: " .. tostring(err))
-    end
-end
-
 function love.applyGraphicsSettings()
     local graphicsSettings = Settings.getGraphicsSettings()
     local success = WindowMode.apply(graphicsSettings)
@@ -129,12 +107,11 @@ function love.load()
     Settings.load()
     Sound.applySettings()
 
-    local SettingsModule = require("src.core.settings")
-    local km = SettingsModule.getKeymap() or {}
+    local km = Settings.getKeymap() or {}
     local defaults = { hotbar_3 = "q", hotbar_4 = "e", hotbar_5 = "r" }
     for key, defaultBinding in pairs(defaults) do
         if km[key] ~= defaultBinding then
-            SettingsModule.setKeyBinding(key, defaultBinding)
+            Settings.setKeyBinding(key, defaultBinding)
             km[key] = defaultBinding
         end
     end
