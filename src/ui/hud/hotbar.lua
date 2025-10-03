@@ -58,6 +58,28 @@ local function drawShieldIcon(x, y, size, active)
   love.graphics.circle('fill', cx + r*0.35, cy - r*0.35, 2)
 end
 
+local function drawRedX(x, y, size)
+  local cx, cy = x + size * 0.5, y + size * 0.5
+  local lineWidth = math.max(2, size * 0.08) -- Scale line width with slot size
+  local lineLength = size * 0.6 -- X lines extend 60% of slot size
+  
+  love.graphics.setLineWidth(lineWidth)
+  love.graphics.setColor(1, 0, 0, 0.9) -- Bright red with high opacity
+  
+  -- Draw X lines
+  love.graphics.line(
+    cx - lineLength/2, cy - lineLength/2,
+    cx + lineLength/2, cy + lineLength/2
+  )
+  love.graphics.line(
+    cx + lineLength/2, cy - lineLength/2,
+    cx - lineLength/2, cy + lineLength/2
+  )
+  
+  -- Reset line width
+  love.graphics.setLineWidth(1)
+end
+
 function Hotbar.draw(player)
   local sw, sh = Viewport.getDimensions()
   local size, gap = 52, 10
@@ -343,6 +365,11 @@ function Hotbar.draw(player)
         end
 
       end
+    end
+
+    -- Draw red X overlay when weapons are disabled and slot has a turret
+    if player and player.weaponsDisabled and slot.item and type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
+      drawRedX(rx, ry, size)
     end
 
     -- Highlight border when active for hold-type actions (draw last so it's on top)
