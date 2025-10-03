@@ -41,24 +41,38 @@ local Log = require("src.core.log")
 
 local UIManager = {}
 
+local DEFAULT_Z_INDEX = {
+  inventory = 10,
+  ship = 15,
+  bounty = 20,
+  skills = 30,
+  docked = 40,
+  map = 50,
+  warp = 60,
+  escape = 100,
+  settings = 110,
+  rewardWheel = 115,
+  debug = 120,
+}
+
 -- Create warp instance
 local warpInstance = Warp:new()
 
 -- Central UI state
 UIManager.state = {
-  inventory = { open = false, zIndex = 10 },
-  ship = { open = false, zIndex = 15 },
-  bounty = { open = false, zIndex = 20 },
-  skills = { open = false, zIndex = 30 },
-  docked = { open = false, zIndex = 40 },
-  map = { open = false, zIndex = 50 },
-  warp = { open = false, zIndex = 60 },
-  escape = { open = false, zIndex = 100, showingSaveSlots = false }, -- Escape menu should be on top
-  settings = { open = false, zIndex = 110 }, -- Settings panel should be on top of escape
-  rewardWheel = { open = false, zIndex = 115 }, -- Reward wheel panel
-  debug = { open = false, zIndex = 120 } -- Debug panel should be on top of everything
+  inventory = { open = false, zIndex = DEFAULT_Z_INDEX.inventory },
+  ship = { open = false, zIndex = DEFAULT_Z_INDEX.ship },
+  bounty = { open = false, zIndex = DEFAULT_Z_INDEX.bounty },
+  skills = { open = false, zIndex = DEFAULT_Z_INDEX.skills },
+  docked = { open = false, zIndex = DEFAULT_Z_INDEX.docked },
+  map = { open = false, zIndex = DEFAULT_Z_INDEX.map },
+  warp = { open = false, zIndex = DEFAULT_Z_INDEX.warp },
+  escape = { open = false, zIndex = DEFAULT_Z_INDEX.escape, showingSaveSlots = false }, -- Escape menu should be on top
+  settings = { open = false, zIndex = DEFAULT_Z_INDEX.settings }, -- Settings panel should be on top of escape
+  rewardWheel = { open = false, zIndex = DEFAULT_Z_INDEX.rewardWheel }, -- Reward wheel panel
+  debug = { open = false, zIndex = DEFAULT_Z_INDEX.debug } -- Debug panel should be on top of everything
 }
-UIManager.topZ = 120
+UIManager.topZ = DEFAULT_Z_INDEX.debug
 
 -- UI priorities for proper layering
 UIManager.layerOrder = {
@@ -717,11 +731,29 @@ function UIManager.closeAll(except)
   for _, comp in ipairs(except) do
     exceptSet[comp] = true
   end
-  
+
   for component, _ in pairs(UIManager.state) do
     if not exceptSet[component] then
       UIManager.close(component)
     end
+  end
+end
+
+function UIManager.reset()
+  UIManager.closeAll()
+  UIManager.modalActive = false
+  UIManager.modalComponent = nil
+  UIManager.topZ = DEFAULT_Z_INDEX.debug
+  for component, defaultZ in pairs(DEFAULT_Z_INDEX) do
+    if UIManager.state[component] then
+      UIManager.state[component].zIndex = defaultZ
+      if UIManager.state[component].open then
+        UIManager.state[component].open = false
+      end
+    end
+  end
+  if UIManager.state.escape then
+    UIManager.state.escape.showingSaveSlots = false
   end
 end
 

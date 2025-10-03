@@ -242,7 +242,8 @@ end
 function StateManager.init(player, world)
   currentPlayer = player
   currentWorld = world
-  
+  autoSaveTimer = 0
+
   -- Ensure save directory exists
   if not love.filesystem.getInfo(SAVE_DIRECTORY) then
     Log.info("StateManager: Creating save directory at '" .. SAVE_DIRECTORY .. "'")
@@ -257,6 +258,12 @@ function StateManager.init(player, world)
   end
   
   Log.debug("State Manager initialized")
+end
+
+function StateManager.reset()
+  currentPlayer = nil
+  currentWorld = nil
+  autoSaveTimer = 0
 end
 
 -- Get current game state for saving

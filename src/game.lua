@@ -543,6 +543,38 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   return true
 end
 
+function Game.unload()
+  if UIManager and UIManager.reset then
+    UIManager.reset()
+  end
+
+  Events.clear()
+
+  if StateManager and StateManager.reset then
+    StateManager.reset()
+  end
+
+  if HotbarSystem and HotbarSystem.reset then
+    HotbarSystem.reset()
+  end
+
+  PlayerRef.set(nil)
+
+  Input.init({})
+
+  world = nil
+  Game.world = nil
+  camera = nil
+  player = nil
+  hub = nil
+  clickMarkers = {}
+  bounty = { uncollected = 0, entries = {} }
+  hoveredEntity = nil
+  hoveredEntityType = nil
+  collisionSystem = nil
+  refreshDockingState = nil
+end
+
 function Game.update(dt)
     Input.update(dt)
     UIManager.update(dt, player)

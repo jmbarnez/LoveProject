@@ -49,14 +49,28 @@ end
 
 love = love or {}
 function love.setScreen(newScreen)
+    local previousScreen = screen
+    if previousScreen == newScreen then
+        return
+    end
+
     screen = newScreen
 
     if newScreen == "start" then
+        if previousScreen == "game" and Game and Game.unload then
+            Game.unload()
+        end
         startScreen = Start.new()
         love.mouse.setVisible(true)
+        if love.mouse and love.mouse.setRelativeMode then
+            love.mouse.setRelativeMode(false)
+        end
         Sound.playMusic("adrift")
-    elseif newScreen == "game" and not UIManager then
-        UIManager = require("src.core.ui_manager")
+        UIManager = nil
+    elseif newScreen == "game" then
+        if not UIManager then
+            UIManager = require("src.core.ui_manager")
+        end
     end
 
     configureInput()
