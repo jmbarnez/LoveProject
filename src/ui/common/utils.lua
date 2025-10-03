@@ -25,7 +25,6 @@ end
 
 -- UI Caching system for expensive calculations
 local textMetricsCache = {}
-local layoutCache = {}
 local cacheCounter = 0
 
 -- Cache text metrics (width/height) to avoid repeated font:getWidth/getHeight calls
@@ -67,33 +66,6 @@ function UIUtils.getCachedTextMetrics(text, font)
     end
 
     return cached
-end
-
--- Cache layout calculations (positioning, dimensions)
-function UIUtils.getCachedLayout(key, calculator)
-    local cached = layoutCache[key]
-    if not cached then
-        cached = calculator()
-        layoutCache[key] = cached
-    end
-    return cached
-end
-
--- Clear layout cache when resolution changes
-function UIUtils.clearLayoutCache()
-    layoutCache = {}
-end
-
--- Helper function for batching UI updates
-local updateCounters = {}
-function UIUtils.shouldUpdate(name, frequency)
-    frequency = frequency or 1 -- Update every frame by default
-    if not updateCounters[name] then
-        updateCounters[name] = 0
-    end
-
-    updateCounters[name] = updateCounters[name] + 1
-    return (updateCounters[name] % frequency) == 0
 end
 
 -- Check if point is in rectangle
