@@ -6,7 +6,7 @@ return {
     tier = 1,
     stack = 20,
     value = 0,
-    price = 0,
+    price = nil, -- Not sold in shops - only obtainable from MILA
     mass = 0.1,
     volume = 0.05,
     tags = { "key", "reward" },

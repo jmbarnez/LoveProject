@@ -95,7 +95,7 @@ return {
 
   loot = {
     drops = {
-      { id = "reward_crate_key", min = 1, max = 1, chance = 0.75 },
+      { id = "reward_crate_key", min = 1, max = 1, chance = 1.0 }, -- Guaranteed drop from MILA
       { id = "scraps", min = 3, max = 6, chance = 0.8 },
       { id = "broken_circuitry", min = 2, max = 4, chance = 0.6 },
       { id = "ore_tritanium", min = 2, max = 5, chance = 0.5 },

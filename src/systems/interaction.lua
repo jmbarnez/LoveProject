@@ -12,7 +12,7 @@ local REWARD_ITEM_POOL = {
   "ore_palladium",
   "stones",
   "scraps",
-  "reward_crate_key",
+  -- reward_crate_key removed - only obtainable from MILA
 }
 
 local function getCargo(player)

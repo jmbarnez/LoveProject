@@ -6,7 +6,7 @@ return {
   tier = 2,
   stack = 10,
   value = 50,
-  price = 100,
+  price = nil, -- Not sold in shops
   mass = 0.1,
   volume = 0.1,
   tags = { "crypto", "consumable", "node" },
