@@ -251,7 +251,7 @@ end
 -- Item pickup renderer (simple small icon with name and amount label)
 function EntityRenderers.item_pickup(entity, player)
     local props = entity.components.renderable.props or {}
-    local itemId = props.itemId or "stones"
+    local itemId = props.itemId or "ore_tritanium"
     local qty = props.qty or 1
     local s = (props.sizeScale or 0.7) * 1.2  -- Slightly smaller than original (reduced from 1.5 to 1.2)
 
@@ -503,73 +503,14 @@ function EntityRenderers.station(entity, player)
         local R = entity.radius or 200
         stationRadius = S(R * 0.8)
         
-        -- Main station body
-        RenderUtils.setColor({0.85, 0.88, 0.90, 0.2})
-        love.graphics.circle("fill", 0, 0, stationRadius)
-        
-        -- Inner core
-        RenderUtils.setColor({0.92, 0.94, 0.96, 0.4})
-        love.graphics.circle("fill", 0, 0, S(R * 0.3))
-        
-        -- Station outline
-        RenderUtils.setColor({0.85, 0.88, 0.90, 0.8})
+        -- Station outline only (glass panel effect removed)
+        RenderUtils.setColor({0.85, 0.88, 0.90, 1.0})
         love.graphics.setLineWidth(S(2))
         love.graphics.circle("line", 0, 0, stationRadius)
         love.graphics.setLineWidth(1)
     end
 
-    -- Show weapon disable ring only when player is inside the actual ring bounds
-    if player and entity.components and entity.components.position then
-        local stationPos = entity.components.position
-        local playerPos = player.components and player.components.position
-        
-        if playerPos then
-            local dx = playerPos.x - stationPos.x
-            local dy = playerPos.y - stationPos.y
-            local distance = math.sqrt(dx * dx + dy * dy)
-            
-            -- Calculate the ring radius first - use shield radius
-            local ringRadius = entity.weaponDisableRadius or 600
-            
-            -- Show ring when player is approaching or inside the station zone
-            if distance <= ringRadius * 1.5 then  -- Show when within 1.5x the radius
-                local alpha = distance <= ringRadius and 0.6 or 0.3  -- Brighter when inside
-                love.graphics.setColor(1.0, 0.5, 0.0, alpha)
-                love.graphics.setLineWidth(3)
-                love.graphics.circle('line', 0, 0, ringRadius)
-                love.graphics.setLineWidth(1)
-                
-                -- Helper text when inside the radius
-                if distance <= ringRadius then
-                    local Theme = require("src.core.theme")
-                    local oldFont = love.graphics.getFont()
-                    if Theme.fonts and Theme.fonts.small then
-                        love.graphics.setFont(Theme.fonts.small)
-                    end
-                    
-                    local label = "Weapons Disabled"
-                    local font = love.graphics.getFont()
-                    local textW = font:getWidth(label)
-                    local textH = font:getHeight()
-                    local textX = -textW / 2
-                    local textY = -ringRadius - textH - 10
-                    
-                    -- Background
-                    local Theme = require("src.core.theme")
-                    Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.7))
-                    love.graphics.rectangle("fill", textX - 4, textY - 2, textW + 8, textH + 4, 2, 2)
-                    
-                    -- Text
-                    Theme.setColor(Theme.colors.text)
-                    love.graphics.print(label, textX, textY)
-                    
-                    if oldFont then
-                        love.graphics.setFont(oldFont)
-                    end
-                end
-            end
-        end
-    end
+    -- Weapons disabled ring removed for better immersion
 end
 
 -- Wreckage renderer

@@ -7,7 +7,6 @@ local Notifications = require("src.ui.notifications")
 local Events = require("src.core.events")
 
 local UtilityBeams = {}
-local IMPACT_INTERVAL = 0.18
 
 local function spawnSalvagePickup(target, amount, world)
     if not world or amount <= 0 then
@@ -32,7 +31,7 @@ local function spawnSalvagePickup(target, amount, world)
 end
 
 
--- Handle mining laser operation (continuous beam with ticking damage)
+-- Handle mining laser operation (continuous beam with continuous damage)
 function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     if locked or not turret:canFire() then
         turret.beamActive = false
@@ -49,12 +48,7 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
         return
     end
 
-    -- Initialize timer if it doesn't exist
-    if not turret._beamImpactTimer then
-        turret._beamImpactTimer = IMPACT_INTERVAL
-    end
-    
-    turret._beamImpactTimer = math.max(0, turret._beamImpactTimer - dt)
+    -- Continuous visual effects - no timer needed
 
     -- Get turret world position first for accurate aiming
     local Turret = require("src.systems.turret.core")
@@ -76,10 +70,15 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     turret.currentAimAngle = angle
 
-    -- Calculate maximum beam range for collision detection
+    -- Calculate beam length - limit to cursor distance (up to max range)
     local maxRange = turret.maxRange
-    local endX = sx + math.cos(angle) * maxRange
-    local endY = sy + math.sin(angle) * maxRange
+    local beamLength = maxRange
+    if turret.owner.cursorWorldPos then
+        beamLength = math.min(cursorDistance, maxRange)
+    end
+    
+    local endX = sx + math.cos(angle) * beamLength
+    local endY = sy + math.sin(angle) * beamLength
 
     local hitTarget, hitX, hitY = UtilityBeams.performMiningHitscan(
         sx, sy, endX, endY, turret, world
@@ -97,6 +96,24 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     turret.beamEndY = beamEndY
     turret.beamTarget = hitTarget
 
+    -- Consume energy per second while beam is active
+    if turret.energyPerSecond and turret.owner and turret.owner.components and turret.owner.components.health then
+        local currentEnergy = turret.owner.components.health.energy or 0
+        local energyCost = turret.energyPerSecond * dt
+        if currentEnergy >= energyCost then
+            turret.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
+        else
+            -- Not enough energy, stop the beam
+            turret.beamActive = false
+            return
+        end
+    else
+        -- Debug logging for missing energyPerSecond
+        if turret.owner.isPlayer then
+            Log.debug("Mining laser energyPerSecond: " .. tostring(turret.energyPerSecond))
+        end
+    end
+
     local cycle = math.max(0.1, turret.cycle)
     local miningPower = turret.miningPower
     local damageRate = miningPower / cycle
@@ -109,15 +126,11 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
             local damageValue = damageRate * dt
             UtilityBeams.applyMiningDamage(hitTarget, damageValue, turret.owner, world, hitX, hitY)
 
-            if turret._beamImpactTimer <= 0 then
-                TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "mining")
-                turret._beamImpactTimer = IMPACT_INTERVAL
-            end
+            -- Continuous visual effects while beam is active
+            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "mining")
         else
-            if turret._beamImpactTimer <= 0 then
-                TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
-                turret._beamImpactTimer = IMPACT_INTERVAL
-            end
+            -- Continuous visual effects for non-mining targets
+            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
         end
     else
         -- No target hit, clear mining flags on all asteroids
@@ -196,12 +209,14 @@ function UtilityBeams.completeMining(turret, target, world)
     else
         mineable.hotspots = {}
     end
-    -- Create resource pickups (both stones and tritanium)
+    -- Create resource pickups based on asteroid type
     local ItemPickup = require("src.entities.item_pickup")
     
-    -- Drop 2-3 raw stones
-    local stoneCount = 2 + math.random(1)
-    for i = 1, stoneCount do
+    -- Drop ore based on asteroid type
+    local mineable = target.components.mineable
+    local resourceType = mineable and mineable.resourceType or "ore_tritanium"
+    local oreCount = 2 + math.random(1)
+    for i = 1, oreCount do
         local angle = math.random() * math.pi * 2
         local dist = 8 + math.random() * 16
         local spawnX = target.components.position.x + math.cos(angle) * dist
@@ -215,35 +230,7 @@ function UtilityBeams.completeMining(turret, target, world)
         local pickup = ItemPickup.new(
             spawnX,
             spawnY,
-            "stones",  -- Drop raw stones
-            1,
-            0.8 + math.random() * 0.4,
-            vx,
-            vy
-        )
-
-        if pickup and world then
-            world:addEntity(pickup)
-        end
-    end
-
-    -- Drop 1-3 tritanium ore
-    local tritCount = 1 + math.random(2)
-    for i = 1, tritCount do
-        local angle = math.random() * math.pi * 2
-        local dist = 8 + math.random() * 16
-        local spawnX = target.components.position.x + math.cos(angle) * dist
-        local spawnY = target.components.position.y + math.sin(angle) * dist
-
-        local speed = 100 + math.random() * 140
-        local spreadAngle = angle + (math.random() - 0.5) * 0.5
-        local vx = math.cos(spreadAngle) * speed
-        local vy = math.sin(spreadAngle) * speed
-
-        local pickup = ItemPickup.new(
-            spawnX,
-            spawnY,
-            "ore_tritanium",  -- Drop tritanium ore
+            resourceType,  -- Drop the ore type this asteroid contains
             1,
             0.8 + math.random() * 0.4,
             vx,
@@ -314,7 +301,7 @@ function UtilityBeams.completeMining(turret, target, world)
     end
 end
 
--- Handle salvaging laser operation (continuous beam with ticking damage)
+-- Handle salvaging laser operation (continuous beam with continuous damage)
 function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     if locked or not turret:canFire() then
         turret.beamActive = false
@@ -322,12 +309,7 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
         return
     end
 
-    -- Initialize timer if it doesn't exist
-    if not turret._beamImpactTimer then
-        turret._beamImpactTimer = IMPACT_INTERVAL
-    end
-    
-    turret._beamImpactTimer = math.max(0, turret._beamImpactTimer - dt)
+    -- Continuous visual effects - no timer needed
 
     -- Get turret world position first for accurate aiming
     local Turret = require("src.systems.turret.core")
@@ -349,10 +331,15 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     turret.currentAimAngle = angle
 
-    -- Calculate maximum beam range for collision detection
+    -- Calculate beam length - limit to cursor distance (up to max range)
     local maxRange = turret.maxRange
-    local endX = sx + math.cos(angle) * maxRange
-    local endY = sy + math.sin(angle) * maxRange
+    local beamLength = maxRange
+    if turret.owner.cursorWorldPos then
+        beamLength = math.min(cursorDistance, maxRange)
+    end
+    
+    local endX = sx + math.cos(angle) * beamLength
+    local endY = sy + math.sin(angle) * beamLength
 
     local hitTarget, hitX, hitY = UtilityBeams.performMiningHitscan(
         sx, sy, endX, endY, turret, world
@@ -370,6 +357,24 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     turret.beamEndY = beamEndY
     turret.beamTarget = hitTarget
 
+    -- Consume energy per second while beam is active
+    if turret.energyPerSecond and turret.owner and turret.owner.components and turret.owner.components.health then
+        local currentEnergy = turret.owner.components.health.energy or 0
+        local energyCost = turret.energyPerSecond * dt
+        if currentEnergy >= energyCost then
+            turret.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
+        else
+            -- Not enough energy, stop the beam
+            turret.beamActive = false
+            return
+        end
+    else
+        -- Debug logging for missing energyPerSecond
+        if turret.owner.isPlayer then
+            Log.debug("Salvaging laser energyPerSecond: " .. tostring(turret.energyPerSecond))
+        end
+    end
+
     local cycle = math.max(0.1, turret.cycle)
     local salvagePower = turret.salvagePower
     local salvageRate = salvagePower / cycle
@@ -382,13 +387,11 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
             end
             
             local removed = UtilityBeams.applySalvageDamage(hitTarget, salvageRate * dt, turret.owner, world)
-            if removed and turret._beamImpactTimer <= 0 then
-                TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "salvage")
-                turret._beamImpactTimer = IMPACT_INTERVAL
-            end
-        elseif turret._beamImpactTimer <= 0 then
+            -- Continuous visual effects while beam is active
+            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "salvage")
+        else
+            -- Continuous visual effects for non-salvage targets
             TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
-            turret._beamImpactTimer = IMPACT_INTERVAL
         end
     else
         -- No target hit, clear salvage flags on all wreckage

@@ -496,14 +496,16 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
   if def and def.rarity then
     local rarityColor = Theme.colors.rarity and Theme.colors.rarity[def.rarity] or Theme.colors.accent
     local prevColor = { love.graphics.getColor() }
-    local rarityHeight = math.max(4, math.floor(size * 0.08))
-
-    Theme.setColor(Theme.withAlpha(rarityColor, 0.4))
-    love.graphics.rectangle("fill", x + 1, y + size - rarityHeight - 2, size - 2, rarityHeight, 2, 2)
-
+    local dotSize = math.max(3, math.floor(size * 0.12)) -- Small dot, 12% of slot size
+    
+    -- Draw small colored dot in top left corner
     Theme.setColor(rarityColor)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", x + 1, y + size - rarityHeight - 2, size - 2, rarityHeight, 2, 2)
+    love.graphics.circle("fill", x + 2 + dotSize/2, y + 2 + dotSize/2, dotSize/2)
+    
+    -- Add subtle border for better visibility
+    Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.8))
+    love.graphics.setLineWidth(1)
+    love.graphics.circle("line", x + 2 + dotSize/2, y + 2 + dotSize/2, dotSize/2)
     love.graphics.setLineWidth(1)
     love.graphics.setColor(prevColor[1] or 1, prevColor[2] or 1, prevColor[3] or 1, prevColor[4] or 1)
   end

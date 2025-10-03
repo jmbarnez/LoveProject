@@ -75,10 +75,6 @@ end
 
 -- Furnace recipes
 local FURNACE_RECIPES = {
-    ["stones"] = {
-        { output = "credits", ratio = 1, type = "credits" }, -- 1 stone = 1 credit
-        { output = "ore_tritanium", ratio = 25, type = "item" } -- 25 stones = 1 tritanium
-    },
     ["ore_tritanium"] = {
         { output = "credits", ratio = 50, type = "credits" } -- 1 tritanium = 50 credits
     }
@@ -618,7 +614,8 @@ function DockedUI.init()
         drawContent = DockedUI.drawContent,
         onClose = function()
         if DockedUI.player then
-            DockedUI.player:undock()
+            local PlayerSystem = require("src.systems.player")
+            PlayerSystem.undock(DockedUI.player)
         end
         end
     })

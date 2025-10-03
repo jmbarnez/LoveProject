@@ -151,8 +151,9 @@ local componentFallbacks = {
     module = DockedUI,
     onClose = function()
       local player = DockedUI.player
-      if player and player.undock then
-        player:undock()
+      if player then
+        local PlayerSystem = require("src.systems.player")
+        PlayerSystem.undock(player)
       else
         UIManager.close("docked")
       end

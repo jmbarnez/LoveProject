@@ -27,22 +27,22 @@ return {
     },
 
     mineable = {
-        resourceType = "stones",
-        resources = 45,
+        resourceType = "ore_tritanium",
+        resources = 15,
         durability = 1.5,  -- Reduced from 3.0 to 1.5 (50% reduction)
     },
 
     visuals = {
         colors = {
-            small = {0.46, 0.46, 0.5, 1.0},
-            medium = {0.42, 0.42, 0.47, 1.0},
-            large = {0.36, 0.36, 0.4, 1.0},
-            outline = {0.22, 0.22, 0.24, 1.0},
+            small = {0.5, 0.55, 0.6, 1.0},    -- Tritanium blue-gray
+            medium = {0.45, 0.5, 0.55, 1.0},
+            large = {0.4, 0.45, 0.5, 1.0},
+            outline = {0.3, 0.35, 0.4, 1.0},
             chunkPalette = {
-                {0.68, 0.6, 0.5, 1.0},
-                {0.57, 0.53, 0.64, 1.0},
+                {0.5, 0.55, 0.6, 1.0},        -- Tritanium colors
+                {0.4, 0.45, 0.5, 1.0},
             },
-            chunkOutline = {0.2, 0.2, 0.23, 1.0},
+            chunkOutline = {0.3, 0.35, 0.4, 1.0},
         }
     }
 }

@@ -186,7 +186,7 @@ local function spawnBonusResources(world, asteroid, impactX, impactY, count)
         local pickup = ItemPickup.new(
             spawnX,
             spawnY,
-            "stones",  -- Always drop raw stones
+            "ore_tritanium",  -- Drop tritanium ore (fallback for hotspots)
             1,
             0.85 + math.random() * 0.3,
             vx,

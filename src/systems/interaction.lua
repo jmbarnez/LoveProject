@@ -10,7 +10,6 @@ local ITEM_REWARD_CARDS = 5
 local REWARD_ITEM_POOL = {
   "ore_tritanium",
   "ore_palladium",
-  "stones",
   "scraps",
   -- reward_crate_key removed - only obtainable from MILA
 }

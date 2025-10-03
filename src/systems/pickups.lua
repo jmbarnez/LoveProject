@@ -57,7 +57,7 @@ local function collect(player, pickup)
   local cargo = player.components and player.components.cargo
   if not cargo then return end
 
-  local id = pickup.itemId or (pickup.components and pickup.components.renderable and pickup.components.renderable.props and pickup.components.renderable.props.itemId) or "stones"
+  local id = pickup.itemId or (pickup.components and pickup.components.renderable and pickup.components.renderable.props and pickup.components.renderable.props.itemId) or "ore_tritanium"
   local qty = pickup.qty or (pickup.components and pickup.components.renderable and pickup.components.renderable.props and pickup.components.renderable.props.qty) or 1
   cargo:add(id, qty)
   Sound.triggerEventAt("loot_collected", position and position.x or pickup.components.position.x, position and position.y or pickup.components.position.y)

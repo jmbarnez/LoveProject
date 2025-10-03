@@ -201,7 +201,6 @@ local strings = {
             ore_palladium = "Palladium Ore",
             ore_tritanium = "Tritanium Ore",
             scraps = "Scraps",
-            stones = "Stones",
 
             -- Equipment
             shield_module_basic = "Basic Shield Module",

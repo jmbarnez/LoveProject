@@ -63,9 +63,11 @@ function MiningSystem.update(dt, world, player)
                                 local ItemPickup = require("src.entities.item_pickup")
                                 local radius = (e.components.collidable and e.components.collidable.radius) or 30
                                 
-                                -- Drop 2-3 raw stones from the asteroid
-                                local stoneCount = 2 + math.random(1)
-                                for i = 1, stoneCount do
+                                -- Drop ore based on asteroid type
+                                local mineable = e.components.mineable
+                                local resourceType = mineable and mineable.resourceType or "ore_tritanium"
+                                local oreCount = 2 + math.random(1)
+                                for i = 1, oreCount do
                                     local angle = math.random() * math.pi * 2
                                     local dist = radius * 0.3 + math.random() * radius * 0.4
                                     local spawnX = e.components.position.x + math.cos(angle) * dist
@@ -76,29 +78,7 @@ function MiningSystem.update(dt, world, player)
                                     local pickup = ItemPickup.new(
                                         spawnX,
                                         spawnY,
-                                        "stones",  -- Drop raw stones
-                                        1,
-                                        0.8 + math.random() * 0.4,
-                                        math.cos(spreadAngle) * speed,
-                                        math.sin(spreadAngle) * speed
-                                    )
-                                    table.insert(world.entities, pickup)
-                                end
-
-                                -- Drop 1-3 tritanium ore from the asteroid
-                                local tritCount = 1 + math.random(2)
-                                for i = 1, tritCount do
-                                    local angle = math.random() * math.pi * 2
-                                    local dist = radius * 0.3 + math.random() * radius * 0.4
-                                    local spawnX = e.components.position.x + math.cos(angle) * dist
-                                    local spawnY = e.components.position.y + math.sin(angle) * dist
-                                    local speed = 80 + math.random() * 120
-                                    local spreadAngle = angle + (math.random() - 0.5) * 0.6
-
-                                    local pickup = ItemPickup.new(
-                                        spawnX,
-                                        spawnY,
-                                        "ore_tritanium",  -- Drop tritanium ore
+                                        resourceType,  -- Drop the ore type this asteroid contains
                                         1,
                                         0.8 + math.random() * 0.4,
                                         math.cos(spreadAngle) * speed,

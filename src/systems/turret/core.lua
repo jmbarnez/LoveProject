@@ -29,6 +29,7 @@ function Turret.new(owner, params)
     self.damage_range = params.damage_range
     self.cycle = params.cycle
     self.capCost = params.capCost
+    self.energyPerSecond = params.energyPerSecond
 
     -- Targeting parameters
     self.optimal = params.optimal
@@ -173,8 +174,8 @@ function Turret:update(dt, target, locked, world)
             return
         end
         
-        -- Check if we have enough energy to fire
-        if self.capCost and self.owner and self.owner.components and self.owner.components.health then
+        -- Check if we have enough energy to fire (skip for utility beams as they handle their own energy)
+        if self.capCost and self.capCost > 0 and self.owner and self.owner.components and self.owner.components.health then
             local currentEnergy = self.owner.components.health.energy or 0
             if currentEnergy < self.capCost then
                 -- Show notification for insufficient energy (only for player) with spam protection
@@ -205,8 +206,8 @@ function Turret:update(dt, target, locked, world)
             UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
         end
 
-        -- Consume energy for weapon firing
-        if self.capCost and self.owner and self.owner.components and self.owner.components.health then
+        -- Consume energy for weapon firing (skip for utility beams as they handle their own energy)
+        if self.capCost and self.capCost > 0 and self.owner and self.owner.components and self.owner.components.health then
             local currentEnergy = self.owner.components.health.energy or 0
             local energyCost = self.capCost
             self.owner.components.health.energy = math.max(0, currentEnergy - energyCost)

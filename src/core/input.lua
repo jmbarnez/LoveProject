@@ -256,8 +256,9 @@ function Input.love_keypressed(key)
             elseif component == "docked" then
               -- For docked UI, trigger undocking
               local player = mainState.UIManager._player
-              if player and player.undock then
-                player:undock()
+              if player then
+                local PlayerSystem = require("src.systems.player")
+                PlayerSystem.undock(player)
               end
             end
             return

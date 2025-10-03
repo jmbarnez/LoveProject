@@ -8,7 +8,7 @@ function Camera.new()
   self.x, self.y = 0, 0
   
   -- Smooth zoom with continuous scaling
-  self.scale = 1.0 -- Start at 1.0x zoom
+  self.scale = 0.5 -- Start at 0.5x zoom
   self.targetScale = self.scale
   self.minScale = 0.5 -- Minimum zoom out to 0.5x
   self.maxScale = 2.0 -- Maximum zoom in to 2.0x

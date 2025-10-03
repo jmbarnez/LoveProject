@@ -22,7 +22,7 @@ local settings = {
         show_fps = false,
         -- Reticle customization
         reticle_style = 1,            -- 1..50 preset styles
-        reticle_color = "accent",     -- legacy string (kept for fallback)
+        reticle_color = "cyan",       -- bright blue reticle by default
         reticle_color_rgb = nil,      -- custom color {r,g,b,a}
         -- UI cursor customization
         ui_cursor_color = "accent",   -- legacy string (kept for fallback)

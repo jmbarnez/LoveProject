@@ -65,7 +65,8 @@ return {
     -- Weapon stats
     optimal = 1000, falloff = 500,
     damage_range = { min = 1, max = 2 },
-    cycle = 1.5, capCost = 60,
+    cycle = 1.5, capCost = 0, -- No per-shot energy cost
+    energyPerSecond = 40, -- Energy consumed per second while beam is active
     maxRange = 1500,
     spread = { minDeg = 0.0, maxDeg = 0.0, decay = 900 },
     

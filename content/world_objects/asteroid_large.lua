@@ -28,23 +28,23 @@ return {
     },
 
     mineable = {
-        resourceType = "stones",
-        resources = 140,
+        resourceType = "ore_palladium",
+        resources = 8,
         durability = 3.5,  -- Reduced from 7.0 to 3.5 (50% reduction)
     },
 
     visuals = {
         colors = {
-            small = {0.42, 0.42, 0.46, 1.0},
-            medium = {0.38, 0.38, 0.42, 1.0},
-            large = {0.32, 0.32, 0.36, 1.0},
-            outline = {0.18, 0.18, 0.2, 1.0},
+            small = {0.8, 0.8, 0.9, 1.0},    -- Palladium silvery-white
+            medium = {0.75, 0.75, 0.85, 1.0},
+            large = {0.7, 0.7, 0.8, 1.0},
+            outline = {0.6, 0.6, 0.7, 1.0},
             chunkPalette = {
-                {0.63, 0.52, 0.48, 1.0},
-                {0.52, 0.55, 0.67, 1.0},
-                {0.57, 0.49, 0.58, 1.0},
+                {0.8, 0.8, 0.9, 1.0},        -- Palladium colors
+                {0.9, 0.9, 1.0, 1.0},
+                {0.7, 0.7, 0.8, 1.0},
             },
-            chunkOutline = {0.17, 0.17, 0.19, 1.0},
+            chunkOutline = {0.6, 0.6, 0.7, 1.0},
         }
     }
 }

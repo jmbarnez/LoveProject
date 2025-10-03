@@ -74,6 +74,15 @@ Theme.colors = {
   -- Dark space transparency
   transparent = {0.00, 0.00, 0.00, 0.00},
   overlay = {0.00, 0.00, 0.00, 0.0},
+
+  -- Rarity colors
+  rarity = {
+    Common = {0.7, 0.7, 0.7, 1.0},      -- Gray
+    Uncommon = {0.3, 0.9, 0.4, 1.0},    -- Green
+    Rare = {0.4, 0.6, 1.0, 1.0},        -- Blue
+    Epic = {0.8, 0.4, 0.9, 1.0},        -- Purple
+    Legendary = {0.9, 0.6, 0.2, 1.0},   -- Orange
+  },
 }
 
 -- === UI TOKENS (Source of truth for sizes/spacing) ===
