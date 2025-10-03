@@ -182,19 +182,31 @@ end
 
 function love.draw()
   local drawStart = love.timer.getTime()
-  
-  Viewport.begin()
-  love.graphics.setFont(require("src.core.theme").fonts.normal)
-  if screen == "start" then
-    startScreen:draw()
-  else
-    Game.draw()
+  local viewportActive = false
+
+  local ok, err = xpcall(function()
+    Viewport.begin()
+    viewportActive = true
+
+    love.graphics.setFont(require("src.core.theme").fonts.normal)
+    if screen == "start" then
+      startScreen:draw()
+    else
+      Game.draw()
+    end
+  end, debug.traceback)
+
+  if viewportActive then
+    Viewport.finish()
   end
-  Viewport.finish()
-  
+
+  if not ok then
+    error(err)
+  end
+
   -- Draw loading screen on top of everything
   loadingScreen:draw()
-  
+
   -- Calculate and set draw time (in ms)
   local drawTime = (love.timer.getTime() - drawStart) * 1000
   DebugPanel.setRenderStats(drawTime)
