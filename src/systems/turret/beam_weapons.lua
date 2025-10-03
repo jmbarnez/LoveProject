@@ -52,8 +52,14 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
 
     -- Perform hitscan collision check
     local maxRange = turret.maxRange
-    local endX = sx + math.cos(angle) * maxRange
-    local endY = sy + math.sin(angle) * maxRange
+    -- For manual firing, limit beam length to cursor distance (up to max range)
+    local beamLength = maxRange
+    if turret.owner.cursorWorldPos and not target then
+        beamLength = math.min(targetDistance, maxRange)
+    end
+    
+    local endX = sx + math.cos(angle) * beamLength
+    local endY = sy + math.sin(angle) * beamLength
 
     local hitTarget, hitX, hitY = BeamWeapons.performLaserHitscan(
         sx, sy, endX, endY, turret, world
@@ -162,29 +168,30 @@ function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMet
     local health = target.components.health
 
     -- Apply global enemy damage multiplier (x2)
-    local finalDamage = damage
+    local baseDamage = damage
     if source and (source.isEnemy or (source.components and source.components.ai)) then
-        finalDamage = damage * 2
+        baseDamage = damage * 2
     end
 
-    -- Apply damage to shields first, then hull
-    local shieldDamage = math.min(health.shield, finalDamage)
+    -- Laser weapons: 15% more damage to shields, half damage to hulls
+    local shieldDamage = math.min(health.shield, baseDamage * 1.15) -- 15% more damage to shields
     health.shield = health.shield - shieldDamage
 
-    local remainingDamage = finalDamage - shieldDamage
+    local remainingDamage = baseDamage - (shieldDamage / 1.15) -- Convert back to original damage for hull calculation
     if remainingDamage > 0 then
-        health.hp = health.hp - remainingDamage
+        local hullDamage = remainingDamage * 0.5 -- Half damage to hull
+        health.hp = health.hp - hullDamage
         if health.hp <= 0 then
             target.dead = true
             target._killedBy = source
             if damageMeta then
-                damageMeta.value = finalDamage
+                damageMeta.value = baseDamage
                 if skillId and damageMeta.skill == nil then
                     damageMeta.skill = skillId
                 end
                 target._finalDamage = damageMeta
             else
-                target._finalDamage = { value = damage, skill = skillId }
+                target._finalDamage = { value = baseDamage, skill = skillId }
             end
         end
     end

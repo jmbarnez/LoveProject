@@ -217,13 +217,7 @@ function EntityRenderers.reward_crate(entity, player)
     local S = RenderUtils.createScaler(size)
     local radius = props.radius or 25
     
-    -- Energy glow effect (outer rings)
-    love.graphics.setColor(0.0, 0.8, 1.0, 0.6)
-    love.graphics.setLineWidth(1)
-    love.graphics.circle('line', 0, 0, S(radius + 10))
-    
-    love.graphics.setColor(0.0, 0.6, 0.8, 0.4)
-    love.graphics.circle('line', 0, 0, S(radius + 20))
+    -- Ring effects removed for cleaner appearance
     
     -- Main crate body
     love.graphics.setColor(0.18, 0.2, 0.28, 1.0)

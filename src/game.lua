@@ -29,13 +29,19 @@ local PlayerSystem = require("src.systems.player")
 local Sound = require("src.core.sound")
 local BoundarySystem = require("src.systems.boundary_system")
 local Viewport = require("src.core.viewport")
+local Theme = require("src.core.theme")
 
 local SpaceStationSystem = require("src.systems.hub")
 local MiningSystem = require("src.systems.mining")
 local Pickups = require("src.systems.pickups")
 local DestructionSystem = require("src.systems.destruction")
 local InteractionSystem = require("src.systems.interaction")
+local InputIntentSystem = require("src.systems.input_intents")
 local EntityFactory = require("src.templates.entity_factory")
+local ProjectileLifecycle = require("src.systems.projectile_lifecycle")
+local EngineTrailSystem = require("src.systems.engine_trail")
+local WarpGateSystem = require("src.systems.warp_gate_system")
+local SystemPipeline = require("src.core.system_pipeline")
 local StatusBars = require("src.ui.hud.status_bars")
 local SkillXpPopup = require("src.ui.hud.skill_xp_popup")
 local HotbarSystem = require("src.systems.hotbar")
@@ -64,6 +70,8 @@ local hoveredEntity = nil
 local hoveredEntityType = nil
 local collisionSystem
 local refreshDockingState
+local systemPipeline
+local systemContext = {}
 
 -- Make world accessible
 Game.world = world
@@ -126,8 +134,103 @@ local function tryCollectNearbyRewardCrate(playerEntity, activeWorld)
   return true
 end
 
+local function createSystemPipeline()
+  local steps = {
+    function(ctx)
+      InputIntentSystem.update(ctx.dt, ctx.player, UIManager)
+    end,
+    function(ctx)
+      PlayerSystem.update(ctx.dt, ctx.player, ctx.input, ctx.world, ctx.hub)
+    end,
+    function(ctx)
+      local pos = ctx.player and ctx.player.components and ctx.player.components.position
+      if pos then
+        Sound.setListenerPosition(pos.x, pos.y)
+      end
+    end,
+    function(ctx)
+      AISystem.update(ctx.dt, ctx.world, spawn_projectile)
+    end,
+    function(ctx)
+      PhysicsSystem.update(ctx.dt, ctx.world:getEntities())
+    end,
+    function(ctx)
+      ProjectileLifecycle.update(ctx.dt, ctx.world)
+    end,
+    function(ctx)
+      BoundarySystem.update(ctx.world)
+    end,
+    function(ctx)
+      if ctx.collisionSystem then
+        ctx.collisionSystem:update(ctx.world, ctx.dt)
+      end
+    end,
+    function(ctx)
+      DestructionSystem.update(ctx.world, ctx.gameState, ctx.hub)
+    end,
+    function(ctx)
+      SpawningSystem.update(ctx.dt, ctx.player, ctx.hub, ctx.world)
+    end,
+    function(ctx)
+      RepairSystem.update(ctx.dt, ctx.player, ctx.world)
+    end,
+    function(ctx)
+      SpaceStationSystem.update(ctx.dt, ctx.hub)
+    end,
+    function(ctx)
+      MiningSystem.update(ctx.dt, ctx.world, ctx.player)
+    end,
+    function(ctx)
+      Pickups.update(ctx.dt, ctx.world, ctx.player)
+    end,
+    function(ctx)
+      InteractionSystem.update(ctx.dt, ctx.player, ctx.world)
+    end,
+    function(ctx)
+      EngineTrailSystem.update(ctx.dt, ctx.world)
+    end,
+    function(ctx)
+      Effects.update(ctx.dt)
+    end,
+    function(ctx)
+      QuestSystem.update(ctx.player)
+    end,
+    function(ctx)
+      NodeMarket.update(ctx.dt)
+    end,
+    function(ctx)
+      WarpGateSystem.updateWarpGates(ctx.world, ctx.dt)
+    end,
+    function(ctx)
+      if ctx.camera then
+        ctx.camera:update(ctx.dt)
+      end
+    end,
+    function(ctx)
+      ctx.world:update(ctx.dt)
+    end,
+    function(ctx)
+      StateManager.update(ctx.dt)
+    end,
+    function(ctx)
+      if ctx.refreshDockingState then
+        ctx.refreshDockingState()
+      end
+    end,
+    function(ctx)
+      Events.processQueue()
+    end,
+    function(ctx)
+      HotbarSystem.update(ctx.dt)
+    end,
+  }
+
+  systemPipeline = SystemPipeline.new(steps)
+end
+
 
 --[[
+    Game.load
     Game.load
 
     Boots the playable world, reporting progress back to the optional loading
@@ -225,18 +328,52 @@ function Game.load(fromSave, saveSlot, loadingScreen)
     end
   end
   
-  -- Create 8 reward crates scattered around the world
+  -- Create 8 reward crates at random locations in the sector
   do
-    local cratePositions = {
-      {x = 3000, y = 3000},   -- Top-left quadrant
-      {x = 8000, y = 2000},   -- Top-center
-      {x = 12000, y = 3000},  -- Top-right quadrant
-      {x = 2000, y = 8000},   -- Left-center
-      {x = 10000, y = 8000},  -- Right-center
-      {x = 3000, y = 12000},  -- Bottom-left quadrant
-      {x = 8000, y = 13000},  -- Bottom-center
-      {x = 12000, y = 12000}, -- Bottom-right quadrant
-    }
+    local worldSize = 30000 -- Approximate world size
+    local margin = 2000 -- Keep crates away from edges
+    local minDistance = 1000 -- Minimum distance between crates
+    
+    local cratePositions = {}
+    local attempts = 0
+    local maxAttempts = 1000 -- Prevent infinite loops
+    
+    -- Generate 8 random positions with minimum distance between them
+    for i = 1, 8 do
+      local validPosition = false
+      local attempts = 0
+      
+      while not validPosition and attempts < maxAttempts do
+        local x = math.random(margin, worldSize - margin)
+        local y = math.random(margin, worldSize - margin)
+        
+        -- Check if this position is far enough from existing crates
+        validPosition = true
+        for _, existingPos in ipairs(cratePositions) do
+          local dx = x - existingPos.x
+          local dy = y - existingPos.y
+          local distance = math.sqrt(dx * dx + dy * dy)
+          if distance < minDistance then
+            validPosition = false
+            break
+          end
+        end
+        
+        if validPosition then
+          table.insert(cratePositions, {x = x, y = y})
+        end
+        
+        attempts = attempts + 1
+      end
+      
+      -- If we couldn't find a valid position after max attempts, use a random one anyway
+      if not validPosition then
+        local x = math.random(margin, worldSize - margin)
+        local y = math.random(margin, worldSize - margin)
+        table.insert(cratePositions, {x = x, y = y})
+        Debug.warn("game", "Could not find valid position for crate %d, using random position", i)
+      end
+    end
     
     for i, pos in ipairs(cratePositions) do
       local crate = EntityFactory.create("world_object", "reward_crate", pos.x, pos.y)
@@ -359,7 +496,6 @@ function Game.load(fromSave, saveSlot, loadingScreen)
 
   camera:setTarget(player)
   SpawningSystem.init(player, hub, world)
-  PlayerSystem.init(world)
   collisionSystem = CollisionSystem:new({x = 0, y = 0, width = world.width, height = world.height})
 
   world:setQuadtree(collisionSystem.quadtree)
@@ -444,6 +580,8 @@ function Game.load(fromSave, saveSlot, loadingScreen)
       player:dock(target)
     end
   end)
+  -- Initialize player-specific event listeners after resetting the event bus
+  PlayerSystem.init(world)
 
   refreshDockingState = function()
     if not player or not world then return end
@@ -513,17 +651,17 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   end)
   
   -- Add event listeners for save/load notifications
-  Events.on("game_saved", function(data)
+  Events.on(Events.GAME_EVENTS.GAME_SAVED, function(data)
     local Notifications = require("src.ui.notifications")
     Notifications.add("Game saved: " .. (data.description or "Unknown"), "action")
   end)
   
-  Events.on("game_loaded", function(data)
+  Events.on(Events.GAME_EVENTS.GAME_LOADED, function(data)
     local Notifications = require("src.ui.notifications")
     Notifications.add("Game loaded: " .. (data.loadTime or "Unknown"), "info")
   end)
   
-  Events.on("game_save_deleted", function(data)
+  Events.on(Events.GAME_EVENTS.GAME_SAVE_DELETED, function(data)
     local Notifications = require("src.ui.notifications")
     Notifications.add("Save slot deleted: " .. (data.slotName or "Unknown"), "info")
   end)
@@ -535,6 +673,8 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   StateManager.init(player, world)
   
   
+  createSystemPipeline()
+
   -- Step 10: Complete
   updateProgress(1.0, "Complete!")
   if loadingScreen then
@@ -561,6 +701,9 @@ function Game.unload()
 
   PlayerRef.set(nil)
 
+  systemPipeline = nil
+  systemContext = {}
+
   Input.init({})
 
   world = nil
@@ -582,10 +725,10 @@ function Game.update(dt)
     SkillXpPopup.update(dt)
     local input = Input.getInputState()
 
-    -- Check if game should be paused (escape menu or other modal UIs)
+    -- Check if game should be paused (escape menu)
     local shouldPause = false
     if UIManager then
-        shouldPause = UIManager.isOpen("escape") or UIManager.isModalActive()
+        shouldPause = UIManager.isOpen("escape")
     end
     
     if shouldPause then
@@ -594,70 +737,33 @@ function Game.update(dt)
     end
 
     -- Update UI effects systems
-    local Theme = require("src.core.theme")
     Theme.updateAnimations(dt)
     Theme.updateParticles(dt)
     Theme.updateScreenEffects(dt)
     
 
-    -- Update all systems
-    PlayerSystem.update(dt, player, input, world, hub)
-    do
-        -- Update audio listener to follow the player for attenuation/pan
-        local pos = player and player.components and player.components.position
-        if pos then
-        Sound.setListenerPosition(pos.x, pos.y)
-        end
+    -- Update all systems via the scheduled pipeline
+    if not world or not player then
+        return
     end
-    AISystem.update(dt, world, spawn_projectile)
-    -- Update physics and collisions first so any damage/death flags set by collisions
-    -- are visible to the destruction system in the same frame.
-    PhysicsSystem.update(dt, world:getEntities())
-    -- Update projectile lifecycle (timed life and max range expiration)
-    local ProjectileLifecycle = require("src.systems.projectile_lifecycle")
-    ProjectileLifecycle.update(dt, world)
-    BoundarySystem.update(world)
-    collisionSystem:update(world, dt)
-    -- Process deaths: spawn effects, wreckage, loot before cleanup
-    local gameState = {}
-    DestructionSystem.update(world, gameState, hub)
-    SpawningSystem.update(dt, player, hub, world)
-    RepairSystem.update(dt, player, world)
-    SpaceStationSystem.update(dt, hub)
-    -- Mining progression (per-cycle, per-asteroid)
-    MiningSystem.update(dt, world, player)
-    -- Magnetic item pickup system
-    Pickups.update(dt, world, player)
-    -- Interaction system
-    InteractionSystem.update(dt, player, world)
-
-    -- Update engine trail after physics so thruster state is preserved
-    local EngineTrailSystem = require("src.systems.engine_trail")
-    EngineTrailSystem.update(dt, world)
-
-    Effects.update(dt)
-    QuestSystem.update(player)
-    NodeMarket.update(dt)
-
-    -- Update warp gates
-    local WarpGateSystem = require("src.systems.warp_gate_system")
-    WarpGateSystem.updateWarpGates(world, dt)
-
-    camera:update(dt)
-    world:update(dt) -- This handles dead entity cleanup
-
-    -- Update state manager (handles auto-saving)
-    StateManager.update(dt)
-
-    -- Docking proximity check (supports multiple stations)
-    if refreshDockingState then
-        refreshDockingState()
+    if not systemPipeline then
+        createSystemPipeline()
+    end
+    if not systemPipeline then
+        return
     end
 
-    -- Process queued events each frame
-    Events.processQueue()
+    systemContext.dt = dt
+    systemContext.player = player
+    systemContext.input = input
+    systemContext.world = world
+    systemContext.hub = hub
+    systemContext.camera = camera
+    systemContext.collisionSystem = collisionSystem
+    systemContext.refreshDockingState = refreshDockingState
+    systemContext.gameState = {}
 
-    HotbarSystem.update(dt)
+    systemPipeline:update(systemContext)
 
     -- Expire click markers so they don't get stuck on screen.
     for i = #clickMarkers, 1, -1 do
@@ -677,7 +783,6 @@ function Game.resize(w, h)
 end
 
 function Game.draw()
-    local Theme = require("src.core.theme")
     local shakeX, shakeY = 0, 0
     local flashAlpha = 0
     local zoomScale = 1.0
@@ -692,8 +797,6 @@ function Game.draw()
     world:drawBackground(camera)
     if DEBUG_DRAW_BOUNDS then world:drawBounds() end
 
-    -- *** This is the crucial fix ***
-    -- The hub is now passed to the RenderSystem so it can be drawn.
     -- World and gameplay
     RenderSystem.draw(world, camera, player, clickMarkers, hoveredEntity, hoveredEntityType)
 
@@ -716,7 +819,6 @@ function Game.draw()
     QuestLogHUD.draw(player)
     
     -- Handle escape menu with blur effect
-    local UIManager = require("src.core.ui_manager")
     if UIManager.isOpen("escape") then
         -- Apply blur to background only (everything drawn so far)
         if not Game.blurCanvas then
@@ -741,7 +843,6 @@ function Game.draw()
             end
         else
             -- Apply blur shader to background
-            local Theme = require("src.core.theme")
             love.graphics.setShader(Theme.shaders.ui_blur)
             love.graphics.setColor(1, 1, 1, 0.8)
             love.graphics.draw(Game.blurCanvas, 0, 0)
@@ -766,3 +867,5 @@ function Game.draw()
 end
 
 return Game
+
+

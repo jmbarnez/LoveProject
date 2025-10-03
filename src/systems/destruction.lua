@@ -269,14 +269,67 @@ function DestructionSystem.update(world, gameState, hub)
             Events.emit(Events.GAME_EVENTS.PLAYER_DIED, {player = e})
           end
           
-          -- Player death: respawn at the station without nearby spawns
+          -- Player death: respawn just outside weapon disable ring (same as initial spawn)
           local px, py = x, y
           
           local hubStation = hub or findHubStation(world)
           
           if hubStation and hubStation.components and hubStation.components.position then
             local stationPos = hubStation.components.position
-            px, py = stationPos.x, stationPos.y
+            -- Use same spawn logic as initial spawn - just outside weapon disable ring
+            local angle = math.random() * math.pi * 2
+            local weapon_disable_radius = hubStation:getWeaponDisableRadius() or Constants.STATION.WEAPONS_DISABLE_DURATION * 200
+            local spawn_dist = weapon_disable_radius * 1.2 -- Spawn 20% outside the weapon disable zone
+            px = stationPos.x + math.cos(angle) * spawn_dist
+            py = stationPos.y + math.sin(angle) * spawn_dist
+            
+            -- Check for collision with all stations to ensure we don't respawn inside one
+            local attempts = 0
+            local maxAttempts = 50
+            local spawnValid = false
+            
+            while not spawnValid and attempts < maxAttempts do
+              attempts = attempts + 1
+              spawnValid = true
+              
+              -- Check collision with all stations
+              local all_stations = world:get_entities_with_components("station")
+              for _, station in ipairs(all_stations) do
+                if station and station.components and station.components.position and station.components.collidable then
+                  local sx, sy = station.components.position.x, station.components.position.y
+                  local dx = px - sx
+                  local dy = py - sy
+                  local distance = math.sqrt(dx * dx + dy * dy)
+                  
+                  -- Check if player would respawn inside station collision area
+                  local stationRadius = 50 -- Default safe radius
+                  if station.components.collidable.radius then
+                    stationRadius = station.components.collidable.radius
+                  elseif station.radius then
+                    stationRadius = station.radius
+                  end
+                  
+                  -- Add some buffer to ensure we're not touching the station
+                  local safeDistance = stationRadius + 30
+                  
+                  if distance < safeDistance then
+                    spawnValid = false
+                    -- Try a new random position
+                    angle = math.random() * math.pi * 2
+                    px = stationPos.x + math.cos(angle) * spawn_dist
+                    py = stationPos.y + math.sin(angle) * spawn_dist
+                    break
+                  end
+                end
+              end
+            end
+            
+            -- If we couldn't find a valid respawn after max attempts, use a fallback position
+            if not spawnValid then
+              px = stationPos.x + spawn_dist
+              py = stationPos.y
+            end
+            
             -- Flag prevents spawn system from placing enemies near the player this frame
             world._suppressPlayerDeathSpawn = true
           else
@@ -475,7 +528,7 @@ function DestructionSystem.update(world, gameState, hub)
               e:undock()
             end
             
-            Events.emit('player_respawn', {player = e})
+            Events.emit(Events.GAME_EVENTS.PLAYER_RESPAWN, {player = e})
             
             -- Mark player as no longer dead after successful respawn
             e.dead = false

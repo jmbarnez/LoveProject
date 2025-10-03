@@ -437,7 +437,7 @@ local function applyGameState(state, player, world)
   Log.debug("Game state loaded successfully from", state.realTime)
   
   -- Emit load event
-  Events.emit("game_loaded", {
+  Events.emit(Events.GAME_EVENTS.GAME_LOADED, {
     state = state,
     player = player,
     loadTime = state.realTime
@@ -582,7 +582,7 @@ function StateManager.saveGame(slotName, description)
     end
     
     -- Emit save event
-    Events.emit("game_saved", {
+    Events.emit(Events.GAME_EVENTS.GAME_SAVED, {
       slotName = slotName,
       description = state.metadata.description,
       state = state
@@ -719,7 +719,7 @@ function StateManager.deleteSave(slotName)
   if success then
     Log.debug("Deleted save slot:", slotName)
     
-    Events.emit("game_save_deleted", {
+    Events.emit(Events.GAME_EVENTS.GAME_SAVE_DELETED, {
       slotName = slotName
     })
     

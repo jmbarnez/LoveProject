@@ -324,6 +324,15 @@ function EntityCollision.handleEntityCollisions(collisionSystem, entity, world, 
         return
     end
 
+    if entity._collisionGrace then
+        entity._collisionGrace = math.max(0, entity._collisionGrace - (dt or 0))
+        if entity._collisionGrace > 0 then
+            return
+        else
+            entity._collisionGrace = nil
+        end
+    end
+
     -- Skip bullets - they have their own collision handling
     if entity.components.bullet then
         return
@@ -348,6 +357,10 @@ function EntityCollision.handleEntityCollisions(collisionSystem, entity, world, 
         if other ~= entity and not other.dead and other.components.collidable and other.components.position then
             -- Skip bullets - they have their own collision handling
             if other.components.bullet then
+                goto continue
+            end
+
+            if other._collisionGrace and other._collisionGrace > 0 then
                 goto continue
             end
 

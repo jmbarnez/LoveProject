@@ -1,224 +1,246 @@
 local InteractionSystem = {}
 
-local function getPlayer()
-  local PlayerRef = require("src.core.player_ref")
-  return PlayerRef.get()
+local DEFAULT_INTERACT_RANGE = 50
+local BUTTON_WIDTH = 120
+local BUTTON_HEIGHT = 32
+local BUTTON_OFFSET_Y = 50
+local GC_REWARD_CARDS = 5
+local ITEM_REWARD_CARDS = 5
+
+local REWARD_ITEM_POOL = {
+  "ore_tritanium",
+  "ore_palladium",
+  "stones",
+  "scraps",
+  "reward_crate_key",
+}
+
+local function getCargo(player)
+  if not player or not player.components then
+    return nil
+  end
+  return player.components.cargo
 end
 
-local function getWorld()
-  local Game = require("src.game")
-  return Game.world
+local function hasRequiredKey(player, requiredKey)
+  if not requiredKey then
+    return true
+  end
+
+  local cargo = getCargo(player)
+  return cargo and cargo:has(requiredKey, 1) or false
 end
 
-function InteractionSystem.update(dt, player, world)
-  if not player or not world then return end
-  
-  local playerPos = player.components.position
-  if not playerPos then return end
-  
+local function notifyWarning(message)
+  local Notifications = require("src.ui.notifications")
+  Notifications.add(message, "warning")
+end
+
+local function collectNearbyInteractables(world)
+  if not world or not world.get_entities_with_components then
+    return {}
+  end
+
+  return world:get_entities_with_components("interactable") or {}
+end
+
+local function buildRewardDeck()
+  local possibleRewards = {}
+
+  for _ = 1, GC_REWARD_CARDS do
+    table.insert(possibleRewards, {
+      gc = 0,
+      item = "gc",
+      qty = math.random(150, 400),
+    })
+  end
+
+  for _ = 1, ITEM_REWARD_CARDS do
+    local rewardItem = REWARD_ITEM_POOL[math.random(1, #REWARD_ITEM_POOL)]
+    local rewardQty = math.random(3, 12)
+
+    table.insert(possibleRewards, {
+      gc = 0,
+      item = rewardItem,
+      qty = rewardQty,
+    })
+  end
+
+  return possibleRewards
+end
+
+function InteractionSystem.update(_, player, world)
+  if not player then
+    return
+  end
+
+  player._nearbyInteractable = nil
+
+  if not world then
+    return
+  end
+
+  local playerPos = player.components and player.components.position
+  if not playerPos then
+    return
+  end
+
   local px, py = playerPos.x, playerPos.y
-  
-  -- Find nearby interactable objects
-  local nearbyObjects = world:get_entities_with_components("interactable")
   local closestObject = nil
-  local closestDistance = math.huge
-  
-  for _, obj in ipairs(nearbyObjects) do
-    if obj.components.position and obj.components.interactable then
-      local objPos = obj.components.position
+  local closestDistanceSq = math.huge
+
+  for _, obj in ipairs(collectNearbyInteractables(world)) do
+    local components = obj.components
+    local objPos = components and components.position
+    local interactable = components and components.interactable
+
+    if objPos and interactable then
       local dx = objPos.x - px
       local dy = objPos.y - py
-      local distance = math.sqrt(dx * dx + dy * dy)
-      
-      if distance <= (obj.components.interactable.range or 50) and distance < closestDistance then
+      local distanceSq = dx * dx + dy * dy
+      local range = interactable.range or DEFAULT_INTERACT_RANGE
+      local rangeSq = range * range
+
+      if distanceSq <= rangeSq and distanceSq < closestDistanceSq then
         closestObject = obj
-        closestDistance = distance
+        closestDistanceSq = distanceSq
       end
     end
   end
-  
-  
-  -- Store the closest object for rendering
+
   player._nearbyInteractable = closestObject
 end
 
 function InteractionSystem.interact(player)
-  if not player or not player._nearbyInteractable then return false end
-  
-  local obj = player._nearbyInteractable
-  local interactable = obj.components.interactable
-  
-  if not interactable then return false end
-  
-  -- Check if object requires a key
-  if interactable.requiresKey then
-    local cargo = player.components.cargo
-    if not cargo or not cargo:has(interactable.requiresKey, 1) then
-      local Notifications = require("src.ui.notifications")
-      Notifications.add("You need a " .. (interactable.requiresKey or "key") .. " to interact with this object.", "warning")
-      return false
-    end
+  if not player then
+    return false
   end
-  
-  -- Handle reward crate interaction (world object)
-  if obj.components.renderable and obj.components.renderable.type == "reward_crate" then
-    local cargo = player.components.cargo
-    if not cargo then return false end
-    
-    -- Check for reward key
-    if not cargo:has("reward_crate_key", 1) then
-      local Notifications = require("src.ui.notifications")
-      Notifications.add("You need a Reward Key to open this crate.", "warning")
+
+  local obj = player._nearbyInteractable
+  if not obj then
+    return false
+  end
+
+  local components = obj.components
+  if not components then
+    return false
+  end
+
+  local interactable = components.interactable
+  if not interactable then
+    return false
+  end
+
+  if not hasRequiredKey(player, interactable.requiresKey) then
+    local keyName = interactable.requiresKey or "key"
+    notifyWarning("You need a " .. keyName .. " to interact with this object.")
+    return false
+  end
+
+  local renderable = components.renderable
+  if renderable and renderable.type == "reward_crate" then
+    local cargo = getCargo(player)
+    if not cargo then
       return false
     end
-    
-    -- Generate multiple possible rewards for the wheel
-    local possibleRewards = {}
-    
-    -- Add GC-only rewards (half the cards) - now as items
-    for i = 1, 5 do
-      table.insert(possibleRewards, {
-        gc = 0,
-        item = "gc",
-        qty = math.random(150, 400)
-      })
+
+    if not cargo:has("reward_crate_key", 1) then
+      notifyWarning("You need a Reward Key to open this crate.")
+      return false
     end
-    
-    -- Add item-only rewards (half the cards)
-    local rewardItems = {
-      "ore_tritanium", "ore_palladium", "stones", "scraps", "reward_crate_key"
-    }
-    for i = 1, 5 do
-      local rewardItem = rewardItems[math.random(1, #rewardItems)]
-      local rewardQty = math.random(3, 12)
-      table.insert(possibleRewards, {
-        gc = 0,
-        item = rewardItem,
-        qty = rewardQty
-      })
-    end
-    
-    -- Show reward wheel panel
+
     local RewardWheelPanel = require("src.ui.reward_wheel_panel")
-    RewardWheelPanel.show(player, possibleRewards)
-    
-    -- Consume the key
+    RewardWheelPanel.show(player, buildRewardDeck())
+
     cargo:remove("reward_crate_key", 1)
-    
     return true
   end
-  
+
   return false
 end
 
-
 function InteractionSystem.mousepressed(x, y, button, player, camera)
-  if not player or not player._nearbyInteractable or button ~= 1 then return false end
-  
-  local obj = player._nearbyInteractable
-  local interactable = obj.components.interactable
-  
-  if not interactable then return false end
-  
-  local Viewport = require("src.core.viewport")
-  local screenX, screenY = camera:worldToScreen(obj.components.position.x, obj.components.position.y)
-  
-  -- Check if click is on the button
-  local buttonWidth = 120
-  local buttonHeight = 32
-  local buttonX = screenX - buttonWidth/2
-  local buttonY = screenY - 50
-  
-  if x >= buttonX and x <= buttonX + buttonWidth and y >= buttonY and y <= buttonY + buttonHeight then
-    -- Check if player has the required key
-    local hasKey = true
-    if interactable.requiresKey then
-      local cargo = player.components.cargo
-      hasKey = cargo and cargo:has(interactable.requiresKey, 1)
-    end
-    
-    if hasKey then
-      return InteractionSystem.interact(player)
-    else
-      -- Show warning message
-      local Notifications = require("src.ui.notifications")
-      local keyName = interactable.requiresKey or "key"
-      Notifications.add("You need a " .. keyName .. " to open this crate.", "warning")
-      return true
-    end
+  if button ~= 1 then
+    return false
   end
-  
-  return false
+
+  local obj = player and player._nearbyInteractable
+  local components = obj and obj.components
+  local interactable = components and components.interactable
+  local position = components and components.position
+
+  if not interactable or not position or not camera then
+    return false
+  end
+
+  local screenX, screenY = camera:worldToScreen(position.x, position.y)
+  local buttonX = screenX - BUTTON_WIDTH / 2
+  local buttonY = screenY - BUTTON_OFFSET_Y
+
+  if x < buttonX or x > buttonX + BUTTON_WIDTH or y < buttonY or y > buttonY + BUTTON_HEIGHT then
+    return false
+  end
+
+  if hasRequiredKey(player, interactable.requiresKey) then
+    return InteractionSystem.interact(player)
+  end
+
+  local keyName = interactable.requiresKey or "key"
+  notifyWarning("You need a " .. keyName .. " to interact with this object.")
+  return true
 end
 
 function InteractionSystem.draw(player, camera)
-  if not player or not player._nearbyInteractable then return end
-  
-  local obj = player._nearbyInteractable
-  local interactable = obj.components.interactable
-  
-  if not interactable then return end
-  
-  local Viewport = require("src.core.viewport")
-  local Theme = require("src.core.theme")
-  
-  local screenX, screenY = camera:worldToScreen(obj.components.position.x, obj.components.position.y)
-  local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
-  local padding = 8
-  
-  -- Check if player has the required key
-  local hasKey = true
-  local buttonText = "Open Crate"
-  local buttonColor = Theme.colors.button or {0.2, 0.6, 0.2, 1.0}
-  
-  if interactable.requiresKey then
-    local cargo = player.components.cargo
-    hasKey = cargo and cargo:has(interactable.requiresKey, 1)
-    
-    if not hasKey then
-      buttonText = "Need Reward Key"
-      buttonColor = Theme.colors.buttonDisabled or {0.6, 0.2, 0.2, 1.0}
-    end
+  local obj = player and player._nearbyInteractable
+  local components = obj and obj.components
+  local interactable = components and components.interactable
+  local position = components and components.position
+
+  if not interactable or not position or not camera then
+    return
   end
-  
-  -- Draw button
-  local buttonWidth = 120
-  local buttonHeight = 32
-  local buttonX = screenX - buttonWidth/2
-  local buttonY = screenY - 50
-  
-  -- Button background
-  Theme.setColor(buttonColor)
-  love.graphics.rectangle("fill", buttonX, buttonY, buttonWidth, buttonHeight, 4, 4)
-  
-  -- Button border
-  Theme.setColor(Theme.colors.border)
+
+  local Theme = require("src.core.theme")
+  local screenX, screenY = camera:worldToScreen(position.x, position.y)
+  local font = (Theme.fonts and Theme.fonts.small) or love.graphics.getFont()
+  local colors = Theme.colors or {}
+
+  local hasKey = hasRequiredKey(player, interactable.requiresKey)
+  local buttonText = "Open Crate"
+  local buttonFill = colors.button or {0.2, 0.6, 0.2, 1.0}
+
+  if interactable.requiresKey and not hasKey then
+    buttonText = "Need Reward Key"
+    buttonFill = colors.buttonDisabled or {0.6, 0.2, 0.2, 1.0}
+  end
+
+  local buttonX = screenX - BUTTON_WIDTH / 2
+  local buttonY = screenY - BUTTON_OFFSET_Y
+
+  Theme.setColor(buttonFill)
+  love.graphics.rectangle("fill", buttonX, buttonY, BUTTON_WIDTH, BUTTON_HEIGHT, 4, 4)
+
+  Theme.setColor(colors.border or {1, 1, 1, 1})
   love.graphics.setLineWidth(2)
-  love.graphics.rectangle("line", buttonX, buttonY, buttonWidth, buttonHeight, 4, 4)
-  
-  -- Button text
-  Theme.setColor(Theme.colors.text)
+  love.graphics.rectangle("line", buttonX, buttonY, BUTTON_WIDTH, BUTTON_HEIGHT, 4, 4)
+
+  Theme.setColor(colors.text or {1, 1, 1, 1})
   love.graphics.setFont(font)
   local textWidth = font:getWidth(buttonText)
   local textHeight = font:getHeight()
-  local textX = buttonX + (buttonWidth - textWidth) / 2
-  local textY = buttonY + (buttonHeight - textHeight) / 2
-  love.graphics.print(buttonText, textX, textY)
-  
-  -- Show requirements if no key
+  love.graphics.print(buttonText, buttonX + (BUTTON_WIDTH - textWidth) / 2, buttonY + (BUTTON_HEIGHT - textHeight) / 2)
+
   if not hasKey and interactable.requiresKey then
     local reqText = "Requires: " .. (interactable.requiresKey or "key")
     local reqTextWidth = font:getWidth(reqText)
     local reqTextHeight = font:getHeight()
-    local reqX = screenX - reqTextWidth/2
-    local reqY = buttonY + buttonHeight + 5
-    
-    -- Requirements background
+    local reqX = screenX - reqTextWidth / 2
+    local reqY = buttonY + BUTTON_HEIGHT + 5
+
     Theme.setColor({0, 0, 0, 0.7})
     love.graphics.rectangle("fill", reqX - 4, reqY - 2, reqTextWidth + 8, reqTextHeight + 4, 2, 2)
-    
-    -- Requirements text
-    Theme.setColor(Theme.colors.textDisabled or {0.7, 0.7, 0.7, 1.0})
+
+    Theme.setColor(colors.textDisabled or {0.7, 0.7, 0.7, 1.0})
     love.graphics.print(reqText, reqX, reqY)
   end
 end

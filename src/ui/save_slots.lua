@@ -27,7 +27,7 @@ function SaveSlots:new(options)
     -- Listen for global save/load/delete events and refresh cache so the UI
     -- reflects changes performed elsewhere in the app (or by this panel).
     local Events = require("src.core.events")
-    Events.on("game_saved", function(data)
+    Events.on(Events.GAME_EVENTS.GAME_SAVED, function(data)
         if data and data.slotName and data.state and data.state.metadata then
             -- To avoid filesystem race conditions, immediately inject the new save data
             -- into the cache from the event payload. This makes the UI update instantly.
@@ -68,7 +68,7 @@ function SaveSlots:new(options)
             o._cacheDirty = false
         end
     end)
-    Events.on("game_save_deleted", function(data)
+    Events.on(Events.GAME_EVENTS.GAME_SAVE_DELETED, function(data)
         if data and data.slotName then
             o._cacheDirty = true
             o._slotLookup = {}

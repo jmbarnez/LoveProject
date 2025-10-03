@@ -7,6 +7,7 @@ local TurretEffects = require("src.systems.turret.effects")
 
 local Events = require("src.core.events")
 local Log = require("src.core.log")
+local Notifications = require("src.ui.notifications")
 local Turret = {}
 Turret.__index = Turret
 
@@ -167,6 +168,29 @@ function Turret:update(dt, target, locked, world)
     -- For manual mode, only fire if we're actively firing (button held)
     -- For automatic mode, fire if autoFire is enabled and cooldown allows
     if self.fireMode == "manual" or (self.fireMode == "automatic" and self.autoFire) then
+        -- Prevent triggering cooldown while a weapon is still reloading
+        if self.kind == "gun" and not self:canFire() then
+            return
+        end
+        
+        -- Check if we have enough energy to fire
+        if self.capCost and self.owner and self.owner.components and self.owner.components.health then
+            local currentEnergy = self.owner.components.health.energy or 0
+            if currentEnergy < self.capCost then
+                -- Show notification for insufficient energy (only for player) with spam protection
+                if self.owner.isPlayer then
+                    local currentTime = love.timer.getTime()
+                    local lastEnergyNotification = self._lastEnergyNotification or 0
+                    local energyNotificationCooldown = 2.0 -- 2 seconds between notifications
+                    
+                    if currentTime - lastEnergyNotification > energyNotificationCooldown then
+                        Notifications.add("Insufficient energy to fire weapon!", "warning")
+                        self._lastEnergyNotification = currentTime
+                    end
+                end
+                return -- Not enough energy to fire
+            end
+        end
         
         -- Route to appropriate weapon handler
         if self.kind == "gun" or self.kind == "projectile" or not self.kind then
@@ -179,6 +203,13 @@ function Turret:update(dt, target, locked, world)
             UtilityBeams.updateMiningLaser(self, dt, target, locked, world)
         elseif self.kind == "salvaging_laser" then
             UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
+        end
+
+        -- Consume energy for weapon firing
+        if self.capCost and self.owner and self.owner.components and self.owner.components.health then
+            local currentEnergy = self.owner.components.health.energy or 0
+            local energyCost = self.capCost
+            self.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
         end
 
         local overrideCooldown = self.cooldownOverride

@@ -17,7 +17,7 @@ return {
     },
     
     interactable = {
-        range = 50,
+        range = 25,
         requiresKey = "reward_crate_key"
     }
 }

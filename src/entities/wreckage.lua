@@ -71,8 +71,12 @@ local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, si
   })
   -- Very low drag so wreckage travels very far before stopping
   e.components.physics.body.dragCoefficient = 0.995
-  e.components.physics.body:setVelocity(vx, vy)
-  e.components.physics.body.angularVel = angularVel or 0
+  -- Use an impulse to start movement so it respects mass/momentum
+  do
+    local body = e.components.physics.body
+    body:applyImpulse((vx or 0) * body.mass, (vy or 0) * body.mass)
+    body.angularVel = angularVel or 0
+  end
   local fragments, avgR = buildFragments(visuals, sizeScale)
   e.components.renderable = Renderable.new({
     type = "wreckage",
@@ -86,8 +90,14 @@ local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, si
   -- Approximate size for targeting radius (Input uses size*10)
   e.size = math.max(1, (avgR or 6) / 3)
   e.radius = e.size * 10
+  -- Keep physics collision radius aligned with visual/collidable radius
+  if e.components.physics and e.components.physics.body then
+    e.components.physics.body.radius = e.radius
+  end
   -- Provide ECS collidable radius to remove legacy fallbacks
   e.components.collidable = Collidable.new({ radius = e.radius })
+  -- Delay collisions briefly so fragments emerge before pushing each other away
+  e._collisionGrace = 0.25
   -- Salvage fields and methods - scale salvage amount with ship size
   local sizeHint = (avgR or 6) * ((visuals and visuals.size) or 1.0) * (sizeScale or 1.0)
   e.components.wreckage = WreckageComponent.new({
@@ -141,7 +151,8 @@ function Wreckage.spawnFromEnemy(originPos, visuals, sizeScale)
       pieceLoot = { { id = "scraps", qty = math.random(1, 3) } }
     end
     local ang = (i / numPieces) * math.pi * 2 + (math.random() - 0.5) * 0.6
-    local speed = (150 + math.random() * 200) * sizeScale  -- Much higher speed for maximum spread
+    -- Slower, more weighty outward impulse for realism
+    local speed = (60 + math.random() * 60) * sizeScale
     local vx = math.cos(ang) * speed
     local vy = math.sin(ang) * speed
     local angularVel = (math.random() - 0.5) * 1  -- Reduced from ±2 to ±0.5 radians/sec

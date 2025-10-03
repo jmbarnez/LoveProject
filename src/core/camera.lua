@@ -7,14 +7,13 @@ function Camera.new()
   local self = setmetatable({}, Camera)
   self.x, self.y = 0, 0
   
-  -- Discrete zoom levels (from most zoomed out to most zoomed in)
-    self.zoomLevels = {0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0}
-  self.currentZoomIndex = 3 -- Start at 0.75x (index 3)
-  self.scale = self.zoomLevels[self.currentZoomIndex]
+  -- Smooth zoom with continuous scaling
+  self.scale = 1.0 -- Start at 1.0x zoom
   self.targetScale = self.scale
-  self.minScale = self.zoomLevels[1]
-  self.maxScale = self.zoomLevels[#self.zoomLevels]
-  self.zoomLerp = 12 -- Faster zoom transition for snappy feel
+  self.minScale = 0.5 -- Minimum zoom out to 0.5x
+  self.maxScale = 2.0 -- Maximum zoom in to 2.0x
+  self.zoomLerp = 8 -- Smooth zoom transition speed
+  self.zoomSpeed = 0.1 -- Speed of zoom changes per wheel tick
   self.target = nil
   self.smooth = 6
   
@@ -141,30 +140,26 @@ function Camera:setZoom(scale)
   self.targetScale = s
 end
 
--- Zoom in to next discrete level
+-- Smooth zoom in
 function Camera:zoomIn()
-  if self.currentZoomIndex < #self.zoomLevels then
-    self.currentZoomIndex = self.currentZoomIndex + 1
-    self.targetScale = self.zoomLevels[self.currentZoomIndex]
-  end
+  local newScale = self.targetScale + self.zoomSpeed
+  self.targetScale = math.min(self.maxScale, newScale)
 end
 
--- Zoom out to previous discrete level
+-- Smooth zoom out
 function Camera:zoomOut()
-  if self.currentZoomIndex > 1 then
-    self.currentZoomIndex = self.currentZoomIndex - 1
-    self.targetScale = self.zoomLevels[self.currentZoomIndex]
-  end
-end
-
--- Get current zoom level index
-function Camera:getZoomLevel()
-  return self.currentZoomIndex
+  local newScale = self.targetScale - self.zoomSpeed
+  self.targetScale = math.max(self.minScale, newScale)
 end
 
 -- Get current zoom scale
 function Camera:getZoomScale()
-  return self.zoomLevels[self.currentZoomIndex]
+  return self.scale
+end
+
+-- Get target zoom scale
+function Camera:getTargetZoomScale()
+  return self.targetScale
 end
 
 -- Camera deviation control functions

@@ -464,7 +464,7 @@ function UI.drawHelpers(player, world, hub, camera)
     end
   end
 
-  -- Helper tooltip for nearby asteroid or wreckage (shows hotkeys for mining/salvaging)
+  -- Helper tooltip for nearby asteroid (shows hotkey for mining)
   do
     if not player.docked and world and camera then
       local mx, my = Viewport.getMousePosition()
@@ -512,20 +512,11 @@ function UI.drawHelpers(player, world, hub, camera)
         end
       end
 
-      for _, w in ipairs(world:get_entities_with_components("wreckage")) do
-        local canSalvage = (w.canBeSalvaged and w:canBeSalvaged())
-          or (w.salvageAmount and w.salvageAmount > 0)
-          or (w.components and w.components.lootable and #w.components.lootable.drops > 0)
-        if canSalvage then
-          evaluateEntity(w, 'wreckage')
-        end
-      end
-
       if not best and fallback then
         best, bestType = fallback, fallbackType
       end
 
-      if best then
+      if best and bestType == 'asteroid' then
         local bx = best.components.position.x
         local by = best.components.position.y
         local dx = bx - px
@@ -568,24 +559,13 @@ function UI.drawHelpers(player, world, hub, camera)
           end
 
           local text, canPerformAction
-          if bestType == 'asteroid' then
-            if hasRequiredTurret(player, 'mining_laser') then
-              local key = findKeyForTurretKind('mining_laser')
-              text = string.format('Aim at asteroid and press [%s] to mine', labelForKey(key))
-              canPerformAction = true
-            else
-              text = 'Install a Mining Laser to mine asteroids'
-              canPerformAction = false
-            end
+          if hasRequiredTurret(player, 'mining_laser') then
+            local key = findKeyForTurretKind('mining_laser')
+            text = string.format('Aim at asteroid and press [%s] to mine', labelForKey(key))
+            canPerformAction = true
           else
-            if hasRequiredTurret(player, 'salvaging_laser') then
-              local key = findKeyForTurretKind('salvaging_laser')
-              text = string.format('Aim at wreckage and press [%s] to salvage', labelForKey(key))
-              canPerformAction = true
-            else
-              text = 'Install a Salvaging Laser to process wreckage'
-              canPerformAction = false
-            end
+            text = 'Install a Mining Laser to mine asteroids'
+            canPerformAction = false
           end
 
           local paddingX, paddingY = 10, 6
@@ -675,4 +655,3 @@ function UI.handleHelperMousePressed(x, y, button, player)
 end
 
 return UI
-

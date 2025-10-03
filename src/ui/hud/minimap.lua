@@ -190,6 +190,29 @@ function Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePl
       end
     end
   end
+
+  -- Reward crate blips (bright green with glow) - only visible in debug mode
+  local DebugPanel = require("src.ui.debug_panel")
+  if DebugPanel.isVisible() then
+    local rewardCrates = world:get_entities_with_components("interactable")
+    for _, crate in ipairs(rewardCrates) do
+      if crate.components and crate.components.position and crate.components.renderable and crate.components.renderable.type == "reward_crate" then
+        local crateX, crateY = ox + crate.components.position.x * sx, oy + crate.components.position.y * sy
+        -- Bright green glow for reward crates
+        Theme.setColor(Theme.withAlpha({0.0, 1.0, 0.0}, 0.6)) -- Bright green with alpha
+        love.graphics.circle("fill", crateX, crateY, 8)
+        -- Main bright green blip
+        Theme.setColor({0.0, 1.0, 0.0}) -- Pure bright green
+        love.graphics.circle("fill", crateX, crateY, 4)
+        -- Add a small cross to make it more distinctive
+        Theme.setColor({0.0, 0.8, 0.0}) -- Slightly darker green for cross
+        love.graphics.setLineWidth(2)
+        love.graphics.line(crateX - 3, crateY, crateX + 3, crateY)
+        love.graphics.line(crateX, crateY - 3, crateX, crateY + 3)
+        love.graphics.setLineWidth(1)
+      end
+    end
+  end
   
   -- Player blip with dynamic pulse
   local playerColor = Theme.shimmerColor(Theme.colors.accent, time, 0.3)

@@ -564,7 +564,7 @@ function Input.wheelmoved(dx, dy)
     
     -- Map/wheel events are handled in love_wheelmoved via dedicated calls
     
-    -- Default behavior: zoom the camera using discrete levels
+    -- Default behavior: smooth zoom the camera
     if dy ~= 0 then
         if dy > 0 then
             gameState.camera:zoomIn()

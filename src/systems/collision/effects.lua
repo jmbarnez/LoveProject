@@ -110,9 +110,44 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         incoming = incoming * 2
     end
 
+    -- Check weapon type for damage modifiers
+    local isLaserWeapon = false
+    local isGunWeapon = false
+    if source and source.components and source.components.bullet then
+        local bullet = source.components.bullet
+        if bullet.kind then
+            if bullet.kind == "laser" or bullet.kind == "mining_laser" or bullet.kind == "salvaging_laser" then
+                isLaserWeapon = true
+            elseif bullet.kind == "bullet" then
+                isGunWeapon = true
+            end
+        end
+    end
+
     local hadShield = (health.shield or 0) > 0
     local shieldBefore = health.shield or 0
-    local shieldDamage = math.min(shieldBefore, incoming)
+    
+    -- Apply weapon-specific damage modifiers
+    local shieldDamage, remainingDamage
+    if isLaserWeapon then
+        -- Laser weapons: 15% more damage to shields, half damage to hulls
+        shieldDamage = math.min(shieldBefore, incoming * 1.15) -- 15% more damage to shields
+        remainingDamage = incoming - (shieldDamage / 1.15) -- Convert back to original damage for hull calculation
+        if remainingDamage > 0 then
+            remainingDamage = remainingDamage * 0.5 -- Half damage to hull
+        end
+    elseif isGunWeapon then
+        -- Gun weapons: half damage to shields, 15% more damage to hulls
+        shieldDamage = math.min(shieldBefore, incoming * 0.5) -- Half damage to shields
+        remainingDamage = incoming - (shieldDamage * 2) -- Convert back to original damage for hull calculation
+        if remainingDamage > 0 then
+            remainingDamage = remainingDamage * 1.15 -- 15% more damage to hull
+        end
+    else
+        -- Normal damage calculation for other weapons
+        shieldDamage = math.min(shieldBefore, incoming)
+        remainingDamage = incoming - shieldDamage
+    end
 
     if shieldDamage > 0 then
         Effects.addDamageNumber(entity.components.position.x, entity.components.position.y, math.floor(shieldDamage), "shield")
@@ -125,7 +160,6 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
     else
         health.shield = newShield
     end
-    local remainingDamage = incoming - shieldDamage
 
     if remainingDamage > 0 then
         Effects.addDamageNumber(entity.components.position.x, entity.components.position.y, math.floor(remainingDamage), "hull")

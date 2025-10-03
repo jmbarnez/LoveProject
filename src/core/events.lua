@@ -16,7 +16,7 @@ local function debugLog(...)
 end
 
 -- Register a callback for an event
--- Usage: Events.on("player_died", function(data) ... end)
+-- Usage: Events.on(Events.GAME_EVENTS.PLAYER_DIED, function(data) ... end)
 function Events.on(eventName, callback)
   if type(eventName) ~= "string" then
     error("Event name must be a string")
@@ -68,7 +68,7 @@ function Events.clear(eventName)
 end
 
 -- Emit an event immediately (synchronous)
--- Usage: Events.emit("player_died", {player = player, cause = "asteroid"})
+-- Usage: Events.emit(Events.GAME_EVENTS.PLAYER_DIED, {player = player, cause = "asteroid"})
 function Events.emit(eventName, data)
   if not listeners[eventName] then 
     debugLog("No listeners for:", eventName)
@@ -172,6 +172,8 @@ Events.GAME_EVENTS = {
   PLAYER_HEALED = "player_healed",
   PLAYER_DOCKED = "player_docked",
   PLAYER_UNDOCKED = "player_undocked",
+  PLAYER_RESPAWN = "player_respawn",
+  PLAYER_INTENT = "player_intent",
   PLAYER_LEVEL_UP = "player_level_up",
   
   -- Combat events
@@ -211,7 +213,11 @@ Events.GAME_EVENTS = {
   -- System events
   GAME_PAUSED = "game_paused",
   GAME_RESUMED = "game_resumed",
+  GAME_SAVED = "game_saved",
+  GAME_LOADED = "game_loaded",
+  GAME_SAVE_DELETED = "game_save_deleted",
   LEVEL_LOADED = "level_loaded",
 }
 
 return Events
+

@@ -9,6 +9,7 @@ local AuroraTitle = require("src.shaders.aurora_title")
 local PlayerRef = require("src.core.player_ref")
 local Window = require("src.ui.common.window")
 
+local CARGO_SLOT_SIZE = 48
 local Inventory = {}
 
 local function hasEmptyEquipmentSlot(player)
@@ -426,20 +427,21 @@ end
 
 local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
   local padding = 4
-  local iconSize = size - padding * 2
+  local baseIconSize = size - padding * 2
+  local scale = isHovered and 1.08 or 1.0
+  local iconSize = math.min(size - 2, baseIconSize * scale)
+  local iconInset = (size - iconSize) * 0.5
+  local iconX = x + iconInset
+  local iconY = y + iconInset
 
-  -- Enhanced background with better states
   local bgColor = Theme.withAlpha(Theme.colors.bg1, 0.3)
   if isSelected then
     bgColor = Theme.colors.selection
-  elseif isHovered then
-    bgColor = Theme.colors.hover
   end
 
   Theme.drawGradientGlowRect(x, y, size, size, 4, bgColor,
     Theme.withAlpha(Theme.colors.bg0, 0.2), Theme.colors.border, 0, false)
 
-  -- Item icon
   local def = getItemDefinition(item)
   local canonicalItem = Content.getItem(item.id)
   local canonicalTurret = Content.getTurret(item.id)
@@ -458,45 +460,52 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
     item.id
   }
 
-  local iconDrawn = IconSystem.drawIconAny(iconCandidates, x + padding, y + padding, iconSize, 1.0)
-
+  local iconDrawn = IconSystem.drawIconAny(iconCandidates, iconX, iconY, iconSize, 1.0)
 
   if not iconDrawn then
     local fallbackIcon = IconSystem.getIcon(def)
     if fallbackIcon then
-      IconSystem.drawIcon(def, x + padding, y + padding, iconSize, 1.0)
+      IconSystem.drawIcon(def, iconX, iconY, iconSize, 1.0)
       iconDrawn = true
     end
   end
 
   if not iconDrawn then
-    local oldColor = {love.graphics.getColor()}
+    local prevColor = { love.graphics.getColor() }
     Theme.setColor(Theme.colors.textSecondary)
     local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
     love.graphics.setFont(font)
-    love.graphics.printf(def and def.name or item.id, x + padding, y + padding + iconSize * 0.4, iconSize, "center")
-    love.graphics.setColor(oldColor)
+    love.graphics.printf(def and def.name or item.id, iconX, iconY + iconSize * 0.4, iconSize, "center")
+    love.graphics.setColor(prevColor[1] or 1, prevColor[2] or 1, prevColor[3] or 1, prevColor[4] or 1)
   end
 
-  -- Enhanced stack count display
   if not item.turretData and item.qty > 1 then
     local stackCount = Util.formatNumber(item.qty)
     local font = Theme.fonts and Theme.fonts.xsmall or love.graphics.getFont()
+    love.graphics.setFont(font)
     local textW = font:getWidth(stackCount)
     local textH = font:getHeight()
 
-    -- Stack count background
     Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.8))
-    love.graphics.rectangle("fill", x + size - textW - 8, y + size - textH - 6, textW + 4, textH + 2)
+    love.graphics.rectangle("fill", iconX + iconSize - textW - 6, iconY + iconSize - textH - 4, textW + 4, textH + 2)
 
-    -- Stack count text
     Theme.setColor(Theme.colors.accent)
-    love.graphics.setFont(font)
-    love.graphics.print(stackCount, x + size - textW - 6, y + size - textH - 5)
+    love.graphics.print(stackCount, iconX + iconSize - textW - 4, iconY + iconSize - textH - 3)
   end
 
-  -- Rarity indicator
   if def and def.rarity then
+    local rarityColor = Theme.colors.rarity and Theme.colors.rarity[def.rarity] or Theme.colors.accent
+    local prevColor = { love.graphics.getColor() }
+    local rarityHeight = math.max(4, math.floor(size * 0.08))
+
+    Theme.setColor(Theme.withAlpha(rarityColor, 0.4))
+    love.graphics.rectangle("fill", x + 1, y + size - rarityHeight - 2, size - 2, rarityHeight, 2, 2)
+
+    Theme.setColor(rarityColor)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", x + 1, y + size - rarityHeight - 2, size - 2, rarityHeight, 2, 2)
+    love.graphics.setLineWidth(1)
+    love.graphics.setColor(prevColor[1] or 1, prevColor[2] or 1, prevColor[3] or 1, prevColor[4] or 1)
   end
 end
 
@@ -553,7 +562,7 @@ function Inventory.drawContent(window, x, y, w, h)
     items = filterItems(items, Inventory.searchText)
     sortItems(items, Inventory.sortBy, Inventory.sortOrder)
 
-    local iconSize = 64
+    local iconSize = CARGO_SLOT_SIZE
     local padding = (Theme.ui and Theme.ui.contentPadding) or 8
     local contentY = y + headerHeight + padding * 0.5
     local footerHeight = 24
@@ -640,10 +649,19 @@ function Inventory.drawContent(window, x, y, w, h)
     Theme.setColor(Theme.colors.textSecondary)
     love.graphics.print(volumeText, x + 8, infoBarY + 3)
 
-    local creditText = Util.formatNumber(credits) .. " GC"
+    local creditText = Util.formatNumber(credits)
     local creditWidth = font:getWidth(creditText)
+    local iconSize = 12
+    local iconSpacing = 4
+    local totalWidth = creditWidth + iconSize + iconSpacing
+    
     Theme.setColor(Theme.colors.accentGold)
-    love.graphics.print(creditText, x + w - creditWidth - 8, infoBarY + 3)
+    love.graphics.print(creditText, x + w - totalWidth - 8, infoBarY + 3)
+    
+    -- Draw GC icon next to the credit amount
+    local iconX = x + w - iconSize - 8
+    local iconY = infoBarY + (infoBarHeight - iconSize) / 2
+    Theme.drawCurrencyToken(iconX, iconY, iconSize)
 
     -- Register tooltip with tooltip manager
     local TooltipManager = require("src.ui.tooltip_manager")
@@ -1000,3 +1018,4 @@ function Inventory.useItem(player, itemId)
 end
 
 return Inventory
+

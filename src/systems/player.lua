@@ -3,12 +3,39 @@ local Util = require("src.core.util")
 local Events = require("src.core.events")
 local Constants = require("src.core.constants")
 local Config = require("src.content.config")
-local Input = require("src.core.input")
 local HotbarSystem = require("src.systems.hotbar")
 local WarpGateSystem = require("src.systems.warp_gate_system")
 local Log = require("src.core.log")
 
 local PlayerSystem = {}
+
+local latestIntent = {
+    moveX = 0,
+    moveY = 0,
+    forward = false,
+    reverse = false,
+    strafeLeft = false,
+    strafeRight = false,
+    boost = false,
+    brake = false,
+    modalActive = false,
+    anyMovement = false,
+    player = nil,
+}
+
+local defaultIntent = {
+    moveX = 0,
+    moveY = 0,
+    forward = false,
+    reverse = false,
+    strafeLeft = false,
+    strafeRight = false,
+    boost = false,
+    brake = false,
+    modalActive = false,
+    anyMovement = false,
+}
+
 
 local combatOverrides = Config.COMBAT or {}
 local combatConstants = Constants.COMBAT
@@ -28,7 +55,7 @@ end
 function PlayerSystem.init(world)
   Events.on(Events.GAME_EVENTS.PLAYER_DAMAGED, onPlayerDamaged)
   
-  Events.on('player_death', function(event)
+  Events.on(Events.GAME_EVENTS.PLAYER_DIED, function(event)
     local player = event.player
     player.thrusterState = {}
     player._dashCd = 0
@@ -36,7 +63,7 @@ function PlayerSystem.init(world)
     player.weaponsDisabled = true
   end)
   
-  Events.on('player_respawn', function(event)
+  Events.on(Events.GAME_EVENTS.PLAYER_RESPAWN, function(event)
     local player = event.player
     Log.debug("PlayerSystem - player_respawn event received for player:", player and player.id or "unknown")
     player.docked = false
@@ -48,6 +75,12 @@ function PlayerSystem.init(world)
     player.frozen = false
     Log.debug("PlayerSystem - Player respawned, state reset. docked:", player.docked, "frozen:", player.frozen)
   end)
+  Events.on(Events.GAME_EVENTS.PLAYER_INTENT, function(intent)
+    if intent and intent.player then
+      latestIntent = intent
+    end
+  end)
+
 end
 
 function PlayerSystem.update(dt, player, input, world, hub)
@@ -130,8 +163,11 @@ function PlayerSystem.update(dt, player, input, world, hub)
         return
     end
     -- Block gameplay controls when a modal UI is active (e.g., escape menu)
-    local UIManager = require("src.core.ui_manager")
-    local modalActive = UIManager and UIManager.isModalActive and UIManager.isModalActive() or false
+    local intent = latestIntent
+    if not intent or intent.player ~= player then
+        intent = defaultIntent
+    end
+    local modalActive = intent.modalActive or false
 
     -- Ship orientation is now independent of movement direction
     -- The ship maintains its current orientation and doesn't auto-rotate
@@ -140,14 +176,14 @@ function PlayerSystem.update(dt, player, input, world, hub)
     -- Movement system: WASD moves in that screen/world direction; ship still faces cursor
     body:resetThrusters() -- Ensure physics thrusters don't add extra forces
 
-    local w = (not modalActive) and love.keyboard.isDown("w") or false
-    local s = (not modalActive) and love.keyboard.isDown("s") or false
-    local a = (not modalActive) and love.keyboard.isDown("a") or false
-    local d = (not modalActive) and love.keyboard.isDown("d") or false
+    local w = (not modalActive) and intent.forward or false
+    local s = (not modalActive) and intent.reverse or false
+    local a = (not modalActive) and intent.strafeLeft or false
+    local d = (not modalActive) and intent.strafeRight or false
     -- Boost is now an action hotkey: hold Shift = thrusters
-    local braking = (not modalActive) and love.keyboard.isDown("space") or false
-    local boostHeld = (not modalActive) and (love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift")) or false
-    
+    local braking = (not modalActive) and intent.brake or false
+    local boostHeld = (not modalActive) and intent.boost or false
+
     -- Debug input state (only log if input is detected but player is stuck)
     if (w or s or a or d) and (body.vx == 0 and body.vy == 0) then
         Log.warn("PlayerSystem - Input detected but player not moving! w=", w, "s=", s, "a=", a, "d=", d)
@@ -307,8 +343,10 @@ function PlayerSystem.update(dt, player, input, world, hub)
     end
 
     -- Store cursor world position for turret aiming in render system
-    if input and input.aimx and input.aimy then
+    if not modalActive and input and input.aimx and input.aimy then
         player.cursorWorldPos = { x = input.aimx, y = input.aimy }
+    elseif modalActive then
+        player.cursorWorldPos = nil
     end
 
     -- Ship maintains its heading (no cursor-facing rotation)
