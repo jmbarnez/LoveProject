@@ -4,6 +4,7 @@ return {
     name = "Missile Launcher",
     description = "Heavy rocket launcher with high damage and long range.",
     price = 3000,
+    volume = 8,
     module = { type = "turret" },
     icon = {
         size = 32,

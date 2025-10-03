@@ -4,6 +4,7 @@ return {
     name = "Combat Laser",
     description = "Military-grade energy beam for close to mid-range combat.",
     price = 900,
+    volume = 8,
     module = { type = "turret" },
     icon = {
         size = 32,

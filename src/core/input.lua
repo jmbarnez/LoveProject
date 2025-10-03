@@ -457,7 +457,7 @@ function Input.mousepressed(x, y, button)
     -- Interaction system mouse handling
     if gameState.player then
         local InteractionSystem = require("src.systems.interaction")
-        if InteractionSystem.mousepressed(x, y, button, gameState.player) then
+        if InteractionSystem.mousepressed(x, y, button, gameState.player, gameState.camera) then
             return
         end
     end

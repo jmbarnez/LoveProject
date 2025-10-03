@@ -710,7 +710,7 @@ function Game.draw()
     UI.drawHUD(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, camera, {})
     
     -- Draw interaction prompts
-    InteractionSystem.draw(player)
+    InteractionSystem.draw(player, camera)
 
     -- UI overlay (windows/menus) via UIManager
     QuestLogHUD.draw(player)

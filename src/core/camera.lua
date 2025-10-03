@@ -129,6 +129,13 @@ function Camera:screenToWorld(sx, sy)
   return x, y
 end
 
+function Camera:worldToScreen(wx, wy)
+  local w, h = Viewport.getDimensions()
+  local sx = (wx - self.x) * self.scale + w * 0.5
+  local sy = (wy - self.y) * self.scale + h * 0.5
+  return sx, sy
+end
+
 function Camera:setZoom(scale)
   local s = math.max(self.minScale, math.min(self.maxScale, scale))
   self.targetScale = s

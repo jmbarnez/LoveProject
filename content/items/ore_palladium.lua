@@ -8,7 +8,7 @@ return {
   value = 25,
   price = 35, -- Shop price based on market sell price
   mass = 1.8,       -- kg per unit
-  volume = 0.7,     -- m^3 per unit
+  volume = 0.5,     -- m^3 per unit
   market = { buy = 20, sell = 30, volatility = 0.12 },
   tags = { "ore", "precious", "catalyst" },
   description = "A rare, silvery-white metal used in advanced electronics and catalytic converters.",

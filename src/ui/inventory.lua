@@ -93,8 +93,8 @@ end
 function Inventory.init()
     Inventory.window = Window.new({
         title = "Inventory",
-        width = 420,
-        height = 320,
+        width = 520,
+        height = 400,
         minWidth = 300,
         minHeight = 200,
         useLoadPanelTheme = true,

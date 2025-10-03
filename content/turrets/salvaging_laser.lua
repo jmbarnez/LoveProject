@@ -4,6 +4,7 @@ return {
     name = "Salvaging Laser",
     description = "Precision laser for extracting materials from wreckage.",
     price = 1500,
+    volume = 8,
     module = { type = "turret" },
     icon = {
         size = 32,

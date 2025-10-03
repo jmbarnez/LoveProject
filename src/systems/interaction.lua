@@ -112,7 +112,7 @@ function InteractionSystem.interact(player)
 end
 
 
-function InteractionSystem.mousepressed(x, y, button, player)
+function InteractionSystem.mousepressed(x, y, button, player, camera)
   if not player or not player._nearbyInteractable or button ~= 1 then return false end
   
   local obj = player._nearbyInteractable
@@ -121,7 +121,7 @@ function InteractionSystem.mousepressed(x, y, button, player)
   if not interactable then return false end
   
   local Viewport = require("src.core.viewport")
-  local screenX, screenY = Viewport.worldToScreen(obj.components.position.x, obj.components.position.y)
+  local screenX, screenY = camera:worldToScreen(obj.components.position.x, obj.components.position.y)
   
   -- Check if click is on the button
   local buttonWidth = 120
@@ -151,7 +151,7 @@ function InteractionSystem.mousepressed(x, y, button, player)
   return false
 end
 
-function InteractionSystem.draw(player)
+function InteractionSystem.draw(player, camera)
   if not player or not player._nearbyInteractable then return end
   
   local obj = player._nearbyInteractable
@@ -162,7 +162,7 @@ function InteractionSystem.draw(player)
   local Viewport = require("src.core.viewport")
   local Theme = require("src.core.theme")
   
-  local screenX, screenY = Viewport.worldToScreen(obj.components.position.x, obj.components.position.y)
+  local screenX, screenY = camera:worldToScreen(obj.components.position.x, obj.components.position.y)
   local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
   local padding = 8
   
