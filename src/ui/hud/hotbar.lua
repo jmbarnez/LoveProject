@@ -368,7 +368,8 @@ function Hotbar.draw(player)
     end
 
     -- Draw red X overlay when weapons are disabled and slot has a turret
-    if player and player.weaponsDisabled and slot.item and type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
+    local playerState = player and player.components and player.components.player_state
+    if playerState and playerState.weapons_disabled and slot.item and type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
       drawRedX(rx, ry, size)
     end
 

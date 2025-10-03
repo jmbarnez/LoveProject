@@ -40,7 +40,8 @@ function InputIntentsSystem.update(dt, player, uiManager)
   end
 
   local modalActive = uiManager and uiManager.isModalActive and uiManager.isModalActive() or false
-  local blocked = modalActive or player.docked or player.dead or player.frozen
+  local docking = player.components and player.components.docking_status
+  local blocked = modalActive or (docking and docking.docked) or player.dead or player.frozen
 
   if blocked then
     resetIntent(player, modalActive)

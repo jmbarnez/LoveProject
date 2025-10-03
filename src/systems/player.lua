@@ -6,6 +6,8 @@ local Config = require("src.content.config")
 local HotbarSystem = require("src.systems.hotbar")
 local WarpGateSystem = require("src.systems.warp_gate_system")
 local Log = require("src.core.log")
+local Ship = require("src.templates.ship")
+local PlayerDocking = require("src.systems.player.docking")
 
 local PlayerSystem = {}
 
@@ -40,6 +42,30 @@ local defaultIntent = {
 local combatOverrides = Config.COMBAT or {}
 local combatConstants = Constants.COMBAT
 
+local function getPlayerState(player)
+    if not player or not player.components then return nil end
+    return player.components.player_state
+end
+
+local function getDockingStatus(player)
+    if not player or not player.components then return nil end
+    return player.components.docking_status
+end
+
+local function ensureThrusterState(state)
+    if not state then return nil end
+    state.thruster_state = state.thruster_state or {
+        forward = 0,
+        reverse = 0,
+        strafeLeft = 0,
+        strafeRight = 0,
+        boost = 0,
+        brake = 0,
+        isThrusting = false,
+    }
+    return state.thruster_state
+end
+
 local function getCombatValue(key)
     local value = combatOverrides[key]
     if value ~= nil then return value end
@@ -57,23 +83,44 @@ function PlayerSystem.init(world)
   
   Events.on(Events.GAME_EVENTS.PLAYER_DIED, function(event)
     local player = event.player
-    player.thrusterState = {}
-    player._dashCd = 0
-    player.shield_active = false
-    player.weaponsDisabled = true
+    local state = getPlayerState(player)
+    if state then
+        local thrusters = ensureThrusterState(state)
+        if thrusters then
+            thrusters.forward = 0
+            thrusters.reverse = 0
+            thrusters.strafeLeft = 0
+            thrusters.strafeRight = 0
+            thrusters.boost = 0
+            thrusters.brake = 0
+            thrusters.isThrusting = false
+        end
+        state.dash_cooldown = 0
+        state.shield_active = false
+        state.weapons_disabled = true
+    end
   end)
-  
+
   Events.on(Events.GAME_EVENTS.PLAYER_RESPAWN, function(event)
     local player = event.player
     Log.debug("PlayerSystem - player_respawn event received for player:", player and player.id or "unknown")
-    player.docked = false
-    player.weaponsDisabled = false
+    local state = getPlayerState(player)
+    local docking = getDockingStatus(player)
+    if docking then
+        docking.docked = false
+    end
+    if state then
+        state.weapons_disabled = false
+        state.dash_cooldown = 0
+        state.shield_active = false
+        state.can_warp = false
+        state.was_in_warp_range = false
+    end
     player.iFrames = 0
-    player.canWarp = false
     -- Ensure player is not frozen or stuck
     player.dead = false
     player.frozen = false
-    Log.debug("PlayerSystem - Player respawned, state reset. docked:", player.docked, "frozen:", player.frozen)
+    Log.debug("PlayerSystem - Player respawned, state reset. docked:", docking and docking.docked, "frozen:", player.frozen)
   end)
   Events.on(Events.GAME_EVENTS.PLAYER_INTENT, function(intent)
     if intent and intent.player then
@@ -84,62 +131,54 @@ function PlayerSystem.init(world)
 end
 
 function PlayerSystem.update(dt, player, input, world, hub)
-    if not player then 
+    if not player then
         Log.warn("PlayerSystem - No player entity provided")
-        return 
+        return
     end
-    
+
+    local state = getPlayerState(player)
+    if not state then
+        Log.warn("PlayerSystem - Player missing player_state component")
+        return
+    end
+    local docking = getDockingStatus(player)
+    local thrusterState = ensureThrusterState(state)
+
     -- Comprehensive debug logging for respawn issues
     local debugInfo = {
-        docked = player.docked,
+        docked = docking and docking.docked or false,
         dead = player.dead,
         frozen = player.frozen,
-        weaponsDisabled = player.weaponsDisabled,
+        weaponsDisabled = state.weapons_disabled,
         hasPhysics = player.components and player.components.physics ~= nil,
         hasBody = player.components and player.components.physics and player.components.physics.body ~= nil
     }
-    
+
     -- Log detailed state only if there's an issue
     if debugInfo.docked or not debugInfo.hasBody then
-        Log.warn("PlayerSystem - Issue detected:", 
+        Log.warn("PlayerSystem - Issue detected:",
             "docked=", debugInfo.docked,
-            "dead=", debugInfo.dead, 
+            "dead=", debugInfo.dead,
             "frozen=", debugInfo.frozen,
             "weaponsDisabled=", debugInfo.weaponsDisabled,
             "hasPhysics=", debugInfo.hasPhysics,
             "hasBody=", debugInfo.hasBody
         )
     end
-    
-    if player.docked then 
+
+    if docking and docking.docked then
         Log.warn("PlayerSystem - Player is docked, skipping update")
-        return 
+        return
     end
-    
-    -- Call the player's update method if it exists
-    if type(player.update) == "function" then
-        player:update(dt, world, function(projectile) 
-            world:addEntity(projectile) 
-        end)
-    end
-    
-    -- Engine effects are now updated after physics in game.lua to avoid thruster state reset issues
 
-    -- Initialize thruster state if not present
-    player.thrusterState = player.thrusterState or {
-        forward = 0,
-        reverse = 0,
-        strafeLeft = 0,
-        strafeRight = 0,
-        boost = 0,
-        brake = 0,
-        isThrusting = false
-    }
-    
+    -- Run shared ship update behaviour
+    Ship.update(player, dt, player, function(projectile)
+        world:addEntity(projectile)
+    end, world)
+
     -- Initialize warp-related flags
-    player.canWarp = player.canWarp or false
-    player.wasInWarpRange = player.wasInWarpRange or false
-
+    state.can_warp = state.can_warp or false
+    state.was_in_warp_range = state.was_in_warp_range or false
 
     local ppos = player.components.position
     local body = player.components.physics and player.components.physics.body
@@ -150,13 +189,13 @@ function PlayerSystem.update(dt, player, input, world, hub)
     end
     
     -- Reset thrust state tracking for visual effects
-    player.thrusterState.forward = 0      -- W key thrust forward
-    player.thrusterState.reverse = 0      -- S key reverse thrust  
-    player.thrusterState.strafeLeft = 0   -- A key strafe left
-    player.thrusterState.strafeRight = 0  -- D key strafe right
-    player.thrusterState.boost = 0        -- Boost multiplier effect
-    player.thrusterState.brake = 0        -- Space key braking
-    player.thrusterState.isThrusting = false  -- Overall thrusting state
+    thrusterState.forward = 0      -- W key thrust forward
+    thrusterState.reverse = 0      -- S key reverse thrust  
+    thrusterState.strafeLeft = 0   -- A key strafe left
+    thrusterState.strafeRight = 0  -- D key strafe right
+    thrusterState.boost = 0        -- Boost multiplier effect
+    thrusterState.brake = 0        -- Space key braking
+    thrusterState.isThrusting = false  -- Overall thrusting state
     
     if not body then
         Log.warn("PlayerSystem - No physics body found for player, skipping update")
@@ -200,7 +239,7 @@ function PlayerSystem.update(dt, player, input, world, hub)
     if boosting then
         local mult = getCombatValue("BOOST_THRUST_MULT") or 1.5
         thrust = thrust * mult
-        player.thrusterState.boost = 1.0
+        thrusterState.boost = 1.0
     end
     
     -- Apply slow when actively channeling shields
@@ -250,20 +289,20 @@ function PlayerSystem.update(dt, player, input, world, hub)
     
     -- Update thruster state based on input
     if w then 
-        player.thrusterState.forward = 1.0
-        player.thrusterState.isThrusting = true
+        thrusterState.forward = 1.0
+        thrusterState.isThrusting = true
     end
     if s then 
-        player.thrusterState.reverse = 0.7
-        player.thrusterState.isThrusting = true
+        thrusterState.reverse = 0.7
+        thrusterState.isThrusting = true
     end
     if a then 
-        player.thrusterState.strafeLeft = 0.8
-        player.thrusterState.isThrusting = true
+        thrusterState.strafeLeft = 0.8
+        thrusterState.isThrusting = true
     end
     if d then 
-        player.thrusterState.strafeRight = 0.8
-        player.thrusterState.isThrusting = true
+        thrusterState.strafeRight = 0.8
+        thrusterState.isThrusting = true
     end
     
 
@@ -283,10 +322,10 @@ function PlayerSystem.update(dt, player, input, world, hub)
 
     -- Dash: press dash key (Shift tap) to dash toward cursor
     if not modalActive then
-        player._dashCd = math.max(0, (player._dashCd or 0) - dt)
+        state.dash_cooldown = math.max(0, (state.dash_cooldown or 0) - dt)
         if player._dashQueued then
             player._dashQueued = false
-            if (player._dashCd or 0) <= 0 then
+            if (state.dash_cooldown or 0) <= 0 then
                 local h = player.components and player.components.health
                 local canEnergy = not h or (h.energy or 0) >= ((Config.DASH and Config.DASH.ENERGY_COST) or 0)
                 
@@ -318,7 +357,7 @@ function PlayerSystem.update(dt, player, input, world, hub)
                         h.energy = math.max(0, (h.energy or 0) - cost)
                     end
                     -- Cooldown
-                    player._dashCd = (Config.DASH and Config.DASH.COOLDOWN) or 0.9
+                    state.dash_cooldown = (Config.DASH and Config.DASH.COOLDOWN) or 0.9
                     -- Optional SFX
                     local Sound = require("src.core.sound")
                     if Sound and Sound.triggerEvent then
@@ -336,10 +375,10 @@ function PlayerSystem.update(dt, player, input, world, hub)
     -- Active braking using realistic RCS thrusters (space key)
     if braking then
         body:setThruster("brake", true)
-        player.thrusterState.brake = 1.0
+        thrusterState.brake = 1.0
     else
         body:setThruster("brake", false)
-        player.thrusterState.brake = 0
+        thrusterState.brake = 0
     end
 
     -- Store cursor world position for turret aiming in render system
@@ -419,7 +458,7 @@ function PlayerSystem.update(dt, player, input, world, hub)
             end
         end
     end
-    player.weaponsDisabled = inWeaponDisableZone
+    state.weapons_disabled = inWeaponDisableZone
 
     -- Warp gate proximity detection
     local closestGate = WarpGateSystem.getClosestWarpGate(world, ppos.x, ppos.y, 1500)
@@ -430,20 +469,20 @@ function PlayerSystem.update(dt, player, input, world, hub)
         inWarpRange = distance <= 1500
     end
 
-    if inWarpRange and not player.wasInWarpRange then
-        player.canWarp = true
+    if inWarpRange and not state.was_in_warp_range then
+        state.can_warp = true
         Events.emit(Events.GAME_EVENTS.CAN_WARP, { canWarp = true, gate = closestGate })
-    elseif not inWarpRange and player.wasInWarpRange then
-        player.canWarp = false
+    elseif not inWarpRange and state.was_in_warp_range then
+        state.can_warp = false
         Events.emit(Events.GAME_EVENTS.CAN_WARP, { canWarp = false, gate = nil })
     end
 
-    player.wasInWarpRange = inWarpRange
+    state.was_in_warp_range = inWarpRange
 
     -- Update turrets - only assigned turrets fire, global selection just locks
     -- Allow firing inside friendly zone if weapons are enabled
     -- Also allow utility turrets (mining/salvaging) even in safe zones
-    local canFire = not player.weaponsDisabled
+    local canFire = not state.weapons_disabled
     -- Hotbar-driven actions: turret fire
     local manualFireAll = false
 
@@ -499,5 +538,13 @@ function PlayerSystem.update(dt, player, input, world, hub)
     end
 end
 
+
+function PlayerSystem.dock(player, station)
+    PlayerDocking.dock(player, station)
+end
+
+function PlayerSystem.undock(player)
+    PlayerDocking.undock(player)
+end
 
 return PlayerSystem

@@ -46,6 +46,10 @@ local HotbarSystem = require("src.systems.hotbar")
 local Notifications = require("src.ui.notifications")
 local HotbarUI = require("src.ui.hud.hotbar")
 
+local function get_docking(player)
+    return player and player.components and player.components.docking_status
+end
+
 local function resolveModuleDisplayName(entry)
     if not entry then return nil end
     local module = entry.module
@@ -444,8 +448,10 @@ function Ship:draw(player, x, y, w, h)
     local shipClass = player.class or (player.ship and player.ship.class) or "Unknown Class"
     love.graphics.print("Class: " .. shipClass, infoX, iconY + 22)
 
-    local statusColor = player.docked and Theme.colors.success or Theme.colors.warning
-    local statusText = player.docked and "DOCKED - Fitting Available" or "UNDOCKED - Fitting Locked"
+    local docking = get_docking(player)
+    local isDocked = docking and docking.docked
+    local statusColor = isDocked and Theme.colors.success or Theme.colors.warning
+    local statusText = isDocked and "DOCKED - Fitting Available" or "UNDOCKED - Fitting Locked"
     Theme.setColor(statusColor)
     love.graphics.print(statusText, infoX, iconY + 36)
 

@@ -128,7 +128,9 @@ function PlayerRenderer.render(entity, playerRef)
     -- Engine trails are now handled by the engine_trail component in entity_renderers.lua
     
     -- Show full shield bubble when inside station area or when channeling shields
-    if entity.weaponsDisabled or entity.shieldChannel then
+    local playerState = entity.components and entity.components.player_state
+    local weaponsDisabled = (playerState and playerState.weapons_disabled) or entity.weaponsDisabled
+    if weaponsDisabled or entity.shieldChannel then
         ShieldEffects.drawShieldBubble(entity)
     end
     

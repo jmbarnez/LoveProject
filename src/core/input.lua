@@ -500,7 +500,8 @@ function Input.mousereleased(x, y, button)
 
     if mainState.UIManager.isOpen("bounty") then
         local Bounty = require("src.ui.bounty")
-        local consumed, shouldClose = Bounty.mousereleased(x, y, button, gameState.player.docked, function()
+        local docking = gameState.player and gameState.player.components and gameState.player.components.docking_status
+        local consumed, shouldClose = Bounty.mousereleased(x, y, button, docking and docking.docked, function()
             gameState.player:addGC(gameState.bounty.uncollected or 0)
             gameState.bounty.uncollected = 0
         end)

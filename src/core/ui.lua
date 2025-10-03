@@ -15,6 +15,10 @@ local ExperienceNotification = require("src.ui.hud.experience_notification")
 
 local UI = {}
 
+local function getDocking(player)
+  return player and player.components and player.components.docking_status
+end
+
 local dockPromptState = {
   visible = false,
   dockRect = nil,
@@ -65,6 +69,7 @@ end
 
 
 function UI.drawHelpers(player, world, hub, camera)
+  local docking = getDocking(player)
   dockPromptState.visible = false
   dockPromptState.dockRect = nil
   dockPromptState.toggleRect = nil
@@ -81,7 +86,7 @@ function UI.drawHelpers(player, world, hub, camera)
     -- Check all stations for tooltip display
     local all_stations = world:get_entities_with_components("station")
     for _, station in ipairs(all_stations) do
-      if station and station.components and station.components.position and not player.docked then
+      if station and station.components and station.components.position and not (docking and docking.docked) then
         local sx, sy = station.components.position.x, station.components.position.y
         local sw, sh = Viewport.getDimensions()
         local camScale = camera and camera.scale or 1
@@ -141,7 +146,7 @@ function UI.drawHelpers(player, world, hub, camera)
               text = "Beacon Array - OPERATIONAL"
             end
           elseif station.components.station and station.components.station.type == "ore_furnace_station" then
-            if player.canDock and player.nearbyStation == station then
+            if docking and docking.can_dock and docking.nearby_station == station then
               dockPromptState.visible = true
               dockPromptState.station = station
               dockPromptState.stationName = (station.components and station.components.station and station.components.station.name) or "Ore Furnace"
@@ -187,11 +192,11 @@ function UI.drawHelpers(player, world, hub, camera)
               -- No tooltip for furnace station when not in docking range
               text = nil
             end
-          elseif player.canDock and player.nearbyStation == station then
+          elseif docking and docking.can_dock and docking.nearby_station == station then
             dockPromptState.visible = true
             dockPromptState.station = station
             dockPromptState.stationName = (station.components and station.components.station and station.components.station.name) or "Station"
-            if player.canDock then
+            if docking.can_dock then
               local sw, sh = Viewport.getDimensions()
               local mouseX, mouseY = Viewport.getMousePosition()
 
@@ -296,7 +301,7 @@ function UI.drawHelpers(player, world, hub, camera)
   do
     local all_gates = world:get_entities_with_components("warp_gate")
     for _, gate in ipairs(all_gates) do
-      if gate and gate.components and gate.components.position and not player.docked then
+      if gate and gate.components and gate.components.position and not (docking and docking.docked) then
         local gx, gy = gate.components.position.x, gate.components.position.y
         local sw, sh = Viewport.getDimensions()
         local camScale = camera and camera.scale or 1
@@ -362,7 +367,7 @@ function UI.drawHelpers(player, world, hub, camera)
 
   -- Reward crate collection prompt
   do
-    if not player.docked and world and camera then
+    if not (docking and docking.docked) and world and camera then
       -- Look for reward crate world objects instead of pickups
       local rewardCrates = world:get_entities_with_components("interactable", "position")
       local nearestCrate = nil
@@ -466,7 +471,7 @@ function UI.drawHelpers(player, world, hub, camera)
 
   -- Helper tooltip for nearby asteroid (shows hotkey for mining)
   do
-    if not player.docked and world and camera then
+    if not (docking and docking.docked) and world and camera then
       local mx, my = Viewport.getMousePosition()
       local sw, sh = Viewport.getDimensions()
       local camScale = camera and camera.scale or 1
@@ -608,7 +613,8 @@ UI.drawTurretIcon = IconSystem.drawIconAny
 function UI.handleHelperMousePressed(x, y, button, player)
   if button ~= 1 then return false end
   if not dockPromptState.visible and not warpPromptState.visible and not cratePromptState.visible then return false end
-  if not player or player.docked then return false end
+  local docking = getDocking(player)
+  if not player or (docking and docking.docked) then return false end
 
   if cratePromptState.collectRect and UIUtils.pointInRect(x, y, cratePromptState.collectRect) then
     local crate = cratePromptState.pickup
@@ -640,7 +646,7 @@ function UI.handleHelperMousePressed(x, y, button, player)
   end
 
   if dockPromptState.dockRect and UIUtils.pointInRect(x, y, dockPromptState.dockRect) then
-    if player.canDock then
+    if docking and docking.can_dock then
       Events.emit(Events.GAME_EVENTS.DOCK_REQUESTED)
       return true
     end

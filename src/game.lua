@@ -562,22 +562,26 @@ function Game.load(fromSave, saveSlot, loadingScreen)
 
   Events.on(Events.GAME_EVENTS.CAN_DOCK, function(data)
     if not data then return end
-    player.canDock = data.canDock and true or false
-    player.nearbyStation = data.station
+    local docking = player.components and player.components.docking_status
+    if docking then
+      docking.can_dock = data.canDock and true or false
+      docking.nearby_station = data.station
+    end
   end)
 
   Events.on(Events.GAME_EVENTS.DOCK_REQUESTED, function()
     if tryCollectNearbyRewardCrate(player, world) then
       return
     end
-    if not player.canDock then return end
-    if player.docked then
-      player:undock()
+    local docking = player.components and player.components.docking_status
+    if not docking or not docking.can_dock then return end
+    if docking.docked then
+      PlayerSystem.undock(player)
       return
     end
-    local target = player.nearbyStation or hub
+    local target = docking.nearby_station or hub
     if target then
-      player:dock(target)
+      PlayerSystem.dock(player, target)
     end
   end)
   -- Initialize player-specific event listeners after resetting the event bus
@@ -588,8 +592,11 @@ function Game.load(fromSave, saveSlot, loadingScreen)
     local position = player.components and player.components.position
     if not position then return end
 
-    if player.docked then
-      if player.canDock or player.nearbyStation then
+    local docking = player.components and player.components.docking_status
+    if not docking then return end
+
+    if docking.docked then
+      if docking.can_dock or docking.nearby_station then
         Events.emit(Events.GAME_EVENTS.CAN_DOCK, { canDock = false, station = nil })
       end
       return
@@ -631,7 +638,7 @@ function Game.load(fromSave, saveSlot, loadingScreen)
     end
 
     local canDockNow = nearestStation ~= nil
-    if canDockNow ~= (player.canDock or false) or nearestStation ~= player.nearbyStation then
+    if canDockNow ~= (docking.can_dock or false) or nearestStation ~= docking.nearby_station then
       Events.emit(Events.GAME_EVENTS.CAN_DOCK, { canDock = canDockNow, station = nearestStation })
     end
   end
