@@ -5,6 +5,7 @@ local QuestSystem = require("src.systems.quest_system")
 local QuestGenerator = require("src.content.quest_generator")
 local Notifications = require("src.ui.notifications")
 local Util = require("src.core.util")
+local UIButton = require("src.ui.common.button")
 
 local Quests = {}
 
@@ -14,10 +15,6 @@ function Quests:new()
   self.__index = self
   o.buttons = {}
   o.station = nil -- assigned by DockedUI.show
-  o.bountyRef = nil -- assigned by DockedUI.setBounty
-  o.processingBounties = false
-  o.processingStart = 0
-  o.processingAmount = 0
   return o
 end
 
@@ -136,6 +133,9 @@ function Quests:draw(player, x, y, w, h)
     -- Sleek transparent background with subtle glow
     local bgColor = Theme.withAlpha(Theme.colors.bg2, 0.3)
     Theme.drawGradientGlowRect(cx, cy, cw, ch, 8, bgColor, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak * 0.3, false)
+    
+    -- Add prominent border around quest card
+    Theme.drawEVEBorder(cx, cy, cw, ch, 8, Theme.colors.border, 3)
 
     if slot.quest then
       local quest = slot.quest
@@ -206,13 +206,8 @@ function Quests:draw(player, x, y, w, h)
         local mx, my = Viewport.getMousePosition()
         local hover = mx > btnX and mx < btnX + btnW and my > btnY and my < btnY + btnH
         
-        -- Sleek transparent button
-        local btnColor = hover and Theme.withAlpha(Theme.colors.accent, 0.3) or Theme.withAlpha(Theme.colors.bg3, 0.2)
-        Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 6, btnColor, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak * 0.5, false)
-        
-        Theme.setColor(hover and Theme.colors.accent or Theme.colors.text)
-        love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-        love.graphics.printf("Accept", btnX, btnY + 8, btnW, "center")
+        -- Use standard button definition
+        UIButton.drawRect(btnX, btnY, btnW, btnH, "Accept", hover, love.timer.getTime(), { compact = true })
         table.insert(self.buttons, { x = btnX, y = btnY, w = btnW, h = btnH, action = "accept", slot = i, quest = quest })
       elseif isAccepted and not readyTurnIn then
         Theme.setColor(Theme.colors.textDisabled)
@@ -222,13 +217,8 @@ function Quests:draw(player, x, y, w, h)
         local mx, my = Viewport.getMousePosition()
         local hover = mx > btnX and mx < btnX + btnW and my > btnY and my < btnY + btnH
         
-        -- Sleek success button
-        local btnColor = hover and Theme.withAlpha(Theme.colors.success, 0.4) or Theme.withAlpha(Theme.colors.success, 0.2)
-        Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 6, btnColor, Theme.colors.bg1, Theme.colors.success, Theme.effects.glowWeak * 0.7, false)
-        
-        Theme.setColor(hover and Theme.colors.success or Theme.colors.textHighlight)
-        love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-        love.graphics.printf("Turn In", btnX, btnY + 8, btnW, "center")
+        -- Use standard button definition with success color
+        UIButton.drawRect(btnX, btnY, btnW, btnH, "Turn In", hover, love.timer.getTime(), { compact = true, color = Theme.colors.success })
         table.insert(self.buttons, { x = btnX, y = btnY, w = btnW, h = btnH, action = "turnin", slot = i, quest = quest })
       else
         Theme.setColor(Theme.colors.textDisabled)
@@ -248,49 +238,10 @@ function Quests:draw(player, x, y, w, h)
     end
   end
 
-  -- Collect Bounties section (replaces active quests list)
-  local buttonY = startY + ((Config.QUESTS and Config.QUESTS.STATION_SLOTS) or 3) * (slotH + padding) + 10
-  local btnW, btnH = 180, 32
-  local btnX = x + 10
-  local btnY = buttonY
-
-  local uncollected = (self.bountyRef and self.bountyRef.uncollected) or 0
-  local enabled = uncollected > 0 and not self.processingBounties
-  local mx, my = require("src.core.viewport").getMousePosition()
-  local hover = mx > btnX and mx < btnX + btnW and my > btnY and my < btnY + btnH
-  local bg = enabled and (hover and Theme.colors.primary or Theme.colors.bg3) or Theme.colors.bg1
-  Theme.drawGradientGlowRect(btnX, btnY, btnW, btnH, 4, bg, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak)
-  Theme.setColor(enabled and Theme.colors.textHighlight or Theme.colors.textSecondary)
-  love.graphics.printf("Collect Bounties", btnX, btnY + 8, btnW, "center")
-
-  -- Info text next to button
-  Theme.setColor(Theme.colors.text)
-  love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-  local info = string.format("Uncollected: %s GC", Util.formatNumber(uncollected))
-  love.graphics.print(info, btnX + btnW + 12, btnY + 8)
-
-  -- Store hit region
-  table.insert(self.buttons, { x = btnX, y = btnY, w = btnW, h = btnH, action = "collect_bounties", enabled = enabled })
 end
 
 function Quests:update(dt)
-  -- Board refresh handled in draw(); manage bounty processing animation
-  if self.processingBounties then
-    local now = love.timer.getTime()
-    if now - (self.processingStart or 0) >= 1.2 then
-      -- Complete payout
-      if self.processingAmount and self.processingAmount > 0 and self.bountyRef then
-        if self._player then
-          self._player:addGC(self.processingAmount)
-        end
-        self.bountyRef.uncollected = 0
-        Notifications.action("Payment received: +" .. Util.formatNumber(self.processingAmount) .. " GC")
-      end
-      self.processingBounties = false
-      self.processingAmount = 0
-      self.processingStart = 0
-    end
-  end
+  -- Board refresh handled in draw()
 end
 
 function Quests:mousepressed(player, x, y, button)
@@ -317,20 +268,6 @@ function Quests:mousepressed(player, x, y, button)
           slot.quest = nil
           slot.taken = false
           slot.cooldownUntil = (love.timer and love.timer.getTime() or os.time()) + cooldown
-        end
-        return true
-      elseif btn.action == "collect_bounties" then
-        if btn.enabled and self.bountyRef and (self.bountyRef.uncollected or 0) > 0 and not self.processingBounties then
-          self.processingAmount = self.bountyRef.uncollected or 0
-          self.processingStart = love.timer.getTime()
-          self.processingBounties = true
-          self._player = player
-          Notifications.info("Processing bounties...")
-        else
-          -- Optionally inform no bounties
-          if not self.processingBounties then
-            Notifications.debug("No bounties to collect")
-          end
         end
         return true
       end

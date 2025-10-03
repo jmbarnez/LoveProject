@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.35",
+    "date": "2025-01-27",
+    "subject": "Docking & UI Enhancements",
+    "notes": [
+      "Extended docking range to match weapons disabled zone for better accessibility",
+      "Added red X overlay on hotbar turret slots when weapons are disabled",
+      "Fixed missing Viewport import in save slots UI causing runtime errors",
+      "Improved docking button visibility within station safe zones"
+    ]
+  },
+  {
     "version": "0.325",
     "date": "2025-10-12",
     "subject": "Turret Telemetry & Mining Polish",

@@ -175,6 +175,8 @@ function Ship:new()
     o.slotRects = {}
     o.slotDropdowns = {} -- To hold dropdown instances
     o.hotbarButtons = {}
+    o.hoverTimers = {} -- Track hover time for each dropdown
+    o.hoverDelay = 0.3 -- Delay before opening dropdown on hover (in seconds)
     o.window = Window.new({
         title = "Ship Fitting",
         width = 1280,
@@ -668,6 +670,38 @@ function Ship:draw(player, x, y, w, h)
 
             dropdown:setPosition(gridX + 12, controlsY)
             dropdown.width = math.min(availableWidth, 340)
+            
+            -- Check if mouse is hovering over the dropdown button or options
+            local dropdownHover = dropdown:isPointInButton(mx, my)
+            local optionsHover = false
+            
+            -- Check if mouse is over dropdown options when open
+            if dropdown.open then
+                dropdown:mousemoved(mx, my) -- Update hover state for options
+                -- Check if mouse is over any option
+                for j = 1, #dropdown.options do
+                    if dropdown:isPointInOption(mx, my, j) then
+                        optionsHover = true
+                        break
+                    end
+                end
+            end
+            
+            -- Update hover timer for this dropdown
+            if dropdownHover or optionsHover then
+                self.hoverTimers[i] = (self.hoverTimers[i] or 0) + love.timer.getDelta()
+                -- Open dropdown if hovered long enough and not already open
+                if self.hoverTimers[i] >= self.hoverDelay and not dropdown.open then
+                    dropdown.open = true
+                end
+            else
+                self.hoverTimers[i] = 0
+                -- Close dropdown if not hovering and it's open
+                if dropdown.open then
+                    dropdown.open = false
+                end
+            end
+            
             dropdown:drawButtonOnly(mx, my)
 
             local hotbarButton = self.hotbarButtons[i]

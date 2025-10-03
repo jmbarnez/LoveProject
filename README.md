@@ -105,7 +105,7 @@ love .
 
 ## 🎯 Game Features
 
-### Current Version (0.325)
+### Current Version (0.35)
 - **Turret Telemetry & Mining Polish**: Enhanced turret systems and mining mechanics
 - **Reactive Asteroid Fields**: Dynamic hotspots that respond to mining activity
 - **Persistent Equipment**: Ship equipment saves across sessions

@@ -81,7 +81,7 @@ local function drawQuestCard(x, y, width, quest, progress, ready, scale, fonts)
   Theme.drawGradientGlowRect(x, y, width, entryHeight, 6,
     Theme.colors.bg2, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak * 0.12)
   Theme.drawEVEBorder(x, y, width, entryHeight, 6,
-    Theme.withAlpha(Theme.colors.border, 0.7), 2)
+    Theme.colors.border, 3)
 
   local textX = x + padding
   local textY = y + padding

@@ -46,7 +46,6 @@ DockedUI.hoverTimer = 0
 DockedUI.drag = nil
 DockedUI.contextMenu = { visible = false, x = 0, y = 0, item = nil, quantity = "1", type = "buy" }
 DockedUI.contextMenuActive = false -- For text input focus
-DockedUI._bountyRef = nil
 DockedUI.stationType = nil
 
 -- New Tabbed Interface State
@@ -668,12 +667,6 @@ function DockedUI.show(player, station)
   -- Ship UI is standalone. Refresh of ship UI should happen when the Ship window is opened.
 end
 
-function DockedUI.setBounty(bounty)
-  DockedUI._bountyRef = bounty
-  if DockedUI.quests then
-    DockedUI.quests.bountyRef = bounty
-  end
-end
 
 -- Hide the docked window
 function DockedUI.hide()

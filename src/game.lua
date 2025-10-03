@@ -60,7 +60,6 @@ local camera
 local player
 local hub -- Keep a reference to the hub for game logic
 local clickMarkers = {}
-local bounty = { uncollected = 0, entries = {} }
 local hoveredEntity = nil
 local hoveredEntityType = nil
 local collisionSystem
@@ -395,10 +394,7 @@ function Game.load(fromSave, saveSlot, loadingScreen)
     world = world,
     getInventoryOpen = function() return UIManager.isOpen("inventory") end,
     setInventoryOpen = function(value) if value then UIManager.open("inventory") else UIManager.close("inventory") end end,
-    getBountyOpen = function() return UIManager.isOpen("bounty") end,
-    setBountyOpen = function(value) if value then UIManager.open("bounty") else UIManager.close("bounty") end end,
     clickMarkers = clickMarkers,
-    bounty = bounty,
     hoveredEntity = hoveredEntity,
     hoveredEntityType = hoveredEntityType
   })
@@ -573,7 +569,6 @@ function Game.unload()
   player = nil
   hub = nil
   clickMarkers = {}
-  bounty = { uncollected = 0, entries = {} }
   hoveredEntity = nil
   hoveredEntityType = nil
   collisionSystem = nil
@@ -623,7 +618,7 @@ function Game.update(dt)
     BoundarySystem.update(world)
     collisionSystem:update(world, dt)
     -- Process deaths: spawn effects, wreckage, loot before cleanup
-    local gameState = { bounty = bounty }
+    local gameState = {}
     DestructionSystem.update(world, gameState, hub)
     SpawningSystem.update(dt, player, hub, world)
     RepairSystem.update(dt, player, world)
@@ -732,7 +727,7 @@ function Game.draw()
 
     -- UI overlay (windows/menus) via UIManager
     QuestLogHUD.draw(player)
-    UIManager.draw(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, bounty)
+    UIManager.draw(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, {})
 
     -- UI particles and flashes (top-most)
     Theme.drawParticles()

@@ -111,6 +111,12 @@ function Shop.drawBuybackItems(DockedUI, x, y, w, h, player)
     local sy = startY + (i - 1) * (rowH + padding)
     local dx, dy = math.floor(sx + 0.5), math.floor(sy + 0.5)
     if sy + rowH >= startY and sy <= startY + h then
+      -- Add hover highlighting for the entire item row
+      local itemHover = mx >= dx and my >= dy and mx <= dx + w - btnW - 16 and my <= dy + rowH
+      if itemHover then
+        Theme.drawGradientGlowRect(dx, dy, w - btnW - 16, rowH, 4, Theme.colors.hover, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak, false)
+      end
+      
       IconSystem.drawIconAny({ item.def, item.id }, dx + 4, dy + 4, rowH - 8, 1.0)
       Theme.setColor(Theme.colors.text)
       love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
@@ -185,7 +191,7 @@ function Shop.drawPlayerInventoryForSale(DockedUI, x, y, w, h, player)
     if sy + slotSize >= startY and sy <= startY + h then
       local hover = mx >= sx and my >= sy and mx <= sx + slotSize and my <= sy + slotSize
       if hover then currentHoveredItem = { x = dx, y = dy, w = slotSize, h = slotSize, item = item } end
-      Theme.drawGradientGlowRect(dx, dy, slotSize, slotSize, 4, hover and Theme.colors.bg2 or Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak, false)
+      Theme.drawGradientGlowRect(dx, dy, slotSize, slotSize, 4, hover and Theme.colors.hover or Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak, false)
       IconSystem.drawIconAny({ item.def, item.id }, dx + 4, dy + 4, slotSize - 8, 1.0)
       Theme.setColor(Theme.colors.accent)
       love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
@@ -281,7 +287,7 @@ function Shop.drawShopItems(DockedUI, x, y, w, h, player)
       end
 
       if hover then
-        Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak, false)
+        Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.hover, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak, false)
       else
         Theme.drawGradientGlowRect(dx, dy, slotW, slotH, 4, Theme.colors.bg1, Theme.colors.bg0, Theme.colors.border, Theme.effects.glowWeak, false)
       end

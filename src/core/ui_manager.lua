@@ -13,7 +13,6 @@ local Registry = require("src.ui.core.registry")
 
 -- UI components
 local Inventory = require("src.ui.inventory")
-local Bounty = require("src.ui.bounty")
 local DockedUI = require("src.ui.docked")
 local EscapeMenu = require("src.ui.escape_menu")
 local Notifications = require("src.ui.notifications")
@@ -44,7 +43,6 @@ local UIManager = {}
 local DEFAULT_Z_INDEX = {
   inventory = 10,
   ship = 15,
-  bounty = 20,
   skills = 30,
   docked = 40,
   map = 50,
@@ -62,7 +60,6 @@ local warpInstance = Warp:new()
 UIManager.state = {
   inventory = { open = false, zIndex = DEFAULT_Z_INDEX.inventory },
   ship = { open = false, zIndex = DEFAULT_Z_INDEX.ship },
-  bounty = { open = false, zIndex = DEFAULT_Z_INDEX.bounty },
   skills = { open = false, zIndex = DEFAULT_Z_INDEX.skills },
   docked = { open = false, zIndex = DEFAULT_Z_INDEX.docked },
   map = { open = false, zIndex = DEFAULT_Z_INDEX.map },
@@ -78,7 +75,6 @@ UIManager.topZ = DEFAULT_Z_INDEX.debug
 UIManager.layerOrder = {
   "inventory",
   "ship",
-  "bounty",
   "skills",
   "docked",
   "map",
@@ -150,12 +146,6 @@ local componentFallbacks = {
       UIManager.close("ship")
     end,
     useSelf = true,
-  },
-  bounty = {
-    module = Bounty,
-    onClose = function()
-      UIManager.close("bounty")
-    end,
   },
   docked = {
     module = DockedUI,
@@ -284,12 +274,6 @@ function UIManager.init()
       end,
     })
     Registry.register({
-      id = "bounty",
-      isVisible = function() return UIManager.state.bounty.open end,
-      getZ = function() return (UIManager.state.bounty and UIManager.state.bounty.zIndex) or 0 end,
-      getRect = function() return Bounty.getRect and Bounty.getRect() or nil end,
-    })
-    Registry.register({
       id = "docked",
       isVisible = function() return UIManager.state.docked.open end,
       getZ = function() return (UIManager.state.docked and UIManager.state.docked.zIndex) or 0 end,
@@ -388,7 +372,6 @@ function UIManager.update(dt, player)
   -- Sync with legacy UI state variables
   UIManager.state.inventory.open = Inventory.visible or false
   UIManager.state.ship.open = Ship.visible or false
-  UIManager.state.bounty.open = Bounty.visible or false
   UIManager.state.docked.open = DockedUI.isVisible()
   UIManager.state.escape.open = EscapeMenu.visible or false
   UIManager.state.escape.showingSaveSlots = EscapeMenu.showSaveSlots or false
@@ -401,7 +384,7 @@ function UIManager.update(dt, player)
   
   -- Update modal state - block camera movement when ANY UI is open
   UIManager.modalActive = UIManager.state.escape.open or UIManager.state.warp.open or UIManager.state.ship.open or SettingsPanel.visible or
-                         UIManager.state.inventory.open or UIManager.state.bounty.open or UIManager.state.docked.open or 
+                         UIManager.state.inventory.open or UIManager.state.docked.open or 
                          UIManager.state.skills.open or UIManager.state.map.open or UIManager.state.rewardWheel.open or UIManager.state.debug.open
   if SettingsPanel.visible then
     UIManager.modalComponent = "settings"
@@ -457,7 +440,7 @@ function UIManager.isMouseOverUI()
 end
 
 -- Draw all UI components in proper order
-function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty)
+function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops)
 
   -- Keep a reference for input routing needing player context
   UIManager._player = player
@@ -489,10 +472,7 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops, bounty
       -- Fallback to hardcoded component drawing
       if component == "inventory" then
         Inventory.draw()
-      elseif component == "bounty" then
-        Bounty.draw(bounty, player.docked)
       elseif component == "docked" then
-        if DockedUI.setBounty then DockedUI.setBounty(bounty) end
         DockedUI.draw(player)
     elseif component == "ship" then
       local shipUI = Ship.ensure()
@@ -662,8 +642,6 @@ function UIManager.open(component)
     elseif component == "ship" then
       Ship.visible = true
       Ship.show()
-    elseif component == "bounty" then
-      Bounty.visible = true
     elseif component == "docked" then
       DockedUI.visible = true
     elseif component == "escape" then
@@ -703,8 +681,6 @@ function UIManager.close(component)
     elseif component == "ship" then
       Ship.visible = false
       Ship.hide()
-    elseif component == "bounty" then
-      Bounty.visible = false
     elseif component == "docked" then
       DockedUI.visible = false
       if DockedUI.hide then DockedUI.hide() end
@@ -1006,10 +982,6 @@ function UIManager.wheelmoved(x, y, dx, dy)
     local mx, my = love.mouse.getPosition()
     if SettingsPanel.wheelmoved(mx, my, dx, dy) then return true end
   end
-  if Bounty.visible and Bounty.wheelmoved then
-    local mx, my = love.mouse.getPosition()
-    if Bounty.wheelmoved(mx, my, dx, dy) then return true end
-  end
   if Ship.visible and Ship.wheelmoved then
     if Ship.wheelmoved(x, y, dx, dy) then return true end
   end
@@ -1079,8 +1051,6 @@ function UIManager.keypressed(key, scancode, isrepeat)
         -- Fallback to hardcoded component handling
         if component == "inventory" and Inventory.keypressed then
           handled = Inventory.keypressed(key)
-        elseif component == "bounty" and Bounty.keypressed then
-          handled = Bounty.keypressed(key, scancode, isrepeat)
         elseif component == "docked" and DockedUI.keypressed then
           handled = DockedUI.keypressed(key, scancode, isrepeat, UIManager._player)
         elseif component == "ship" and Ship.keypressed then
@@ -1145,8 +1115,6 @@ function UIManager.keyreleased(key, scancode)
         -- Fallback to hardcoded component handling
         if component == "inventory" and Inventory.keyreleased then
           handled = Inventory.keyreleased(key, scancode)
-        elseif component == "bounty" and Bounty.keyreleased then
-          handled = Bounty.keyreleased(key, scancode)
         elseif component == "docked" and DockedUI.keyreleased then
           handled = DockedUI.keyreleased(key, scancode)
         elseif component == "map" and Map.keyreleased then
