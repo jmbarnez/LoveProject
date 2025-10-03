@@ -70,6 +70,13 @@ function Hotbar.draw()
     -- The drawing logic will be in src/ui/hud/hotbar.lua
 end
 
+function Hotbar.reset()
+    Hotbar.slots = nil
+    Hotbar.state.active = {
+        turret_slots = {},
+    }
+end
+
 -- Populate hotbar from player's equipped turrets in the grid
 function Hotbar.populateFromPlayer(player, newModuleId, slotNum)
     if not player or not player.components or not player.components.equipment or not player.components.equipment.grid then

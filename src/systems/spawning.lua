@@ -496,6 +496,9 @@ local function spawnInitialEntities(player, hub, world)
   end
 
 function SpawningSystem.init(player, hub, world)
+  enemySpawnTimer = 0
+  bossSpawnTimer = 0
+  asteroidSpawnTimer = 0
   spawnInitialEntities(player, hub, world)
 end
 
