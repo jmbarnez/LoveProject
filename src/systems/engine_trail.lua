@@ -18,8 +18,9 @@ function EngineTrailSystem.update(dt, world)
 		local pos = player.components.position
 		if trail and phys and pos then
 			-- Prefer player-controlled thruster state (set by PlayerSystem), fall back to physics body
-			local thrusterState = (player.thrusterState and type(player.thrusterState) == "table" and player.thrusterState)
-				or (phys.getThrusterState and phys:getThrusterState())
+                        local playerState = player.components and player.components.player_state
+                        local thrusterState = (playerState and playerState.thruster_state)
+                                or (phys.getThrusterState and phys:getThrusterState())
 				or { isThrusting = false }
 			-- Combine inputs into an overall intensity
 			local intensity = (thrusterState.forward or 0)

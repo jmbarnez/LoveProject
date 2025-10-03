@@ -17,6 +17,10 @@ local Dropdown = require("src.ui.common.dropdown")
 
 local DockedUI = {}
 
+local function get_docking(player)
+    return player and player.components and player.components.docking_status
+end
+
 local function computeWindowBounds()
     local sw, sh = Viewport.getDimensions()
     local width = math.floor(math.min(sw - 80, math.max(900, sw * 0.65)))
@@ -690,7 +694,8 @@ end
 
 -- Draw the docked window
 function DockedUI.draw(player)
-    if not DockedUI.visible or not player or not player.docked then return end
+    local docking = get_docking(player)
+    if not DockedUI.visible or not player or not (docking and docking.docked) then return end
     if not DockedUI.window then DockedUI.init() end
     DockedUI.window.visible = DockedUI.visible
     DockedUI.window:draw()

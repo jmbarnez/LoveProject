@@ -119,7 +119,9 @@ function ShieldEffects.drawShieldBubble(entity)
     -- Draw only on recent impact or special cases (channeling, disabled)
     local currentTime = love.timer.getTime()
     local hasRecentImpact = entity.shieldImpactTime and currentTime < entity.shieldImpactTime
-    local isSpecialCase = entity.shieldChannel or entity.weaponsDisabled
+    local playerState = entity.components and entity.components.player_state
+    local weaponsDisabled = (playerState and playerState.weapons_disabled) or entity.weaponsDisabled
+    local isSpecialCase = entity.shieldChannel or weaponsDisabled
     if not col then return end
     if not (hasRecentImpact or isSpecialCase) then return end
     

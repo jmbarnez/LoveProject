@@ -4,6 +4,9 @@ local Content = require("src.content.content")
 local Config = require("src.content.config")
 local EntityFactory = require("src.templates.entity_factory")
 local Log = require("src.core.log")
+local PlayerStateComponent = require("src.components.player_state")
+local DockingStatusComponent = require("src.components.docking_status")
+local PlayerHotbar = require("src.systems.player.hotbar")
 
 -- Inherit from the Ship template to get shared functionality like the 'hit' method.
 local Ship = require("src.templates.ship")
@@ -39,14 +42,13 @@ function Player.new(x, y, shipId)
   -- Initialize shield HP based on equipped modules
   self:updateShieldHP()
 
-  -- Player-specific defaults
-  self.moveTarget = nil
-  self.docked = false
-  self.weaponsDisabled = false
-  self.wasInHub = false
-  self.canDock = false
-  self.nearbyStation = nil
-  self.dockedStation = nil
+  -- Player-specific defaults now live in dedicated components
+  self.components.player_state = self.components.player_state or PlayerStateComponent.new({
+    move_target = nil,
+    weapons_disabled = false,
+    was_in_hub = false,
+  })
+  self.components.docking_status = self.components.docking_status or DockingStatusComponent.new()
 
   -- Ensure progression component exists
   if not self.components.progression then
@@ -117,53 +119,9 @@ function Player.new(x, y, shipId)
       end
   end
 
-  -- Populate hotbar (empty by default until player equips modules)
-  self:updateHotbar()
+  PlayerHotbar.populate(self)
 
   return self
-end
-
--- Player update method
-function Player:update(dt, world, shootCallback)
-    -- Call parent Ship update first
-    Ship.update(self, dt, self, shootCallback, world)
-    
-end
-
-
-
-function Player:dock(station)
-    self.docked = true
-    self.dockedStation = station
-    self.canDock = false
-    self.nearbyStation = nil
-    if self.components and self.components.physics and self.components.physics.body then
-        self.components.physics.body.vx, self.components.physics.body.vy = 0, 0
-    end
-    self.moveTarget = nil
-    -- Fully restore shields on docking
-    if self.components and self.components.health then
-        local h = self.components.health
-        h.shield = h.maxShield or h.shield
-    end
-    -- Show docked UI
-    local DockedUI = require("src.ui.docked")
-    DockedUI.show(self, station)
-
-    local Hotbar = require("src.systems.hotbar")
-    Hotbar.state.active.turret_slots = {}
-end
-
-function Player:undock()
-    self.docked = false
-    -- Hide docked UI
-    local DockedUI = require("src.ui.docked")
-    DockedUI.hide()
-
-    local Hotbar = require("src.systems.hotbar")
-    Hotbar.state.active.turret_slots = {}
-    self.dockedStation = nil
-    self.nearbyStation = nil
 end
 
 function Player:resetDurability()
@@ -172,33 +130,12 @@ function Player:resetDurability()
     end
 end
 
-function Player:setMoveTarget(x, y)
-    if self.docked then return end
-    self.moveTarget = {x = x, y = y}
-end
-
 function Player:addXP(amount)
   if self.components and self.components.progression then
     local leveledUp = self.components.progression:addXP(amount)
     return leveledUp
   end
   return false
-end
-
-function Player:setTarget(target, targetType)
-  if target == self.target then return end
-  self.target = target
-  self.targetType = targetType or "enemy"
-  if target and self.targetType == "enemy" and target.onTargeted then
-    target:onTargeted()
-  end
-end
-
-function Player:getThrusterState()
-    if self.components and self.components.physics and self.components.physics.body then
-        return self.components.physics.body.thrusters
-    end
-    return nil
 end
 
 function Player:getTurretInSlot(slotNum)
@@ -211,8 +148,6 @@ function Player:getTurretInSlot(slotNum)
     end
     return nil
 end
-
-local Hotbar = require("src.systems.hotbar")
 
 function Player:equipTurret(slotNum, turretId)
     if not self.components or not self.components.equipment or not self.components.equipment.turrets then
@@ -249,10 +184,8 @@ function Player:equipTurret(slotNum, turretId)
                     enabled = true,
                     slot = slotNum
                 }
-                Hotbar.populateFromPlayer(self)
-                Hotbar.save()
-                Hotbar.state.active = Hotbar.state.active or {}
-                Hotbar.state.active.turret_slots = {}
+                PlayerHotbar.populate(self)
+                PlayerHotbar.clearAssignments()
                 return true
             end
         end
@@ -289,10 +222,8 @@ function Player:unequipTurret(slotNum)
                 slot = slotNum
             }
 
-            Hotbar.populateFromPlayer(self)
-            Hotbar.save()
-            Hotbar.state.active = Hotbar.state.active or {}
-            Hotbar.state.active.turret_slots = {}
+            PlayerHotbar.populate(self)
+            PlayerHotbar.clearAssignments()
             return true
         end
     end
@@ -408,7 +339,7 @@ function Player:equipModule(slotNum, moduleId, turretData)
             if moduleType == "shield" then
                 self:updateShieldHP()
             elseif moduleType == "turret" then
-                self:updateHotbar(moduleId, slotNum)
+                PlayerHotbar.populate(self, moduleId, slotNum)
             end
             return true
         end
@@ -457,7 +388,7 @@ function Player:unequipModule(slotNum)
             if moduleType == "shield" then
                 self:updateShieldHP()
             elseif moduleType == "turret" then
-                self:updateHotbar(nil, slotNum)
+                PlayerHotbar.populate(self, nil, slotNum)
             end
             return true
         end
@@ -500,14 +431,6 @@ function Player:getShieldRegen()
     end
 
     return totalShieldRegen
-end
-
-function Player:updateHotbar(newModuleId, slotNum)
-    -- Update hotbar with turrets from grid
-    local Hotbar = require("src.systems.hotbar")
-    if Hotbar.populateFromPlayer then
-        Hotbar.populateFromPlayer(self, newModuleId, slotNum)
-    end
 end
 
 -- The large update function has been moved to PlayerSystem.
