@@ -1,6 +1,7 @@
 local Events = require("src.core.events")
 local Log = require("src.core.log")
 local PortfolioManager = require("src.managers.portfolio")
+local PlayerHotbar = require("src.systems.player.hotbar")
 
 local StateManager = {}
 
@@ -176,9 +177,7 @@ local function restoreEquipment(player, equipmentState)
   if player.updateShieldHP then
     player:updateShieldHP()
   end
-  if player.updateHotbar then
-    player:updateHotbar()
-  end
+  PlayerHotbar.populate(player)
 end
 
 -- Get current player
@@ -422,7 +421,10 @@ local function applyGameState(state, player, world)
   if state.portfolio then
     PortfolioManager.init(state.portfolio)
   end
-  player.docked = playerData.docked or false
+  local docking = player.components and player.components.docking_status
+  if docking then
+    docking.docked = playerData.docked or false
+  end
   
   if currentPlayer.components and currentPlayer.components.progression and state.player.progression then
     currentPlayer.components.progression = require("src.components.progression").deserialize(state.player.progression)
@@ -486,7 +488,10 @@ local function createGameFromSave(state)
   player.active_quests = playerData.active_quests or {}
   player.quest_progress = playerData.quest_progress or {}
   player.quest_start_times = playerData.quest_start_times or {}
-  player.docked = playerData.docked or false
+  local docking = player.components and player.components.docking_status
+  if docking then
+    docking.docked = playerData.docked or false
+  end
 
   -- Set position
   if playerData.position then

@@ -49,7 +49,9 @@ end
 function StationShields.checkStationSafeZone(bullet, target)
     local isPlayer = target.isPlayer or (target.components.player ~= nil)
     local isEnemyBullet = not ((bullet.components and bullet.components.collidable and bullet.components.collidable.friendly) or false)
-    return isPlayer and (target.weaponsDisabled or false) and isEnemyBullet
+    local playerState = target.components and target.components.player_state
+    local weaponsDisabled = playerState and playerState.weapons_disabled
+    return isPlayer and (weaponsDisabled or false) and isEnemyBullet
 end
 
 function StationShields.handleStationShieldCollision(entity1, entity2)

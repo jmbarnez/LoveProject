@@ -13,8 +13,10 @@ function EngineEffects.new(player)
         local x = self.player.components.position.x
         local y = self.player.components.position.y
         local angle = self.player.components.position.angle -- Assuming physics component holds angle
-        local isThrusting = self.player.thrusterState.isThrusting
-        local intensity = self.player.thrusterState.forward + self.player.thrusterState.boost -- Or however intensity is calculated
+        local playerState = self.player.components and self.player.components.player_state
+        local thrusterState = playerState and playerState.thruster_state or {}
+        local isThrusting = thrusterState.isThrusting
+        local intensity = (thrusterState.forward or 0) + (thrusterState.boost or 0) -- Or however intensity is calculated
         
 
         self.engineTrail:update(dt, x, y, angle, isThrusting, intensity)
