@@ -60,101 +60,6 @@ local function genScreenStars(sw, sh, count)
   return stars
 end
 
--- Enhanced sci-fi nebula canvas with better visibility
--- Build a reusable nebula canvas that can be tiled across the background.
-function World.buildNebulaCanvas(w, h, seed)
-  if not love.graphics.newCanvas then return nil end
-  local canvas = love.graphics.newCanvas(w, h)
-  local oldCanvas = love.graphics.getCanvas()
-  love.graphics.push('all')
-  love.graphics.setCanvas(canvas)
-  love.graphics.clear(0, 0, 0, 0)
-  love.graphics.setBlendMode('alpha', 'alphamultiply')
-  math.randomseed(seed or os.time())
-  
-  -- Sci-fi themed color palettes - blues, teals, purples
-  local palettes = {
-    { {0.14, 0.70, 1.00}, {0.06, 0.35, 0.60} }, -- Electric blue theme
-    { {0.00, 1.00, 0.80}, {0.00, 0.50, 0.40} }, -- Cyan/teal theme  
-    { {0.60, 0.30, 1.00}, {0.30, 0.15, 0.50} }, -- Purple theme
-    { {0.20, 1.00, 0.60}, {0.10, 0.50, 0.30} }, -- Green theme
-  }
-  
-  local blobs = math.floor(8 + (w*h)/(1920*1080) * 6) -- Fewer, larger nebula clouds
-  for i = 1, blobs do
-    local pal = palettes[1 + (i % #palettes)]
-    local cx = math.random() * w
-    local cy = math.random() * h
-    local baseR = (math.min(w, h) * (0.20 + math.random() * 0.30)) -- Base size
-    
-    -- Create organic, irregular nebula clouds using multiple ellipses
-    local numSubClouds = 8 + math.random(4) -- 8-12 sub-clouds per nebula
-    for subCloud = 1, numSubClouds do
-      local angle = (subCloud / numSubClouds) * math.pi * 2 + math.random() * 0.8
-      local dist = baseR * (0.2 + math.random() * 0.6)
-      local scx = cx + math.cos(angle) * dist * (0.5 + math.random() * 0.5)
-      local scy = cy + math.sin(angle) * dist * (0.5 + math.random() * 0.5)
-      local sr = baseR * (0.3 + math.random() * 0.4)
-      
-      -- Create layered irregular ellipses for organic look
-      for k = 7, 1, -1 do
-        local t = k / 7
-        local rx = sr * t * (0.8 + math.random() * 0.6) -- Irregular width
-        local ry = sr * t * (0.6 + math.random() * 0.8) -- Irregular height
-        local rotation = math.random() * math.pi * 2
-        local color1 = pal[1]
-        local color2 = pal[2]
-        local cr = color1[1] * t + color2[1] * (1 - t)
-        local cg = color1[2] * t + color2[2] * (1 - t)
-        local cb = color1[3] * t + color2[3] * (1 - t)
-        local a = 0.018 * t * (0.4 + 0.3 * math.sin(subCloud * 1.7))
-        love.graphics.setColor(cr, cg, cb, a)
-        
-        -- Draw irregular ellipse
-        love.graphics.push()
-        love.graphics.translate(scx, scy)
-        love.graphics.rotate(rotation)
-        love.graphics.ellipse('fill', 0, 0, rx, ry)
-        love.graphics.pop()
-      end
-    end
-    
-    -- Add flowing wisps and streamers for more realistic nebula structure
-    local numWisps = 4 + math.random(3) -- 4-6 wisps per nebula
-    for wisp = 1, numWisps do
-      local startAngle = math.random() * math.pi * 2
-      local wispLength = baseR * (1.2 + math.random() * 0.8)
-      local segments = 12 + math.random(8) -- 12-20 segments per wisp
-      
-      for seg = 1, segments do
-        local t = seg / segments
-        local curve = math.sin(t * math.pi * 2 + wisp) * baseR * 0.15 -- Wavy curve
-        local dist = t * wispLength
-        local wx = cx + math.cos(startAngle) * dist + math.cos(startAngle + math.pi/2) * curve
-        local wy = cy + math.sin(startAngle) * dist + math.sin(startAngle + math.pi/2) * curve
-        local wr = baseR * (0.08 + 0.12 * (1 - t)) -- Tapers toward end
-        
-        -- Layered wisp segments
-        for k = 4, 1, -1 do
-          local kt = k / 4
-          local rr = wr * kt
-          local intensity = (1 - t) * kt -- Fade toward wisp end
-          local color1 = pal[1]
-          local color2 = pal[2]
-          local cr = color1[1] * intensity + color2[1] * (1 - intensity)
-          local cg = color1[2] * intensity + color2[2] * (1 - intensity)
-          local cb = color1[3] * intensity + color2[3] * (1 - intensity)
-          local a = 0.012 * kt * (1 - t * 0.7)
-          love.graphics.setColor(cr, cg, cb, a)
-          love.graphics.circle('fill', wx, wy, rr)
-        end
-      end
-    end
-  end
-  love.graphics.setCanvas(oldCanvas)
-  love.graphics.pop()
-  return canvas
-end
 
 
 --[[
@@ -359,16 +264,6 @@ function World:drawBackground(camera)
   love.graphics.origin()
   love.graphics.clear(2/255, 3/255, 6/255)
   local w, h = Viewport.getDimensions()
-
-  -- Cache nebula canvas - only rebuild on actual resolution change
-  if (not self.nebulaCanvas) or self.nebulaW ~= w or self.nebulaH ~= h then
-    self.nebulaW, self.nebulaH = w, h
-    self.nebulaCanvas = World.buildNebulaCanvas(w, h, 12345)
-  end
-  if self.nebulaCanvas then
-    love.graphics.setColor(1,1,1,0.9)
-    love.graphics.draw(self.nebulaCanvas, 0, 0)
-  end
   -- Regenerate static sky on resolution change
   if self.skyW ~= w or self.skyH ~= h or (#self.skyStars == 0) then
     self.skyW, self.skyH = w, h

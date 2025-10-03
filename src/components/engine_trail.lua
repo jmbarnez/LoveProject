@@ -23,11 +23,17 @@ function EngineTrail.new(config)
     self.isThrusting = false
     self.lastPosition = { x = 0, y = 0, angle = 0 }
 
-    -- Create particle texture
+    -- Create particle texture (safely restore previous canvas)
     local particleImg = love.graphics.newCanvas(8, 8)
-    love.graphics.setCanvas(particleImg)
-    love.graphics.clear(1, 1, 1, 1)  -- White square that we'll tint
-    love.graphics.setCanvas()
+    local prevCanvas = love.graphics.getCanvas()
+    local okCanvas = xpcall(function()
+        love.graphics.setCanvas(particleImg)
+        love.graphics.clear(1, 1, 1, 1)  -- White square that we'll tint
+    end, debug.traceback)
+    love.graphics.setCanvas(prevCanvas)
+    if not okCanvas then
+        Log.warn("EngineTrail: failed to initialize particle texture")
+    end
 
     -- Create particle system
     self.particleSystem = love.graphics.newParticleSystem(particleImg, 500)
