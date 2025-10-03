@@ -50,6 +50,11 @@ function Dropdown:draw()
     -- Draw dropdown options if open
     if self.open then
         self:drawOptions(mx, my)
+    else
+        -- Clear cached layout data so interaction helpers don't use stale values
+        self._optionRects = nil
+        self._dropdownRect = nil
+        self._dropdownY = nil
     end
 end
 
@@ -113,33 +118,22 @@ function Dropdown:drawOptions(mx, my)
 
     -- Check if dropdown would go off-screen and flip upwards if needed
     local screenW, screenH = love.graphics.getWidth(), love.graphics.getHeight()
-    local dropdownY = self.y + self.optionHeight + 2
-
-    -- If dropdown would go off the bottom of the screen, flip it upwards
-    if dropdownY + self.dropdownHeight > screenH then
-        dropdownY = self.y - self.dropdownHeight - 2
-    end
-
-    -- Ensure dropdown doesn't go off the top of the screen
-    if dropdownY < 0 then
-        dropdownY = 0
-    end
-
-    -- Check if dropdown would go off the right edge of the screen
-    if self.x + self.width > screenW then
-        self.x = screenW - self.width
-    end
-
-    -- Ensure dropdown doesn't go off the left edge of the screen
-    if self.x < 0 then
-        self.x = 0
-    end
-
-    -- Calculate dropdown bounds
     local dropdownX = self.x
-    local dropdownY = dropdownY
+    local dropdownY = self.y + self.optionHeight + 2
     local dropdownW = self.width
     local dropdownH = self.dropdownHeight
+
+    -- If dropdown would go off the bottom of the screen, flip it upwards
+    if dropdownY + dropdownH > screenH then
+        dropdownY = self.y - dropdownH - 2
+    end
+
+    -- Clamp to screen bounds
+    dropdownY = math.max(0, math.min(dropdownY, math.max(0, screenH - dropdownH)))
+    dropdownX = math.max(0, math.min(dropdownX, math.max(0, screenW - dropdownW)))
+
+    self._dropdownY = dropdownY
+    self._dropdownRect = { x = dropdownX, y = dropdownY, w = dropdownW, h = dropdownH }
 
     -- If there's a current scissor rectangle, intersect with it to stay within parent bounds
     if currentScissor[1] then
@@ -153,6 +147,7 @@ function Dropdown:drawOptions(mx, my)
 
         -- If there's no intersection, don't draw anything
         if intersectX >= intersectRight or intersectY >= intersectBottom then
+            self._optionRects = {}
             return
         end
 
@@ -169,9 +164,6 @@ function Dropdown:drawOptions(mx, my)
     for i, option in ipairs(self.options) do
         local optionY = dropdownY + DROPDOWN_PADDING + (i - 1) * self.optionHeight
         local optionRect = { x = dropdownX, y = optionY, w = dropdownW, h = self.optionHeight }
-
-        -- Store the dropdown position for mouse interaction
-        self._dropdownY = dropdownY
 
         -- Check if option is visible within current scissor
         local optionVisible = true
@@ -265,6 +257,11 @@ function Dropdown:mousepressed(mx, my, button)
     -- Check if click is on the button
     if self:isPointInButton(mx, my) then
         self.open = not self.open
+        if not self.open then
+            self._dropdownRect = nil
+            self._optionRects = nil
+            self._dropdownY = nil
+        end
         return true
     end
 
@@ -273,13 +270,14 @@ function Dropdown:mousepressed(mx, my, button)
         -- Get current scissor rectangle to check if click is within visible bounds
         local currentScissor = {love.graphics.getScissor()}
         local isWithinBounds = true
+        local dropdownRect = self._dropdownRect or { x = self.x, y = self._dropdownY or (self.y + self.optionHeight + 2), w = self.width, h = self.dropdownHeight }
 
         if currentScissor[1] then
             local parentX, parentY, parentW, parentH = currentScissor[1], currentScissor[2], currentScissor[3], currentScissor[4]
-            local dropdownX = self.x
-            local dropdownY = self._dropdownY or (self.y + self.optionHeight + 2)
-            local dropdownW = self.width
-            local dropdownH = self.dropdownHeight
+            local dropdownX = dropdownRect.x
+            local dropdownY = dropdownRect.y
+            local dropdownW = dropdownRect.w
+            local dropdownH = dropdownRect.h
 
             -- Check if dropdown is visible within current scissor
             local intersectX = math.max(dropdownX, parentX)
@@ -297,16 +295,22 @@ function Dropdown:mousepressed(mx, my, button)
                 if self:isPointInOption(mx, my, i) then
                     self.selectedIndex = i
                     self.open = false
+                    self._dropdownRect = nil
+                    self._optionRects = nil
+                    self._dropdownY = nil
                     self.onSelect(i, option)
                     return true
                 end
             end
 
             -- Click outside options but still in dropdown area closes it
-            local dropdownY = self._dropdownY or (self.y + self.optionHeight + 2)
-            if mx >= self.x and mx <= self.x + self.width and
-               my >= dropdownY and my <= dropdownY + self.dropdownHeight then
+            local dropdownY = dropdownRect.y
+            if mx >= dropdownRect.x and mx <= dropdownRect.x + dropdownRect.w and
+               my >= dropdownY and my <= dropdownY + dropdownRect.h then
                 self.open = false
+                self._dropdownRect = nil
+                self._optionRects = nil
+                self._dropdownY = nil
                 return true
             end
         end
@@ -315,6 +319,9 @@ function Dropdown:mousepressed(mx, my, button)
     -- Click outside dropdown closes it
     if self.open then
         self.open = false
+        self._dropdownRect = nil
+        self._optionRects = nil
+        self._dropdownY = nil
         return true
     end
 
@@ -334,10 +341,11 @@ function Dropdown:mousemoved(mx, my)
 
         if currentScissor[1] then
             local parentX, parentY, parentW, parentH = currentScissor[1], currentScissor[2], currentScissor[3], currentScissor[4]
-            local dropdownX = self.x
-            local dropdownY = self._dropdownY or (self.y + self.optionHeight + 2)
-            local dropdownW = self.width
-            local dropdownH = self.dropdownHeight
+            local dropdownRect = self._dropdownRect or { x = self.x, y = self._dropdownY or (self.y + self.optionHeight + 2), w = self.width, h = self.dropdownHeight }
+            local dropdownX = dropdownRect.x
+            local dropdownY = dropdownRect.y
+            local dropdownW = dropdownRect.w
+            local dropdownH = dropdownRect.h
 
             -- Check if mouse is within the visible portion of the dropdown
             local intersectX = math.max(dropdownX, parentX)
