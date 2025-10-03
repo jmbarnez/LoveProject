@@ -22,14 +22,14 @@ end
 -- Play a UI sound with optional volume scale (0.0 to 1.0)
 function UISounds.play(soundName, volumeScale)
     if not soundName then return end
-    
-    -- Get the audio settings
-    local audioSettings = Settings.getAudioSettings()
-    if not audioSettings.ui_sounds_enabled then return end
-    
+
+    -- Get the audio settings with sensible fallbacks
+    local audioSettings = Settings.getAudioSettings() or {}
+    if audioSettings.ui_sounds_enabled == false then return end
+
     -- Play the sound with proper volume scaling
     local volume = (audioSettings.ui_sounds_volume or 1.0) * (volumeScale or 1.0)
-    Sound.playSFX(soundName, nil, volume, nil, nil, nil, "ui")
+    Sound.playSFX(soundName, volume)
 end
 
 -- Shortcut for button click sound

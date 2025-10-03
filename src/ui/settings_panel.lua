@@ -1,8 +1,6 @@
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local Settings = require("src.core.settings")
-local IconRenderer = require("src.content.icon_renderer")
-local AuroraTitle = require("src.shaders.aurora_title")
 local Notifications = require("src.ui.notifications")
 local Window = require("src.ui.common.window")
 local Dropdown = require("src.ui.common.dropdown")
@@ -27,7 +25,6 @@ local draggingSlider = nil
 local vsyncTypes = {Strings.getUI("off"), Strings.getUI("on")}
 local fpsLimitTypes = {Strings.getUI("unlimited"), "30", "60", "120", "144", "240"}
 -- Reticle color picker state (always visible sliders in popup)
-local colorPickerOpen = true
 local reticleGalleryOpen = false
 local scrollY = 0
 local scrollDragOffset = 0
@@ -144,28 +141,6 @@ local hoveredSlider = {
     sfx_volume = false,
     music_volume = false
 }
-
--- Helper function to truncate text with ellipsis if it doesn't fit
-local function truncateText(text, maxWidth, font)
-    local textWidth = font:getWidth(text)
-    if textWidth <= maxWidth then
-        return text
-    end
-
-    local ellipsis = "..."
-    local ellipsisWidth = font:getWidth(ellipsis)
-
-    if ellipsisWidth >= maxWidth then
-        return ""
-    end
-
-    local truncated = text
-    while font:getWidth(truncated .. ellipsis) > maxWidth and #truncated > 0 do
-        truncated = truncated:sub(1, -2)
-    end
-
-    return truncated .. ellipsis
-end
 
 function SettingsPanel.calculateContentHeight()
     -- If window/content bounds are available, compute contentHeight relative
