@@ -8,20 +8,8 @@
 ]]
 
 local Viewport = require("src.core.viewport")
-local ProjectileEvents = require("src.templates.projectile_system.event_dispatcher").EVENTS
-
 local World = {}
 World.__index = World
-
-local function emit_projectile_event(entity, event, payload)
-    if not entity or not entity.components then return end
-    local eventsComp = entity.components.projectile_events
-    if not eventsComp then return end
-    local dispatcher = eventsComp.dispatcher
-    if not dispatcher then return end
-
-    dispatcher:emit(event, payload)
-end
 
 -- Generate a set of parallax stars positioned in world space.
 local function genStars(w, h, count, parallax)
@@ -193,57 +181,6 @@ function World:resize(w, h)
 end
 
 function World:update(dt)
-    -- Update timed lifetimes and clean up dead entities
-    for id, entity in pairs(self.entities) do
-        if entity.components and entity.components.timed_life then
-            local tl = entity.components.timed_life
-            if tl.timer and tl.timer > 0 then
-                tl.timer = tl.timer - dt
-                if tl.timer <= 0 then
-                    emit_projectile_event(entity, ProjectileEvents.EXPIRE, {
-                        projectile = entity,
-                        reason = "timed_out",
-                    })
-                    entity.dead = true
-                end
-            end
-        end
-
-        -- Update max range for projectiles
-        if entity.components and entity.components.max_range and entity.components.position then
-            local mr = entity.components.max_range
-            local pos = entity.components.position
-
-            -- Calculate distance traveled
-            local dx = pos.x - mr.startX
-            local dy = pos.y - mr.startY
-            local distTraveled = math.sqrt(dx * dx + dy * dy)
-            mr.traveledDistance = distTraveled
-
-            -- Check if max range exceeded
-            if not mr.expired and distTraveled >= mr.maxDistance then
-                if mr.kind == 'missile' or mr.kind == 'rocket' then
-                    -- Explode missiles/rockets at max range
-                    if entity.components.damage then
-                        -- Create explosion effect at current position
-                        local Effects = require("src.systems.effects")
-                        if Effects and Effects.createExplosion then
-                            Effects.createExplosion(pos.x, pos.y, entity.components.damage.value * 0.8, false)
-                        end
-                    end
-                end
-                emit_projectile_event(entity, ProjectileEvents.EXPIRE, {
-                    projectile = entity,
-                    reason = "max_range",
-                    distance = distTraveled,
-                    maxDistance = mr.maxDistance,
-                })
-                mr.expired = true
-                -- Mark for removal (both bullets and missiles)
-                entity.dead = true
-            end
-        end
-    end
     -- Clean up dead entities
     for id, entity in pairs(self.entities) do
         if entity.dead then
