@@ -366,6 +366,10 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   world:setQuadtree(collisionSystem.quadtree)
 
   if not fromSave then
+    -- Clear any existing notifications when starting a new game
+    local Notifications = require("src.ui.notifications")
+    Notifications.clear()
+    
     player:setGC(Constants.PLAYER.STARTING_CREDITS or 10000)
     -- Reset skills to level 1 with 0 XP for new games
     local Skills = require("src.core.skills")

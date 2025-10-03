@@ -203,6 +203,10 @@ function Notifications.debug(text)
   Notifications.add(text, "debug")
 end
 
+function Notifications.clear()
+  notifications = {}
+end
+
 function Notifications.update(dt)
   local currentTime = love.timer.getTime()
   for i = #notifications, 1, -1 do

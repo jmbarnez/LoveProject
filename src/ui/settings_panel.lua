@@ -69,17 +69,74 @@ local vsyncDropdown
 local fpsLimitDropdown
 local accentThemeDropdown
 
--- Color picker state
-local accentColorPickerOpen = false
-local accentColorPickerX = 0
-local accentColorPickerY = 0
-local accentColorPickerW = 200
-local accentColorPickerH = 150
+-- Accent color gallery state (similar to reticle gallery)
+local accentGalleryOpen = false
 local accentColorSliders = {
     r = { value = 0.7, dragging = false },
     g = { value = 0.7, dragging = false },
     b = { value = 0.7, dragging = false }
 }
+
+-- Available accent themes
+local accentThemes = {
+    { name = "Cyan/Lavender", color = {0.2, 0.8, 0.9, 1.0} },
+    { name = "Blue/Purple", color = {0.4, 0.6, 1.0, 1.0} },
+    { name = "Green/Emerald", color = {0.3, 0.9, 0.4, 1.0} },
+    { name = "Red/Orange", color = {0.9, 0.3, 0.2, 1.0} },
+    { name = "Monochrome", color = {0.7, 0.7, 0.7, 1.0} },
+    { name = "Custom", color = {0.7, 0.7, 0.7, 1.0} }
+}
+
+-- HSV to RGB conversion
+local function hsvToRgb(h, s, v)
+    local r, g, b
+    local i = math.floor(h / 60)
+    local f = (h / 60) - i
+    local p = v * (1 - s)
+    local q = v * (1 - s * f)
+    local t = v * (1 - s * (1 - f))
+    
+    if i == 0 then
+        r, g, b = v, t, p
+    elseif i == 1 then
+        r, g, b = q, v, p
+    elseif i == 2 then
+        r, g, b = p, v, t
+    elseif i == 3 then
+        r, g, b = p, q, v
+    elseif i == 4 then
+        r, g, b = t, p, v
+    else
+        r, g, b = v, p, q
+    end
+    
+    return r, g, b
+end
+
+-- RGB to HSV conversion
+local function rgbToHsv(r, g, b)
+    local max = math.max(r, g, b)
+    local min = math.min(r, g, b)
+    local diff = max - min
+    
+    local h = 0
+    local s = max == 0 and 0 or (diff / max)
+    local v = max
+    
+    if diff ~= 0 then
+        if max == r then
+            h = ((g - b) / diff) % 6
+        elseif max == g then
+            h = (b - r) / diff + 2
+        else
+            h = (r - g) / diff + 4
+        end
+        h = h * 60
+        if h < 0 then h = h + 360 end
+    end
+    
+    return { h = h, s = s, v = v }
+end
 
 -- Slider hover tracking
 local hoveredSlider = {
@@ -419,41 +476,37 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     love.graphics.pop()
     yOffset = yOffset + itemHeight
 
-    -- Accent Color Picker
+    -- Accent Color Gallery
     Theme.setColor(Theme.colors.text)
     love.graphics.print("Accent Color:", labelX, yOffset)
     
-    -- Color picker button
-    local colorButtonX = valueX
-    local colorButtonY = yOffset - 2 - scrollY
-    local colorButtonW = 120
-    local colorButtonH = 30
-    local colorButtonHover = mx >= colorButtonX and mx <= colorButtonX + colorButtonW and my >= colorButtonY and my <= colorButtonY + colorButtonH
+    -- Gallery button
+    local btnX, btnY, btnW, btnH = valueX, yOffset - 4, 140, 26
+    local btnHover = mx >= btnX and mx <= btnX + btnW and scrolledMouseY >= btnY and scrolledMouseY <= btnY + btnH
+    Theme.drawStyledButton(btnX, btnY, btnW, btnH, "Select Accent", btnHover, love.timer.getTime())
+    SettingsPanel._accentButtonRect = { x = btnX, y = btnY - scrollY, w = btnW, h = btnH }
     
-    -- Draw color preview button
-    local currentColor = {accentColorSliders.r.value, accentColorSliders.g.value, accentColorSliders.b.value, 1.0}
-    Theme.setColor(currentColor)
-    love.graphics.rectangle("fill", colorButtonX, colorButtonY, colorButtonW, colorButtonH)
+    -- Preview next to button (same height as button)
+    local previewSize = btnH
+    local pvX, pvY = btnX + btnW + 10, btnY
+    Theme.drawGradientGlowRect(pvX, pvY, previewSize, previewSize, 3, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak * 0.1)
     
-    -- Draw border
-    local borderColor = colorButtonHover and Theme.colors.borderBright or Theme.colors.border
-    Theme.setColor(borderColor)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", colorButtonX, colorButtonY, colorButtonW, colorButtonH)
+    -- Draw current accent color preview
+    local currentTheme = currentGraphicsSettings.accent_theme or "Monochrome"
+    local previewColor = Theme.colors.accent
+    if currentTheme == "Custom" and currentGraphicsSettings.accent_color_rgb then
+        previewColor = currentGraphicsSettings.accent_color_rgb
+    end
     
-    -- Draw button text
-    Theme.setColor({0, 0, 0, 1}) -- Black text for contrast
-    local buttonText = "Custom"
-    local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
-    local oldFont = love.graphics.getFont()
-    love.graphics.setFont(font)
-    local textW = font:getWidth(buttonText)
-    local textH = font:getHeight()
-    love.graphics.print(buttonText, colorButtonX + (colorButtonW - textW) * 0.5, colorButtonY + (colorButtonH - textH) * 0.5)
-    love.graphics.setFont(oldFont)
+    Theme.setColor(previewColor)
+    love.graphics.rectangle("fill", pvX + 2, pvY + 2, previewSize - 4, previewSize - 4)
     
-    -- Store button bounds for mouse handling
-    SettingsPanel._colorPickerButton = { x = colorButtonX, y = colorButtonY, w = colorButtonW, h = colorButtonH }
+    -- Draw accent theme name
+    Theme.setColor(Theme.colors.text)
+    local themeText = currentTheme
+    local themeTextX = pvX + previewSize + 10
+    local themeTextY = pvY + (previewSize - Theme.fonts.medium:getHeight()) / 2
+    love.graphics.print(themeText, themeTextX, themeTextY)
     
     yOffset = yOffset + itemHeight
 
@@ -654,94 +707,22 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     Theme.drawStyledButton(resetButtonX, buttonY, buttonW, buttonH, resetText, resetBtnHover, love.timer.getTime(), {0.8, 0.2, 0.2, 1.0})
     SettingsPanel._resetButton = { _rect = { x = resetButtonX, y = buttonY, w = buttonW, h = buttonH } }
 
-    -- Color Picker Popup
-    if accentColorPickerOpen then
-        local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
-        local pickerX = accentColorPickerX
-        local pickerY = accentColorPickerY
-        local pickerW = accentColorPickerW
-        local pickerH = accentColorPickerH
-        
-        -- Draw popup background
-        Theme.setColor({0.1, 0.1, 0.1, 0.95})
-        love.graphics.rectangle("fill", pickerX, pickerY, pickerW, pickerH)
-        
-        -- Draw popup border
-        Theme.setColor(Theme.colors.border)
-        love.graphics.setLineWidth(2)
-        love.graphics.rectangle("line", pickerX, pickerY, pickerW, pickerH)
-        
-        -- Draw title
-        Theme.setColor(Theme.colors.text)
-        love.graphics.print("Custom Accent Color", pickerX + 10, pickerY + 10)
-        
-        -- Draw color preview
-        local previewX = pickerX + 10
-        local previewY = pickerY + 35
-        local previewW = pickerW - 20
-        local previewH = 30
-        local currentColor = {accentColorSliders.r.value, accentColorSliders.g.value, accentColorSliders.b.value, 1.0}
-        Theme.setColor(currentColor)
-        love.graphics.rectangle("fill", previewX, previewY, previewW, previewH)
-        Theme.setColor(Theme.colors.border)
-        love.graphics.rectangle("line", previewX, previewY, previewW, previewH)
-        
-        -- Draw RGB sliders
-        local sliderY = previewY + previewH + 20
-        local sliderW = previewW
-        local sliderH = 15
-        local sliderSpacing = 25
-        
-        -- Red slider
-        Theme.setColor(Theme.colors.text)
-        love.graphics.print("R", pickerX + 10, sliderY - 15)
-        Theme.setColor({1, 0, 0, 1})
-        love.graphics.rectangle("fill", previewX, sliderY, sliderW, sliderH)
-        Theme.setColor({0.2, 0.2, 0.2, 1})
-        love.graphics.rectangle("fill", previewX, sliderY, sliderW * accentColorSliders.r.value, sliderH)
-        Theme.setColor(Theme.colors.border)
-        love.graphics.rectangle("line", previewX, sliderY, sliderW, sliderH)
-        
-        -- Green slider
-        sliderY = sliderY + sliderSpacing
-        Theme.setColor(Theme.colors.text)
-        love.graphics.print("G", pickerX + 10, sliderY - 15)
-        Theme.setColor({0, 1, 0, 1})
-        love.graphics.rectangle("fill", previewX, sliderY, sliderW, sliderH)
-        Theme.setColor({0.2, 0.2, 0.2, 1})
-        love.graphics.rectangle("fill", previewX, sliderY, sliderW * accentColorSliders.g.value, sliderH)
-        Theme.setColor(Theme.colors.border)
-        love.graphics.rectangle("line", previewX, sliderY, sliderW, sliderH)
-        
-        -- Blue slider
-        sliderY = sliderY + sliderSpacing
-        Theme.setColor(Theme.colors.text)
-        love.graphics.print("B", pickerX + 10, sliderY - 15)
-        Theme.setColor({0, 0, 1, 1})
-        love.graphics.rectangle("fill", previewX, sliderY, sliderW, sliderH)
-        Theme.setColor({0.2, 0.2, 0.2, 1})
-        love.graphics.rectangle("fill", previewX, sliderY, sliderW * accentColorSliders.b.value, sliderH)
-        Theme.setColor(Theme.colors.border)
-        love.graphics.rectangle("line", previewX, sliderY, sliderW, sliderH)
-        
-        -- Store slider bounds for mouse handling
-        SettingsPanel._colorPickerSliders = {
-            r = { x = previewX, y = previewY + previewH + 20, w = sliderW, h = sliderH },
-            g = { x = previewX, y = previewY + previewH + 45, w = sliderW, h = sliderH },
-            b = { x = previewX, y = previewY + previewH + 70, w = sliderW, h = sliderH }
-        }
-    end
 
     -- Reticle Gallery Popup
     if reticleGalleryOpen then
         local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
-        local gw, gh = 560, 420
+        local gw, gh = 700, 600
         local gx, gy = (sw - gw) / 2, (sh - gh) / 2
         Theme.drawGradientGlowRect(gx, gy, gw, gh, 6, Theme.colors.bg1, Theme.colors.bg0, Theme.colors.accent, Theme.effects.glowWeak)
         Theme.drawEVEBorder(gx, gy, gw, gh, 6, Theme.colors.border, 8)
         Theme.setColor(Theme.colors.textHighlight)
         love.graphics.print(Strings.getUI("choose_reticle"), gx + 16, gy + 12)
-        -- Color selector inside popup (RGB sliders)
+        -- Color picker with spectrum (same as accent color picker)
+        local pickerY = gy + 50
+        local pickerX = gx + 20
+        local pickerSize = 200
+        local previewSize = 80
+        
         -- Determine current color (RGB)
         local function getCurrentRGB()
           local c = currentGraphicsSettings.reticle_color_rgb
@@ -763,32 +744,86 @@ function SettingsPanel.drawContent(window, x, y, w, h)
           return cc[1], cc[2], cc[3], cc[4] or 1
         end
         local cr, cg, cb, ca = getCurrentRGB()
-        -- Always-visible RGB sliders
-        local sx, sy = gx + 16, gy + 40
-        local sliderW, sliderH = 240, 10
-        local function drawSlider(label, value, ry, color)
-          Theme.setColor(Theme.colors.text)
-          love.graphics.print(label, sx, ry - 12)
-          Theme.drawGradientGlowRect(sx, ry, sliderW, sliderH, 2, Theme.colors.bg3, Theme.colors.bg2, Theme.colors.border, Theme.effects.glowWeak * 0.1)
-          Theme.setColor(color)
-          local fillW = math.max(0, math.min(sliderW, sliderW * value))
-          Theme.drawGradientGlowRect(sx, ry, fillW, sliderH, 2, color, color, Theme.colors.border, 0)
-          Theme.drawEVEBorder(sx, ry, sliderW, sliderH, 2, Theme.colors.border, 1)
-          -- Handle knob
-          Theme.setColor(Theme.colors.textHighlight)
-          local knobX = sx + fillW - 4
-          love.graphics.rectangle('fill', knobX, ry - 2, 8, sliderH + 4)
+        
+        -- Color spectrum (HSV-based color picker)
+        local spectrumX = pickerX
+        local spectrumY = pickerY
+        local spectrumW = pickerSize
+        local spectrumH = pickerSize
+        
+        -- Draw color spectrum
+        for x = 0, spectrumW - 1 do
+            for y = 0, spectrumH - 1 do
+                local h = (x / spectrumW) * 360  -- Hue: 0-360
+                local s = 1.0  -- Saturation: 1.0 (full saturation)
+                local v = 1.0 - (y / spectrumH)  -- Value: 1.0 to 0.0 (top to bottom)
+                
+                -- Convert HSV to RGB
+                local r, g, b = hsvToRgb(h, s, v)
+                
+                Theme.setColor({r, g, b, 1})
+                love.graphics.rectangle("fill", spectrumX + x, spectrumY + y, 1, 1)
+            end
         end
-        drawSlider('R', cr, sy, {1,0,0,1})
-        drawSlider('G', cg, sy + 24, {0,1,0,1})
-        drawSlider('B', cb, sy + 48, {0,0,1,1})
-        SettingsPanel._colorSliders = {
-          { x = sx, y = sy, w = sliderW, h = sliderH, key = 'r' },
-          { x = sx, y = sy + 24, w = sliderW, h = sliderH, key = 'g' },
-          { x = sx, y = sy + 48, w = sliderW, h = sliderH, key = 'b' },
-        }
-        -- Gallery
-        local px, py = gx + 16, sy + 80
+        
+        -- Draw spectrum border
+        Theme.setColor(Theme.colors.border)
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line", spectrumX, spectrumY, spectrumW, spectrumH)
+        
+        -- Draw current color indicator (crosshair)
+        local currentH = rgbToHsv(cr, cg, cb)
+        local indicatorX = spectrumX + (currentH.h / 360) * spectrumW
+        local indicatorY = spectrumY + (1 - currentH.v) * spectrumH
+        
+        -- Draw crosshair
+        Theme.setColor({1, 1, 1, 1})
+        love.graphics.setLineWidth(2)
+        love.graphics.line(indicatorX - 8, indicatorY, indicatorX + 8, indicatorY)
+        love.graphics.line(indicatorX, indicatorY - 8, indicatorX, indicatorY + 8)
+        
+        -- Draw crosshair border
+        Theme.setColor({0, 0, 0, 1})
+        love.graphics.setLineWidth(1)
+        love.graphics.line(indicatorX - 9, indicatorY, indicatorX + 9, indicatorY)
+        love.graphics.line(indicatorX, indicatorY - 9, indicatorX, indicatorY + 9)
+        
+        -- Store spectrum bounds for click detection
+        SettingsPanel._reticleSpectrum = { x = spectrumX, y = spectrumY, w = spectrumW, h = spectrumH }
+        
+        -- Color preview box
+        local previewX = pickerX + pickerSize + 20
+        local previewY = pickerY
+        Theme.setColor({cr, cg, cb, 1})
+        love.graphics.rectangle("fill", previewX, previewY, previewSize, previewSize)
+        Theme.setColor(Theme.colors.border)
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line", previewX, previewY, previewSize, previewSize)
+        
+        -- Draw "Reticle Color" label above preview
+        Theme.setColor(Theme.colors.text)
+        local labelText = "Reticle Color"
+        local labelW = Theme.fonts.small:getWidth(labelText)
+        love.graphics.print(labelText, previewX + (previewSize - labelW) / 2, previewY - 20)
+        
+        -- RGB values display
+        local rgbY = previewY + previewSize + 10
+        Theme.setColor(Theme.colors.text)
+        local rgbText = string.format("R: %d  G: %d  B: %d", 
+            math.floor(cr * 255), 
+            math.floor(cg * 255), 
+            math.floor(cb * 255))
+        love.graphics.print(rgbText, previewX, rgbY)
+        
+        -- HSV values display
+        local hsvY = rgbY + 15
+        local hsvText = string.format("H: %d°  S: %d%%  V: %d%%", 
+            math.floor(currentH.h), 
+            math.floor(currentH.s * 100), 
+            math.floor(currentH.v * 100))
+        love.graphics.print(hsvText, previewX, hsvY)
+        -- Gallery (positioned below the color picker)
+        local px, py = gx + 16, pickerY + pickerSize + 20
         local cols, cell, gap = 10, 44, 8
         local total, rows = 50, math.ceil(50/cols)
         SettingsPanel._reticlePopup = { x = px, y = py, cols = cols, rows = rows, cell = cell, gap = gap }
@@ -819,6 +854,119 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     else
         SettingsPanel._reticlePopup = nil
         SettingsPanel._reticleDone = nil
+    end
+
+    -- Accent Color Gallery Popup
+    if accentGalleryOpen then
+        local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
+        local gw, gh = 600, 450
+        local gx, gy = (sw - gw) / 2, (sh - gh) / 2
+        Theme.drawGradientGlowRect(gx, gy, gw, gh, 6, Theme.colors.bg1, Theme.colors.bg0, Theme.colors.accent, Theme.effects.glowWeak)
+        Theme.drawEVEBorder(gx, gy, gw, gh, 6, Theme.colors.border, 8)
+        Theme.setColor(Theme.colors.textHighlight)
+        love.graphics.print("Choose Accent Theme", gx + 16, gy + 12)
+        
+        -- Color picker with spectrum
+        local pickerY = gy + 50
+        local pickerX = gx + 20
+        local pickerSize = 200
+        local previewSize = 80
+        
+        -- Get current custom color
+        local cr, cg, cb = accentColorSliders.r.value, accentColorSliders.g.value, accentColorSliders.b.value
+        if currentGraphicsSettings.accent_color_rgb then
+            cr, cg, cb = currentGraphicsSettings.accent_color_rgb[1], currentGraphicsSettings.accent_color_rgb[2], currentGraphicsSettings.accent_color_rgb[3]
+        end
+        
+        -- Color spectrum (HSV-based color picker)
+        local spectrumX = pickerX
+        local spectrumY = pickerY
+        local spectrumW = pickerSize
+        local spectrumH = pickerSize
+        
+        -- Draw color spectrum
+        for x = 0, spectrumW - 1 do
+            for y = 0, spectrumH - 1 do
+                local h = (x / spectrumW) * 360  -- Hue: 0-360
+                local s = 1.0  -- Saturation: 1.0 (full saturation)
+                local v = 1.0 - (y / spectrumH)  -- Value: 1.0 to 0.0 (top to bottom)
+                
+                -- Convert HSV to RGB
+                local r, g, b = hsvToRgb(h, s, v)
+                
+                Theme.setColor({r, g, b, 1})
+                love.graphics.rectangle("fill", spectrumX + x, spectrumY + y, 1, 1)
+            end
+        end
+        
+        -- Draw spectrum border
+        Theme.setColor(Theme.colors.border)
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line", spectrumX, spectrumY, spectrumW, spectrumH)
+        
+        -- Draw current color indicator (crosshair)
+        local currentH = rgbToHsv(cr, cg, cb)
+        local indicatorX = spectrumX + (currentH.h / 360) * spectrumW
+        local indicatorY = spectrumY + (1 - currentH.v) * spectrumH
+        
+        -- Draw crosshair
+        Theme.setColor({1, 1, 1, 1})
+        love.graphics.setLineWidth(2)
+        love.graphics.line(indicatorX - 8, indicatorY, indicatorX + 8, indicatorY)
+        love.graphics.line(indicatorX, indicatorY - 8, indicatorX, indicatorY + 8)
+        
+        -- Draw crosshair border
+        Theme.setColor({0, 0, 0, 1})
+        love.graphics.setLineWidth(1)
+        love.graphics.line(indicatorX - 9, indicatorY, indicatorX + 9, indicatorY)
+        love.graphics.line(indicatorX, indicatorY - 9, indicatorX, indicatorY + 9)
+        
+        -- Store spectrum bounds for click detection
+        SettingsPanel._accentSpectrum = { x = spectrumX, y = spectrumY, w = spectrumW, h = spectrumH }
+        
+        -- Color preview box
+        local previewX = pickerX + pickerSize + 20
+        local previewY = pickerY
+        Theme.setColor({cr, cg, cb, 1})
+        love.graphics.rectangle("fill", previewX, previewY, previewSize, previewSize)
+        Theme.setColor(Theme.colors.border)
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line", previewX, previewY, previewSize, previewSize)
+        
+        -- Draw "Custom Color" label above preview
+        Theme.setColor(Theme.colors.text)
+        local labelText = "Custom Color"
+        local labelW = Theme.fonts.small:getWidth(labelText)
+        love.graphics.print(labelText, previewX + (previewSize - labelW) / 2, previewY - 20)
+        
+        -- RGB values display
+        local rgbY = previewY + previewSize + 10
+        Theme.setColor(Theme.colors.text)
+        local rgbText = string.format("R: %d  G: %d  B: %d", 
+            math.floor(cr * 255), 
+            math.floor(cg * 255), 
+            math.floor(cb * 255))
+        love.graphics.print(rgbText, previewX, rgbY)
+        
+        -- HSV values display
+        local hsvY = rgbY + 15
+        local hsvText = string.format("H: %d°  S: %d%%  V: %d%%", 
+            math.floor(currentH.h), 
+            math.floor(currentH.s * 100), 
+            math.floor(currentH.v * 100))
+        love.graphics.print(hsvText, previewX, hsvY)
+        
+        -- Done button
+        local doneW, doneH = 90, 28
+        local doneX, doneY = gx + gw - doneW - 16, gy + gh - doneH - 12
+        local doneButton = {_rect = {x = doneX, y = doneY, w = doneW, h = doneH}}
+        local hover = Theme.handleButtonClick(doneButton, Viewport.getMousePosition())
+        Theme.drawStyledButton(doneX, doneY, doneW, doneH, "Done", hover, love.timer.getTime())
+        SettingsPanel._accentDone = doneButton
+    else
+        SettingsPanel._accentPopup = nil
+        SettingsPanel._accentDone = nil
+        SettingsPanel._accentColorSliders = nil
     end
 end
 
@@ -862,28 +1010,10 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     if vsyncDropdown:mousepressed(x, y, button) then return true end
     if fpsLimitDropdown:mousepressed(x, y, button) then return true end
     
-    -- Handle color picker button click
-    if SettingsPanel._colorPickerButton and x >= SettingsPanel._colorPickerButton.x and x <= SettingsPanel._colorPickerButton.x + SettingsPanel._colorPickerButton.w and y >= SettingsPanel._colorPickerButton.y and y <= SettingsPanel._colorPickerButton.y + SettingsPanel._colorPickerButton.h then
-        accentColorPickerOpen = not accentColorPickerOpen
-        if accentColorPickerOpen then
-            -- Position the color picker near the button
-            accentColorPickerX = SettingsPanel._colorPickerButton.x + SettingsPanel._colorPickerButton.w + 10
-            accentColorPickerY = SettingsPanel._colorPickerButton.y
-        end
+    -- Handle accent gallery button click
+    if SettingsPanel._accentButtonRect and x >= SettingsPanel._accentButtonRect.x and x <= SettingsPanel._accentButtonRect.x + SettingsPanel._accentButtonRect.w and y >= SettingsPanel._accentButtonRect.y and y <= SettingsPanel._accentButtonRect.y + SettingsPanel._accentButtonRect.h then
+        accentGalleryOpen = not accentGalleryOpen
         return true
-    end
-    
-    -- Handle color picker sliders
-    if accentColorPickerOpen and SettingsPanel._colorPickerSliders then
-        for channel, slider in pairs(SettingsPanel._colorPickerSliders) do
-            if x >= slider.x and x <= slider.x + slider.w and y >= slider.y and y <= slider.y + slider.h then
-                accentColorSliders[channel].dragging = true
-                local value = math.max(0, math.min(1, (x - slider.x) / slider.w))
-                accentColorSliders[channel].value = value
-                applyCustomAccentColor(accentColorSliders.r.value, accentColorSliders.g.value, accentColorSliders.b.value)
-                return true
-            end
-        end
     end
     
     -- Handle apply and reset buttons (use content bounds like drawContent does)
@@ -933,17 +1063,61 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
                 end
             end
         end
-        if SettingsPanel._colorSliders then
-            for _, slider in ipairs(SettingsPanel._colorSliders) do
-                if screenX >= slider.x and screenX <= slider.x + slider.w and screenY >= slider.y - 10 and screenY <= slider.y + slider.h + 10 then
-                    draggingSlider = 'reticle_color_' .. slider.key
-                    return true
-                end
-            end
+        if SettingsPanel._reticleSpectrum and screenX >= SettingsPanel._reticleSpectrum.x and screenX <= SettingsPanel._reticleSpectrum.x + SettingsPanel._reticleSpectrum.w and
+           screenY >= SettingsPanel._reticleSpectrum.y and screenY <= SettingsPanel._reticleSpectrum.y + SettingsPanel._reticleSpectrum.h then
+            -- Convert click position to HSV
+            local h = ((screenX - SettingsPanel._reticleSpectrum.x) / SettingsPanel._reticleSpectrum.w) * 360
+            local v = 1.0 - ((screenY - SettingsPanel._reticleSpectrum.y) / SettingsPanel._reticleSpectrum.h)
+            local s = 1.0  -- Full saturation
+            
+            -- Convert HSV to RGB
+            local r, g, b = hsvToRgb(h, s, v)
+            
+            -- Apply the color
+            currentGraphicsSettings.reticle_color_rgb = {r, g, b, 1.0}
+            currentGraphicsSettings.reticle_color = nil  -- Clear legacy color name
+            return true
         end
         -- If in reticle popup, consume the click so it doesn't affect underlying UI
         local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
-        local gw, gh = 560, 420
+        local gw, gh = 700, 600
+        local gx, gy = (sw - gw) / 2, (sh - gh) / 2
+        if screenX >= gx and screenX <= gx + gw and screenY >= gy and screenY <= gy + gh then
+            return true
+        end
+    end
+
+    -- Handle accent gallery pop-up interactions (popup is drawn in screen coords)
+    if accentGalleryOpen then
+        if SettingsPanel._accentDone and screenX >= SettingsPanel._accentDone._rect.x and screenX <= SettingsPanel._accentDone._rect.x + SettingsPanel._accentDone._rect.w and
+           screenY >= SettingsPanel._accentDone._rect.y and screenY <= SettingsPanel._accentDone._rect.y + SettingsPanel._accentDone._rect.h then
+            accentGalleryOpen = false
+            return true
+        end
+        if SettingsPanel._accentSpectrum and screenX >= SettingsPanel._accentSpectrum.x and screenX <= SettingsPanel._accentSpectrum.x + SettingsPanel._accentSpectrum.w and
+           screenY >= SettingsPanel._accentSpectrum.y and screenY <= SettingsPanel._accentSpectrum.y + SettingsPanel._accentSpectrum.h then
+            -- Convert click position to HSV
+            local h = ((screenX - SettingsPanel._accentSpectrum.x) / SettingsPanel._accentSpectrum.w) * 360
+            local v = 1.0 - ((screenY - SettingsPanel._accentSpectrum.y) / SettingsPanel._accentSpectrum.h)
+            local s = 1.0  -- Full saturation
+            
+            -- Convert HSV to RGB
+            local r, g, b = hsvToRgb(h, s, v)
+            
+            -- Update color values
+            accentColorSliders.r.value = r
+            accentColorSliders.g.value = g
+            accentColorSliders.b.value = b
+            
+            -- Apply the color
+            currentGraphicsSettings.accent_theme = "Custom"
+            currentGraphicsSettings.accent_color_rgb = {r, g, b, 1.0}
+            applyCustomAccentColor(r, g, b)
+            return true
+        end
+        -- If in accent popup, consume the click so it doesn't affect underlying UI
+        local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
+        local gw, gh = 600, 450
         local gx, gy = (sw - gw) / 2, (sh - gh) / 2
         if screenX >= gx and screenX <= gx + gw and screenY >= gy and screenY <= gy + gh then
             return true
@@ -1080,6 +1254,13 @@ function SettingsPanel.mousereleased(x, y, button)
         end
     end
     
+    -- Stop accent color slider dragging
+    if draggingSlider and draggingSlider:find("accent_color_") then
+        for channel, _ in pairs(accentColorSliders) do
+            accentColorSliders[channel].dragging = false
+        end
+    end
+    
     return false
 end
 
@@ -1205,20 +1386,6 @@ function SettingsPanel.mousemoved(raw_x, raw_y, dx, dy)
         local sliderW = 200
         local pct = (x - valueX) / sliderW
         currentAudioSettings[draggingSlider] = math.max(0, math.min(1, pct))
-    elseif draggingSlider:find("reticle_color_") then
-        if SettingsPanel._colorSliders then
-            local r, g, b, a = unpack(currentGraphicsSettings.reticle_color_rgb or {1,1,1,1})
-            for _, s in ipairs(SettingsPanel._colorSliders) do
-                if draggingSlider == ('reticle_color_' .. s.key) then
-                    local pct = math.max(0, math.min(1, (x - s.x) / s.w))
-                    if s.key == 'r' then r = pct end
-                    if s.key == 'g' then g = pct end
-                    if s.key == 'b' then b = pct end
-                end
-            end
-            currentGraphicsSettings.reticle_color_rgb = { r, g, b, a }
-        end
-        return true
     end
     
     return true
