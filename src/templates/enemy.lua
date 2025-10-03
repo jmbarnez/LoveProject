@@ -15,8 +15,8 @@ function Enemy.new(x, y, options)
     self.dead = false
 
     self.lootTable = {
-        { id = "ore_tritanium", min = 1, max = 3, chance = 0.7 },
-        { id = "ore_palladium", min = 1, max = 2, chance = 0.35 },
+        { id = "ore_tritanium", min = 1, max = 2, chance = 0.3 },
+        { id = "ore_palladium", min = 1, max = 1, chance = 0.15 },
     }
 
     self.visuals = {

@@ -258,9 +258,35 @@ function Dropdown:isPointInOption(mx, my, optionIndex)
         return false
     end
     local rect = self._optionRects[optionIndex]
-    return mx and my and
-           mx >= rect.x and mx <= rect.x + rect.w and
-           my >= rect.y and my <= rect.y + rect.h
+    
+    -- Basic bounds check
+    if not (mx and my and mx >= rect.x and mx <= rect.x + rect.w and my >= rect.y and my <= rect.y + rect.h) then
+        return false
+    end
+    
+    -- Additional check: ensure the option is actually visible (not clipped by scissor)
+    local currentScissor = {love.graphics.getScissor()}
+    if currentScissor[1] then
+        local parentX, parentY, parentW, parentH = currentScissor[1], currentScissor[2], currentScissor[3], currentScissor[4]
+        
+        -- Check if the option rectangle intersects with the scissor rectangle
+        local intersectX = math.max(rect.x, parentX)
+        local intersectY = math.max(rect.y, parentY)
+        local intersectRight = math.min(rect.x + rect.w, parentX + parentW)
+        local intersectBottom = math.min(rect.y + rect.h, parentY + parentH)
+        
+        -- If there's no intersection, the option is not visible
+        if intersectX >= intersectRight or intersectY >= intersectBottom then
+            return false
+        end
+        
+        -- Check if the mouse point is within the visible portion
+        if mx < intersectX or mx > intersectRight or my < intersectY or my > intersectBottom then
+            return false
+        end
+    end
+    
+    return true
 end
 
 function Dropdown:mousepressed(mx, my, button)

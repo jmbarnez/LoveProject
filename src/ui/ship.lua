@@ -677,12 +677,28 @@ function Ship:draw(player, x, y, w, h)
             
             -- Check if mouse is over dropdown options when open
             if dropdown.open then
-                dropdown:mousemoved(mx, my) -- Update hover state for options
-                -- Check if mouse is over any option
+                -- Update hover state for options
+                dropdown:mousemoved(mx, my)
+                
+                -- Check if mouse is over any option with improved detection
                 for j = 1, #dropdown.options do
                     if dropdown:isPointInOption(mx, my, j) then
                         optionsHover = true
                         break
+                    end
+                end
+                
+                -- Additional check: if mouse is within the dropdown bounds but not over a specific option,
+                -- still consider it hovering to prevent premature closing
+                if not optionsHover then
+                    local dropdownY = dropdown._dropdownY or (dropdown.y + dropdown.optionHeight + 2)
+                    local dropdownX = dropdown.x
+                    local dropdownW = dropdown.width
+                    local dropdownH = dropdown.dropdownHeight
+                    
+                    if mx >= dropdownX and mx <= dropdownX + dropdownW and
+                       my >= dropdownY and my <= dropdownY + dropdownH then
+                        optionsHover = true
                     end
                 end
             end

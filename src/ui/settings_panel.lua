@@ -518,6 +518,18 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     fpsLimitDropdown:setPosition(valueX, yOffset - 2 - scrollY)
     yOffset = yOffset + itemHeight
 
+    -- Show FPS Toggle
+    Theme.setColor(Theme.colors.text)
+    love.graphics.print("Show FPS:", labelX, yOffset)
+    local showFpsToggleX = valueX
+    local showFpsToggleY = yOffset - 4
+    local showFpsToggleW = 60
+    local showFpsToggleH = 26
+    local showFpsToggleHover = mx >= showFpsToggleX and mx <= showFpsToggleX + showFpsToggleW and scrolledMouseY >= showFpsToggleY and scrolledMouseY <= showFpsToggleY + showFpsToggleH
+    local showFpsToggleActive = currentGraphicsSettings.show_fps or false
+    Theme.drawStyledButton(showFpsToggleX, showFpsToggleY, showFpsToggleW, showFpsToggleH, showFpsToggleActive and "ON" or "OFF", showFpsToggleHover, love.timer.getTime())
+    SettingsPanel._showFpsToggleRect = { x = showFpsToggleX, y = showFpsToggleY - scrollY, w = showFpsToggleW, h = showFpsToggleH }
+    yOffset = yOffset + itemHeight
 
     -- Reticle popup trigger, current preview, and color dropdown
     Theme.setColor(Theme.colors.text)
@@ -1170,6 +1182,15 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     -- Dropdown handles its own mousepress
     yOffset = yOffset + itemHeight
 
+    -- Show FPS Toggle
+    if SettingsPanel._showFpsToggleRect and x >= SettingsPanel._showFpsToggleRect.x and x <= SettingsPanel._showFpsToggleRect.x + SettingsPanel._showFpsToggleRect.w and y >= SettingsPanel._showFpsToggleRect.y and y <= SettingsPanel._showFpsToggleRect.y + SettingsPanel._showFpsToggleRect.h then
+        local Sound = require("src.core.sound")
+        Sound.playSFX("button_click")
+        currentGraphicsSettings.show_fps = not currentGraphicsSettings.show_fps
+        return true
+    end
+    yOffset = yOffset + itemHeight
+
     -- Reticle button
     local btnX, btnW, btnH = valueX, 140, 26
     local btnY = yOffset - 4
@@ -1336,6 +1357,8 @@ function SettingsPanel.mousemoved(raw_x, raw_y, dx, dy)
             yOffset = yOffset + 30 -- "Graphics Settings" label
             yOffset = yOffset + itemHeight -- VSync
             yOffset = yOffset + itemHeight -- Max FPS
+            
+            yOffset = yOffset + itemHeight -- Show FPS
             yOffset = yOffset + itemHeight -- Reticle
             yOffset = yOffset + itemHeight -- Accent Color
             yOffset = yOffset + itemHeight + sectionSpacing -- Helpers + spacing

@@ -19,10 +19,23 @@ function EnemyStatusBars.drawMiniBars(entity)
   local col = entity.components.collidable
   if not (h and col) then return end
 
-  -- Only show for a limited duration after player deals damage
+  -- Show bars if recently damaged OR if enemy is low on health/shield
   local showTime = getCombatValue("ENEMY_BAR_VIS_TIME") or 2.5
   local last = entity._hudDamageTime or -1e9
-  if love.timer.getTime() - last > showTime then return end
+  local timeSinceDamage = love.timer.getTime() - last
+  
+  -- Always show if recently damaged
+  local recentlyDamaged = timeSinceDamage <= showTime
+  
+  -- Also show if enemy is low on health or has shields (for better visibility)
+  local hpPct = (h.hp or 0) / math.max(1, h.maxHP or 100)
+  local shieldPct = (h.shield or 0) / math.max(1, h.maxShield or 1)
+  local isLowHealth = hpPct < 0.8  -- Show if below 80% health
+  local hasShields = (h.maxShield or 0) > 0 and (h.shield or 0) > 0  -- Show if has shields
+  
+  if not recentlyDamaged and not isLowHealth and not hasShields then
+    return
+  end
 
   local hp = h.hp or h.current or 0
   local maxHP = h.maxHP or h.max or 100
@@ -42,28 +55,15 @@ function EnemyStatusBars.drawMiniBars(entity)
   local baseY = -(radius + 12)
   local x0 = -barW/2
 
-  -- Shield bar (above health bar, only if enemy has shields)
-  if maxShield > 0 then
-    local shieldPct = math.max(0, math.min(1, shield / math.max(1, maxShield)))
-    local shieldY = baseY - barH - gap
-    
-    -- Shield bar background
-    Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.6))
-    love.graphics.rectangle('fill', x0, shieldY, barW, barH, 2, 2)
-    
-    -- Shield bar fill (cyan color)
-    Theme.setColor(Theme.semantic.statusShield[1], Theme.semantic.statusShield[2], Theme.semantic.statusShield[3], 0.95)
-    love.graphics.rectangle('fill', x0, shieldY, barW * shieldPct, barH, 2, 2)
-    
-    -- Shield bar border
-    love.graphics.setColor(0.9, 0.9, 0.9, 0.6)
-    love.graphics.rectangle('line', x0, shieldY, barW, barH, 2, 2)
-  end
-
-  -- Health bar
+  -- Combined hull + shield bar (like player) - shield overlays hull
   local hpPct = math.max(0, math.min(1, hp / math.max(1, maxHP)))
+  local shieldPct = maxShield > 0 and math.max(0, math.min(1, shield / math.max(1, maxShield))) or 0
+
+  -- Bar background
   Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.6))
   love.graphics.rectangle('fill', x0, baseY, barW, barH, 2, 2)
+  
+  -- Draw hull bar as base (red, actual hull percentage)
   local r, g
   if hpPct > 0.5 then
     local t = (hpPct - 0.5) / 0.5
@@ -74,6 +74,15 @@ function EnemyStatusBars.drawMiniBars(entity)
   end
   love.graphics.setColor(r, g, 0.1, 0.95)
   love.graphics.rectangle('fill', x0, baseY, barW * hpPct, barH, 2, 2)
+  
+  -- Draw shield bar overlaying hull (blue overlay, only shield portion)
+  if shield > 0 then
+    local shieldWidth = shieldPct * barW
+    Theme.setColor(Theme.semantic.statusShield[1], Theme.semantic.statusShield[2], Theme.semantic.statusShield[3], 0.95)
+    love.graphics.rectangle('fill', x0, baseY, shieldWidth, barH, 2, 2)
+  end
+  
+  -- Bar border
   love.graphics.setColor(0.9, 0.9, 0.9, 0.6)
   love.graphics.rectangle('line', x0, baseY, barW, barH, 2, 2)
 

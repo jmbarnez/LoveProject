@@ -469,6 +469,14 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
     remaining = remaining - applied
     wreckage.salvageAmount = remaining
 
+    -- Initialize partial salvage tracking fields if they don't exist (for legacy wreckage)
+    if wreckage._partialSalvage == nil then
+        wreckage._partialSalvage = 0
+    end
+    if wreckage._salvageDropped == nil then
+        wreckage._salvageDropped = 0
+    end
+
     wreckage._partialSalvage = wreckage._partialSalvage + applied
     wreckage._salvageDropped = wreckage._salvageDropped
     local whole = math.floor(wreckage._partialSalvage)

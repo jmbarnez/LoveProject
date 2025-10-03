@@ -32,7 +32,7 @@ return {
   -- Much lighter for better maneuverability: lower mass, higher accel
   engine = { accel = 1200, maxSpeed = 500, drag = 0.985, mass = 150 },
   sig = 110,
-  cargo = { capacity = 120 },
+  cargo = { capacity = 120, volumeLimit = 50.0 }, -- 50 m^3 cargo hold
   equipmentSlots = 3,
   equipmentLayout = {
     { slot = 1, type = "turret" },

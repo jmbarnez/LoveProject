@@ -11,7 +11,9 @@ function Cargo.new(props)
     self.capacity = props.capacity or DEFAULT_CAPACITY
     self.stackLimit = props.stackLimit or math.huge
     self.massLimit = props.massLimit or nil
+    self.volumeLimit = props.volumeLimit or math.huge
     self.currentMass = 0
+    self.currentVolume = 0
     self.stacks = {}
     self.order = {}
     return self
@@ -21,9 +23,11 @@ function Cargo:clone()
     local copy = Cargo.new({
         capacity = self.capacity,
         stackLimit = self.stackLimit,
-        massLimit = self.massLimit
+        massLimit = self.massLimit,
+        volumeLimit = self.volumeLimit
     })
     copy.currentMass = self.currentMass
+    copy.currentVolume = self.currentVolume
     for _, stack in ipairs(self.order) do
         local entry = self.stacks[stack]
         copy.stacks[stack] = {
@@ -41,7 +45,9 @@ function Cargo:serialize()
         capacity = self.capacity == math.huge and "inf" or self.capacity,
         stackLimit = self.stackLimit == math.huge and "inf" or self.stackLimit,
         massLimit = self.massLimit == math.huge and "inf" or self.massLimit,
+        volumeLimit = self.volumeLimit == math.huge and "inf" or self.volumeLimit,
         currentMass = self.currentMass,
+        currentVolume = self.currentVolume,
         order = Util.deepCopy(self.order),
         stacks = {}
     }
@@ -59,9 +65,11 @@ function Cargo.deserialize(data)
     local component = Cargo.new({
         capacity = data and (data.capacity == "inf" and math.huge or data.capacity),
         stackLimit = data and (data.stackLimit == "inf" and math.huge or data.stackLimit),
-        massLimit = data and (data.massLimit == "inf" and math.huge or data.massLimit)
+        massLimit = data and (data.massLimit == "inf" and math.huge or data.massLimit),
+        volumeLimit = data and (data.volumeLimit == "inf" and math.huge or data.volumeLimit)
     })
     component.currentMass = data and data.currentMass or 0
+    component.currentVolume = data and data.currentVolume or 0
     if data and type(data.stacks) == "table" then
         for slot, entry in pairs(data.stacks) do
             component.stacks[slot] = {
@@ -78,6 +86,12 @@ function Cargo.deserialize(data)
             table.insert(component.order, slot)
         end
     end
+    
+    -- Recalculate volume for existing saves that don't have volume data
+    if not data or not data.currentVolume then
+        component:recalculateVolume()
+    end
+    
     return component
 end
 
@@ -98,6 +112,12 @@ local function uniqueSlot(base, existing)
     return slot
 end
 
+local function getItemVolume(itemId)
+    local Content = require("src.content.content")
+    local item = Content.getItem(itemId)
+    return item and item.volume or 1.0 -- Default to 1.0 m^3 if no volume defined
+end
+
 function Cargo:_ensureSlot(slot)
     if not self.stacks[slot] then
         self.stacks[slot] = { id = nil, qty = 0, meta = nil }
@@ -112,12 +132,20 @@ function Cargo:add(itemId, qty, meta, opts)
     qty = qty or 1
     if qty <= 0 then return false end
 
+    -- Check volume limit
+    local itemVolume = getItemVolume(itemId)
+    local totalVolume = itemVolume * qty
+    if self.currentVolume + totalVolume > self.volumeLimit then
+        return false -- Not enough volume space
+    end
+
     opts = opts or {}
     if opts.slot then
         local entry = self:_ensureSlot(opts.slot)
         entry.id = itemId
         entry.qty = (entry.qty or 0) + qty
         entry.meta = meta and Util.deepCopy(meta) or entry.meta
+        self.currentVolume = self.currentVolume + totalVolume
         return opts.slot
     end
 
@@ -129,6 +157,7 @@ function Cargo:add(itemId, qty, meta, opts)
             entry.id = itemId
             entry.qty = 1
             entry.meta = Util.deepCopy(meta)
+            self.currentVolume = self.currentVolume + itemVolume
             lastSlot = slotId
         end
         return lastSlot
@@ -140,6 +169,7 @@ function Cargo:add(itemId, qty, meta, opts)
             local available = self.stackLimit - entry.qty
             local toAdd = math.min(qty, available)
             entry.qty = entry.qty + toAdd
+            self.currentVolume = self.currentVolume + (itemVolume * toAdd)
             qty = qty - toAdd
             if qty <= 0 then
                 return stackSlot
@@ -155,6 +185,7 @@ function Cargo:add(itemId, qty, meta, opts)
         local toAdd = math.min(qty, self.stackLimit)
         entry.qty = toAdd
         entry.meta = nil
+        self.currentVolume = self.currentVolume + (itemVolume * toAdd)
         qty = qty - toAdd
         lastSlot = slotId
     end
@@ -170,6 +201,7 @@ function Cargo:extract(itemId)
         if entry.id == itemId then
             entry.qty = (entry.qty or 0) - 1
             local meta = entry.meta and Util.deepCopy(entry.meta) or nil
+            self.currentVolume = self.currentVolume - getItemVolume(itemId)
             if entry.meta then
                 self.stacks[slot] = nil
                 table.remove(self.order, idx)
@@ -190,12 +222,14 @@ function Cargo:remove(itemId, qty)
     if qty <= 0 then return true end
 
     local remaining = qty
+    local itemVolume = getItemVolume(itemId)
     for idx = #self.order, 1, -1 do
         local slot = self.order[idx]
         local entry = self.stacks[slot]
         if entry.id == itemId then
             local take = math.min(entry.qty or 0, remaining)
             entry.qty = entry.qty - take
+            self.currentVolume = self.currentVolume - (itemVolume * take)
             remaining = remaining - take
             if entry.qty <= 0 then
                 self.stacks[slot] = nil
@@ -222,6 +256,29 @@ end
 
 function Cargo:has(itemId, qty)
     return self:getQuantity(itemId) >= (qty or 1)
+end
+
+function Cargo:getCurrentVolume()
+    return self.currentVolume
+end
+
+function Cargo:getVolumeLimit()
+    return self.volumeLimit
+end
+
+function Cargo:getVolumeUsed()
+    return self.currentVolume / self.volumeLimit
+end
+
+function Cargo:recalculateVolume()
+    self.currentVolume = 0
+    for _, slot in ipairs(self.order) do
+        local entry = self.stacks[slot]
+        if entry and entry.id and entry.qty then
+            local itemVolume = getItemVolume(entry.id)
+            self.currentVolume = self.currentVolume + (itemVolume * entry.qty)
+        end
+    end
 end
 
 function Cargo:iterate(cb)

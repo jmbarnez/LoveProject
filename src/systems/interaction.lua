@@ -75,36 +75,24 @@ function InteractionSystem.interact(player)
     -- Generate multiple possible rewards for the wheel
     local possibleRewards = {}
     
-    -- Add GC rewards
-    for i = 1, 3 do
-      table.insert(possibleRewards, {
-        gc = math.random(200, 500),
-        item = nil,
-        qty = 0
-      })
-    end
-    
-    -- Add item rewards
-    local rewardItems = {
-      "ore_tritanium", "ore_palladium", "stones", "scraps"
-    }
-    for i = 1, 4 do
-      local rewardItem = rewardItems[math.random(1, #rewardItems)]
-      local rewardQty = math.random(5, 15)
+    -- Add GC-only rewards (half the cards) - now as items
+    for i = 1, 5 do
       table.insert(possibleRewards, {
         gc = 0,
-        item = rewardItem,
-        qty = rewardQty
+        item = "gc",
+        qty = math.random(150, 400)
       })
     end
     
-    -- Add mixed rewards
-    for i = 1, 2 do
-      local gcReward = math.random(100, 300)
+    -- Add item-only rewards (half the cards)
+    local rewardItems = {
+      "ore_tritanium", "ore_palladium", "stones", "scraps", "reward_crate_key"
+    }
+    for i = 1, 5 do
       local rewardItem = rewardItems[math.random(1, #rewardItems)]
-      local rewardQty = math.random(3, 8)
+      local rewardQty = math.random(3, 12)
       table.insert(possibleRewards, {
-        gc = gcReward,
+        gc = 0,
         item = rewardItem,
         qty = rewardQty
       })

@@ -622,13 +622,23 @@ function Inventory.drawContent(window, x, y, w, h)
     Theme.drawGradientGlowRect(x, infoBarY, w, infoBarHeight, 4, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak)
 
     local itemCount = #items
-    local totalSlots = 24
     local credits = player.getGC and player:getGC() or 0
+    
+    -- Get cargo volume information
+    local cargo = player.components and player.components.cargo
+    local currentVolume = cargo and cargo:getCurrentVolume() or 0
+    local volumeLimit = cargo and cargo:getVolumeLimit() or math.huge
+    local volumeText = ""
+    if volumeLimit == math.huge then
+        volumeText = string.format("Volume: %.1f m³", currentVolume)
+    else
+        volumeText = string.format("Volume: %.1f/%.1f m³", currentVolume, volumeLimit)
+    end
 
     local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
     love.graphics.setFont(font)
     Theme.setColor(Theme.colors.textSecondary)
-    love.graphics.print("Items: " .. itemCount .. "/" .. totalSlots, x + 8, infoBarY + 3)
+    love.graphics.print(volumeText, x + 8, infoBarY + 3)
 
     local creditText = Util.formatNumber(credits) .. " GC"
     local creditWidth = font:getWidth(creditText)

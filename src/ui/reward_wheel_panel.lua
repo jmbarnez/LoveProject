@@ -122,13 +122,13 @@ function RewardWheelPanel.giveRewards()
     local player = RewardWheelPanel.player
     local reward = RewardWheelPanel.selectedReward
     
-    -- Give GC reward
-    if reward.gc and reward.gc > 0 then
-        player:addGC(reward.gc)
-    end
-    
-    -- Give item reward
+    -- Give item reward (including GC as an item)
     if reward.item and reward.qty and reward.qty > 0 then
+        if reward.item == "gc" then
+            -- Handle GC as currency
+            player:addGC(reward.qty)
+        else
+            -- Handle regular items
         local cargo = player.components.cargo
         if cargo then
             local added = player:addItem(reward.item, reward.qty)
@@ -141,6 +141,7 @@ function RewardWheelPanel.giveRewards()
                     local world = getWorld()
                     if world then
                         world:addEntity(pickup)
+                        end
                     end
                 end
             end
@@ -149,28 +150,36 @@ function RewardWheelPanel.giveRewards()
     
     -- Show notification
     local rewardText = ""
-    if reward.gc and reward.gc > 0 then
-        rewardText = rewardText .. "+" .. reward.gc .. " GC"
-    end
     if reward.item and reward.qty and reward.qty > 0 then
+        if reward.item == "gc" then
+            rewardText = "+" .. reward.qty .. " GC"
+        else
         local itemName = reward.item:gsub("_", " "):gsub("^%l", string.upper)
-        if rewardText ~= "" then
-            rewardText = rewardText .. ", "
+            rewardText = "+" .. reward.qty .. "x " .. itemName
         end
-        rewardText = rewardText .. reward.qty .. "x " .. itemName
     end
     
     Notifications.add("Reward: " .. rewardText, "success")
 end
 
--- Helper function to get reward type color
+-- Helper function to get reward type color with more vibrant colors
 local function getRewardTypeColor(reward)
-    if reward.gc and reward.gc > 0 and reward.item and reward.qty and reward.qty > 0 then
-        return {0.8, 0.6, 0.2, 1.0} -- Gold for mixed rewards
-    elseif reward.gc and reward.gc > 0 then
-        return {0.2, 0.8, 0.2, 1.0} -- Green for GC only
-    elseif reward.item and reward.qty and reward.qty > 0 then
-        return {0.2, 0.4, 0.8, 1.0} -- Blue for items only
+    if reward.item and reward.qty and reward.qty > 0 then
+        -- Different colors based on item type
+        local itemName = reward.item:lower()
+        if itemName == "gc" then
+            return {0.2, 1.0, 0.4, 1.0} -- Bright green for GC
+        elseif itemName:find("ore") or itemName:find("mineral") then
+            return {0.8, 0.4, 0.2, 1.0} -- Orange for ores/minerals
+        elseif itemName:find("scrap") or itemName:find("junk") then
+            return {0.6, 0.6, 0.6, 1.0} -- Silver for scrap
+        elseif itemName:find("module") or itemName:find("shield") then
+            return {0.2, 0.6, 1.0, 1.0} -- Cyan for modules
+        elseif itemName:find("key") or itemName:find("crate") then
+            return {0.8, 0.2, 0.8, 1.0} -- Purple for keys/crates
+        else
+            return {0.2, 0.4, 0.8, 1.0} -- Blue for other items
+        end
     else
         return {0.5, 0.5, 0.5, 1.0} -- Gray for unknown
     end
@@ -180,9 +189,7 @@ function RewardWheelPanel.drawContent(self, x, y, w, h)
     local centerX = x + w * 0.5
     local centerY = y + h * 0.5
     
-    -- Draw background
-    Theme.setColor(Theme.colors.bg2)
-    love.graphics.rectangle("fill", x, y, w, h)
+    -- Skip background drawing to let cards show through
     
     -- Draw title
     love.graphics.setFont(Theme.fonts.large)
@@ -190,69 +197,110 @@ function RewardWheelPanel.drawContent(self, x, y, w, h)
     love.graphics.printf("🎁 REWARD SELECTOR 🎁", x + 20, y + 20, w - 40, "center")
     
     -- Draw side cards (smaller, dimmed)
-    local sideCardWidth = 70
+    local sideCardWidth = 80
     local sideCardHeight = 100
     local centerCardWidth = 160
     local centerCardHeight = 200
-    local cardSpacing = 8
+    local cardSpacing = 10
     
     -- Draw left side cards
-    for i = 1, math.min(3, #RewardWheelPanel.rewards) do
+    for i = 1, math.min(5, #RewardWheelPanel.rewards) do
         local cardX = x + 20 + (i - 1) * (sideCardWidth + cardSpacing)
         local cardY = centerY - sideCardHeight * 0.5
         
         local reward = RewardWheelPanel.rewards[i]
         local cardColor = getRewardTypeColor(reward)
         
-        -- Dimmed background
-        Theme.setColor(cardColor[1] * 0.3, cardColor[2] * 0.3, cardColor[3] * 0.3, 0.6)
-        love.graphics.rectangle("fill", cardX, cardY, sideCardWidth, sideCardHeight, 6, 6)
+        -- Black background
+        love.graphics.setColor(0.0, 0.0, 0.0, 1.0) -- Pure black
+        love.graphics.rectangle("fill", cardX, cardY, sideCardWidth, sideCardHeight, 8, 8)
         
-        -- Border
-        Theme.setColor(cardColor[1] * 0.6, cardColor[2] * 0.6, cardColor[3] * 0.6, 0.8)
-        love.graphics.setLineWidth(2)
-        love.graphics.rectangle("line", cardX, cardY, sideCardWidth, sideCardHeight, 6, 6)
+        -- Colored border
+        Theme.setColor(cardColor[1], cardColor[2], cardColor[3], 1.0)
+        love.graphics.setLineWidth(3)
+        love.graphics.rectangle("line", cardX, cardY, sideCardWidth, sideCardHeight, 8, 8)
         
-        -- Type indicator
-        love.graphics.setFont(Theme.fonts.small)
-        Theme.setColor(Theme.colors.textSecondary)
-        if reward.gc and reward.gc > 0 then
-            love.graphics.printf("💰", cardX + 2, cardY + 8, sideCardWidth - 4, "center")
-        elseif reward.item and reward.qty and reward.qty > 0 then
-            love.graphics.printf("📦", cardX + 2, cardY + 8, sideCardWidth - 4, "center")
+        -- Draw item icon or GC symbol
+        local iconSize = 32
+        local iconX = cardX + (sideCardWidth - iconSize) * 0.5
+        local iconY = cardY + 12
+        
+        if reward.item and reward.qty and reward.qty > 0 then
+            -- Draw item icon with safer fallback
+            local success, item = pcall(function() return Content.getItem(reward.item) end)
+            if success and item and item.icon and type(item.icon) == "userdata" then
+                love.graphics.setColor(0.9, 0.9, 0.9, 0.9) -- Light gray instead of white
+                love.graphics.draw(item.icon, iconX, iconY, 0, iconSize / 128, iconSize / 128)
+            else
+                -- Fallback to emoji
+                love.graphics.setFont(Theme.fonts.large)
+                Theme.setColor(0.9, 0.9, 0.9, 0.9) -- Light gray instead of white
+                love.graphics.printf("📦", iconX - 8, iconY - 8, iconSize + 16, "center")
+            end
         end
+        
+        -- Draw amount underneath
+        love.graphics.setFont(Theme.fonts.small)
+        love.graphics.setColor(1.0, 1.0, 1.0, 1.0) -- White text for visibility
+        local amountText = ""
+        if reward.item and reward.qty and reward.qty > 0 then
+            amountText = tostring(reward.qty) .. "x"
+        end
+        love.graphics.printf(amountText, cardX + 2, iconY + iconSize + 4, sideCardWidth - 4, "center")
     end
     
     -- Draw right side cards
-    for i = math.max(1, #RewardWheelPanel.rewards - 2), #RewardWheelPanel.rewards do
-        if i > 3 then -- Skip if already drawn on left
-            local cardX = x + w - 20 - sideCardWidth - ((#RewardWheelPanel.rewards - i) * (sideCardWidth + cardSpacing))
+    local rightCardStart = 6
+    for i = rightCardStart, #RewardWheelPanel.rewards do
+        local rightIndex = i - rightCardStart + 1
+        local cardX = x + w - 20 - (rightIndex * (sideCardWidth + cardSpacing))
             local cardY = centerY - sideCardHeight * 0.5
             
             local reward = RewardWheelPanel.rewards[i]
             local cardColor = getRewardTypeColor(reward)
             
-            -- Dimmed background
-            Theme.setColor(cardColor[1] * 0.3, cardColor[2] * 0.3, cardColor[3] * 0.3, 0.6)
-            love.graphics.rectangle("fill", cardX, cardY, sideCardWidth, sideCardHeight, 6, 6)
-            
-            -- Border
-            Theme.setColor(cardColor[1] * 0.6, cardColor[2] * 0.6, cardColor[3] * 0.6, 0.8)
-            love.graphics.setLineWidth(2)
-            love.graphics.rectangle("line", cardX, cardY, sideCardWidth, sideCardHeight, 6, 6)
-            
-            -- Type indicator
-            love.graphics.setFont(Theme.fonts.small)
-            Theme.setColor(Theme.colors.textSecondary)
+        -- Black background
+        love.graphics.setColor(0.0, 0.0, 0.0, 1.0) -- Pure black
+        love.graphics.rectangle("fill", cardX, cardY, sideCardWidth, sideCardHeight, 8, 8)
+        
+        -- Colored border
+        Theme.setColor(cardColor[1], cardColor[2], cardColor[3], 1.0)
+        love.graphics.setLineWidth(3)
+        love.graphics.rectangle("line", cardX, cardY, sideCardWidth, sideCardHeight, 8, 8)
+        
+        -- Draw item icon or GC symbol
+        local iconSize = 32
+        local iconX = cardX + (sideCardWidth - iconSize) * 0.5
+        local iconY = cardY + 12
+        
             if reward.gc and reward.gc > 0 then
-                love.graphics.printf("💰", cardX + 2, cardY + 8, sideCardWidth - 4, "center")
+            -- Draw GC icon
+            Theme.drawCurrencyToken(iconX, iconY, iconSize)
             elseif reward.item and reward.qty and reward.qty > 0 then
-                love.graphics.printf("📦", cardX + 2, cardY + 8, sideCardWidth - 4, "center")
+            -- Draw item icon with safer fallback
+            local success, item = pcall(function() return Content.getItem(reward.item) end)
+            if success and item and item.icon and type(item.icon) == "userdata" then
+                love.graphics.setColor(0.9, 0.9, 0.9, 0.9) -- Light gray instead of white
+                love.graphics.draw(item.icon, iconX, iconY, 0, iconSize / 128, iconSize / 128)
+            else
+                -- Fallback to emoji
+                love.graphics.setFont(Theme.fonts.large)
+                Theme.setColor(0.9, 0.9, 0.9, 0.9) -- Light gray instead of white
+                love.graphics.printf("📦", iconX - 8, iconY - 8, iconSize + 16, "center")
             end
         end
+        
+        -- Draw amount underneath
+        love.graphics.setFont(Theme.fonts.small)
+        love.graphics.setColor(1.0, 1.0, 1.0, 1.0) -- White text for visibility
+        local amountText = ""
+        if reward.item and reward.qty and reward.qty > 0 then
+            amountText = tostring(reward.qty) .. "x"
+        end
+        love.graphics.printf(amountText, cardX + 2, iconY + iconSize + 4, sideCardWidth - 4, "center")
     end
     
-    -- Draw center card (the main one)
+    -- Draw center card (the main one) - positioned between left and right cards
     local centerCardX = centerX - centerCardWidth * 0.5
     local centerCardY = centerY - centerCardHeight * 0.5
     
@@ -260,59 +308,55 @@ function RewardWheelPanel.drawContent(self, x, y, w, h)
         local reward = RewardWheelPanel.rewards[RewardWheelPanel.currentCardIndex]
         local cardColor = getRewardTypeColor(reward)
         
-        -- Glow effect
-        Theme.setColor(cardColor[1], cardColor[2], cardColor[3], 0.3)
-        love.graphics.rectangle("fill", centerCardX - 8, centerCardY - 8, centerCardWidth + 16, centerCardHeight + 16, 12, 12)
+        -- Subtle glow effect
+        Theme.setColor(cardColor[1], cardColor[2], cardColor[3], 0.2)
+        love.graphics.rectangle("fill", centerCardX - 6, centerCardY - 6, centerCardWidth + 12, centerCardHeight + 12, 14, 14)
         
-        -- Main card background
+        -- Black background
+        love.graphics.setColor(0.0, 0.0, 0.0, 1.0) -- Pure black
+        love.graphics.rectangle("fill", centerCardX, centerCardY, centerCardWidth, centerCardHeight, 12, 12)
+        
+        -- Colored border
         Theme.setColor(cardColor[1], cardColor[2], cardColor[3], 1.0)
-        love.graphics.rectangle("fill", centerCardX, centerCardY, centerCardWidth, centerCardHeight, 10, 10)
+        love.graphics.setLineWidth(4)
+        love.graphics.rectangle("line", centerCardX, centerCardY, centerCardWidth, centerCardHeight, 12, 12)
         
-        -- Card border
-        Theme.setColor(Theme.colors.border)
-        love.graphics.setLineWidth(3)
-        love.graphics.rectangle("line", centerCardX, centerCardY, centerCardWidth, centerCardHeight, 10, 10)
+        -- Draw large item icon or GC symbol
+        local iconSize = 80
+        local iconX = centerCardX + (centerCardWidth - iconSize) * 0.5
+        local iconY = centerCardY + 20
         
-        -- Card content
-        love.graphics.setFont(Theme.fonts.small)
-        Theme.setColor(Theme.colors.text)
-        
-        local rewardText = ""
-        if reward.gc and reward.gc > 0 then
-            rewardText = rewardText .. "💰\n" .. reward.gc .. " GC"
-        end
         if reward.item and reward.qty and reward.qty > 0 then
-            local itemName = reward.item:gsub("_", " "):gsub("^%l", string.upper)
-            -- Truncate long item names
-            if #itemName > 12 then
-                itemName = itemName:sub(1, 9) .. "..."
+            -- Draw large item icon
+            local item = Content.getItem(reward.item)
+            if item and item.icon then
+                love.graphics.setColor(1, 1, 1, 1.0)
+                love.graphics.draw(item.icon, iconX, iconY, 0, iconSize / 128, iconSize / 128)
+            else
+                -- Fallback to emoji
+                love.graphics.setFont(Theme.fonts.large)
+                Theme.setColor(0.9, 0.9, 0.9, 1.0) -- Light gray instead of white
+                love.graphics.printf("📦", iconX - 20, iconY - 20, iconSize + 40, "center")
             end
-            if rewardText ~= "" then
-                rewardText = rewardText .. "\n\n"
-            end
-            rewardText = rewardText .. "📦\n" .. reward.qty .. "x " .. itemName
         end
         
-        -- Calculate text area within card
-        local textX = centerCardX + 12
-        local textY = centerCardY + 50
-        local textWidth = centerCardWidth - 24
-        local textHeight = centerCardHeight - 80
+        -- Draw amount underneath icon
+        love.graphics.setFont(Theme.fonts.medium)
+        Theme.setColor(0.9, 0.9, 0.9, 1.0) -- Light gray instead of white
+        local amountText = ""
+        if reward.item and reward.qty and reward.qty > 0 then
+            if reward.item == "gc" then
+                amountText = tostring(reward.qty) .. " GC"
+            else
+                amountText = tostring(reward.qty) .. "x"
+            end
+        end
+        love.graphics.printf(amountText, centerCardX + 12, iconY + iconSize + 8, centerCardWidth - 24, "center")
         
-        love.graphics.printf(rewardText, textX, textY, textWidth, "center")
     end
     
-    -- Draw status and controls
-    love.graphics.setFont(Theme.fonts.medium)
-    Theme.setColor(Theme.colors.text)
-    
-    if RewardWheelPanel.scrolling then
-        local dots = string.rep(".", math.floor((love.timer.getTime() * 4) % 4))
-        love.graphics.printf("Selecting reward" .. dots, x + 20, y + h - 80, w - 40, "center")
-    elseif RewardWheelPanel.showingResult then
-        Theme.setColor(Theme.colors.accent)
-        love.graphics.printf("🎉 You won this reward! 🎉", x + 20, y + h - 80, w - 40, "center")
-        
+    -- Draw claim button when showing result
+    if RewardWheelPanel.showingResult then
         -- Draw claim button using standard button system
         local buttonWidth = 120
         local buttonHeight = 40

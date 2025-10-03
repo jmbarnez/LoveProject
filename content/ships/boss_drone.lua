@@ -79,6 +79,7 @@ return {
 
   bounty = 60,
   xpReward = 100,
+  cargo = { capacity = 50, volumeLimit = 25.0 }, -- 25 m^3 cargo hold for boss drone
 
   enemy = {
     isBoss = true,
@@ -95,10 +96,10 @@ return {
   loot = {
     drops = {
       { id = "reward_crate_key", min = 1, max = 1, chance = 0.75 },
-      { id = "scraps", min = 5, max = 10, chance = 0.9 },
-      { id = "broken_circuitry", min = 3, max = 6, chance = 0.8 },
-      { id = "ore_tritanium", min = 4, max = 8, chance = 0.7 },
-      { id = "ore_palladium", min = 2, max = 4, chance = 0.5 },
+      { id = "scraps", min = 3, max = 6, chance = 0.8 },
+      { id = "broken_circuitry", min = 2, max = 4, chance = 0.6 },
+      { id = "ore_tritanium", min = 2, max = 5, chance = 0.5 },
+      { id = "ore_palladium", min = 1, max = 3, chance = 0.3 },
       { id = "gun_turret", chance = 0.15 },
       { id = "combat_laser", chance = 0.12 },
       { id = "missile_launcher", chance = 0.08 },
