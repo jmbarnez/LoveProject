@@ -115,11 +115,11 @@ local function rgbToHsv(r, g, b)
     local max = math.max(r, g, b)
     local min = math.min(r, g, b)
     local diff = max - min
-    
+
     local h = 0
     local s = max == 0 and 0 or (diff / max)
     local v = max
-    
+
     if diff ~= 0 then
         if max == r then
             h = ((g - b) / diff) % 6
@@ -131,8 +131,93 @@ local function rgbToHsv(r, g, b)
         h = h * 60
         if h < 0 then h = h + 360 end
     end
-    
+
     return { h = h, s = s, v = v }
+end
+
+local function handleReticleGalleryClick(screenX, screenY)
+    if not reticleGalleryOpen then
+        return false
+    end
+
+    if SettingsPanel._reticleDone and screenX >= SettingsPanel._reticleDone._rect.x and screenX <= SettingsPanel._reticleDone._rect.x + SettingsPanel._reticleDone._rect.w and
+       screenY >= SettingsPanel._reticleDone._rect.y and screenY <= SettingsPanel._reticleDone._rect.y + SettingsPanel._reticleDone._rect.h then
+        reticleGalleryOpen = false
+        return true
+    end
+
+    if SettingsPanel._reticlePopup and screenX >= SettingsPanel._reticlePopup.x and screenY >= SettingsPanel._reticlePopup.y then
+        local col = math.floor((screenX - SettingsPanel._reticlePopup.x) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
+        local row = math.floor((screenY - SettingsPanel._reticlePopup.y) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
+        if col >= 0 and col < SettingsPanel._reticlePopup.cols and row >= 0 and row < SettingsPanel._reticlePopup.rows then
+            local index = row * SettingsPanel._reticlePopup.cols + col + 1
+            if index >= 1 and index <= 50 then
+                currentGraphicsSettings.reticle_style = index
+                return true
+            end
+        end
+    end
+
+    if SettingsPanel._reticleSpectrum and screenX >= SettingsPanel._reticleSpectrum.x and screenX <= SettingsPanel._reticleSpectrum.x + SettingsPanel._reticleSpectrum.w and
+       screenY >= SettingsPanel._reticleSpectrum.y and screenY <= SettingsPanel._reticleSpectrum.y + SettingsPanel._reticleSpectrum.h then
+        local h = ((screenX - SettingsPanel._reticleSpectrum.x) / SettingsPanel._reticleSpectrum.w) * 360
+        local v = 1.0 - ((screenY - SettingsPanel._reticleSpectrum.y) / SettingsPanel._reticleSpectrum.h)
+        local s = 1.0
+
+        local r, g, b = hsvToRgb(h, s, v)
+
+        currentGraphicsSettings.reticle_color_rgb = {r, g, b, 1.0}
+        currentGraphicsSettings.reticle_color = nil
+        return true
+    end
+
+    local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
+    local gw, gh = 700, 600
+    local gx, gy = (sw - gw) / 2, (sh - gh) / 2
+    if screenX >= gx and screenX <= gx + gw and screenY >= gy and screenY <= gy + gh then
+        return true
+    end
+
+    return false
+end
+
+local function handleAccentGalleryClick(screenX, screenY)
+    if not accentGalleryOpen then
+        return false
+    end
+
+    if SettingsPanel._accentDone and screenX >= SettingsPanel._accentDone._rect.x and screenX <= SettingsPanel._accentDone._rect.x + SettingsPanel._accentDone._rect.w and
+       screenY >= SettingsPanel._accentDone._rect.y and screenY <= SettingsPanel._accentDone._rect.y + SettingsPanel._accentDone._rect.h then
+        accentGalleryOpen = false
+        return true
+    end
+
+    if SettingsPanel._accentSpectrum and screenX >= SettingsPanel._accentSpectrum.x and screenX <= SettingsPanel._accentSpectrum.x + SettingsPanel._accentSpectrum.w and
+       screenY >= SettingsPanel._accentSpectrum.y and screenY <= SettingsPanel._accentSpectrum.y + SettingsPanel._accentSpectrum.h then
+        local h = ((screenX - SettingsPanel._accentSpectrum.x) / SettingsPanel._accentSpectrum.w) * 360
+        local v = 1.0 - ((screenY - SettingsPanel._accentSpectrum.y) / SettingsPanel._accentSpectrum.h)
+        local s = 1.0
+
+        local r, g, b = hsvToRgb(h, s, v)
+
+        accentColorSliders.r.value = r
+        accentColorSliders.g.value = g
+        accentColorSliders.b.value = b
+
+        currentGraphicsSettings.accent_theme = "Custom"
+        currentGraphicsSettings.accent_color_rgb = {r, g, b, 1.0}
+        applyCustomAccentColor(r, g, b)
+        return true
+    end
+
+    local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
+    local gw, gh = 600, 450
+    local gx, gy = (sw - gw) / 2, (sh - gh) / 2
+    if screenX >= gx and screenX <= gx + gw and screenY >= gy and screenY <= gy + gh then
+        return true
+    end
+
+    return false
 end
 
 -- Slider hover tracking
@@ -955,6 +1040,13 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     -- Use raw screen coordinates for all checks
     local x, y = raw_x, raw_y
 
+    -- Also have screen coords for popups drawn in screen space
+    local screenX, screenY = Viewport.toScreen(x, y)
+
+    -- Handle overlay popups before any other UI so input doesn't leak through
+    if handleReticleGalleryClick(screenX, screenY) then return true end
+    if handleAccentGalleryClick(screenX, screenY) then return true end
+
     -- Get geometry from the window object
     local win = SettingsPanel.window
     local panelX, panelY, w, h = win.x, win.y, win.width, win.height
@@ -965,8 +1057,6 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     local valueX = contentX + 150
     local dropdownW = 150
     local itemHeight = 40
-    -- Also have screen coords for popups drawn in screen space
-    local screenX, screenY = Viewport.toScreen(x, y)
 
     -- Check if click is outside the panel
     local isInsidePanel = x >= panelX and x <= panelX + w and y >= panelY and y <= panelY + h
@@ -1018,85 +1108,6 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     if x >= resetButtonX and x <= resetButtonX + buttonW and y >= buttonY and y <= buttonY + buttonH then
         SettingsPanel.resetToDefaults()
         return true
-    end
-
-    -- Handle reticle gallery pop-up interactions (popup is drawn in screen coords)
-    if reticleGalleryOpen then
-        if SettingsPanel._reticleDone and screenX >= SettingsPanel._reticleDone._rect.x and screenX <= SettingsPanel._reticleDone._rect.x + SettingsPanel._reticleDone._rect.w and
-           screenY >= SettingsPanel._reticleDone._rect.y and screenY <= SettingsPanel._reticleDone._rect.y + SettingsPanel._reticleDone._rect.h then
-            reticleGalleryOpen = false
-            return true
-        end
-        if SettingsPanel._reticlePopup and screenX >= SettingsPanel._reticlePopup.x and screenY >= SettingsPanel._reticlePopup.y then
-            local col = math.floor((screenX - SettingsPanel._reticlePopup.x) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
-            local row = math.floor((screenY - SettingsPanel._reticlePopup.y) / (SettingsPanel._reticlePopup.cell + SettingsPanel._reticlePopup.gap))
-            if col >= 0 and col < SettingsPanel._reticlePopup.cols and row >= 0 and row < SettingsPanel._reticlePopup.rows then
-                local index = row * SettingsPanel._reticlePopup.cols + col + 1
-                if index >= 1 and index <= 50 then
-                    currentGraphicsSettings.reticle_style = index
-                    return true
-                end
-            end
-        end
-        if SettingsPanel._reticleSpectrum and screenX >= SettingsPanel._reticleSpectrum.x and screenX <= SettingsPanel._reticleSpectrum.x + SettingsPanel._reticleSpectrum.w and
-           screenY >= SettingsPanel._reticleSpectrum.y and screenY <= SettingsPanel._reticleSpectrum.y + SettingsPanel._reticleSpectrum.h then
-            -- Convert click position to HSV
-            local h = ((screenX - SettingsPanel._reticleSpectrum.x) / SettingsPanel._reticleSpectrum.w) * 360
-            local v = 1.0 - ((screenY - SettingsPanel._reticleSpectrum.y) / SettingsPanel._reticleSpectrum.h)
-            local s = 1.0  -- Full saturation
-            
-            -- Convert HSV to RGB
-            local r, g, b = hsvToRgb(h, s, v)
-            
-            -- Apply the color
-            currentGraphicsSettings.reticle_color_rgb = {r, g, b, 1.0}
-            currentGraphicsSettings.reticle_color = nil  -- Clear legacy color name
-            return true
-        end
-        -- If in reticle popup, consume the click so it doesn't affect underlying UI
-        local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
-        local gw, gh = 700, 600
-        local gx, gy = (sw - gw) / 2, (sh - gh) / 2
-        if screenX >= gx and screenX <= gx + gw and screenY >= gy and screenY <= gy + gh then
-            return true
-        end
-    end
-
-    -- Handle accent gallery pop-up interactions (popup is drawn in screen coords)
-    if accentGalleryOpen then
-        if SettingsPanel._accentDone and screenX >= SettingsPanel._accentDone._rect.x and screenX <= SettingsPanel._accentDone._rect.x + SettingsPanel._accentDone._rect.w and
-           screenY >= SettingsPanel._accentDone._rect.y and screenY <= SettingsPanel._accentDone._rect.y + SettingsPanel._accentDone._rect.h then
-            accentGalleryOpen = false
-            return true
-        end
-        if SettingsPanel._accentSpectrum and screenX >= SettingsPanel._accentSpectrum.x and screenX <= SettingsPanel._accentSpectrum.x + SettingsPanel._accentSpectrum.w and
-           screenY >= SettingsPanel._accentSpectrum.y and screenY <= SettingsPanel._accentSpectrum.y + SettingsPanel._accentSpectrum.h then
-            -- Convert click position to HSV
-            local h = ((screenX - SettingsPanel._accentSpectrum.x) / SettingsPanel._accentSpectrum.w) * 360
-            local v = 1.0 - ((screenY - SettingsPanel._accentSpectrum.y) / SettingsPanel._accentSpectrum.h)
-            local s = 1.0  -- Full saturation
-            
-            -- Convert HSV to RGB
-            local r, g, b = hsvToRgb(h, s, v)
-            
-            -- Update color values
-            accentColorSliders.r.value = r
-            accentColorSliders.g.value = g
-            accentColorSliders.b.value = b
-            
-            -- Apply the color
-            currentGraphicsSettings.accent_theme = "Custom"
-            currentGraphicsSettings.accent_color_rgb = {r, g, b, 1.0}
-            applyCustomAccentColor(r, g, b)
-            return true
-        end
-        -- If in accent popup, consume the click so it doesn't affect underlying UI
-        local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
-        local gw, gh = 600, 450
-        local gx, gy = (sw - gw) / 2, (sh - gh) / 2
-        if screenX >= gx and screenX <= gx + gw and screenY >= gy and screenY <= gy + gh then
-            return true
-        end
     end
 
     -- Handle scrollbar clicking and dragging
