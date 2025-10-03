@@ -423,49 +423,38 @@ function UI.drawHelpers(player, world, hub, camera)
           local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
           local previousFont = love.graphics.getFont()
           
-          -- Button color based on key availability
-          local buttonColor = hasKey and {0, 0.3, 0, 1} or {0.3, 0, 0, 1}
-          local hoverColor = hasKey and {0, 0.4, 0, 1} or {0.4, 0, 0, 1}
-          local activeColor = hasKey and {0, 0.5, 0, 1} or {0.5, 0, 0, 1}
+          -- Button color and text based on key availability
+          local buttonColor, buttonText, textColor
+          if hasKey then
+            buttonColor = {0, 0.6, 0, 1} -- Green
+            buttonText = "Open"
+            textColor = Theme.colors.success or {0, 0.8, 0, 1}
+          else
+            buttonColor = {0.6, 0, 0, 1} -- Red
+            buttonText = "Locked"
+            textColor = Theme.colors.danger or {0.8, 0, 0, 1}
+          end
           
-          cratePromptState.collectRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "Open", hover, false, {
+          local hoverColor = {buttonColor[1] + 0.2, buttonColor[2] + 0.2, buttonColor[3] + 0.2, 1}
+          local activeColor = {buttonColor[1] + 0.3, buttonColor[2] + 0.3, buttonColor[3] + 0.3, 1}
+          
+          cratePromptState.collectRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, buttonText, hover, false, {
             font = buttonFont,
             bg = buttonColor,
             hoverBg = hoverColor,
             activeBg = activeColor,
           })
 
-          -- Draw reward crate icon and label
-          local itemDef = Content.getItem("reward_crate")
-          local label = (itemDef and itemDef.name) or "Reward Crate"
-          local labelFont = (Theme.fonts and Theme.fonts.small) or love.graphics.getFont()
-          love.graphics.setFont(labelFont)
-          Theme.setColor(Theme.colors.text)
-          love.graphics.printf(label, cratePromptState.collectRect.x, cratePromptState.collectRect.y - labelFont:getHeight() - 6, cratePromptState.collectRect.w, "center")
-
-          -- Draw key requirement with icon
-          local keyDef = Content.getItem("reward_crate_key")
-          local keyName = (keyDef and keyDef.name) or "Reward Key"
-          local noteFont = (Theme.fonts and Theme.fonts.tiny) or labelFont
-          love.graphics.setFont(noteFont)
+          -- Draw text under the button
+          local textFont = (Theme.fonts and Theme.fonts.small) or love.graphics.getFont()
+          love.graphics.setFont(textFont)
+          Theme.setColor(textColor)
           
-          local keyColor = hasKey and (Theme.colors.success or {0, 0.8, 0, 1}) or (Theme.colors.danger or {0.8, 0, 0, 1})
-          Theme.setColor(keyColor)
-          
-          -- Draw key icon if available
-          if keyDef and keyDef.icon then
-            local iconSize = 12
-            local iconX = cratePromptState.collectRect.x + 8
-            local iconY = cratePromptState.collectRect.y + cratePromptState.collectRect.h + 6
-            UI.drawIcon(keyDef.icon, iconX, iconY, iconSize)
-            
-            -- Draw key count next to icon
-            local keyText = string.format("%s: %d/1", keyName, keyCount)
-            love.graphics.print(keyText, iconX + iconSize + 4, iconY + 2)
-          else
-            local keyText = string.format("%s: %d/1", keyName, keyCount)
-            love.graphics.printf(keyText, cratePromptState.collectRect.x - 40, cratePromptState.collectRect.y + cratePromptState.collectRect.h + 6, cratePromptState.collectRect.w + 80, "center")
-          end
+          local textToShow = hasKey and "Open" or "Reward Key Required"
+          local textWidth = textFont:getWidth(textToShow)
+          local textX = buttonX + (buttonW - textWidth) / 2
+          local textY = buttonY + buttonH + 8
+          love.graphics.print(textToShow, textX, textY)
 
           if previousFont then
             love.graphics.setFont(previousFont)

@@ -402,18 +402,7 @@ function Start:draw()
   local settingsButtonY = 20 * s
   local settingsHover = mx >= settingsButtonX and mx <= settingsButtonX + settingsButtonSize and my >= settingsButtonY and my <= settingsButtonY + settingsButtonSize
 
-  -- Draw settings button background
-  local settingsBgColor = settingsHover and {0.2, 0.2, 0.2, 0.8} or {0.1, 0.1, 0.1, 0.6}
-  Theme.setColor(settingsBgColor)
-  love.graphics.rectangle("fill", settingsButtonX, settingsButtonY, settingsButtonSize, settingsButtonSize)
-
-  -- Draw settings button border
-  local settingsBorderColor = settingsHover and {0.6, 0.6, 0.6, 1.0} or {0.4, 0.4, 0.4, 1.0}
-  Theme.setColor(settingsBorderColor)
-  love.graphics.setLineWidth(1)
-  love.graphics.rectangle("line", settingsButtonX, settingsButtonY, settingsButtonSize, settingsButtonSize)
-
-  -- Draw cog icon
+  -- Draw cog icon only (no background or border)
   Theme.setColor(settingsHover and {0.9, 0.9, 0.9, 1.0} or {0.7, 0.7, 0.7, 1.0})
   drawCogIcon(settingsButtonX + settingsButtonSize/2, settingsButtonY + settingsButtonSize/2, settingsButtonSize * 0.4)
 

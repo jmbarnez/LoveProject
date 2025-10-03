@@ -36,7 +36,6 @@ local settings = {
     keymap = {
         toggle_inventory = { primary = "tab" },
         toggle_ship = { primary = "g" },
-        toggle_bounty = { primary = "b" },
         toggle_skills = { primary = "p" },
         toggle_map = { primary = "m" },
         repair_beacon = { primary = "r" },

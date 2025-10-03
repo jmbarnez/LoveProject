@@ -787,18 +787,7 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
 
   local t = t or love.timer.getTime()
   
-  -- Play hover sound effect (only once per hover state)
-  if hover and not (opts and opts._hoverPlayed) then
-    local UISounds = require("src.ui.sounds")
-    if UISounds and UISounds.playButtonHover then
-      UISounds.playButtonHover()
-    end
-    -- Mark as played to avoid repeated sounds
-    if opts then opts._hoverPlayed = true end
-  elseif not hover and opts then
-    -- Reset hover sound flag when not hovering
-    opts._hoverPlayed = false
-  end
+  -- No hover sounds - only click sounds for better UX
   
   -- Transparent background with accent border/text
   local baseColor = {0, 0, 0, 0} -- Fully transparent background
@@ -1032,6 +1021,7 @@ Theme.components = {
     modifierHeaderSpacing = 6, -- Better space before modifier section
   },
 }
+
 
 -- Dark space-themed turret slot colors (monochrome theme)
 Theme.turretSlotColors = {

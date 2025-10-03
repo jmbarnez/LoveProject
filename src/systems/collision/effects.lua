@@ -105,6 +105,11 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         end
     end
 
+    -- Apply global enemy damage multiplier (x2)
+    if source and (source.isEnemy or (source.components and source.components.ai)) then
+        incoming = incoming * 2
+    end
+
     local hadShield = (health.shield or 0) > 0
     local shieldBefore = health.shield or 0
     local shieldDamage = math.min(shieldBefore, incoming)

@@ -518,6 +518,10 @@ local function handleContextMenuClick(DockedUI, x, y, button, player)
 
   -- Handle Buy button click
   if menu._buyButtonRect and x >= menu._buyButtonRect.x and x <= menu._buyButtonRect.x + menu._buyButtonRect.w and y >= menu._buyButtonRect.y and y <= menu._buyButtonRect.y + menu._buyButtonRect.h then
+    -- Play click sound
+    local Sound = require("src.core.sound")
+    Sound.playSFX("button_click")
+    
     local qty = tonumber(menu.quantity) or 0
     if qty > 0 and player then
       local cost = (menu.item.price or 0) * qty
@@ -531,6 +535,10 @@ local function handleContextMenuClick(DockedUI, x, y, button, player)
   
   -- Handle Sell button click
   if menu._sellButtonRect and x >= menu._sellButtonRect.x and x <= menu._sellButtonRect.x + menu._sellButtonRect.w and y >= menu._sellButtonRect.y and y <= menu._sellButtonRect.y + menu._sellButtonRect.h then
+    -- Play click sound
+    local Sound = require("src.core.sound")
+    Sound.playSFX("button_click")
+    
     local qty = tonumber(menu.quantity) or 0
     if qty > 0 and player then
       DockedUI.sellItem(menu.item, player, qty)

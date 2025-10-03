@@ -142,6 +142,8 @@ local function handleReticleGalleryClick(screenX, screenY)
 
     if SettingsPanel._reticleDone and screenX >= SettingsPanel._reticleDone._rect.x and screenX <= SettingsPanel._reticleDone._rect.x + SettingsPanel._reticleDone._rect.w and
        screenY >= SettingsPanel._reticleDone._rect.y and screenY <= SettingsPanel._reticleDone._rect.y + SettingsPanel._reticleDone._rect.h then
+        local Sound = require("src.core.sound")
+        Sound.playSFX("button_click")
         reticleGalleryOpen = false
         return true
     end
@@ -188,6 +190,8 @@ local function handleAccentGalleryClick(screenX, screenY)
 
     if SettingsPanel._accentDone and screenX >= SettingsPanel._accentDone._rect.x and screenX <= SettingsPanel._accentDone._rect.x + SettingsPanel._accentDone._rect.w and
        screenY >= SettingsPanel._accentDone._rect.y and screenY <= SettingsPanel._accentDone._rect.y + SettingsPanel._accentDone._rect.h then
+        local Sound = require("src.core.sound")
+        Sound.playSFX("button_click")
         accentGalleryOpen = false
         return true
     end
@@ -267,7 +271,7 @@ function SettingsPanel.calculateContentHeight()
     -- Keybindings section
     yOffset = yOffset + itemHeight + 30 -- "Keybindings" label + spacing
     local keybindOrder = {
-        "toggle_inventory", "toggle_ship", "toggle_bounty", "toggle_skills",
+        "toggle_inventory", "toggle_ship", "toggle_skills",
         "toggle_map",
         "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5", "hotbar_6", "hotbar_7"
     }
@@ -653,7 +657,7 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     
     -- Use consistent order for keybindings
     local keybindOrder = {
-        "toggle_inventory", "toggle_ship", "toggle_bounty", "toggle_skills",
+        "toggle_inventory", "toggle_ship", "toggle_skills",
         "toggle_map",
         "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5", "hotbar_6", "hotbar_7"
     }
@@ -905,12 +909,12 @@ function SettingsPanel.drawContent(window, x, y, w, h)
             love.graphics.pop()
         end
         -- Done button
-    local doneW, doneH = 90, 28
-    local doneX, doneY = gx + gw - doneW - 16, gy + gh - doneH - 12
-    local doneButton = {_rect = {x = doneX, y = doneY, w = doneW, h = doneH}}
-    local hover = Theme.handleButtonClick(doneButton, Viewport.getMousePosition())
-    Theme.drawStyledButton(doneX, doneY, doneW, doneH, Strings.getUI("done_button"), hover, love.timer.getTime())
-    SettingsPanel._reticleDone = doneButton
+        local doneW, doneH = 90, 28
+        local doneX, doneY = gx + gw - doneW - 16, gy + gh - doneH - 12
+        local mx, my = Viewport.getMousePosition()
+        local doneHover = mx >= doneX and mx <= doneX + doneW and my >= doneY and my <= doneY + doneH
+        Theme.drawStyledButton(doneX, doneY, doneW, doneH, Strings.getUI("done_button"), doneHover, love.timer.getTime())
+        SettingsPanel._reticleDone = { _rect = { x = doneX, y = doneY, w = doneW, h = doneH } }
     else
         SettingsPanel._reticlePopup = nil
         SettingsPanel._reticleDone = nil
@@ -1019,10 +1023,10 @@ function SettingsPanel.drawContent(window, x, y, w, h)
         -- Done button
         local doneW, doneH = 90, 28
         local doneX, doneY = gx + gw - doneW - 16, gy + gh - doneH - 12
-        local doneButton = {_rect = {x = doneX, y = doneY, w = doneW, h = doneH}}
-        local hover = Theme.handleButtonClick(doneButton, Viewport.getMousePosition())
-        Theme.drawStyledButton(doneX, doneY, doneW, doneH, "Done", hover, love.timer.getTime())
-        SettingsPanel._accentDone = doneButton
+        local mx, my = Viewport.getMousePosition()
+        local doneHover = mx >= doneX and mx <= doneX + doneW and my >= doneY and my <= doneY + doneH
+        Theme.drawStyledButton(doneX, doneY, doneW, doneH, "Done", doneHover, love.timer.getTime())
+        SettingsPanel._accentDone = { _rect = { x = doneX, y = doneY, w = doneW, h = doneH } }
     else
         SettingsPanel._accentPopup = nil
         SettingsPanel._accentDone = nil
@@ -1077,6 +1081,8 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     
     -- Handle accent gallery button click
     if SettingsPanel._accentButtonRect and x >= SettingsPanel._accentButtonRect.x and x <= SettingsPanel._accentButtonRect.x + SettingsPanel._accentButtonRect.w and y >= SettingsPanel._accentButtonRect.y and y <= SettingsPanel._accentButtonRect.y + SettingsPanel._accentButtonRect.h then
+        local Sound = require("src.core.sound")
+        Sound.playSFX("button_click")
         accentGalleryOpen = not accentGalleryOpen
         return true
     end
@@ -1092,6 +1098,8 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     
     -- Apply button
     if x >= applyButtonX and x <= applyButtonX + buttonW and y >= buttonY and y <= buttonY + buttonH then
+        local Sound = require("src.core.sound")
+        Sound.playSFX("button_click")
         local newGraphicsSettings = {}
         for k, v in pairs(currentGraphicsSettings) do newGraphicsSettings[k] = v end
         local newAudioSettings = {}
@@ -1106,6 +1114,8 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     
     -- Reset button
     if x >= resetButtonX and x <= resetButtonX + buttonW and y >= buttonY and y <= buttonY + buttonH then
+        local Sound = require("src.core.sound")
+        Sound.playSFX("button_click")
         SettingsPanel.resetToDefaults()
         return true
     end
@@ -1164,6 +1174,8 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     local btnX, btnW, btnH = valueX, 140, 26
     local btnY = yOffset - 4
     if scrolledY >= btnY and scrolledY <= btnY + btnH and x >= btnX and x <= btnX + btnW then
+        local Sound = require("src.core.sound")
+        Sound.playSFX("button_click")
         reticleGalleryOpen = true
         return true
     end
@@ -1210,11 +1222,13 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     yOffset = yOffset + 30 -- "Controls" label
     yOffset = yOffset + 30 -- "Keybindings" label
 
-    local keybindOrder = { "toggle_inventory", "toggle_ship", "toggle_bounty", "toggle_skills", "toggle_map", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5", "hotbar_6", "hotbar_7" }
+    local keybindOrder = { "toggle_inventory", "toggle_ship", "toggle_skills", "toggle_map", "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5", "hotbar_6", "hotbar_7" }
     for _, action in ipairs(keybindOrder) do
         local btnX, btnW, btnH = contentX + 200, 100, 24
         local btnY = yOffset - 2
         if scrolledY >= btnY and scrolledY <= btnY + btnH and x >= btnX and x <= btnX + btnW then
+            local Sound = require("src.core.sound")
+            Sound.playSFX("button_click")
             bindingAction = action
             return true
         end

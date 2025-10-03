@@ -249,6 +249,10 @@ function Quests:mousepressed(player, x, y, button)
   if not self.station then return false end
   for _, btn in ipairs(self.buttons or {}) do
     if x > btn.x and x < btn.x + btn.w and y > btn.y and y < btn.y + btn.h then
+      -- Play click sound
+      local Sound = require("src.core.sound")
+      Sound.playSFX("button_click")
+      
       local board = self.station.components.station.questBoard
       local slot = board and board.slots and board.slots[btn.slot]
       if btn.action == "accept" and slot and slot.quest and not slot.taken then

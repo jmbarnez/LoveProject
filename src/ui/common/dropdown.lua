@@ -70,6 +70,8 @@ end
 function Dropdown:drawButton(mx, my)
     local buttonHover = self:isPointInButton(mx, my) and not self.disabled
 
+    -- No hover sounds - only click sounds for better UX
+
     -- Button background with transparent base and accent color hover glow
     local buttonColor = self.disabled and {0, 0, 0, 0.3} or
                        (buttonHover and {Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 0.2} or {0, 0, 0, 0})
@@ -188,6 +190,8 @@ function Dropdown:drawOptions(mx, my)
             -- Option background and hover effect
             local isHovered = self.hoveredOption == i
             local isSelected = i == self.selectedIndex
+
+            -- No hover sounds - only click sounds for better UX
 
             if isSelected then
                 -- Selected option gets distinct background

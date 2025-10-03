@@ -752,7 +752,16 @@ function Inventory.mousepressed(x, y, button)
         if item then
             local def = getItemDefinition(item)
             if def and (def.consumable or def.type == "consumable") then
+                -- Consumable item - use it
                 Inventory.useItem(player, item.id)
+                return true
+            else
+                -- Non-consumable item - play click sound and show notification
+                local Sound = require("src.core.sound")
+                Sound.playSFX("button_click")
+                
+                local Notifications = require("src.ui.notifications")
+                Notifications.add("Nothing happens", "info")
                 return true
             end
         end

@@ -161,18 +161,24 @@ function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMet
 
     local health = target.components.health
 
+    -- Apply global enemy damage multiplier (x2)
+    local finalDamage = damage
+    if source and (source.isEnemy or (source.components and source.components.ai)) then
+        finalDamage = damage * 2
+    end
+
     -- Apply damage to shields first, then hull
-    local shieldDamage = math.min(health.shield, damage)
+    local shieldDamage = math.min(health.shield, finalDamage)
     health.shield = health.shield - shieldDamage
 
-    local remainingDamage = damage - shieldDamage
+    local remainingDamage = finalDamage - shieldDamage
     if remainingDamage > 0 then
         health.hp = health.hp - remainingDamage
         if health.hp <= 0 then
             target.dead = true
             target._killedBy = source
             if damageMeta then
-                damageMeta.value = damage
+                damageMeta.value = finalDamage
                 if skillId and damageMeta.skill == nil then
                     damageMeta.skill = skillId
                 end

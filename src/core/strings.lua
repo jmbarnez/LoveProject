@@ -182,7 +182,6 @@ local strings = {
         -- Controls Category
         [Strings.categories.CONTROLS] = {
             toggle_inventory = "Toggle Inventory",
-            toggle_bounty = "Toggle Bounty",
             toggle_skills = "Toggle Skills",
             toggle_map = "Toggle Map",
             dock = "Dock",

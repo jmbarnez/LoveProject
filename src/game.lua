@@ -598,6 +598,7 @@ function Game.update(dt)
     Theme.updateAnimations(dt)
     Theme.updateParticles(dt)
     Theme.updateScreenEffects(dt)
+    
 
     -- Update all systems
     PlayerSystem.update(dt, player, input, world, hub)
