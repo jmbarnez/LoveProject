@@ -710,10 +710,12 @@ function Game.draw()
             local w, h = Viewport.getDimensions()
             Game.blurCanvas = love.graphics.newCanvas(w, h)
         end
+        -- Save current canvas state
+        local currentCanvas = love.graphics.getCanvas()
         love.graphics.setCanvas({Game.blurCanvas, stencil = true})
         love.graphics.setColor(1, 1, 1, 1)
         love.graphics.draw(Viewport.getCanvas(), 0, 0)
-        love.graphics.setCanvas(Viewport.getCanvas())
+        love.graphics.setCanvas(currentCanvas)
         love.graphics.setShader(Theme.shaders.ui_blur)
         love.graphics.setColor(1, 1, 1, 0.8)
         love.graphics.draw(Game.blurCanvas, 0, 0)

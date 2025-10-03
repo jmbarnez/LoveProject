@@ -82,12 +82,14 @@ return {
 
     loot = {
         drops = {
-            { id = "ore_tritanium", min = 1, max = 3, chance = 0.7 },
-            { id = "ore_palladium", min = 1, max = 2, chance = 0.35 },
-            { id = "gun_turret", chance = 0.3 },
-            { id = "combat_laser", chance = 0.15 },
-            { id = "missile_launcher", chance = 0.1 },
-            { id = "node_wallet", min = 1, max = 1, chance = 1.0 },  -- 100% drop rate for testing
+            { id = "scraps", min = 2, max = 5, chance = 0.85 },
+            { id = "broken_circuitry", min = 1, max = 3, chance = 0.75 },
+            { id = "ore_tritanium", min = 1, max = 2, chance = 0.4 },
+            { id = "ore_palladium", min = 1, max = 1, chance = 0.2 },
+            { id = "gun_turret", chance = 0.08 },
+            { id = "combat_laser", chance = 0.05 },
+            { id = "missile_launcher", chance = 0.03 },
+            { id = "node_wallet", min = 1, max = 1, chance = 0.6 },
         }
     },
 

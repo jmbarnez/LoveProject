@@ -94,11 +94,14 @@ return {
 
   loot = {
     drops = {
-      { id = "reward_crate", min = 1, max = 1, chance = 1.0 },
-      { id = "ore_tritanium", min = 3, max = 6, chance = 0.9 },
-      { id = "basic_gun", chance = 0.4 },
-      { id = "laser_mk1", chance = 0.3 },
-      { id = "rocket_mk1", chance = 0.2 },
+      { id = "reward_crate_key", min = 1, max = 1, chance = 0.75 },
+      { id = "scraps", min = 5, max = 10, chance = 0.9 },
+      { id = "broken_circuitry", min = 3, max = 6, chance = 0.8 },
+      { id = "ore_tritanium", min = 4, max = 8, chance = 0.7 },
+      { id = "ore_palladium", min = 2, max = 4, chance = 0.5 },
+      { id = "gun_turret", chance = 0.15 },
+      { id = "combat_laser", chance = 0.12 },
+      { id = "missile_launcher", chance = 0.08 },
     }
   },
 

@@ -825,39 +825,16 @@ function DockedUI.purchaseItem(item, player, quantity)
 
   player:spendGC(totalCost)
 
-  -- Check if this is a turret and apply procedural generation
+  -- Add items to player inventory (turrets are vanilla from shop)
   local itemId = item.id
   local itemName = item.name
-  local ProceduralGen = require("src.core.procedural_gen")
-  local Content = require("src.content.content")
 
-  if Content.getTurret(itemId) then
-    -- This is a turret, generate procedural stats for each one
-    local baseTurret = Content.getTurret(itemId)
-    local purchasedItems = {}
-
-    for i = 1, quantity do
-      local proceduralTurret = ProceduralGen.generateTurretStats(baseTurret, 1)
-
-      if player.components and player.components.cargo then
-        player.components.cargo:add(itemId, 1)
-      end
-
-      purchasedItems[i] = proceduralTurret.proceduralName or proceduralTurret.name
-    end
-
-    -- Refresh inventory display once after adding all turrets
-    local Inventory = require("src.ui.inventory")
-    if Inventory.refresh then Inventory.refresh() end
-
-    itemName = purchasedItems[1] -- Use the first item's name for the notification
-  else
-    if player.components and player.components.cargo then
-      player.components.cargo:add(itemId, quantity)
-    end
-    local Inventory = require("src.ui.inventory")
-    if Inventory.refresh then Inventory.refresh() end
+  if player.components and player.components.cargo then
+    player.components.cargo:add(itemId, quantity)
   end
+  
+  local Inventory = require("src.ui.inventory")
+  if Inventory.refresh then Inventory.refresh() end
 
   -- Create single notification with quantity
   local notificationText = quantity > 1 and ("Purchased " .. itemName .. " x" .. quantity) or ("Purchased " .. itemName)
