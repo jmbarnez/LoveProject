@@ -486,7 +486,8 @@ function Game.load(fromSave, saveSlot, loadingScreen)
     for _, station in ipairs(stations) do
       local stationPos = station.components and station.components.position
       if stationPos then
-        local radius = station.radius or 100
+        -- Use weapon disabled radius for docking range to allow docking within the weapons disabled zone
+        local radius = station.weaponDisableRadius or (station.radius or 100) * 1.5
         local dist = Util.distance(px, py, stationPos.x, stationPos.y)
         if dist <= radius and dist < nearestDist then
           nearestDist = dist

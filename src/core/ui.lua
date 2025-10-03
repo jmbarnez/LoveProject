@@ -102,6 +102,10 @@ function UI.drawHelpers(player, world, hub, camera)
         if station.radius then
           helperRange = math.max(helperRange, station.radius + 150)
         end
+        -- Also consider weapon disabled radius for docking UI
+        if station.weaponDisableRadius then
+          helperRange = math.max(helperRange, station.weaponDisableRadius + 150)
+        end
         if distance < helperRange then
           local text = nil
 

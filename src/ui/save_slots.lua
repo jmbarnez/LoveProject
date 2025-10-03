@@ -1,6 +1,7 @@
 local Theme = require("src.core.theme")
 local StateManager = require("src.managers.state_manager")
 local UIUtils = require("src.ui.common.utils")
+local Viewport = require("src.core.viewport")
 
 local DEFAULT_SLOT_COUNT = 3
 
