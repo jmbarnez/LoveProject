@@ -9,6 +9,9 @@ function Wreckage.new(props)
     self.salvageProgress = 0
     self.salvageCycleTime = props.salvageCycleTime or 1.5
     self.isBeingSalvaged = false
+    -- Initialize partial salvage tracking fields
+    self._partialSalvage = 0
+    self._salvageDropped = 0
     return self
 end
 

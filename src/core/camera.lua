@@ -6,12 +6,15 @@ Camera.__index = Camera
 function Camera.new()
   local self = setmetatable({}, Camera)
   self.x, self.y = 0, 0
-  -- Default zoomed out to 0.5x (new baseline)
-  self.scale = 0.5
-  self.targetScale = 0.5
-  self.minScale = 0.25
-  self.maxScale = 2.0
-  self.zoomLerp = 8 -- how quickly zoom eases to target
+  
+  -- Discrete zoom levels (from most zoomed out to most zoomed in)
+    self.zoomLevels = {0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0}
+  self.currentZoomIndex = 3 -- Start at 0.75x (index 3)
+  self.scale = self.zoomLevels[self.currentZoomIndex]
+  self.targetScale = self.scale
+  self.minScale = self.zoomLevels[1]
+  self.maxScale = self.zoomLevels[#self.zoomLevels]
+  self.zoomLerp = 12 -- Faster zoom transition for snappy feel
   self.target = nil
   self.smooth = 6
   
@@ -129,6 +132,32 @@ end
 function Camera:setZoom(scale)
   local s = math.max(self.minScale, math.min(self.maxScale, scale))
   self.targetScale = s
+end
+
+-- Zoom in to next discrete level
+function Camera:zoomIn()
+  if self.currentZoomIndex < #self.zoomLevels then
+    self.currentZoomIndex = self.currentZoomIndex + 1
+    self.targetScale = self.zoomLevels[self.currentZoomIndex]
+  end
+end
+
+-- Zoom out to previous discrete level
+function Camera:zoomOut()
+  if self.currentZoomIndex > 1 then
+    self.currentZoomIndex = self.currentZoomIndex - 1
+    self.targetScale = self.zoomLevels[self.currentZoomIndex]
+  end
+end
+
+-- Get current zoom level index
+function Camera:getZoomLevel()
+  return self.currentZoomIndex
+end
+
+-- Get current zoom scale
+function Camera:getZoomScale()
+  return self.zoomLevels[self.currentZoomIndex]
 end
 
 -- Camera deviation control functions

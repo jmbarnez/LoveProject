@@ -136,8 +136,9 @@ function Wreckage.spawnFromEnemy(originPos, visuals, sizeScale)
 
   for i = 1, numPieces do
     local pieceLoot = nil
-    if i == lootPiece and math.random() < 0.25 then
-      pieceLoot = { { id = "scraps", qty = math.random(1, 5) } }
+    -- Reduced chance for wreckage to drop loot - only 10% chance instead of 25%
+    if i == lootPiece and math.random() < 0.10 then
+      pieceLoot = { { id = "scraps", qty = math.random(1, 3) } }
     end
     local ang = (i / numPieces) * math.pi * 2 + (math.random() - 0.5) * 0.6
     local speed = (150 + math.random() * 200) * sizeScale  -- Much higher speed for maximum spread

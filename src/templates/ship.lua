@@ -132,7 +132,10 @@ function Ship.new(x, y, angle, friendly, shipConfig)
           "enemy", -- Use the 'enemy' renderer by default
           { visuals = self.visuals }
       ),
-      cargo = CargoComponent.new({ capacity = (shipConfig.cargo and shipConfig.cargo.capacity) or 100 }),
+      cargo = CargoComponent.new({ 
+        capacity = (shipConfig.cargo and shipConfig.cargo.capacity) or 100,
+        volumeLimit = (shipConfig.cargo and shipConfig.cargo.volumeLimit) or math.huge
+      }),
       progression = ProgressionComponent.new(),
       questLog = QuestLogComponent.new(),
   }

@@ -18,8 +18,8 @@ local settings = {
         borderless = false,
         vsync = true,
         max_fps = Constants.TIMING.FPS_60,
-        ui_scale = 1.0,
         font_scale = 1.0,
+        show_fps = false,
         -- Reticle customization
         reticle_style = 1,            -- 1..50 preset styles
         reticle_color = "accent",     -- legacy string (kept for fallback)

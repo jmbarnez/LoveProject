@@ -1,4 +1,5 @@
 local IconRenderer = {}
+local Log = require("src.core.log")
 
 -- Cache for rendered icons
 local iconCache = {}
@@ -18,25 +19,44 @@ function IconRenderer.renderIcon(iconDef, size, id)
 
   -- Create a canvas for the icon
   local canvas = love.graphics.newCanvas(size, size)
-  love.graphics.setCanvas(canvas)
-  love.graphics.clear(0, 0, 0, 0) -- Transparent background
+  local previousCanvas = love.graphics.getCanvas()
 
-  -- Reset graphics state
-  love.graphics.setColor(1, 1, 1, 1)
-  love.graphics.setLineWidth(1)
+  local ok, err = xpcall(function()
+    love.graphics.setCanvas(canvas)
+    love.graphics.clear(0, 0, 0, 0) -- Transparent background
 
-  -- Set up coordinate system (icon designs are defined in 32x32 space)
-  local scale = size / iconDef.size
-  love.graphics.push()
-  love.graphics.scale(scale, scale)
+    -- Reset graphics state
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.setLineWidth(1)
 
-  -- Draw each shape in the design
-  for _, shape in ipairs(iconDef.shapes) do
-    IconRenderer.drawShape(shape)
+    -- Set up coordinate system (icon designs are defined in 32x32 space)
+    local scale = size / (iconDef.size or 32)
+    love.graphics.push()
+    love.graphics.scale(scale, scale)
+
+    -- Draw each shape in the design
+    for _, shape in ipairs(iconDef.shapes) do
+      -- Draw each shape defensively so a bad shape doesn't poison state
+      local okShape, errShape = pcall(IconRenderer.drawShape, shape)
+      if not okShape then
+        if Log and Log.warn then
+          Log.warn("IconRenderer: failed to draw shape: " .. tostring(errShape))
+        end
+      end
+    end
+
+    love.graphics.pop()
+  end, debug.traceback)
+
+  -- Always restore previous canvas target
+  love.graphics.setCanvas(previousCanvas)
+
+  if not ok then
+    if Log and Log.warn then
+      Log.warn("IconRenderer: renderIcon failed: " .. tostring(err))
+    end
+    return nil
   end
-
-  love.graphics.pop()
-  love.graphics.setCanvas()
 
   iconCache[key] = canvas
   return canvas
@@ -71,7 +91,9 @@ end
 
 -- Draw a single shape based on its definition
 function IconRenderer.drawShape(shape)
-  love.graphics.setColor(shape.color)
+  if not shape or type(shape) ~= "table" then return end
+  local color = shape.color or {1, 1, 1, 1}
+  love.graphics.setColor(color)
 
   if shape.type == "rectangle" then
     if shape.mode == "fill" then
@@ -96,6 +118,7 @@ function IconRenderer.drawShape(shape)
     end
 
   elseif shape.type == "polygon" then
+    if not shape.points then return end
     if shape.mode == "fill" then
       love.graphics.polygon("fill", shape.points)
     elseif shape.mode == "line" then

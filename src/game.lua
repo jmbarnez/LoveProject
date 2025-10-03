@@ -192,7 +192,7 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   end
 
   -- Create an industrial furnace station northeast of the hub for ore processing logistics
-  local furnace_station = EntityFactory.create("station", "ore_furnace_station", 7200, 7200)
+  local furnace_station = EntityFactory.create("station", "ore_furnace_station", 9500, 9500)
   if furnace_station then
     world:addEntity(furnace_station)
   else
@@ -704,23 +704,7 @@ function Game.draw()
     -- Draw helpers above game world but below UI
     UI.drawHelpers(player, world, hub, camera)
 
-    -- Apply blur if escape menu is open
-    if UIManager.isOpen("escape") then
-        if not Game.blurCanvas then
-            local w, h = Viewport.getDimensions()
-            Game.blurCanvas = love.graphics.newCanvas(w, h)
-        end
-        -- Save current canvas state
-        local currentCanvas = love.graphics.getCanvas()
-        love.graphics.setCanvas({Game.blurCanvas, stencil = true})
-        love.graphics.setColor(1, 1, 1, 1)
-        love.graphics.draw(Viewport.getCanvas(), 0, 0)
-        love.graphics.setCanvas(currentCanvas)
-        love.graphics.setShader(Theme.shaders.ui_blur)
-        love.graphics.setColor(1, 1, 1, 0.8)
-        love.graphics.draw(Game.blurCanvas, 0, 0)
-        love.graphics.setShader()
-    end
+    -- Blur effect is now handled in main.lua after viewport is finished
 
     -- Non-modal HUD (reticle, status bars, minimap, hotbar)
     UI.drawHUD(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, camera, {})
@@ -730,7 +714,46 @@ function Game.draw()
 
     -- UI overlay (windows/menus) via UIManager
     QuestLogHUD.draw(player)
-    UIManager.draw(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, {})
+    
+    -- Handle escape menu with blur effect
+    local UIManager = require("src.core.ui_manager")
+    if UIManager.isOpen("escape") then
+        -- Apply blur to background only (everything drawn so far)
+        if not Game.blurCanvas then
+            local w, h = Viewport.getDimensions()
+            Game.blurCanvas = love.graphics.newCanvas(w, h)
+        end
+        
+        -- Save current canvas state and render to the blur canvas
+        local currentCanvas = love.graphics.getCanvas()
+        local okBlur, errBlur = xpcall(function()
+            love.graphics.setCanvas({ Game.blurCanvas, stencil = true })
+            love.graphics.setColor(1, 1, 1, 1)
+            love.graphics.draw(Viewport.getCanvas(), 0, 0)
+        end, debug.traceback)
+        -- Always restore previous canvas
+        love.graphics.setCanvas(currentCanvas)
+        
+        if not okBlur then
+            local Log = require("src.core.log")
+            if Log and Log.warn then
+                Log.warn("UI blur render failed: " .. tostring(errBlur))
+            end
+        else
+            -- Apply blur shader to background
+            local Theme = require("src.core.theme")
+            love.graphics.setShader(Theme.shaders.ui_blur)
+            love.graphics.setColor(1, 1, 1, 0.8)
+            love.graphics.draw(Game.blurCanvas, 0, 0)
+            love.graphics.setShader()
+        end
+        
+        -- Draw escape menu on top of blurred background
+        UIManager.draw(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, {})
+    else
+        -- Draw UI normally if escape menu is not open
+        UIManager.draw(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, {})
+    end
 
     -- UI particles and flashes (top-most)
     Theme.drawParticles()

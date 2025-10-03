@@ -207,6 +207,21 @@ function love.draw()
   -- Draw loading screen on top of everything
   loadingScreen:draw()
 
+  -- Draw FPS counter if enabled
+  if screen == "game" then
+    local Settings = require("src.core.settings")
+    local graphicsSettings = Settings.getGraphicsSettings()
+    if graphicsSettings and graphicsSettings.show_fps then
+      local fps = love.timer.getFPS()
+      local Theme = require("src.core.theme")
+      local oldFont = love.graphics.getFont()
+      love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+      Theme.setColor(Theme.colors.text)
+      love.graphics.print("FPS: " .. fps, 10, 10)
+      love.graphics.setFont(oldFont)
+    end
+  end
+
   -- Calculate and set draw time (in ms)
   local drawTime = (love.timer.getTime() - drawStart) * 1000
   DebugPanel.setRenderStats(drawTime)

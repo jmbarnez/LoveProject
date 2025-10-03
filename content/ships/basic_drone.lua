@@ -68,6 +68,7 @@ return {
 
     bounty = 8,
     xpReward = 10,
+    cargo = { capacity = 20, volumeLimit = 8.0 }, -- 8 m^3 cargo hold for basic drone
 
     enemy = {
         sizeMultiplier = 1.5,
@@ -82,14 +83,14 @@ return {
 
     loot = {
         drops = {
-            { id = "scraps", min = 2, max = 5, chance = 0.85 },
-            { id = "broken_circuitry", min = 1, max = 3, chance = 0.75 },
-            { id = "ore_tritanium", min = 1, max = 2, chance = 0.4 },
-            { id = "ore_palladium", min = 1, max = 1, chance = 0.2 },
-            { id = "gun_turret", chance = 0.08 },
-            { id = "combat_laser", chance = 0.05 },
-            { id = "missile_launcher", chance = 0.03 },
-            { id = "node_wallet", min = 1, max = 1, chance = 0.6 },
+            { id = "scraps", min = 1, max = 3, chance = 0.6 },
+            { id = "broken_circuitry", min = 1, max = 2, chance = 0.4 },
+            { id = "ore_tritanium", min = 1, max = 2, chance = 0.25 },
+            { id = "ore_palladium", min = 1, max = 1, chance = 0.1 },
+            { id = "gun_turret", chance = 0.05 },
+            { id = "combat_laser", chance = 0.03 },
+            { id = "missile_launcher", chance = 0.02 },
+            { id = "node_wallet", min = 1, max = 1, chance = 0.3 },
         }
     },
 
