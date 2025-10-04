@@ -99,7 +99,7 @@ function Effects.createExplosion(x, y, power, spawnDebris)
 end
 
 -- Spawn an impact (shield or hull) and optional bulletKind-specific flair
-function Effects.spawnImpact(kind, cx, cy, r, hx, hy, angle, style, bulletKind, entity)
+function Effects.spawnImpact(kind, cx, cy, r, hx, hy, angle, style, bulletKind, entity, disableSound)
   local life = (kind == 'shield' and 0.45) or 0.22
   local spanDeg = 60
   local shieldColors = {
@@ -143,17 +143,19 @@ function Effects.spawnImpact(kind, cx, cy, r, hx, hy, angle, style, bulletKind, 
     hull = hullColors,
   })
   
-  -- Trigger sound effect for impact (positional)
-  if kind == 'shield' then
-    -- Use a distinct static sound when the source is a collision (entity bounce),
-    -- keep normal shield impact for projectiles.
-    if bulletKind == 'collision' then
-      Sound.triggerEventAt('shield_bounce', hx, hy)
+  -- Trigger sound effect for impact (positional) - skip if disabled
+  if not disableSound then
+    if kind == 'shield' then
+      -- Use a distinct static sound when the source is a collision (entity bounce),
+      -- keep normal shield impact for projectiles.
+      if bulletKind == 'collision' then
+        Sound.triggerEventAt('shield_bounce', hx, hy)
+      else
+        Sound.triggerEventAt('impact_shield', hx, hy)
+      end
     else
-      Sound.triggerEventAt('impact_shield', hx, hy)
+      Sound.triggerEventAt('impact_hull', hx, hy)
     end
-  else
-    Sound.triggerEventAt('impact_hull', hx, hy)
   end
 
   if kind == 'hull' then

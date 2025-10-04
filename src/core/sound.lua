@@ -129,6 +129,8 @@ function Sound.loadSFX(name, path)
         proceduralSound = SoundGenerator.getCachedSound("laser", 0.15, 400) -- Short, low laser
     elseif name == "shield_static" then
         proceduralSound = SoundGenerator.getCachedSound("shield_static", 0.14)
+    elseif name == "asteroid_pop" then
+        proceduralSound = SoundGenerator.getCachedSound("asteroid_pop", 0.3)
     end
     
     if proceduralSound then

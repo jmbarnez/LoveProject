@@ -360,6 +360,51 @@ function SoundGenerator.generateLockOn(duration, sampleRate)
     return soundData
 end
 
+-- Generate a satisfying asteroid pop sound
+function SoundGenerator.generateAsteroidPop(duration, sampleRate)
+    duration = duration or 0.3  -- Short, punchy pop
+    sampleRate = sampleRate or 22050
+    
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
+    
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+        
+        -- Sharp initial pop with quick decay
+        local pop = 0
+        if t < 0.15 then  -- Longer initial spike
+            pop = noise() * 1.8 * (1 - t * 6.7)  -- Sharper, louder crack
+        end
+        
+        -- Low-frequency thump for weight
+        local thump = 0.8 * math.sin(t * 60 * 2 * math.pi) * math.exp(-t * 8)
+        
+        -- Mid-frequency crackle for rock breaking
+        local crackle = noise() * 0.6 * math.exp(-t * 12) * math.sin(t * 150 * 2 * math.pi)
+        
+        -- High-frequency sparkle for satisfying detail
+        local sparkle = noise() * 0.4 * math.exp(-t * 15) * math.sin(t * 400 * 2 * math.pi)
+        
+        local sample = pop + thump + crackle + sparkle
+        
+        -- Quick attack, rapid decay envelope for satisfying pop
+        local attack = math.min(1.0, t * 30)  -- Very quick attack
+        local decay = math.exp(-t * 6)        -- Rapid decay
+        local envelope = attack * decay
+        sample = sample * envelope
+        
+        -- Add slight pitch bend for more character
+        local pitchBend = 1.0 + t * 0.3  -- Slight upward bend
+        sample = sample * pitchBend
+        
+        sample = Util.clamp(sample * 1.2, -1, 1)
+        soundData:setSample(i, sample)
+    end
+    
+    return soundData
+end
+
 -- Cache for generated sounds
 local soundCache = {}
 
@@ -387,6 +432,8 @@ function SoundGenerator.getCachedSound(soundType, ...)
             soundData = SoundGenerator.generateLockOn(...)
         elseif soundType == "shield_static" then
             soundData = SoundGenerator.generateShieldStatic(...)
+        elseif soundType == "asteroid_pop" then
+            soundData = SoundGenerator.generateAsteroidPop(...)
         else
             return nil
         end

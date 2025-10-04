@@ -37,6 +37,7 @@ return {
     -- Pickup sounds
     loot_pickup = "loot_pickup",
     asteroid_shatter = "asteroid_shatter",
+    asteroid_pop = "asteroid_pop",
   },
   
   -- Music
@@ -53,6 +54,8 @@ return {
     weapon_laser_fire = {type = "sfx", sound = "laser_fire", volume = 0.7},
     weapon_missile_fire = {type = "sfx", sound = "missile_launch", volume = 0.8},
     weapon_gun_fire = {type = "sfx", sound = "gun_fire", volume = 0.6},
+    weapon_mining_laser = {type = "sfx", sound = "mining_laser", volume = 0.4},
+    weapon_salvaging_laser = {type = "sfx", sound = "mining_laser", volume = 0.4},
     
     -- Impact events  
     impact_shield = {type = "sfx", sound = "shield_hit", volume = 0.5},
@@ -76,6 +79,7 @@ return {
     loot_collected = {type = "sfx", sound = "loot_pickup", volume = 0.5},
     xp_collected = {type = "sfx", sound = "loot_pickup", volume = 0.55, pitch = 1.1},
     asteroid_shatter = {type = "sfx", sound = "asteroid_shatter", volume = 0.65},
+    asteroid_pop = {type = "sfx", sound = "asteroid_pop", volume = 1.0},
     
     -- UI events
     ui_button_click = {type = "sfx", sound = "ui_click", volume = 0.3},

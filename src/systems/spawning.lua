@@ -168,6 +168,21 @@ local function createAsteroidCluster(centerX, centerY, hub, world)
             asteroid.visuals.colors.outline = {grayShade[1] * 0.6, grayShade[2] * 0.6, grayShade[3] * 0.6, grayShade[4]}
           end
           
+          -- Add physics body for collision detection and bouncing
+          local Physics = require("src.components.physics")
+          local radius = asteroid.components.collidable and asteroid.components.collidable.radius or 30
+          local mass = radius * 2  -- Mass based on size
+          asteroid.components.physics = Physics.new({
+            mass = mass,
+            x = x,
+            y = y
+          })
+          
+          -- Add small random velocity for natural movement
+          local velX = (math.random() - 0.5) * 20  -- Random velocity between -10 and 10
+          local velY = (math.random() - 0.5) * 20
+          asteroid.components.physics.body:setVelocity(velX, velY)
+          
           world:addEntity(asteroid)
           createdAsteroids = createdAsteroids + 1
         end
@@ -416,6 +431,21 @@ local function spawnAsteroid(hub, world)
         asteroid.visuals.colors.large = {grayShade[1] * 0.8, grayShade[2] * 0.8, grayShade[3] * 0.8, grayShade[4]}
         asteroid.visuals.colors.outline = {grayShade[1] * 0.6, grayShade[2] * 0.6, grayShade[3] * 0.6, grayShade[4]}
       end
+      
+      -- Add physics body for collision detection and bouncing
+      local Physics = require("src.components.physics")
+      local radius = asteroid.components.collidable and asteroid.components.collidable.radius or 30
+      local mass = radius * 2  -- Mass based on size
+      asteroid.components.physics = Physics.new({
+        mass = mass,
+        x = x,
+        y = y
+      })
+      
+      -- Add small random velocity for natural movement
+      local velX = (math.random() - 0.5) * 20  -- Random velocity between -10 and 10
+      local velY = (math.random() - 0.5) * 20
+      asteroid.components.physics.body:setVelocity(velX, velY)
       
       world:addEntity(asteroid)
   end

@@ -127,8 +127,16 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
             local damageValue = damageRate * dt
             UtilityBeams.applyMiningDamage(hitTarget, damageValue, turret.owner, world, hitX, hitY)
 
-            -- Continuous visual effects while beam is active
-            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "mining")
+            -- Only create visual effects, no collision sound for mining
+            if Effects and Effects.spawnImpact then
+                local ex = hitTarget.components.position.x
+                local ey = hitTarget.components.position.y
+                local targetRadius = (hitTarget.components.collidable and hitTarget.components.collidable.radius) or 30
+                local impactAngle = math.atan2(hitY - ey, hitX - ex)
+                
+                -- Create visual impact without sound
+                Effects.spawnImpact('hull', ex, ey, targetRadius, hitX, hitY, impactAngle, nil, 'mining_laser', hitTarget, true)
+            end
         else
             -- Continuous visual effects for non-mining targets
             TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
@@ -193,6 +201,13 @@ function UtilityBeams.applyMiningDamage(target, damage, source, world, impactX, 
         if mineable.hotspots and mineable.hotspots.clear then
             mineable.hotspots:clear()
         end
+        
+        -- Play asteroid pop sound immediately when destroyed
+        local Sound = require("src.core.sound")
+        local x = target.components.position.x
+        local y = target.components.position.y
+        Sound.triggerEventAt('asteroid_pop', x, y)
+        
         UtilityBeams.completeMining(nil, target, world)
         target.dead = true
     end
