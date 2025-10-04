@@ -123,6 +123,16 @@ local function transitionToGame(opts)
     local loadingScreen = mainState.loadingScreen
     local Game = require("src.game")
 
+    local function handleMultiplayerJoinFailure(message)
+        if _G.PENDING_MULTIPLAYER_CONNECTION then
+            _G.PENDING_MULTIPLAYER_CONNECTION = nil
+        end
+
+        if mainState.startScreen and mainState.startScreen.onJoinFailed then
+            mainState.startScreen:onJoinFailed(message)
+        end
+    end
+
     if loadingScreen then
         local loadingText = multiplayer and (isHost and "Starting multiplayer server..." or "Joining multiplayer game...") or "Loading..."
         loadingScreen:show({loadingText}, false)
@@ -148,11 +158,18 @@ local function transitionToGame(opts)
     -- Check if Game.load() succeeded
     if not success then
         Log.error("Game.load() failed with error:", result)
-        Notifications.add("Failed to load game: " .. tostring(result), "error")
+        local errorMessage = "Failed to load game: " .. tostring(result)
+        Notifications.add(errorMessage, "error")
+        if multiplayer and not isHost then
+            handleMultiplayerJoinFailure("Failed to connect to server. Please check the address and try again.")
+        end
         return false
     elseif result == false then
         Log.error("Game.load() returned false - connection failed")
         Notifications.add("Failed to connect to server", "error")
+        if multiplayer and not isHost then
+            handleMultiplayerJoinFailure("No server available at the provided address.")
+        end
         return false
     end
 
