@@ -41,6 +41,11 @@ function NetworkServer.new(port)
     self.lastCleanup = 0
     self.cleanupInterval = 10.0
 
+    -- Track ENet peers so we can target responses and filter broadcasts
+    self.connectedPeers = {}
+    self.peerToPlayerId = {}
+    self.playerToPeer = {}
+
 
     return self
 end
@@ -53,7 +58,7 @@ function NetworkServer:start()
 
     Log.info("Starting server on port", self.port)
 
-        -- Try ENet transport first
+    -- Try ENet transport first
     local ok, EnetTransport = pcall(require, "src.core.network.transport.enet")
     if ok and EnetTransport and EnetTransport.isAvailable() then
         local server, err = EnetTransport.createServer(self.port)
@@ -61,6 +66,9 @@ function NetworkServer:start()
             self.enetServer = server
             self.transport = "enet"
             self.isRunning = true
+            self.connectedPeers = {}
+            self.peerToPlayerId = {}
+            self.playerToPeer = {}
             Log.info("Server started with ENet transport on port", self.port)
             Events.emit("NETWORK_SERVER_STARTED", { port = self.port })
             return true
@@ -77,6 +85,9 @@ function NetworkServer:start()
             self.fileNetwork = fileNetworkInstance
             self.transport = "file"
             self.isRunning = true
+            self.connectedPeers = {}
+            self.peerToPlayerId = {}
+            self.playerToPeer = {}
             Log.info("Server started with file-based transport on port", self.port)
             Events.emit("NETWORK_SERVER_STARTED", { port = self.port })
             return true
@@ -102,7 +113,6 @@ function NetworkServer:stop()
         local EnetTransport = require("src.core.network.transport.enet")
         EnetTransport.destroy(self.enetServer)
         self.enetServer = nil
-        self.peers = {}
     elseif self.transport == "file" then
         self.fileNetwork = nil
     end
@@ -112,6 +122,9 @@ function NetworkServer:stop()
     self.players = {}
     self.nextPlayerId = 1
     self.lastCleanup = 0
+    self.connectedPeers = {}
+    self.peerToPlayerId = {}
+    self.playerToPeer = {}
 
     Log.info("Server stopped")
     Events.emit("NETWORK_SERVER_STOPPED")
@@ -131,6 +144,49 @@ local function snapshotPlayers(players, excludeId)
     return out
 end
 
+local function normalizePeer(self, peerOrId)
+    if type(peerOrId) == "userdata" then
+        return peerOrId
+    end
+
+    if type(peerOrId) == "number" then
+        return self.playerToPeer[peerOrId]
+    end
+
+    if type(peerOrId) == "table" and peerOrId.peer then
+        return peerOrId.peer
+    end
+
+    return nil
+end
+
+local function registerPeerForPlayer(self, playerId, peer)
+    if not playerId or not peer or type(peer) ~= "userdata" then
+        return
+    end
+
+    self.peerToPlayerId[peer] = playerId
+    self.playerToPeer[playerId] = peer
+    self.connectedPeers[peer] = true
+end
+
+local function unregisterPeerForPlayer(self, playerId, peer)
+    local targetPeer = normalizePeer(self, peer)
+
+    if not targetPeer and playerId then
+        targetPeer = self.playerToPeer[playerId]
+    end
+
+    if targetPeer then
+        self.peerToPlayerId[targetPeer] = nil
+        self.connectedPeers[targetPeer] = nil
+    end
+
+    if playerId then
+        self.playerToPeer[playerId] = nil
+    end
+end
+
 
 function NetworkServer:update(dt)
     if not self.isRunning then
@@ -140,15 +196,13 @@ function NetworkServer:update(dt)
     if self.transport == "enet" and self.enetServer then
         local EnetTransport = require("src.core.network.transport.enet")
         local json = require("src.libs.json")
-        
+
         -- Poll for ENet events
         local event = EnetTransport.service(self.enetServer, 0)
         while event do
             if event.type == "connect" then
                 Log.info("Client connected:", event.peer)
-                -- Store peer for later use
-                self.peers = self.peers or {}
-                table.insert(self.peers, event.peer)
+                self.connectedPeers[event.peer] = true
             elseif event.type == "receive" then
                 local success, message = pcall(json.decode, event.data)
                 if success and message then
@@ -156,14 +210,12 @@ function NetworkServer:update(dt)
                 end
             elseif event.type == "disconnect" then
                 Log.info("Client disconnected:", event.peer)
-                -- Remove peer from list
-                if self.peers then
-                    for i, peer in ipairs(self.peers) do
-                        if peer == event.peer then
-                            table.remove(self.peers, i)
-                            break
-                        end
-                    end
+                local playerId = self.peerToPlayerId[event.peer]
+                self.connectedPeers[event.peer] = nil
+                if playerId then
+                    self:handlePlayerLeave({ playerId = playerId }, event.peer)
+                else
+                    unregisterPeerForPlayer(self, nil, event.peer)
                 end
             end
             event = EnetTransport.service(self.enetServer, 0)
@@ -223,6 +275,7 @@ function NetworkServer:handlePlayerJoin(message, peer)
     }
 
     self.players[playerId] = player
+    registerPeerForPlayer(self, playerId, normalizePeer(self, peer))
 
     -- Acknowledge the new player with their assigned ID and a view of current players.
     self:sendToPeer(peer, {
@@ -249,11 +302,13 @@ function NetworkServer:handlePlayerLeave(message, peer)
     local playerId = message.playerId
 
     if not playerId or not self.players[playerId] then
+        unregisterPeerForPlayer(self, playerId, normalizePeer(self, peer))
         return
     end
 
     local player = self.players[playerId]
     self.players[playerId] = nil
+    unregisterPeerForPlayer(self, playerId, normalizePeer(self, peer))
 
     self:broadcastToOthers(playerId, {
         type = MESSAGE_TYPES.PLAYER_LEAVE,
@@ -273,6 +328,7 @@ function NetworkServer:handlePlayerUpdate(message, peer)
     end
 
     local player = self.players[playerId]
+    registerPeerForPlayer(self, playerId, normalizePeer(self, peer))
     player.data = message.data
     player.lastSeen = currentTime()
 
@@ -317,28 +373,52 @@ end
 
 
 function NetworkServer:sendToPeer(peer, message, reliable)
-    if self.transport == "file" and self.fileNetwork then
+    reliable = reliable ~= false
+
+    if self.transport == "enet" and self.enetServer then
+        local targetPeer = normalizePeer(self, peer)
+        if not targetPeer then
+            return false
+        end
+
+        local EnetTransport = require("src.core.network.transport.enet")
+        local json = require("src.libs.json")
+        local data = json.encode(message)
+        local success, err = EnetTransport.send({ peer = targetPeer }, data, 0, reliable)
+        if not success then
+            Log.warn("Failed to send message to peer:", err)
+            return false
+        end
+        return true
+    elseif self.transport == "file" and self.fileNetwork then
         return self.fileNetwork:sendMessage(message)
     end
     return false
 end
 
 function NetworkServer:broadcast(message, reliable)
-    if self.transport == "file" and self.fileNetwork then
+    if self.transport == "enet" and self.enetServer then
+        self:broadcastToOthers(nil, message, reliable)
+    elseif self.transport == "file" and self.fileNetwork then
         self.fileNetwork:sendMessage(message)
     end
 end
 
 function NetworkServer:broadcastToOthers(excludePlayerId, message, reliable)
-    if self.transport == "enet" and self.enetServer and self.peers then
+    reliable = reliable ~= false
+
+    if self.transport == "enet" and self.enetServer then
         local EnetTransport = require("src.core.network.transport.enet")
         local json = require("src.libs.json")
         local data = json.encode(message)
-        
-        for _, peer in ipairs(self.peers) do
-            local success, err = EnetTransport.send({peer = peer}, data, 0, reliable ~= false)
-            if not success then
-                Log.warn("Failed to send message to peer:", err)
+
+        for peer in pairs(self.connectedPeers) do
+            local playerId = self.peerToPlayerId[peer]
+            if not excludePlayerId or playerId ~= excludePlayerId then
+                local success, err = EnetTransport.send({ peer = peer }, data, 0, reliable)
+                if not success then
+                    Log.warn("Failed to send message to peer:", err)
+                end
             end
         end
     elseif self.transport == "file" and self.fileNetwork then
@@ -354,6 +434,7 @@ function NetworkServer:cleanupDisconnectedPlayers()
         if now - player.lastSeen > timeout then
             Log.info("Cleaning up stale player:", player.name, "(" .. playerId .. ")")
             self.players[playerId] = nil
+            unregisterPeerForPlayer(self, playerId)
             self:broadcastToOthers(playerId, {
                 type = MESSAGE_TYPES.PLAYER_LEAVE,
                 playerId = playerId,
