@@ -40,22 +40,22 @@ local function consumeRepairMaterials(player, repairCost)
     return true
 end
 
-local RepairPopupModule = nil
+local BeaconRepairPopupModule = nil
 local function getRepairPopup()
-    if RepairPopupModule == nil then
-        local ok, popup = pcall(require, "src.ui.repair_popup")
+    if BeaconRepairPopupModule == nil then
+        local ok, popup = pcall(require, "src.ui.beacon_repair_popup")
         if ok then
-            RepairPopupModule = popup
+            BeaconRepairPopupModule = popup
         else
-            RepairPopupModule = false
+            BeaconRepairPopupModule = false
         end
     end
 
-    if RepairPopupModule == false then
+    if BeaconRepairPopupModule == false then
         return nil
     end
 
-    return RepairPopupModule
+    return BeaconRepairPopupModule
 end
 
 local function attemptRepair(station, player)
