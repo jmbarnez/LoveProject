@@ -64,8 +64,10 @@ return {
     
     -- Weapon stats
     optimal = 800, falloff = 400,
-    damage_range = { min = 1, max = 2 },
-    cycle = 2.0, capCost = 50,
+    damage_range = { min = 1, max = 1 },
+    damagePerSecond = 1,
+    cycle = 2.0, capCost = 0,
+    energyPerSecond = 25,
     maxRange = 1200,
     spread = { minDeg = 0.0, maxDeg = 0.0, decay = 900 },
     
