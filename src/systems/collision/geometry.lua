@@ -70,18 +70,6 @@ function Geometry.segPolygonHit(x1,y1,x2,y2, verts)
   local startInside = Geometry.pointInPolygon(x1, y1, verts)
   local endInside = Geometry.pointInPolygon(x2, y2, verts)
   
-  -- If either point is inside, we have a hit
-  if startInside or endInside then
-    -- Return the point that's inside, or the midpoint if both are inside
-    if startInside and endInside then
-      return true, (x1 + x2) / 2, (y1 + y2) / 2
-    elseif startInside then
-      return true, x1, y1
-    else
-      return true, x2, y2
-    end
-  end
-  
   -- Check for edge intersections
   local bestHit = nil
   local bestDistance = math.huge
@@ -103,11 +91,21 @@ function Geometry.segPolygonHit(x1,y1,x2,y2, verts)
       end
     end
   end
-  
+
   if bestHit then
     return true, bestHit[1], bestHit[2]
   end
-  
+
+  -- If no edge intersection was found but the segment starts or ends inside,
+  -- fall back to whichever endpoint lies within the polygon. This avoids
+  -- missing hits when the entire segment is contained inside the shape.
+  if startInside then
+    return true, x1, y1
+  end
+  if endInside then
+    return true, x2, y2
+  end
+
   return false
 end
 

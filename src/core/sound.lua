@@ -112,11 +112,11 @@ function Sound.loadSFX(name, path)
     -- Try procedural generation as fallback
     local proceduralSound = nil
     if name == "laser_fire" then
-        proceduralSound = SoundGenerator.getCachedSound("laser", 0.3, 800) -- Combat laser: medium duration, high pitch
+        proceduralSound = SoundGenerator.getCachedSound("laser", 0.55, 200) -- Combat laser: deep, bass-heavy blast
     elseif name == "mining_laser" then
-        proceduralSound = SoundGenerator.getCachedSound("mining_laser", 0.5, 400) -- Mining laser: industrial, looping, deep, quiet
+        proceduralSound = SoundGenerator.getCachedSound("mining_laser", 0.55, 90) -- Mining laser: looping sub-bass rumble
     elseif name == "salvaging_laser" then
-        proceduralSound = SoundGenerator.getCachedSound("salvaging_laser", 0.4, 600) -- Salvaging laser: medium duration, medium pitch, smooth sound
+        proceduralSound = SoundGenerator.getCachedSound("salvaging_laser", 0.5, 260) -- Salvaging laser: warm low-mid sweep
     elseif name == "shield_hit" then
         proceduralSound = SoundGenerator.getCachedSound("shield_hit", 0.15)
     elseif name == "hull_hit" then
@@ -126,11 +126,13 @@ function Sound.loadSFX(name, path)
     elseif name == "missile_launch" then
         proceduralSound = SoundGenerator.getCachedSound("missile", 0.8)
     elseif name == "gun_fire" then
-        proceduralSound = SoundGenerator.getCachedSound("laser", 0.15, 400) -- Short, low laser
+        proceduralSound = SoundGenerator.getCachedSound("gun_fire", 0.15, 400) -- Dedicated gun fire sound
     elseif name == "shield_static" then
         proceduralSound = SoundGenerator.getCachedSound("shield_static", 0.14)
     elseif name == "asteroid_pop" then
-        proceduralSound = SoundGenerator.getCachedSound("asteroid_pop", 0.3)
+        proceduralSound = SoundGenerator.getCachedSound("asteroid_pop", 0.65)
+    elseif name == "ship_destroyed" then
+        proceduralSound = SoundGenerator.getCachedSound("ship_destruction", 2.0)
     end
     
     if proceduralSound then

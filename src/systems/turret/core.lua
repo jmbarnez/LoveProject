@@ -224,6 +224,20 @@ end
 function Turret:cancelFiring()
     self.firing = false
     self.beamActive = false
+    
+    -- Stop utility beam sounds when firing is cancelled
+    if self.kind == "mining_laser" then
+        if self.miningSoundActive or self.miningSoundInstance then
+            local TurretEffects = require("src.systems.turret.effects")
+            TurretEffects.stopMiningSound(self)
+        end
+    elseif self.kind == "salvaging_laser" then
+        if self.salvagingSoundActive or self.salvagingSoundInstance then
+            local TurretEffects = require("src.systems.turret.effects")
+            TurretEffects.stopSalvagingSound(self)
+        end
+    end
+    
     -- Don't reset cooldown here; let it finish its cycle
 end
 

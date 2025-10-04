@@ -534,6 +534,12 @@ function PlayerSystem.update(dt, player, input, world, hub)
             -- Call update with firing state (for manual mode)
             t.firing = firing
             t:update(dt, nil, not allow, world)
+            
+            -- Force stop utility beam sounds if not allowed to fire
+            if not allow and (t.kind == "mining_laser" or t.kind == "salvaging_laser") then
+                local TurretEffects = require("src.systems.turret.effects")
+                TurretEffects.stopAllTurretSounds(t)
+            end
         end
     end
 end

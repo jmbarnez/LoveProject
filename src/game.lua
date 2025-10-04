@@ -229,6 +229,11 @@ local function createSystemPipeline()
     function(ctx)
       HotbarSystem.update(ctx.dt)
     end,
+    function(ctx)
+      -- Clean up orphaned utility beam sounds
+      local TurretEffects = require("src.systems.turret.effects")
+      TurretEffects.cleanupOrphanedSounds()
+    end,
   }
 
   systemPipeline = SystemPipeline.new(steps)

@@ -33,10 +33,55 @@ function Physics.closestPointOnSeg(px, py, x1, y1, x2, y2)
 end
 
 function Physics.segCircleHit(x1, y1, x2, y2, cx, cy, r)
-  local qx, qy, t = Physics.closestPointOnSeg(cx, cy, x1, y1, x2, y2)
-  local dx, dy = qx - cx, qy - cy
-  if dx * dx + dy * dy <= r * r then return true, qx, qy, t end
-  return false
+  local dx, dy = x2 - x1, y2 - y1
+  local fx, fy = x1 - cx, y1 - cy
+
+  local a = dx * dx + dy * dy
+  if a == 0 then
+    -- Degenerate segment, treat as point test
+    local distSq = fx * fx + fy * fy
+    if distSq <= r * r then
+      return true, x1, y1, 0
+    end
+    return false
+  end
+
+  local b = 2 * (fx * dx + fy * dy)
+  local c = fx * fx + fy * fy - r * r
+
+  local discriminant = b * b - 4 * a * c
+  if discriminant < 0 then
+    return false
+  end
+
+  local sqrtDisc = math.sqrt(discriminant)
+  local inv2a = 1 / (2 * a)
+
+  local t1 = (-b - sqrtDisc) * inv2a
+  local t2 = (-b + sqrtDisc) * inv2a
+
+  local hitT
+  if t1 >= 0 and t1 <= 1 then
+    hitT = t1
+  elseif t2 >= 0 and t2 <= 1 then
+    hitT = t2
+  else
+    -- Segment does not cross the circle boundary within [0, 1].
+    -- Treat cases where the segment lies entirely within the circle as hits.
+    local startInside = (fx * fx + fy * fy) <= r * r
+    local tx, ty = x2 - cx, y2 - cy
+    local endInside = (tx * tx + ty * ty) <= r * r
+    if startInside then
+      return true, x1, y1, 0
+    elseif endInside then
+      return true, x2, y2, 1
+    end
+    return false
+  end
+
+  local hx = x1 + dx * hitT
+  local hy = y1 + dy * hitT
+  return true, hx, hy, hitT
 end
 
 -- Physics body structure

@@ -5,6 +5,7 @@ local Effects = require("src.systems.effects")
 local Skills = require("src.core.skills")
 local Notifications = require("src.ui.notifications")
 local Events = require("src.core.events")
+local Log = require("src.core.log")
 
 local UtilityBeams = {}
 
@@ -21,7 +22,8 @@ local function isTurretInputActive(turret)
         return turret.firing == true
     end
 
-    return turret.autoFire == true
+    -- For manual turrets, if firing is nil, there's no active input
+    return false
 end
 
 local function spawnSalvagePickup(target, amount, world)
@@ -53,9 +55,9 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
         turret.beamActive = false
         turret.beamTarget = nil
         -- Stop mining laser sound if it was playing
-        if turret.miningSoundActive then
+        if turret.miningSoundActive or turret.miningSoundInstance then
+            Log.debug("Stopping mining laser sound - locked:", locked, "inputActive:", isTurretInputActive(turret), "canFire:", turret:canFire())
             TurretEffects.stopMiningSound(turret)
-            turret.miningSoundActive = false
         end
         -- Clear mining flags when beam is not active
         if world then
@@ -91,24 +93,24 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     turret.currentAimAngle = angle
 
-    -- Calculate beam length - limit to cursor distance (up to max range)
+    -- Calculate beam end point - use cursor distance as max range, but respect collisions
     local maxRange = turret.maxRange
-    local beamLength = maxRange
+    local effectiveRange = maxRange
     if turret.owner.cursorWorldPos then
-        beamLength = math.min(cursorDistance, maxRange)
+        effectiveRange = math.min(cursorDistance, maxRange)
     end
     
-    local endX = sx + math.cos(angle) * beamLength
-    local endY = sy + math.sin(angle) * beamLength
+    local endX = sx + math.cos(angle) * effectiveRange
+    local endY = sy + math.sin(angle) * effectiveRange
 
     local hitTarget, hitX, hitY = UtilityBeams.performMiningHitscan(
         sx, sy, endX, endY, turret, world
     )
 
     local wasActive = turret.beamActive
-    -- Use collision point if hit, otherwise use max range end point
-    local beamEndX = hitX
-    local beamEndY = hitY
+    -- Use collision point if hit, otherwise use effective range end point
+    local beamEndX = hitX or endX
+    local beamEndY = hitY or endY
 
     turret.beamActive = true
     turret.beamStartX = sx
@@ -128,9 +130,8 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
             -- Not enough energy, stop the beam
             turret.beamActive = false
             -- Stop mining laser sound if it was playing
-            if turret.miningSoundActive then
+            if turret.miningSoundActive or turret.miningSoundInstance then
                 TurretEffects.stopMiningSound(turret)
-                turret.miningSoundActive = false
             end
             return
         end
@@ -184,7 +185,12 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
         -- Start the mining laser sound (it will loop)
         if isTurretInputActive(turret) then
             TurretEffects.playFiringSound(turret)
-            turret.miningSoundActive = true
+        end
+    elseif wasActive and not isTurretInputActive(turret) then
+        -- Beam was active but input is no longer active, stop sound
+        if turret.miningSoundActive or turret.miningSoundInstance then
+            Log.debug("Stopping mining laser sound - input no longer active")
+            TurretEffects.stopMiningSound(turret)
         end
     end
 end
@@ -353,7 +359,8 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     if locked or not isTurretInputActive(turret) or not turret:canFire() then
         turret.beamActive = false
         turret.beamTarget = nil
-        if turret.salvagingSoundActive then
+        if turret.salvagingSoundActive or turret.salvagingSoundInstance then
+            Log.debug("Stopping salvaging laser sound - locked:", locked, "inputActive:", isTurretInputActive(turret), "canFire:", turret:canFire())
             TurretEffects.stopSalvagingSound(turret)
         end
         return
@@ -381,24 +388,24 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     turret.currentAimAngle = angle
 
-    -- Calculate beam length - limit to cursor distance (up to max range)
+    -- Calculate beam end point - use cursor distance as max range, but respect collisions
     local maxRange = turret.maxRange
-    local beamLength = maxRange
+    local effectiveRange = maxRange
     if turret.owner.cursorWorldPos then
-        beamLength = math.min(cursorDistance, maxRange)
+        effectiveRange = math.min(cursorDistance, maxRange)
     end
     
-    local endX = sx + math.cos(angle) * beamLength
-    local endY = sy + math.sin(angle) * beamLength
+    local endX = sx + math.cos(angle) * effectiveRange
+    local endY = sy + math.sin(angle) * effectiveRange
 
     local hitTarget, hitX, hitY = UtilityBeams.performMiningHitscan(
         sx, sy, endX, endY, turret, world
     )
 
     local wasActive = turret.beamActive
-    -- Use collision point if hit, otherwise use max range end point
-    local beamEndX = hitX
-    local beamEndY = hitY
+    -- Use collision point if hit, otherwise use effective range end point
+    local beamEndX = hitX or endX
+    local beamEndY = hitY or endY
 
     turret.beamActive = true
     turret.beamStartX = sx
@@ -417,7 +424,7 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
         else
             -- Not enough energy, stop the beam
             turret.beamActive = false
-            if turret.salvagingSoundActive then
+            if turret.salvagingSoundActive or turret.salvagingSoundInstance then
                 TurretEffects.stopSalvagingSound(turret)
             end
             return
@@ -459,8 +466,15 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     turret.cooldownOverride = 0
 
+    -- Handle continuous salvaging laser sound
     if not wasActive and isTurretInputActive(turret) then
         TurretEffects.playFiringSound(turret)
+    elseif wasActive and not isTurretInputActive(turret) then
+        -- Beam was active but input is no longer active, stop sound
+        if turret.salvagingSoundActive or turret.salvagingSoundInstance then
+            Log.debug("Stopping salvaging laser sound - input no longer active")
+            TurretEffects.stopSalvagingSound(turret)
+        end
     end
 end
 
@@ -483,7 +497,7 @@ function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, w
     local bestHitX, bestHitY = endX, endY
 
     local entities = world:get_entities_with_components("collidable", "position")
-
+    
     for _, entity in ipairs(entities) do
         if entity ~= turret.owner and not entity.dead then
             local targetRadius = CollisionHelpers.calculateEffectiveRadius(entity)

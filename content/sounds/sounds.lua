@@ -51,11 +51,11 @@ return {
   -- Event Sound Mappings
   events = {
     -- Weapon events
-    weapon_laser_fire = {type = "sfx", sound = "laser_fire", volume = 0.7},
+    weapon_laser_fire = {type = "sfx", sound = "laser_fire", volume = 0.3},
     weapon_missile_fire = {type = "sfx", sound = "missile_launch", volume = 0.8},
-    weapon_gun_fire = {type = "sfx", sound = "gun_fire", volume = 0.6},
-    weapon_mining_laser = {type = "sfx", sound = "mining_laser", volume = 0.4},
-    weapon_salvaging_laser = {type = "sfx", sound = "mining_laser", volume = 0.4},
+    weapon_gun_fire = {type = "sfx", sound = "gun_fire", volume = 0.25},
+    weapon_mining_laser = {type = "sfx", sound = "mining_laser", volume = 0.2},
+    weapon_salvaging_laser = {type = "sfx", sound = "mining_laser", volume = 0.2},
     
     -- Impact events  
     impact_shield = {type = "sfx", sound = "shield_hit", volume = 0.5},
@@ -65,10 +65,10 @@ return {
     
     -- Ship events
     thruster_activate = {type = "sfx", sound = "engine_thrust", volume = 0.3},
-    ship_destroyed = {type = "sfx", sound = "ship_destroyed", volume = 0.8},
+    ship_destroyed = {type = "sfx", sound = "ship_destroyed", volume = 0.9},
     
     -- Mining events
-    mining_start = {type = "sfx", sound = "mining_laser", volume = 0.4},
+    mining_start = {type = "sfx", sound = "mining_laser", volume = 0.2},
     ore_mined = {type = "sfx", sound = "ore_collected", volume = 0.5},
     
     -- Station events

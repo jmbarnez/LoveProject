@@ -28,43 +28,100 @@ local function highpass(prevOut, input, cutoff, sampleRate)
     return alpha * (prevOut + input - (prevOut or 0))
 end
 
--- Generate a laser zap sound (combat laser)
+-- Generate a laser zap sound (combat laser) - Proper sci-fi laser beam
 function SoundGenerator.generateLaserZap(duration, frequency, sampleRate)
-    duration = duration or 0.3
-    frequency = frequency or 800
+    duration = duration or 0.55  -- Longer sustain for deep resonance
+    frequency = frequency or 200  -- Very low base pitch for heavy rumble
     sampleRate = sampleRate or 22050
 
     local sampleCount = math.floor(duration * sampleRate)
     local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
 
-    local phase = 0
-    local phaseIncrement = frequency / sampleRate * 2 * math.pi
-    local envelope = 1.0
-    local envelopeDecay = 1.0 / sampleCount
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+
+        local baseFreq = frequency * (1 + 0.1 * math.sin(t * 4 * math.pi))
+        local phase = t * baseFreq * 2 * math.pi
+
+        local sample = math.sin(phase) * 0.45
+        sample = sample + 0.5 * math.sin(phase * 0.4) -- sub bass swell
+        sample = sample + 0.14 * math.sin(phase * 1.4)
+        sample = sample + 0.06 * math.sin(phase * 2.1)
+
+        local rumbleNoise = noise() * 0.3 * math.exp(-t * 2.8)
+        sample = sample + rumbleNoise * math.sin(t * 110 * 2 * math.pi)
+
+        local spark = 0.03 * math.sin(t * 650 * 2 * math.pi) * math.exp(-t * 5)
+        sample = sample + spark
+
+        if t < 0.22 then
+            local surge = (1 - t * 4.5) * 0.25
+            sample = sample + noise() * surge * math.sin(t * 210 * 2 * math.pi)
+        end
+
+        local attack = math.min(1.0, t * 9)
+        local sustain = 1.0
+        local decay = math.exp(-(t - 0.45) * 4.5)
+        local envelope = attack * (t < 0.45 and sustain or decay)
+
+        sample = sample * envelope
+        sample = sample * (1 + 0.06 * math.sin(t * 8 * math.pi))
+
+        sample = Util.clamp(sample * 0.28, -1, 1)
+        soundData:setSample(i, sample)
+    end
+
+    return soundData
+end
+
+-- Generate gun turret sound (rapid-fire projectile weapon)
+function SoundGenerator.generateGunFire(duration, frequency, sampleRate)
+    duration = duration or 0.15  -- Very short burst
+    frequency = frequency or 400  -- Lower frequency for gun-like sound
+    sampleRate = sampleRate or 22050
+
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
 
     for i = 0, sampleCount - 1 do
         local t = i / sampleCount
 
-        -- Base sine wave with frequency modulation
-        local freqMod = frequency * (1 - t * 0.7) -- Frequency drops over time
-        phaseIncrement = freqMod / sampleRate * 2 * math.pi
-        phase = phase + phaseIncrement
-
-        local sample = math.sin(phase)
-
-        -- Add some harmonics for richness
-        sample = sample + 0.3 * math.sin(phase * 2)
-        sample = sample + 0.1 * math.sin(phase * 3)
-
-        -- Add slight noise for texture
-        sample = sample + noise() * 0.05
-
-        -- Envelope (quick attack, exponential decay)
-        envelope = math.exp(-t * 8)
+        -- Main gun blast - lower frequency with sharp attack
+        local baseFreq = frequency * (1 + 0.3 * math.sin(t * 6 * math.pi))
+        local phase = t * baseFreq * 2 * math.pi
+        
+        local sample = math.sin(phase) * 0.6
+        
+        -- Add harmonics for gun-like character - much softer
+        sample = sample + 0.2 * math.sin(phase * 2)  -- Reduced second harmonic
+        sample = sample + 0.1 * math.sin(phase * 3)  -- Reduced third harmonic
+        
+        -- Gun barrel "crack" - much softer high-frequency component
+        local crackFreq = 1000 + 200 * math.sin(t * 6 * math.pi)
+        sample = sample + 0.15 * math.sin(t * crackFreq * 2 * math.pi) * math.exp(-t * 5)
+        
+        -- Explosive "pop" at the beginning - much gentler gunpowder ignition
+        if t < 0.05 then
+            local popIntensity = (1 - t * 20) * 0.25
+            sample = sample + noise() * popIntensity * math.sin(t * 500 * 2 * math.pi)
+        end
+        
+        -- Gun barrel resonance - metallic ring
+        local barrelRing = 0.2 * math.sin(t * 300 * 2 * math.pi) * math.exp(-t * 2)
+        sample = sample + barrelRing
+        
+        -- Sharp attack envelope - very quick attack and decay
+        local attack = math.min(1.0, t * 25)  -- Very sharp attack
+        local decay = math.exp(-t * 12)  -- Quick decay
+        local envelope = attack * decay
+        
         sample = sample * envelope
-
-        -- Clamp and convert to 16-bit
-        sample = Util.clamp(sample * 0.3, -1, 1)
+        
+        -- Add slight mechanical vibration
+        sample = sample * (1 + 0.05 * math.sin(t * 50 * math.pi))
+        
+        -- Clamp and convert to 16-bit - much quieter
+        sample = Util.clamp(sample * 0.25, -1, 1)
         soundData:setSample(i, sample)
     end
 
@@ -73,7 +130,8 @@ end
 
 -- Generate a mining laser sound (industrial, looping, deep, quiet)
 function SoundGenerator.generateMiningLaser(duration, frequency, sampleRate)
-    duration = duration or 0.5  -- Short looping segment for continuous play
+    duration = duration or 0.55  -- Loop segment for heavy hum
+    frequency = frequency or 90
     sampleRate = sampleRate or 22050
 
     local sampleCount = math.floor(duration * sampleRate)
@@ -82,42 +140,32 @@ function SoundGenerator.generateMiningLaser(duration, frequency, sampleRate)
     for i = 0, sampleCount - 1 do
         local t = i / sampleCount
 
-        -- Deep industrial laser core - lower frequencies for deeper sound
-        local baseFreq = 120  -- Much deeper base frequency
-        local harmonic1 = math.sin(t * baseFreq * 2 * math.pi) * 0.3
-        local harmonic2 = math.sin(t * baseFreq * 1.5 * 2 * math.pi) * 0.2
-        local harmonic3 = math.sin(t * baseFreq * 2.0 * 2 * math.pi) * 0.15
-        local harmonic4 = math.sin(t * baseFreq * 2.5 * 2 * math.pi) * 0.1
-        
-        -- Deep machinery rumble - very low frequency
-        local rumbleFreq = 35 + 10 * math.sin(t * 0.5 * 2 * math.pi)  -- Slower, deeper rumble
-        local rumble = math.sin(t * rumbleFreq * 2 * math.pi) * 0.25
-        
-        -- Laser cutting through rock - lower frequency cutting
-        local cuttingNoise = noise() * 0.4
-        local cuttingFreq = 200 + 100 * math.sin(t * 1.5 * 2 * math.pi)  -- Lower cutting frequency
-        local cuttingFiltered = cuttingNoise * (0.5 + 0.5 * math.sin(t * cuttingFreq * 2 * math.pi))
-        
-        -- Subtle power fluctuations
-        local powerFluctuation = 1.0 + 0.08 * math.sin(t * 8 * 2 * math.pi) + 0.05 * math.sin(t * 15 * 2 * math.pi)
-        
-        -- Reduced crackles for quieter operation
-        local crackleIntensity = 0.2 + 0.1 * math.sin(t * 5 * 2 * math.pi)
-        local crackle = noise() * 0.1 * crackleIntensity
-        
-        -- Combine all elements
-        local sample = (harmonic1 + harmonic2 + harmonic3 + harmonic4 + rumble + cuttingFiltered + crackle) * powerFluctuation
-        
-        -- Smooth looping envelope - no fade in/out for seamless loop
-        local envelope = 0.95 + 0.05 * math.sin(t * 1.2 * 2 * math.pi)
-        
+        local baseFreq = frequency
+        local harmonic1 = math.sin(t * baseFreq * 2 * math.pi) * 0.35
+        local harmonic2 = math.sin(t * baseFreq * 1.3 * 2 * math.pi) * 0.24
+        local harmonic3 = math.sin(t * baseFreq * 1.7 * 2 * math.pi) * 0.14
+        local harmonic4 = math.sin(t * baseFreq * 2.1 * 2 * math.pi) * 0.08
+
+        local rumbleFreq = 22 + 6 * math.sin(t * 0.35 * 2 * math.pi)
+        local rumble = math.sin(t * rumbleFreq * 2 * math.pi) * 0.36
+        local subRumble = math.sin(t * 12 * 2 * math.pi) * 0.2
+
+        local cuttingNoise = noise() * 0.18
+        local cuttingFreq = 140 + 60 * math.sin(t * 1.1 * 2 * math.pi)
+        local cuttingFiltered = cuttingNoise * (0.3 + 0.3 * math.sin(t * cuttingFreq * 2 * math.pi))
+
+        local powerFluctuation = 1.0 + 0.05 * math.sin(t * 5 * 2 * math.pi) + 0.04 * math.sin(t * 11 * 2 * math.pi)
+
+        local crackleIntensity = 0.1 + 0.06 * math.sin(t * 3 * 2 * math.pi)
+        local crackle = noise() * 0.05 * crackleIntensity
+
+        local sample = (harmonic1 + harmonic2 + harmonic3 + harmonic4 + rumble + subRumble + cuttingFiltered + crackle) * powerFluctuation
+
+        local envelope = 0.93 + 0.07 * math.sin(t * 1.0 * 2 * math.pi)
         sample = sample * envelope
-        
-        -- Minimal electromagnetic interference
-        sample = sample + noise() * 0.03 * envelope
-        
-        -- Much quieter overall volume
-        sample = Util.clamp(sample * 0.25, -1, 1)
+
+        sample = sample + noise() * 0.018 * envelope
+        sample = Util.clamp(sample * 0.2, -1, 1)
         soundData:setSample(i, sample)
     end
 
@@ -126,8 +174,8 @@ end
 
 -- Generate a salvaging laser sound (smooth, higher pitch)
 function SoundGenerator.generateSalvagingLaser(duration, frequency, sampleRate)
-    duration = duration or 0.4
-    frequency = frequency or 600
+    duration = duration or 0.5
+    frequency = frequency or 260
     sampleRate = sampleRate or 22050
 
     local sampleCount = math.floor(duration * sampleRate)
@@ -136,25 +184,21 @@ function SoundGenerator.generateSalvagingLaser(duration, frequency, sampleRate)
     for i = 0, sampleCount - 1 do
         local t = i / sampleCount
 
-        -- Smoother envelope with slight modulation
-        local modulation = 1 + 0.2 * math.sin(t * 15 * math.pi)
-        local envelope = modulation * math.exp(-t * 5)
+        local modulation = 1 + 0.12 * math.sin(t * 10 * math.pi)
+        local envelope = modulation * math.exp(-t * 4)
 
-        -- Higher frequency with cleaner harmonics
-        local baseFreq = frequency * (1 - t * 0.4)
+        local baseFreq = frequency * (1 - t * 0.3)
         local phase = t * baseFreq * 2 * math.pi
 
-        local sample = math.sin(phase) * 0.5
-        sample = sample + 0.15 * math.sin(phase * 2)   -- Second harmonic
-        sample = sample + 0.05 * math.sin(phase * 3)   -- Third harmonic
+        local sample = math.sin(phase) * 0.42
+        sample = sample + 0.28 * math.sin(phase * 0.6)
+        sample = sample + 0.12 * math.sin(phase * 1.6)
 
-        -- Add subtle shimmer
-        sample = sample + 0.1 * math.sin(t * 1200 * 2 * math.pi) * math.exp(-t * 10)
+        sample = sample + 0.05 * math.sin(t * 520 * 2 * math.pi) * math.exp(-t * 6)
 
-        -- Apply envelope
         sample = sample * envelope
 
-        sample = Util.clamp(sample * 0.35, -1, 1)
+        sample = Util.clamp(sample * 0.24, -1, 1)
         soundData:setSample(i, sample)
     end
 
@@ -315,6 +359,72 @@ function SoundGenerator.generateExplosion(duration, sampleRate)
     return soundData
 end
 
+-- Generate ship destruction sound (metallic destruction with electrical failure)
+function SoundGenerator.generateShipDestruction(duration, sampleRate)
+    duration = duration or 2.0  -- Longer for dramatic effect
+    sampleRate = sampleRate or 22050
+
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
+
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+
+        -- Initial structural failure - sharp metallic crack
+        local structuralCrack = 0
+        if t < 0.1 then
+            structuralCrack = noise() * 1.5 * (1 - t * 10) * math.sin(t * 200 * 2 * math.pi)
+        end
+
+        -- Metallic tearing and bending
+        local metallicTear = 0
+        if t > 0.05 and t < 0.4 then
+            local tearIntensity = math.exp(-(t - 0.05) * 8)
+            metallicTear = noise() * 0.8 * tearIntensity * math.sin(t * 150 * 2 * math.pi)
+        end
+
+        -- Electrical system failure - buzzing and arcing
+        local electricalFailure = 0
+        if t > 0.1 and t < 0.6 then
+            local elecIntensity = math.exp(-(t - 0.1) * 4)
+            electricalFailure = noise() * 0.6 * elecIntensity * math.sin(t * 400 * 2 * math.pi)
+        end
+
+        -- Hull breach - whooshing air escape
+        local hullBreach = 0
+        if t > 0.2 and t < 0.8 then
+            local breachIntensity = math.exp(-(t - 0.2) * 3)
+            hullBreach = noise() * 0.4 * breachIntensity * math.sin(t * 80 * 2 * math.pi)
+        end
+
+        -- Final explosion - deep boom
+        local finalBoom = 0
+        if t > 0.5 then
+            local boomIntensity = math.exp(-(t - 0.5) * 2)
+            finalBoom = noise() * 1.2 * boomIntensity * math.sin(t * 60 * 2 * math.pi)
+        end
+
+        -- Metallic resonance - sustained ringing
+        local metallicRing = 0
+        if t > 0.3 then
+            local ringIntensity = math.exp(-(t - 0.3) * 1.5)
+            metallicRing = 0.3 * math.sin(t * 120 * 2 * math.pi) * ringIntensity
+        end
+
+        -- Combine all elements
+        local sample = structuralCrack + metallicTear + electricalFailure + hullBreach + finalBoom + metallicRing
+
+        -- Overall envelope - gradual build and decay
+        local envelope = math.min(1.0, t * 5) * math.exp(-t * 1.2)
+        sample = sample * envelope
+
+        sample = Util.clamp(sample * 0.6, -1, 1)
+        soundData:setSample(i, sample)
+    end
+
+    return soundData
+end
+
 -- Generate missile launch sound
 function SoundGenerator.generateMissileLaunch(duration, sampleRate)
     duration = duration or 0.8
@@ -375,48 +485,63 @@ function SoundGenerator.generateLockOn(duration, sampleRate)
     return soundData
 end
 
--- Generate a satisfying asteroid pop sound
+-- Generate a cavernous asteroid shatter with explosive depth
 function SoundGenerator.generateAsteroidPop(duration, sampleRate)
-    duration = duration or 0.3  -- Short, punchy pop
+    duration = duration or 0.65
     sampleRate = sampleRate or 22050
-    
+
     local sampleCount = math.floor(duration * sampleRate)
     local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
-    
+
     for i = 0, sampleCount - 1 do
         local t = i / sampleCount
-        
-        -- Sharp initial pop with quick decay
-        local pop = 0
-        if t < 0.15 then  -- Longer initial spike
-            pop = noise() * 1.8 * (1 - t * 6.7)  -- Sharper, louder crack
+
+        local shock = 0
+        if t < 0.1 then
+            local shockIntensity = (1 - t * 10) * 2.6
+            shock = noise() * shockIntensity * math.sin(t * 600 * 2 * math.pi)
         end
-        
-        -- Low-frequency thump for weight
-        local thump = 0.8 * math.sin(t * 60 * 2 * math.pi) * math.exp(-t * 8)
-        
-        -- Mid-frequency crackle for rock breaking
-        local crackle = noise() * 0.6 * math.exp(-t * 12) * math.sin(t * 150 * 2 * math.pi)
-        
-        -- High-frequency sparkle for satisfying detail
-        local sparkle = noise() * 0.4 * math.exp(-t * 15) * math.sin(t * 400 * 2 * math.pi)
-        
-        local sample = pop + thump + crackle + sparkle
-        
-        -- Quick attack, rapid decay envelope for satisfying pop
-        local attack = math.min(1.0, t * 30)  -- Very quick attack
-        local decay = math.exp(-t * 6)        -- Rapid decay
-        local envelope = attack * decay
+
+        local lowFracture = 0
+        if t < 0.28 then
+            local fractureIntensity = math.exp(-t * 6.2) * 1.6
+            lowFracture = math.sin(t * 30 * 2 * math.pi) * fractureIntensity
+        end
+
+        local slabTear = 0
+        if t > 0.03 and t < 0.32 then
+            local tearIntensity = math.exp(-(t - 0.03) * 7.2) * 0.95
+            slabTear = noise() * tearIntensity * math.sin(t * 150 * 2 * math.pi)
+        end
+
+        local crystalShimmer = 0
+        if t > 0.06 and t < 0.36 then
+            local shimmerIntensity = math.exp(-(t - 0.06) * 10.5) * 0.48
+            crystalShimmer = noise() * shimmerIntensity * math.sin(t * 520 * 2 * math.pi)
+        end
+
+        local debrisRoll = 0
+        if t > 0.12 and t < 0.5 then
+            local rollIntensity = math.exp(-(t - 0.12) * 4.3) * 0.65
+            debrisRoll = noise() * rollIntensity * math.sin(t * 95 * 2 * math.pi)
+        end
+
+        local subRumble = math.sin(t * 18 * 2 * math.pi) * math.exp(-t * 3.4) * 0.75
+
+        local sample = shock + lowFracture + slabTear + crystalShimmer + debrisRoll + subRumble
+
+        local attack = math.min(1.0, t * 22)
+        local sustain = 1.0
+        local decay = math.exp(-(t - 0.12) * 3.6)
+        local envelope = attack * (t < 0.12 and sustain or decay)
+
         sample = sample * envelope
-        
-        -- Add slight pitch bend for more character
-        local pitchBend = 1.0 + t * 0.3  -- Slight upward bend
-        sample = sample * pitchBend
-        
-        sample = Util.clamp(sample * 1.2, -1, 1)
+        sample = sample * (1 + 0.08 * math.sin(t * 9 * math.pi))
+
+        sample = Util.clamp(sample * 1.5, -1, 1)
         soundData:setSample(i, sample)
     end
-    
+
     return soundData
 end
 
@@ -431,6 +556,8 @@ function SoundGenerator.getCachedSound(soundType, ...)
         local soundData
         if soundType == "laser" then
             soundData = SoundGenerator.generateLaserZap(...)
+        elseif soundType == "gun_fire" then
+            soundData = SoundGenerator.generateGunFire(...)
         elseif soundType == "mining_laser" then
             soundData = SoundGenerator.generateMiningLaser(...)
         elseif soundType == "salvaging_laser" then
@@ -449,6 +576,8 @@ function SoundGenerator.getCachedSound(soundType, ...)
             soundData = SoundGenerator.generateShieldStatic(...)
         elseif soundType == "asteroid_pop" then
             soundData = SoundGenerator.generateAsteroidPop(...)
+        elseif soundType == "ship_destruction" then
+            soundData = SoundGenerator.generateShipDestruction(...)
         else
             return nil
         end
@@ -467,14 +596,14 @@ end
 
 -- Generate all basic game sounds
 function SoundGenerator.generateBasicGameSounds()
-    -- Generate laser variants
-    SoundGenerator.getCachedSound("laser", 0.2, 1000) -- Short, high-pitch (combat laser)
-    SoundGenerator.getCachedSound("laser", 0.3, 800)  -- Medium (combat laser)
-    SoundGenerator.getCachedSound("laser", 0.4, 600)  -- Long, low-pitch (combat laser)
+    -- Generate laser variants (deep rumbling)
+    SoundGenerator.getCachedSound("laser", 0.45, 220)
+    SoundGenerator.getCachedSound("laser", 0.55, 200)
+    SoundGenerator.getCachedSound("laser", 0.65, 180)
 
     -- Generate specialized laser sounds
-    SoundGenerator.getCachedSound("mining_laser", 0.5, 400) -- Mining laser: industrial, looping, deep, quiet
-    SoundGenerator.getCachedSound("salvaging_laser", 0.4, 600) -- Salvaging laser: smooth, higher pitch
+    SoundGenerator.getCachedSound("mining_laser", 0.55, 90)
+    SoundGenerator.getCachedSound("salvaging_laser", 0.5, 260)
 
     -- Generate impact sounds
     SoundGenerator.getCachedSound("shield_hit", 0.15)

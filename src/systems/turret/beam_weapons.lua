@@ -24,31 +24,32 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     local sx, sy = Turret.getTurretWorldPosition(turret)
 
     local angle
-    local targetDistance = math.huge
-    if target and target.components and target.components.position then
-        local tx = target.components.position.x
-        local ty = target.components.position.y
-        angle = math.atan2(ty - sy, tx - sx)
-        targetDistance = math.sqrt((tx - sx) ^ 2 + (ty - sy) ^ 2)
-    elseif turret.owner.cursorWorldPos then
-        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
+    local desiredDistance
+    local cursorPos = turret.owner.cursorWorldPos
+
+    if cursorPos then
+        local cursorX, cursorY = cursorPos.x, cursorPos.y
         local dx = cursorX - sx
         local dy = cursorY - sy
         angle = math.atan2(dy, dx)
-        targetDistance = math.sqrt(dx * dx + dy * dy)
+        desiredDistance = math.sqrt(dx * dx + dy * dy)
+    elseif target and target.components and target.components.position then
+        local tx = target.components.position.x
+        local ty = target.components.position.y
+        angle = math.atan2(ty - sy, tx - sx)
+        desiredDistance = math.sqrt((tx - sx) ^ 2 + (ty - sy) ^ 2)
     elseif shipPos then
         angle = shipPos.angle
+        desiredDistance = turret.maxRange or 0
     else
         angle = 0
+        desiredDistance = turret.maxRange or 0
     end
 
     turret.currentAimAngle = angle
 
     local maxRange = turret.maxRange or 0
-    local beamLength = maxRange
-    if turret.owner.cursorWorldPos and not target then
-        beamLength = math.min(targetDistance, maxRange)
-    end
+    local beamLength = math.min(desiredDistance or maxRange, maxRange)
 
     local endX = sx + math.cos(angle) * beamLength
     local endY = sy + math.sin(angle) * beamLength
@@ -197,10 +198,14 @@ function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMet
     local shieldDamage = math.min(health.shield, baseDamage * 1.15) -- 15% more damage to shields
     health.shield = health.shield - shieldDamage
 
+    local hullDamageApplied = false
     local remainingDamage = baseDamage - (shieldDamage / 1.15) -- Convert back to original damage for hull calculation
     if remainingDamage > 0 then
         local hullDamage = remainingDamage * 0.5 -- Half damage to hull
-        health.hp = health.hp - hullDamage
+        if hullDamage > 0 then
+            health.hp = health.hp - hullDamage
+            hullDamageApplied = true
+        end
         if health.hp <= 0 then
             target.dead = true
             target._killedBy = source
@@ -213,6 +218,14 @@ function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMet
             else
                 target._finalDamage = { value = baseDamage, skill = skillId }
             end
+        end
+    end
+
+    if shieldDamage > 0 or hullDamageApplied then
+        if love and love.timer and love.timer.getTime then
+            target._hudDamageTime = love.timer.getTime()
+        else
+            target._hudDamageTime = os.clock()
         end
     end
 end
