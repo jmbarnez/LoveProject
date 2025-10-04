@@ -1,63 +1,55 @@
 local CollisionHelpers = require("src.systems.turret.collision_helpers")
 local TurretEffects = require("src.systems.turret.effects")
-local Log = require("src.core.log")
 
 local BeamWeapons = {}
 
 -- Handle laser turret firing (hitscan beam weapons)
 function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
-    Log.debug("BeamWeapons.updateLaserTurret called for turret: " .. tostring(turret.id) .. ", cooldown: " .. tostring(turret.cooldown))
     if locked or not turret:canFire() then
+        turret.beamActive = false
+        turret.beamTarget = nil
+        turret.beamStartX = nil
+        turret.beamStartY = nil
+        turret.beamEndX = nil
+        turret.beamEndY = nil
+        turret.has_hit = false
+        turret.cooldown = 0
+        turret.cooldownOverride = 0
         return
     end
 
-    -- Reset beam state to allow new collisions each shot
-    turret.has_hit = false
-    turret.beamActive = false
-    turret.beamStartX = nil
-    turret.beamStartY = nil
-    turret.beamEndX = nil
-    turret.beamEndY = nil
-    turret.beamTarget = nil
-
-    -- Get turret world position instead of ship center
     local Turret = require("src.systems.turret.core")
     local shipPos = turret.owner.components and turret.owner.components.position
 
-    -- Get turret world position first for accurate aiming
     local sx, sy = Turret.getTurretWorldPosition(turret)
 
-    -- Aim in the direction of the target if provided, otherwise use cursor direction
     local angle
     local targetDistance = math.huge
-    if target then
-        -- For automatic firing (AI), aim from turret position to target
+    if target and target.components and target.components.position then
         local tx = target.components.position.x
         local ty = target.components.position.y
         angle = math.atan2(ty - sy, tx - sx)
-        targetDistance = math.sqrt((tx - sx)^2 + (ty - sy)^2)
+        targetDistance = math.sqrt((tx - sx) ^ 2 + (ty - sy) ^ 2)
     elseif turret.owner.cursorWorldPos then
-        -- For manual firing, use the cursor direction from turret position
         local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
         local dx = cursorX - sx
         local dy = cursorY - sy
         angle = math.atan2(dy, dx)
         targetDistance = math.sqrt(dx * dx + dy * dy)
-    else
-        -- Fallback to ship facing if cursor position not available
+    elseif shipPos then
         angle = shipPos.angle
+    else
+        angle = 0
     end
 
     turret.currentAimAngle = angle
 
-    -- Perform hitscan collision check
-    local maxRange = turret.maxRange
-    -- For manual firing, limit beam length to cursor distance (up to max range)
+    local maxRange = turret.maxRange or 0
     local beamLength = maxRange
     if turret.owner.cursorWorldPos and not target then
         beamLength = math.min(targetDistance, maxRange)
     end
-    
+
     local endX = sx + math.cos(angle) * beamLength
     local endY = sy + math.sin(angle) * beamLength
 
@@ -65,48 +57,73 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
         sx, sy, endX, endY, turret, world
     )
 
-    if hitTarget then
-        Log.debug("BeamWeapons.performLaserHitscan found target: " .. tostring(hitTarget.id) .. " for turret: " .. tostring(turret.id))
-        -- Only apply damage if target is an enemy
-        if BeamWeapons.isEnemyTarget(hitTarget, turret.owner) then
-            -- Apply damage
-            local damage = turret.damage_range and {
-                min = turret.damage_range.min,
-                max = turret.damage_range.max,
-                skill = turret.skillId
-            }
+    local wasActive = turret.beamActive
 
-            local dmgValue = math.random(damage.min, damage.max)
-            damage.value = dmgValue
-            Log.debug("Applying damage from turret: " .. tostring(turret.id) .. " to target: " .. tostring(hitTarget.id) .. " with value: " .. tostring(dmgValue))
-            BeamWeapons.applyLaserDamage(hitTarget, dmgValue, turret.owner, turret.skillId, damage)
-
-            -- Create combat impact effects
-            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
-        else
-            -- Hit a non-enemy object - no damage, but still create impact effect
-            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
-        end
-    else
-        Log.debug("BeamWeapons.performLaserHitscan found no target for turret: " .. tostring(turret.id))
-    end
-
-    -- Store beam data for rendering during draw phase
-    -- Use collision point if hit, otherwise use calculated end point
-    local beamEndX = hitX
-    local beamEndY = hitY
+    local beamEndX = hitX or endX
+    local beamEndY = hitY or endY
     turret.beamActive = true
     turret.beamStartX = sx
     turret.beamStartY = sy
     turret.beamEndX = beamEndX
     turret.beamEndY = beamEndY
     turret.beamTarget = hitTarget
+    turret.has_hit = hitTarget ~= nil
 
-    -- Add heat and play effects
-    TurretEffects.playFiringSound(turret)
-    
-    -- Set cooldown after firing
-    turret.cooldown = turret.cycle or 1.0
+    if turret.energyPerSecond and turret.energyPerSecond > 0 and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
+        local currentEnergy = turret.owner.components.health.energy or 0
+        local energyCost = turret.energyPerSecond * dt
+        if currentEnergy >= energyCost then
+            turret.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
+        else
+            turret.beamActive = false
+            turret.beamTarget = nil
+            turret.beamStartX = nil
+            turret.beamStartY = nil
+            turret.beamEndX = nil
+            turret.beamEndY = nil
+            turret.has_hit = false
+            turret.cooldown = 0
+            turret.cooldownOverride = 0
+            return
+        end
+    end
+
+    if hitTarget then
+        if BeamWeapons.isEnemyTarget(hitTarget, turret.owner) then
+            local damagePerSecond = turret.damagePerSecond
+            if not damagePerSecond and turret.damage_range then
+                damagePerSecond = (turret.damage_range.min + turret.damage_range.max) * 0.5
+            end
+
+            if damagePerSecond and damagePerSecond > 0 then
+                local damageAmount = damagePerSecond * dt
+                if damageAmount > 0 then
+                    local damageMeta
+                    if turret.damage_range then
+                        damageMeta = {
+                            min = turret.damage_range.min,
+                            max = turret.damage_range.max,
+                            value = damageAmount,
+                            skill = turret.skillId
+                        }
+                    end
+
+                    BeamWeapons.applyLaserDamage(hitTarget, damageAmount, turret.owner, turret.skillId, damageMeta)
+                end
+            end
+
+            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
+        else
+            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
+        end
+    end
+
+    turret.cooldown = 0
+    turret.cooldownOverride = 0
+
+    if not wasActive then
+        TurretEffects.playFiringSound(turret)
+    end
 end
 
 -- Perform hitscan collision detection for laser weapons (collides with ALL objects)

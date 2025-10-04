@@ -27,6 +27,7 @@ function Turret.new(owner, params)
 
     -- Basic turret parameters
     self.damage_range = params.damage_range
+    self.damagePerSecond = params.damagePerSecond
     self.cycle = params.cycle
     self.capCost = params.capCost
     self.energyPerSecond = params.energyPerSecond
