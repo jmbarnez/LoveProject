@@ -97,7 +97,8 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     turret.beamTarget = hitTarget
 
     -- Consume energy per second while beam is active
-    if turret.energyPerSecond and turret.owner and turret.owner.components and turret.owner.components.health then
+    -- Skip energy consumption for enemies - they ignore energy usage
+    if turret.energyPerSecond and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
         local currentEnergy = turret.owner.components.health.energy or 0
         local energyCost = turret.energyPerSecond * dt
         if currentEnergy >= energyCost then
@@ -108,7 +109,7 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
             return
         end
     else
-        -- Debug logging for missing energyPerSecond
+        -- Debug logging for missing energyPerSecond (only for player)
         if turret.owner.isPlayer then
             Log.debug("Mining laser energyPerSecond: " .. tostring(turret.energyPerSecond))
         end
@@ -358,7 +359,8 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     turret.beamTarget = hitTarget
 
     -- Consume energy per second while beam is active
-    if turret.energyPerSecond and turret.owner and turret.owner.components and turret.owner.components.health then
+    -- Skip energy consumption for enemies - they ignore energy usage
+    if turret.energyPerSecond and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
         local currentEnergy = turret.owner.components.health.energy or 0
         local energyCost = turret.energyPerSecond * dt
         if currentEnergy >= energyCost then
@@ -369,7 +371,7 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
             return
         end
     else
-        -- Debug logging for missing energyPerSecond
+        -- Debug logging for missing energyPerSecond (only for player)
         if turret.owner.isPlayer then
             Log.debug("Salvaging laser energyPerSecond: " .. tostring(turret.energyPerSecond))
         end

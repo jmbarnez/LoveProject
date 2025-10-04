@@ -116,33 +116,9 @@ function UI.drawHelpers(player, world, hub, camera)
 
           -- Check station type and show appropriate tooltip
           if station.components.station and station.components.station.type == "beacon_station" then
-            -- Handle beacon stations specially
             if station.components.repairable and station.components.repairable.broken then
-              -- Show repair requirements for broken beacon stations with inventory status
-              local RepairSystem = require("src.systems.repair_system")
-              local requirements = station.components.repairable.repairCost
-              local hasAllMaterials = RepairSystem.hasAllMaterials(player, requirements)
-
-              text = "REPAIR REQUIRED:\n"
-              for _, req in ipairs(requirements) do
-                local playerCount = RepairSystem.getPlayerItemCount(player, req.item)
-                local hasEnough = playerCount >= req.amount
-                local indicator = hasEnough and "✓" or "✗"
-                local color = hasEnough and "GREEN" or "RED"
-
-                text = text .. string.format("%s %s: %d/%d\n", indicator, req.item, playerCount, req.amount)
-              end
-
-              if hasAllMaterials then
-                text = text .. "\n✓ Press [R] to Repair"
-              else
-                text = text .. "\n✗ Insufficient materials"
-              end
-            elseif station.broken then
-              -- Fallback: if station has broken property but no repairable component
-              text = "REPAIR REQUIRED:\n✗ ore_tritanium: 0/25\n✗ ore_palladium: 0/15\n✗ scraps: 0/50\n\n✗ Insufficient materials"
+              text = "Beacon Array Offline\nPress [R] to repair the beacon."
             else
-              -- Repaired beacon station
               text = "Beacon Array - OPERATIONAL"
             end
           elseif station.components.station and station.components.station.type == "ore_furnace_station" then

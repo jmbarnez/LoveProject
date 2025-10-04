@@ -175,19 +175,18 @@ function Turret:update(dt, target, locked, world)
         end
         
         -- Check if we have enough energy to fire (skip for utility beams as they handle their own energy)
-        if self.capCost and self.capCost > 0 and self.owner and self.owner.components and self.owner.components.health then
+        -- Skip energy checks for enemies - they ignore energy usage
+        if self.capCost and self.capCost > 0 and self.owner and self.owner.components and self.owner.components.health and self.owner.isPlayer then
             local currentEnergy = self.owner.components.health.energy or 0
             if currentEnergy < self.capCost then
                 -- Show notification for insufficient energy (only for player) with spam protection
-                if self.owner.isPlayer then
-                    local currentTime = love.timer.getTime()
-                    local lastEnergyNotification = self._lastEnergyNotification or 0
-                    local energyNotificationCooldown = 2.0 -- 2 seconds between notifications
-                    
-                    if currentTime - lastEnergyNotification > energyNotificationCooldown then
-                        Notifications.add("Insufficient energy to fire weapon!", "warning")
-                        self._lastEnergyNotification = currentTime
-                    end
+                local currentTime = love.timer.getTime()
+                local lastEnergyNotification = self._lastEnergyNotification or 0
+                local energyNotificationCooldown = 2.0 -- 2 seconds between notifications
+                
+                if currentTime - lastEnergyNotification > energyNotificationCooldown then
+                    Notifications.add("Insufficient energy to fire weapon!", "warning")
+                    self._lastEnergyNotification = currentTime
                 end
                 return -- Not enough energy to fire
             end
@@ -207,7 +206,8 @@ function Turret:update(dt, target, locked, world)
         end
 
         -- Consume energy for weapon firing (skip for utility beams as they handle their own energy)
-        if self.capCost and self.capCost > 0 and self.owner and self.owner.components and self.owner.components.health then
+        -- Skip energy consumption for enemies - they ignore energy usage
+        if self.capCost and self.capCost > 0 and self.owner and self.owner.components and self.owner.components.health and self.owner.isPlayer then
             local currentEnergy = self.owner.components.health.energy or 0
             local energyCost = self.capCost
             self.owner.components.health.energy = math.max(0, currentEnergy - energyCost)

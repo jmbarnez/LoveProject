@@ -708,6 +708,11 @@ function Game.unload()
 
   PlayerRef.set(nil)
 
+  local okRepairPopup, repairPopup = pcall(require, "src.ui.repair_popup")
+  if okRepairPopup and repairPopup and repairPopup.hide then
+    repairPopup.hide()
+  end
+
   systemPipeline = nil
   systemContext = {}
 

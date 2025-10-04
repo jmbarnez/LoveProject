@@ -23,6 +23,7 @@ local Warp = require("src.ui.warp")
 local DebugPanel = require("src.ui.debug_panel")
 local Ship = require("src.ui.ship")
 local RewardWheelPanel = require("src.ui.reward_wheel_panel")
+local RepairPopup = require("src.ui.repair_popup")
 
 -- Normalize potentially-broken modules (protect against empty/incomplete inventory module)
 if type(Inventory) ~= "table" then
@@ -49,6 +50,7 @@ local DEFAULT_Z_INDEX = {
   warp = 60,
   escape = 100,
   settings = 110,
+  repairPopup = 112,
   rewardWheel = 115,
   debug = 120,
 }
@@ -66,6 +68,7 @@ UIManager.state = {
   warp = { open = false, zIndex = DEFAULT_Z_INDEX.warp },
   escape = { open = false, zIndex = DEFAULT_Z_INDEX.escape, showingSaveSlots = false }, -- Escape menu should be on top
   settings = { open = false, zIndex = DEFAULT_Z_INDEX.settings }, -- Settings panel should be on top of escape
+  repairPopup = { open = false, zIndex = DEFAULT_Z_INDEX.repairPopup },
   rewardWheel = { open = false, zIndex = DEFAULT_Z_INDEX.rewardWheel }, -- Reward wheel panel
   debug = { open = false, zIndex = DEFAULT_Z_INDEX.debug } -- Debug panel should be on top of everything
 }
@@ -81,6 +84,7 @@ UIManager.layerOrder = {
   "warp",
   "escape",
   "settings",
+  "repairPopup",
   "rewardWheel",
   "debug"
 }
@@ -397,6 +401,8 @@ function UIManager.update(dt, player)
     UIManager.modalComponent = "ship"
   elseif UIManager.state.warp.open then
     UIManager.modalComponent = "warp"
+  elseif UIManager.state.repairPopup.open then
+    UIManager.modalComponent = "repairPopup"
   else
     UIManager.modalComponent = nil
   end
@@ -411,6 +417,7 @@ function UIManager.update(dt, player)
   if Map.update then Map.update(dt, player) end
   if warpInstance.update then warpInstance:update(dt) end
   if RewardWheelPanel.update then RewardWheelPanel.update(dt) end
+  if RepairPopup.update then RepairPopup.update(dt) end
   if DebugPanel.update then DebugPanel.update(dt) end
   
   -- Update HUD notifications
@@ -508,6 +515,11 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops)
         Map.draw(player, world, enemies, asteroids, wrecks, stations, lootDrops)
       elseif component == "warp" then
         warpInstance:draw()
+      elseif component == "repairPopup" then
+        if RepairPopup.window then
+          RepairPopup.window.visible = RepairPopup.visible
+          RepairPopup.window:draw()
+        end
       elseif component == "rewardWheel" then
         if RewardWheelPanel.window then
           RewardWheelPanel.window.visible = RewardWheelPanel.visible
