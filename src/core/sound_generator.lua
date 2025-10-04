@@ -71,10 +71,9 @@ function SoundGenerator.generateLaserZap(duration, frequency, sampleRate)
     return soundData
 end
 
--- Generate a mining laser sound (pulsed, industrial)
+-- Generate a mining laser sound (industrial, looping, deep, quiet)
 function SoundGenerator.generateMiningLaser(duration, frequency, sampleRate)
-    duration = duration or 0.5
-    frequency = frequency or 400
+    duration = duration or 0.5  -- Short looping segment for continuous play
     sampleRate = sampleRate or 22050
 
     local sampleCount = math.floor(duration * sampleRate)
@@ -83,26 +82,42 @@ function SoundGenerator.generateMiningLaser(duration, frequency, sampleRate)
     for i = 0, sampleCount - 1 do
         local t = i / sampleCount
 
-        -- Pulsed envelope - more industrial sound
-        local pulseRate = 8 -- pulses per second
-        local pulse = math.sin(t * pulseRate * 2 * math.pi) * 0.5 + 0.5
-        local envelope = pulse * math.exp(-t * 3) * (1 + 0.3 * math.sin(t * 20 * math.pi))
-
-        -- Lower frequency with more harmonics for industrial feel
-        local baseFreq = frequency * (1 - t * 0.3)
-        local phase = t * baseFreq * 2 * math.pi
-
-        local sample = math.sin(phase) * 0.4
-        sample = sample + 0.2 * math.sin(phase * 1.5)  -- Strong second harmonic
-        sample = sample + 0.1 * math.sin(phase * 2.5)  -- Third harmonic
-
-        -- Add some crackle for industrial texture
-        sample = sample + noise() * 0.08 * pulse
-
-        -- Apply envelope
+        -- Deep industrial laser core - lower frequencies for deeper sound
+        local baseFreq = 120  -- Much deeper base frequency
+        local harmonic1 = math.sin(t * baseFreq * 2 * math.pi) * 0.3
+        local harmonic2 = math.sin(t * baseFreq * 1.5 * 2 * math.pi) * 0.2
+        local harmonic3 = math.sin(t * baseFreq * 2.0 * 2 * math.pi) * 0.15
+        local harmonic4 = math.sin(t * baseFreq * 2.5 * 2 * math.pi) * 0.1
+        
+        -- Deep machinery rumble - very low frequency
+        local rumbleFreq = 35 + 10 * math.sin(t * 0.5 * 2 * math.pi)  -- Slower, deeper rumble
+        local rumble = math.sin(t * rumbleFreq * 2 * math.pi) * 0.25
+        
+        -- Laser cutting through rock - lower frequency cutting
+        local cuttingNoise = noise() * 0.4
+        local cuttingFreq = 200 + 100 * math.sin(t * 1.5 * 2 * math.pi)  -- Lower cutting frequency
+        local cuttingFiltered = cuttingNoise * (0.5 + 0.5 * math.sin(t * cuttingFreq * 2 * math.pi))
+        
+        -- Subtle power fluctuations
+        local powerFluctuation = 1.0 + 0.08 * math.sin(t * 8 * 2 * math.pi) + 0.05 * math.sin(t * 15 * 2 * math.pi)
+        
+        -- Reduced crackles for quieter operation
+        local crackleIntensity = 0.2 + 0.1 * math.sin(t * 5 * 2 * math.pi)
+        local crackle = noise() * 0.1 * crackleIntensity
+        
+        -- Combine all elements
+        local sample = (harmonic1 + harmonic2 + harmonic3 + harmonic4 + rumble + cuttingFiltered + crackle) * powerFluctuation
+        
+        -- Smooth looping envelope - no fade in/out for seamless loop
+        local envelope = 0.95 + 0.05 * math.sin(t * 1.2 * 2 * math.pi)
+        
         sample = sample * envelope
-
-        sample = Util.clamp(sample * 0.4, -1, 1)
+        
+        -- Minimal electromagnetic interference
+        sample = sample + noise() * 0.03 * envelope
+        
+        -- Much quieter overall volume
+        sample = Util.clamp(sample * 0.25, -1, 1)
         soundData:setSample(i, sample)
     end
 
@@ -438,7 +453,12 @@ function SoundGenerator.getCachedSound(soundType, ...)
             return nil
         end
         
-        soundCache[key] = love.audio.newSource(soundData, "static")
+        local source = love.audio.newSource(soundData, "static")
+        -- Set mining laser to loop for continuous operation
+        if soundType == "mining_laser" then
+            source:setLooping(true)
+        end
+        soundCache[key] = source
         Log.debug("Generated procedural sound:", key)
     end
     
@@ -453,7 +473,7 @@ function SoundGenerator.generateBasicGameSounds()
     SoundGenerator.getCachedSound("laser", 0.4, 600)  -- Long, low-pitch (combat laser)
 
     -- Generate specialized laser sounds
-    SoundGenerator.getCachedSound("mining_laser", 0.5, 400) -- Mining laser: industrial, pulsed
+    SoundGenerator.getCachedSound("mining_laser", 0.5, 400) -- Mining laser: industrial, looping, deep, quiet
     SoundGenerator.getCachedSound("salvaging_laser", 0.4, 600) -- Salvaging laser: smooth, higher pitch
 
     -- Generate impact sounds

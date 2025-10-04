@@ -58,6 +58,7 @@ PhysicsSystem.update(dt, world:getEntities())
 - Damage application and health updates
 - Collision response and effects
 - Shield system integration
+- Mirrors collidable entities into an optional Windfield world (`src/core/windfield_world.lua`) for physics experiments and contact debugging
 
 **Dependencies**: Collidable, Health, Position components
 

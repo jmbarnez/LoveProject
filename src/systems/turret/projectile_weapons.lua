@@ -362,6 +362,9 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
     
     -- Add heat and play effects (only once per volley, not per projectile)
     TurretEffects.playFiringSound(turret)
+    
+    -- Set cooldown after firing
+    turret.cooldown = turret.cycle or 1.0
 end
 
 -- Handle missile turret firing (directional projectiles)
@@ -480,6 +483,9 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         
         -- Add heat and play effects
         TurretEffects.playFiringSound(turret)
+        
+        -- Set cooldown after firing
+        turret.cooldown = turret.cycle or 1.0
     end
 end
 

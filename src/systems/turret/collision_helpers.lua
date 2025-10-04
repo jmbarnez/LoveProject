@@ -26,7 +26,9 @@ function CollisionHelpers.performCollisionCheck(x1, y1, x2, y2, target, targetRa
 
     -- Shields always take priority - they're larger than the hull
     if target.components.health and target.components.health.shield > 0 then
-        return CollisionHelpers.calculateShieldHitPoint(x1, y1, x2, y2, ex, ey, targetRadius)
+        local Radius = require("src.systems.collision.radius")
+        local shield_radius = Radius.getShieldRadius(target)
+        return CollisionHelpers.calculateShieldHitPoint(x1, y1, x2, y2, ex, ey, shield_radius)
     end
 
     -- Check for polygon collision shape (hull collision)

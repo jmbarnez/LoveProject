@@ -44,7 +44,7 @@ return {
             radius = 3,
         },
         damage = {
-            value = 1.5,
+            value = 1.0,
         },
         timed_life = {
             duration = 0.16,

@@ -36,6 +36,11 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     if locked or not turret:canFire() then
         turret.beamActive = false
         turret.beamTarget = nil
+        -- Stop mining laser sound if it was playing
+        if turret.miningSoundActive then
+            TurretEffects.stopMiningSound(turret)
+            turret.miningSoundActive = false
+        end
         -- Clear mining flags when beam is not active
         if world then
             local entities = world:get_entities_with_components("mineable")
@@ -106,6 +111,11 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
         else
             -- Not enough energy, stop the beam
             turret.beamActive = false
+            -- Stop mining laser sound if it was playing
+            if turret.miningSoundActive then
+                TurretEffects.stopMiningSound(turret)
+                turret.miningSoundActive = false
+            end
             return
         end
     else
@@ -153,8 +163,11 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     turret.cooldownOverride = 0
 
+    -- Handle continuous mining laser sound
     if not wasActive then
+        -- Start the mining laser sound (it will loop)
         TurretEffects.playFiringSound(turret)
+        turret.miningSoundActive = true
     end
 end
 
