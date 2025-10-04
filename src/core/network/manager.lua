@@ -86,7 +86,7 @@ function NetworkManager:startHost(port)
             health = { hp = 100, maxHp = 100, shield = 0, maxShield = 0 }
         })
         
-        Log.info("Started hosting multiplayer game on port", port)
+        Log.info("Started hosting multiplayer game as HOST - isHost:", self._isHost, "isMultiplayer:", self._isMultiplayer)
         return true
     end
 
@@ -108,7 +108,7 @@ function NetworkManager:joinGame(address, port)
     if self.client:connect(address, port) then
         self._isHost = false
         self._isMultiplayer = true
-        Log.info("Successfully joined multiplayer game")
+        Log.info("Successfully joined multiplayer game as CLIENT - isHost:", self._isHost, "isMultiplayer:", self._isMultiplayer)
         return true
     end
 

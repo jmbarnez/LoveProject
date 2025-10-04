@@ -25,7 +25,7 @@ Theme.colors = {
   success = {0.3, 0.9, 0.6, 1.00},         -- Cyan-tinted green
   warning = {0.9, 0.6, 0.4, 1.00},         -- Lavender-tinted amber
   danger = {0.9, 0.3, 0.5, 1.00},          -- Magenta red
-  info = {0.5, 0.7, 0.9, 1.00},            -- Soft lavender
+  info = {0.0, 1.0, 1.0, 1.00},            -- Cyan
 
   -- Pure black backgrounds
   bg0 = {0.0, 0.0, 0.0, 1.00},             -- Pure black

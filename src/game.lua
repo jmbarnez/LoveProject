@@ -325,12 +325,16 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
       -- Transfer the connection to the global network manager
       if networkManager:joinGame(_G.PENDING_MULTIPLAYER_CONNECTION.address, _G.PENDING_MULTIPLAYER_CONNECTION.port) then
         Log.info("Successfully transferred connection to game")
+        -- Ensure the game knows it's in client mode
+        Game.setMultiplayerMode(true, false)
         _G.PENDING_MULTIPLAYER_CONNECTION = nil -- Clear the pending connection
       else
         Log.error("Failed to transfer connection to game")
       end
     else
       Log.info("Game loaded in client multiplayer mode (no pending connection)")
+      -- Ensure the game knows it's in client mode
+      Game.setMultiplayerMode(true, false)
     end
   end
   

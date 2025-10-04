@@ -165,9 +165,18 @@ local function registerPeerForPlayer(self, playerId, peer)
         return
     end
 
+    -- Clear any existing peer mapping for this player to prevent stale disconnect issues
+    if self.playerToPeer[playerId] then
+        local oldPeer = self.playerToPeer[playerId]
+        self.peerToPlayerId[oldPeer] = nil
+        self.connectedPeers[oldPeer] = nil
+        Log.info("Cleared old peer mapping for player", playerId, "to prevent stale disconnect")
+    end
+
     self.peerToPlayerId[peer] = playerId
     self.playerToPeer[playerId] = peer
     self.connectedPeers[peer] = true
+    Log.info("Registered new peer for player", playerId)
 end
 
 local function unregisterPeerForPlayer(self, playerId, peer)
@@ -178,12 +187,15 @@ local function unregisterPeerForPlayer(self, playerId, peer)
     end
 
     if targetPeer then
+        local mappedPlayerId = self.peerToPlayerId[targetPeer]
         self.peerToPlayerId[targetPeer] = nil
         self.connectedPeers[targetPeer] = nil
+        Log.info("Unregistered peer for player", mappedPlayerId or "unknown")
     end
 
     if playerId then
         self.playerToPeer[playerId] = nil
+        Log.info("Cleared player-to-peer mapping for player", playerId)
     end
 end
 
@@ -213,7 +225,16 @@ function NetworkServer:update(dt)
                 local playerId = self.peerToPlayerId[event.peer]
                 self.connectedPeers[event.peer] = nil
                 if playerId then
-                    self:handlePlayerLeave({ playerId = playerId }, event.peer)
+                    -- Check if this player is still active on another peer
+                    local currentPeer = self.playerToPeer[playerId]
+                    if currentPeer and currentPeer ~= event.peer then
+                        Log.info("Player", playerId, "is still active on another peer, not removing from server")
+                        -- Just unregister the disconnected peer, don't remove the player
+                        unregisterPeerForPlayer(self, nil, event.peer)
+                    else
+                        -- This is the only peer for this player, safe to remove
+                        self:handlePlayerLeave({ playerId = playerId }, event.peer)
+                    end
                 else
                     unregisterPeerForPlayer(self, nil, event.peer)
                 end
