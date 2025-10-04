@@ -118,22 +118,25 @@ local function transitionToGame(opts)
     opts = opts or {}
     local fromSave = opts.fromSave == true
     local saveSlot = opts.slot
+    local multiplayer = opts.multiplayer == true
+    local isHost = opts.isHost == true
     local loadingScreen = mainState.loadingScreen
     local Game = require("src.game")
 
     if loadingScreen then
-        loadingScreen:show({"Loading..."}, false)
+        local loadingText = multiplayer and (isHost and "Starting multiplayer server..." or "Joining multiplayer game...") or "Loading..."
+        loadingScreen:show({loadingText}, false)
     end
 
     local function performLoad()
         if fromSave then
             if saveSlot == "autosave" then
-                return Game.load(true, "autosave", loadingScreen)
+                return Game.load(true, "autosave", loadingScreen, multiplayer, isHost)
             end
-            return Game.load(true, saveSlot, loadingScreen)
+            return Game.load(true, saveSlot, loadingScreen, multiplayer, isHost)
         end
 
-        return Game.load(false, nil, loadingScreen)
+        return Game.load(false, nil, loadingScreen, multiplayer, isHost)
     end
 
     local success, result = pcall(performLoad)
@@ -333,6 +336,12 @@ function Input.love_mousepressed(x, y, button)
         Notifications.add("No save slot selected", "warning")
         return
       end
+    elseif start == "hostGame" then
+      transitionToGame({ fromSave = false, multiplayer = true, isHost = true })
+      return
+    elseif start == "joinGame" then
+      transitionToGame({ fromSave = false, multiplayer = true, isHost = false })
+      return
     end
   else
     -- Convert screen coords to virtual coords so UI hit-testing matches rendering

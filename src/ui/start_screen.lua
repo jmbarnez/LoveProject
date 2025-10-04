@@ -11,6 +11,7 @@ local UIButton = require("src.ui.common.button")
 local Window = require("src.ui.common.window")
 local Strings = require("src.core.strings")
 local VersionLog = require("src.ui.version_log")
+local NetworkManager = require("src.core.network.manager")
 
 local Start = {}
 Start.__index = Start
@@ -65,11 +66,18 @@ local startScreenHandler = function(self, x, y, button)
   if Theme.handleButtonClick(self.loadButton, x, y, function()
     -- Explicitly refresh the save slots from disk before showing the UI
     if self.loadSlotsUI and self.loadSlotsUI.saveSlots and self.loadSlotsUI.saveSlots._ensureCache then
-        self.loadSlotsUI.saveSlots:_ensureCache()
+      self.loadSlotsUI.saveSlots:_ensureCache()
     end
     self.showLoadUI = true
   end) then
     return false -- don't start game, show load UI
+  end
+
+  -- Multiplayer button click
+  if Theme.handleButtonClick(self.multiplayerButton, x, y, function()
+    self.showJoinUI = true
+  end) then
+    return false
   end
 
   if Theme.handleButtonClick(self.versionButton, x, y, function()
@@ -84,7 +92,11 @@ local startScreenHandler = function(self, x, y, button)
     return false
   end
 
-  -- No exit button - use Escape key or Alt+F4 instead
+  if Theme.handleButtonClick(self.exitButton, x, y, function()
+    love.event.quit()
+  end) then
+    return false
+  end
 
 
   -- Start button click
@@ -165,8 +177,16 @@ function Start.new()
   self.twinkles = genTwinkles(self.w, self.h, math.floor(50 * math.max(1, scale)))
   self.button = { x = 0, y = 0, w = 260, h = 40 }
   self.loadButton = { x = 0, y = 0, w = 260, h = 40 }
+  self.multiplayerButton = { x = 0, y = 0, w = 260, h = 40 }
   self.versionButton = { x = 0, y = 0, w = 260, h = 40 }
   self.settingsButton = { x = 0, y = 0, w = 40, h = 40 }
+  self.exitButton = { x = 0, y = 0, w = 40, h = 40 }
+  
+  -- Multiplayer UI state
+  self.showJoinUI = false
+  self.joinAddress = "localhost"
+  self.joinPort = "7777"
+  self.networkManager = NetworkManager.new()
   self.versionWindow = Window.new({
     title = Strings.getUI("version_log_title"),
     width = 1000,
@@ -223,6 +243,7 @@ end
 
 function Start:update(dt)
    SettingsPanel.update(dt)
+   self.networkManager:update(dt)
 end
 
 function Start:draw()
@@ -354,21 +375,28 @@ function Start:draw()
   -- Enhanced main button with sci-fi styling
   local s = uiScale()
   local bw, bh = self.button.w * s, self.button.h * s
-  local totalButtonHeight = bh * 3 + 40 * s
+  local totalButtonHeight = bh * 4 + 40 * s -- 4 buttons now
   local startY = math.floor((h - totalButtonHeight) / 2)
 
   local bx = math.floor((w - bw) * 0.5)
   local by = startY
   local mx, my = Viewport.getMousePosition()
   local hover = mx >= bx and mx <= bx + bw and my >= by and my <= by + bh
-  UIButton.drawRect(bx, by, bw, bh, Strings.getUI('new_game'), hover, t, { compact = true, menuButton = true })
+  UIButton.drawRect(bx, by, bw, bh, "New Game", hover, t, { compact = true, menuButton = true })
   self.button._rect = { x = bx, y = by, w = bw, h = bh }
 
   local lbx = bx
   local lby = by + bh + 20 * s
   local lhover = mx >= lbx and mx <= lbx + bw and my >= lby and my <= lby + bh
-  UIButton.drawRect(lbx, lby, bw, bh, Strings.getUI('load_game'), lhover, t, { compact = true, menuButton = true })
+  UIButton.drawRect(lbx, lby, bw, bh, "Load Game", lhover, t, { compact = true, menuButton = true })
   self.loadButton._rect = { x = lbx, y = lby, w = bw, h = bh }
+
+  -- Multiplayer button
+  local mbx = bx
+  local mby = lby + bh + 20 * s
+  local mhover = mx >= mbx and mx <= mbx + bw and my >= mby and my <= mby + bh
+  UIButton.drawRect(mbx, mby, bw, bh, "Multiplayer", mhover, t, { compact = true, menuButton = true })
+  self.multiplayerButton._rect = { x = mbx, y = mby, w = bw, h = bh }
 
   local versionText = Strings.getUI('version') or ""
   local baseFont = Theme.fonts and Theme.fonts.normal or love.graphics.getFont()
@@ -414,10 +442,32 @@ function Start:draw()
 
   self.settingsButton._rect = { x = settingsButtonX, y = settingsButtonY, w = settingsButtonSize, h = settingsButtonSize }
 
--- No exit button - users can use Escape key or Alt+F4 to exit
+  -- Exit button in top left (red X)
+  local exitButtonSize = 32 * s
+  local exitButtonX = 20 * s
+  local exitButtonY = 20 * s
+  local exitHover = mx >= exitButtonX and mx <= exitButtonX + exitButtonSize and my >= exitButtonY and my <= exitButtonY + exitButtonSize
 
-
+  -- Draw red X button
+  local exitColor = exitHover and {1.0, 0.3, 0.3, 1.0} or {0.8, 0.2, 0.2, 1.0}
+  Theme.setColor(exitColor)
+  love.graphics.rectangle("fill", exitButtonX, exitButtonY, exitButtonSize, exitButtonSize)
   
+  -- Draw X symbol
+  Theme.setColor({1, 1, 1, 1})
+  love.graphics.setLineWidth(3)
+  local centerX = exitButtonX + exitButtonSize / 2
+  local centerY = exitButtonY + exitButtonSize / 2
+  local crossSize = exitButtonSize * 0.3
+  love.graphics.line(centerX - crossSize, centerY - crossSize, centerX + crossSize, centerY + crossSize)
+  love.graphics.line(centerX + crossSize, centerY - crossSize, centerX - crossSize, centerY + crossSize)
+
+  self.exitButton._rect = { x = exitButtonX, y = exitButtonY, w = exitButtonSize, h = exitButtonSize }
+  -- Draw join game UI
+  if self.showJoinUI then
+    self:drawJoinUI()
+  end
+
   -- Draw load UI on top of everything else
   if self.showLoadUI and self.loadSlotsUI then
     -- Center the save/load panel on screen
@@ -438,8 +488,141 @@ function Start:draw()
   -- Version number in bottom right
 end
 
+function Start:drawJoinUI()
+  local w, h = self.w, self.h
+  local s = uiScale()
+  
+  -- Semi-transparent overlay
+  Theme.setColor({0, 0, 0, 0.7})
+  love.graphics.rectangle("fill", 0, 0, w, h)
+  
+  -- Join game window
+  local windowW = 400 * s
+  local windowH = 200 * s
+  local windowX = (w - windowW) / 2
+  local windowY = (h - windowH) / 2
+  
+  -- Window background
+  Theme.setColor(Theme.colors.bg1)
+  love.graphics.rectangle("fill", windowX, windowY, windowW, windowH)
+  
+  -- Window border
+  Theme.setColor(Theme.colors.border)
+  love.graphics.setLineWidth(2)
+  love.graphics.rectangle("line", windowX, windowY, windowW, windowH)
+  
+  -- Title
+  love.graphics.setFont(Theme.fonts.normal)
+  Theme.setColor(Theme.colors.text)
+  local title = "Multiplayer Game"
+  local titleW = Theme.fonts.normal:getWidth(title)
+  love.graphics.print(title, windowX + (windowW - titleW) / 2, windowY + 20 * s)
+  
+  -- Address input
+  local inputY = windowY + 60 * s
+  local inputW = 200 * s
+  local inputH = 30 * s
+  local inputX = windowX + (windowW - inputW) / 2
+  
+  -- Address label
+  love.graphics.print("Server Address:", windowX + 20 * s, inputY - 20 * s)
+  
+  -- Address input box
+  Theme.setColor(Theme.colors.bg0)
+  love.graphics.rectangle("fill", inputX, inputY, inputW, inputH)
+  Theme.setColor(Theme.colors.border)
+  love.graphics.rectangle("line", inputX, inputY, inputW, inputH)
+  
+  -- Address text
+  Theme.setColor(Theme.colors.text)
+  love.graphics.print(self.joinAddress, inputX + 5 * s, inputY + 5 * s)
+  
+  -- Port input
+  local portY = inputY + 50 * s
+  local portW = 100 * s
+  local portH = 30 * s
+  local portX = windowX + (windowW - portW) / 2
+  
+  -- Port label
+  love.graphics.print("Port:", windowX + 20 * s, portY - 20 * s)
+  
+  -- Port input box
+  Theme.setColor(Theme.colors.bg0)
+  love.graphics.rectangle("fill", portX, portY, portW, portH)
+  Theme.setColor(Theme.colors.border)
+  love.graphics.rectangle("line", portX, portY, portW, portH)
+  
+  -- Port text
+  Theme.setColor(Theme.colors.text)
+  love.graphics.print(self.joinPort, portX + 5 * s, portY + 5 * s)
+  
+  -- Buttons
+  local buttonW = 80 * s
+  local buttonH = 30 * s
+  local buttonY = portY + 50 * s
+  local hostX = windowX + (windowW - buttonW * 3 - 40 * s) / 2
+  local joinX = hostX + buttonW + 20 * s
+  local cancelX = joinX + buttonW + 20 * s
+  
+  local mx, my = Viewport.getMousePosition()
+  local hostHover = mx >= hostX and mx <= hostX + buttonW and my >= buttonY and my <= buttonY + buttonH
+  local joinHover = mx >= joinX and mx <= joinX + buttonW and my >= buttonY and my <= buttonY + buttonH
+  local cancelHover = mx >= cancelX and mx <= cancelX + buttonW and my >= buttonY and my <= buttonY + buttonH
+  
+  -- Host button
+  Theme.setColor(hostHover and Theme.colors.accent or Theme.colors.primary)
+  love.graphics.rectangle("fill", hostX, buttonY, buttonW, buttonH)
+  Theme.setColor(Theme.colors.text)
+  love.graphics.print("Host", hostX + 10 * s, buttonY + 5 * s)
+  
+  -- Join button
+  Theme.setColor(joinHover and Theme.colors.accent or Theme.colors.primary)
+  love.graphics.rectangle("fill", joinX, buttonY, buttonW, buttonH)
+  Theme.setColor(Theme.colors.text)
+  love.graphics.print("Join", joinX + 10 * s, buttonY + 5 * s)
+  
+  -- Cancel button
+  Theme.setColor(cancelHover and Theme.colors.accent or Theme.colors.primary)
+  love.graphics.rectangle("fill", cancelX, buttonY, buttonW, buttonH)
+  Theme.setColor(Theme.colors.text)
+  love.graphics.print("Cancel", cancelX + 10 * s, buttonY + 5 * s)
+  
+  -- Store button positions for click handling
+  self.hostButton = { x = hostX, y = buttonY, w = buttonW, h = buttonH }
+  self.joinButton = { x = joinX, y = buttonY, w = buttonW, h = buttonH }
+  self.cancelButton = { x = cancelX, y = buttonY, w = buttonW, h = buttonH }
+end
+
 function Start:mousepressed(x, y, button)
-  -- Check load UI first (highest priority)
+  -- Check multiplayer UI first (highest priority)
+  if self.showJoinUI then
+    if self.hostButton and x >= self.hostButton.x and x <= self.hostButton.x + self.hostButton.w and
+       y >= self.hostButton.y and y <= self.hostButton.y + self.hostButton.h then
+      -- Host button clicked
+      if self.networkManager:startHost() then
+        self.showJoinUI = false
+        return "hostGame" -- signal to start hosting
+      end
+      return false
+    elseif self.joinButton and x >= self.joinButton.x and x <= self.joinButton.x + self.joinButton.w and
+           y >= self.joinButton.y and y <= self.joinButton.y + self.joinButton.h then
+      -- Join button clicked
+      local port = tonumber(self.joinPort) or 7777
+      if self.networkManager:joinGame(self.joinAddress, port) then
+        self.showJoinUI = false
+        return "joinGame" -- signal to join game
+      end
+      return false
+    elseif self.cancelButton and x >= self.cancelButton.x and x <= self.cancelButton.x + self.cancelButton.w and
+           y >= self.cancelButton.y and y <= self.cancelButton.y + self.cancelButton.h then
+      -- Cancel button clicked
+      self.showJoinUI = false
+      return false
+    end
+    return false -- Consume all clicks when multiplayer UI is open
+  end
+
+  -- Check load UI second
   if self.showLoadUI and self.loadSlotsUI then
     -- Handle SaveLoad panel interactions
     if self.loadSlotsUI.window and self.loadSlotsUI.window:mousepressed(x, y, button) then

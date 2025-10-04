@@ -58,6 +58,7 @@ local PlayerRef = require("src.core.player_ref")
 local Log = require("src.core.log")
 local Debug = require("src.core.debug")
 local Constants = require("src.core.constants")
+local NetworkManager = require("src.core.network.manager")
 
 local Game = {}
 
@@ -75,6 +76,9 @@ local refreshDockingState
 local systemPipeline
 local systemContext = {}
 local ecsManager
+local networkManager
+local isMultiplayer = false
+local isHost = false
 
 -- Make world accessible
 Game.world = world
@@ -234,6 +238,12 @@ local function createSystemPipeline()
       local TurretEffects = require("src.systems.turret.effects")
       TurretEffects.cleanupOrphanedSounds()
     end,
+    function(ctx)
+      -- Update network manager if multiplayer
+      if networkManager then
+        networkManager:update(ctx.dt)
+      end
+    end,
   }
 
   systemPipeline = SystemPipeline.new(steps)
@@ -249,8 +259,12 @@ end
     entities) is intentionally linear so future systems have an obvious place
     to hook into without breaking save/load behaviour.
 ]]
-function Game.load(fromSave, saveSlot, loadingScreen)
+function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   Log.setInfoEnabled(true)
+  
+  -- Set multiplayer state
+  isMultiplayer = multiplayer or false
+  isHost = isHost or false
   
   -- updateProgress provides a tiny abstraction so future steps can remain
   -- focused on logic rather than remembering to null-check the loading screen.
@@ -269,6 +283,15 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   HotbarSystem.load()
   NodeMarket.init()
   PortfolioManager.init()
+  
+  -- Initialize network manager if multiplayer
+  if isMultiplayer then
+    updateProgress(0.25, "Initializing multiplayer...")
+    networkManager = NetworkManager.new()
+    if isHost then
+      networkManager:startHost()
+    end
+  end
   
   -- Step 3: Setup input
   updateProgress(0.3, "Setting up input...")
@@ -733,6 +756,14 @@ function Game.unload()
   systemPipeline = nil
   systemContext = {}
   ecsManager = nil
+
+  -- Clean up network manager
+  if networkManager then
+    networkManager:leaveGame()
+    networkManager = nil
+  end
+  isMultiplayer = false
+  isHost = false
 
   Input.init({})
 
