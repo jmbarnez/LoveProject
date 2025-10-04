@@ -20,16 +20,23 @@ end
 
 local maxEnemies = getSpawnValue("MAX_ENEMIES") or 36 -- Significantly increased for relentless pressure
 local maxBosses = 3   -- Hard cap on boss drones
-local maxAsteroids = 15
-local maxClusters = 5  -- Maximum number of asteroid clusters
+local maxAsteroids = 80  -- Increased from 15 to 80 for more asteroids
+local maxClusters = 20  -- Increased from 5 to 20 for many more clusters
 local clusterRadius = 200  -- Radius around cluster center
-local clusterMinAsteroids = 2  -- Minimum asteroids per cluster
-local clusterMaxAsteroids = 6  -- Maximum asteroids per cluster
+local clusterMinAsteroids = 3  -- Increased minimum asteroids per cluster
+local clusterMaxAsteroids = 8  -- Increased maximum asteroids per cluster
 
 local asteroidVariants = {
   { id = "asteroid_small", weight = 3 },
   { id = "asteroid_medium", weight = 4 },
   { id = "asteroid_large", weight = 2 },
+}
+
+-- Palladium asteroid variants (20% chance)
+local palladiumAsteroidVariants = {
+  { id = "asteroid_small_palladium", weight = 1 },
+  { id = "asteroid_medium_palladium", weight = 2 },
+  { id = "asteroid_large_palladium", weight = 1 },
 }
 
 -- Gray shade variations for asteroids
@@ -42,20 +49,39 @@ local grayShades = {
 }
 
 local function pickAsteroidId()
-  local totalWeight = 0
-  for _, variant in ipairs(asteroidVariants) do
-    totalWeight = totalWeight + (variant.weight or 1)
-  end
-
-  local roll = math.random() * totalWeight
-  for _, variant in ipairs(asteroidVariants) do
-    roll = roll - (variant.weight or 1)
-    if roll <= 0 then
-      return variant.id
+  -- 20% chance for palladium asteroids, 80% chance for regular asteroids
+  if math.random() < 0.2 then
+    -- Pick palladium asteroid
+    local totalWeight = 0
+    for _, variant in ipairs(palladiumAsteroidVariants) do
+      totalWeight = totalWeight + (variant.weight or 1)
     end
-  end
 
-  return asteroidVariants[1] and asteroidVariants[1].id or "asteroid_medium"
+    local roll = math.random() * totalWeight
+    for _, variant in ipairs(palladiumAsteroidVariants) do
+      roll = roll - (variant.weight or 1)
+      if roll <= 0 then
+        return variant.id
+      end
+    end
+    return palladiumAsteroidVariants[1] and palladiumAsteroidVariants[1].id or "asteroid_medium_palladium"
+  else
+    -- Pick regular asteroid
+    local totalWeight = 0
+    for _, variant in ipairs(asteroidVariants) do
+      totalWeight = totalWeight + (variant.weight or 1)
+    end
+
+    local roll = math.random() * totalWeight
+    for _, variant in ipairs(asteroidVariants) do
+      roll = roll - (variant.weight or 1)
+      if roll <= 0 then
+        return variant.id
+      end
+    end
+
+    return asteroidVariants[1] and asteroidVariants[1].id or "asteroid_medium"
+  end
 end
 
 -- Pick a random gray shade for asteroid variation
@@ -141,6 +167,21 @@ local function createAsteroidCluster(centerX, centerY, hub, world)
             asteroid.visuals.colors.large = {grayShade[1] * 0.8, grayShade[2] * 0.8, grayShade[3] * 0.8, grayShade[4]}
             asteroid.visuals.colors.outline = {grayShade[1] * 0.6, grayShade[2] * 0.6, grayShade[3] * 0.6, grayShade[4]}
           end
+          
+          -- Add physics body for collision detection and bouncing
+          local Physics = require("src.components.physics")
+          local radius = asteroid.components.collidable and asteroid.components.collidable.radius or 30
+          local mass = radius * 2  -- Mass based on size
+          asteroid.components.physics = Physics.new({
+            mass = mass,
+            x = x,
+            y = y
+          })
+          
+          -- Add small random velocity for natural movement
+          local velX = (math.random() - 0.5) * 20  -- Random velocity between -10 and 10
+          local velY = (math.random() - 0.5) * 20
+          asteroid.components.physics.body:setVelocity(velX, velY)
           
           world:addEntity(asteroid)
           createdAsteroids = createdAsteroids + 1
@@ -391,6 +432,21 @@ local function spawnAsteroid(hub, world)
         asteroid.visuals.colors.outline = {grayShade[1] * 0.6, grayShade[2] * 0.6, grayShade[3] * 0.6, grayShade[4]}
       end
       
+      -- Add physics body for collision detection and bouncing
+      local Physics = require("src.components.physics")
+      local radius = asteroid.components.collidable and asteroid.components.collidable.radius or 30
+      local mass = radius * 2  -- Mass based on size
+      asteroid.components.physics = Physics.new({
+        mass = mass,
+        x = x,
+        y = y
+      })
+      
+      -- Add small random velocity for natural movement
+      local velX = (math.random() - 0.5) * 20  -- Random velocity between -10 and 10
+      local velY = (math.random() - 0.5) * 20
+      asteroid.components.physics.body:setVelocity(velX, velY)
+      
       world:addEntity(asteroid)
   end
 end
@@ -399,42 +455,28 @@ local function spawnInitialEntities(player, hub, world)
     -- Don't spawn any enemies at startup - only spawn when player is nearby or explicitly needed
     -- This prevents red engine trails from appearing immediately on startup
 
-    -- Create one big cluster of 5-10 asteroids in the top-left corner
-    local margin = 200  -- Distance from edge
-    local centerX = margin + math.random(0, 100)  -- Top-left area
-    local centerY = margin + math.random(0, 100)  -- Top-left area
+    -- Create multiple asteroid clusters around the space
+    local margin = 300  -- Distance from edge
+    local clustersToSpawn = 15  -- Spawn 15 clusters initially
     
-    -- Create a larger cluster with 5-10 asteroids
-    local clusterSize = 5 + math.random(0, 5)  -- 5-10 asteroids
-    local clusterRadius = 150  -- Larger radius for the big cluster
-    
-    local asteroidsCreated = 0
-    local attempts = 0
-    local maxAttempts = clusterSize * 3  -- More attempts for the larger cluster
-    
-    while asteroidsCreated < clusterSize and attempts < maxAttempts do
-        attempts = attempts + 1
+    for i = 1, clustersToSpawn do
+        -- Random position across the world
+        local centerX = margin + math.random(0, world.width - 2 * margin)
+        local centerY = margin + math.random(0, world.height - 2 * margin)
         
-        -- Generate position within cluster radius
-        local angle = math.random() * math.pi * 2
-        local distance = math.random() * clusterRadius
-        local x = centerX + math.cos(angle) * distance
-        local y = centerY + math.sin(angle) * distance
+        -- Create a cluster with 3-8 asteroids
+        local clusterSize = clusterMinAsteroids + math.random(0, clusterMaxAsteroids - clusterMinAsteroids)
+        local clusterRadius = 200  -- Standard cluster radius
         
-        -- Ensure position is within world bounds
-        x = math.max(50, math.min(world.width - 50, x))
-        y = math.max(50, math.min(world.height - 50, y))
-        
-        -- Check if position is safe from stations
+        -- Check if cluster center is safe from stations
         local asteroid_buffer = (getSpawnValue("STATION_BUFFER") or 300) * 0.5
         local ok_stations = true
         
         if hub and hub.components and hub.components.position then
-            local dx = x - hub.components.position.x
-            local dy = y - hub.components.position.y
+            local dx = centerX - hub.components.position.x
+            local dy = centerY - hub.components.position.y
             local distance_squared = dx * dx + dy * dy
-            local safe_distance_squared = asteroid_buffer * asteroid_buffer
-            
+            local safe_distance_squared = (asteroid_buffer + clusterRadius) * (asteroid_buffer + clusterRadius)
             if distance_squared <= safe_distance_squared then
                 ok_stations = false
             end
@@ -444,10 +486,10 @@ local function spawnInitialEntities(player, hub, world)
             local stations = world:get_entities_with_components("station")
             for _, station in ipairs(stations) do
                 if station.components and station.components.position then
-                    local dx = x - station.components.position.x
-                    local dy = y - station.components.position.y
+                    local dx = centerX - station.components.position.x
+                    local dy = centerY - station.components.position.y
                     local distance_squared = dx * dx + dy * dy
-                    local buffer = asteroid_buffer
+                    local buffer = asteroid_buffer + clusterRadius
                     if station.noSpawnRadius and (not station.broken) then
                         buffer = station.noSpawnRadius
                     end
@@ -460,40 +502,14 @@ local function spawnInitialEntities(player, hub, world)
             end
         end
         
-        -- Check distance from other asteroids in the cluster
-        local ok_others = true
-        local existing_asteroids = world:get_entities_with_components("mineable")
-        for _, ast in ipairs(existing_asteroids) do
-            local dxa, dya = x - ast.components.position.x, y - ast.components.position.y
-            local r = (ast.components.collidable and ast.components.collidable.radius) or 30
-            local min_dist = r + 30  -- Tighter spacing for cluster
-            if (dxa*dxa + dya*dya) <= (min_dist * min_dist) then
-                ok_others = false
-                break
-            end
-        end
-        
-        if ok_stations and ok_others then
-            local asteroidId = pickAsteroidId()
-            local asteroid = EntityFactory.create("world_object", asteroidId, x, y)
-            if asteroid then
-                -- Apply random gray shade
-                local grayShade = pickGrayShade()
-                if asteroid.visuals and asteroid.visuals.colors then
-                    asteroid.visuals.colors.small = grayShade
-                    asteroid.visuals.colors.medium = {grayShade[1] * 0.9, grayShade[2] * 0.9, grayShade[3] * 0.9, grayShade[4]}
-                    asteroid.visuals.colors.large = {grayShade[1] * 0.8, grayShade[2] * 0.8, grayShade[3] * 0.8, grayShade[4]}
-                    asteroid.visuals.colors.outline = {grayShade[1] * 0.6, grayShade[2] * 0.6, grayShade[3] * 0.6, grayShade[4]}
-                end
-                
-                world:addEntity(asteroid)
-                asteroidsCreated = asteroidsCreated + 1
-            end
+        -- If cluster center is safe, create the cluster
+        if ok_stations then
+            createAsteroidCluster(centerX, centerY, hub, world)
         end
     end
 
     -- Don't spawn bosses at startup either
-  end
+end
 
 function SpawningSystem.init(player, hub, world)
   enemySpawnTimer = 0
@@ -537,8 +553,8 @@ function SpawningSystem.update(dt, player, hub, world)
 
   asteroidSpawnTimer = asteroidSpawnTimer - dt
   if asteroidSpawnTimer <= 0 and #asteroids < maxAsteroids then
-    -- 30% chance to spawn a new cluster, otherwise spawn individual asteroid
-    if math.random() < 0.3 then
+    -- 60% chance to spawn a new cluster, otherwise spawn individual asteroid
+    if math.random() < 0.6 then
       local margin = 300
       local centerX = math.random(margin, world.width - margin)
       local centerY = math.random(margin, world.height - margin)

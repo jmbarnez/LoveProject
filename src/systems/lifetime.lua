@@ -7,6 +7,7 @@
     emitting the same projectile events before entities are marked as dead.
 ]]
 
+local tiny = require("src.libs.tiny")
 local ProjectileEvents = require("src.templates.projectile_system.event_dispatcher").EVENTS
 local Effects = require("src.systems.effects")
 
@@ -78,28 +79,35 @@ local function update_max_range(entity, max_range)
     entity.dead = true
 end
 
-function LifetimeSystem.update(dt, world)
-    if not world then return end
-
-    for _, entity in pairs(world:getEntities()) do
-        if entity and not entity.dead and entity.components then
-            local timed_life = entity.components.timed_life
-            if timed_life then
-                update_timed_life(entity, timed_life, dt)
-            end
-
-            if entity.dead then
-                goto continue
-            end
-
-            local max_range = entity.components.max_range
-            if max_range then
-                update_max_range(entity, max_range)
-            end
-        end
-
-        ::continue::
+local function process_entity(entity, dt)
+    if not entity or entity.dead or not entity.components then
+        return
     end
+
+    local timed_life = entity.components.timed_life
+    if timed_life then
+        update_timed_life(entity, timed_life, dt)
+    end
+
+    if entity.dead then
+        return
+    end
+
+    local max_range = entity.components.max_range
+    if max_range then
+        update_max_range(entity, max_range)
+    end
+end
+
+function LifetimeSystem.create()
+    local system = tiny.processingSystem()
+    system.filter = tiny.requireAny("timed_life", "max_range")
+
+    function system:process(entity, dt)
+        process_entity(entity, dt)
+    end
+
+    return system
 end
 
 return LifetimeSystem

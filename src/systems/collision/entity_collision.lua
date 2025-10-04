@@ -250,6 +250,21 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
             return -- Skip normal collision resolution
         end
 
+        -- Handle asteroid-to-asteroid collisions with bouncing
+        local e1IsAsteroid = entity1.components.mineable and entity1.components.collidable
+        local e2IsAsteroid = entity2.components.mineable and entity2.components.collidable
+        if e1IsAsteroid and e2IsAsteroid then
+            -- Both are asteroids - use physics body collision for bouncing
+            local e1Physics = entity1.components.physics and entity1.components.physics.body
+            local e2Physics = entity2.components.physics and entity2.components.physics.body
+            
+            if e1Physics and e2Physics then
+                -- Use the physics body collision method for realistic bouncing
+                e1Physics:collideWith(e2Physics, 0.6) -- 60% restitution for asteroid bouncing
+                return -- Skip normal collision resolution
+            end
+        end
+
         -- Determine which entities can move (have physics bodies or are movable)
         local e1Physics = entity1.components.physics and entity1.components.physics.body
         local e2Physics = entity2.components.physics and entity2.components.physics.body

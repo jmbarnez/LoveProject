@@ -114,7 +114,7 @@ function Sound.loadSFX(name, path)
     if name == "laser_fire" then
         proceduralSound = SoundGenerator.getCachedSound("laser", 0.3, 800) -- Combat laser: medium duration, high pitch
     elseif name == "mining_laser" then
-        proceduralSound = SoundGenerator.getCachedSound("mining_laser", 0.5, 400) -- Mining laser: longer duration, lower pitch, industrial sound
+        proceduralSound = SoundGenerator.getCachedSound("mining_laser", 0.5, 400) -- Mining laser: industrial, looping, deep, quiet
     elseif name == "salvaging_laser" then
         proceduralSound = SoundGenerator.getCachedSound("salvaging_laser", 0.4, 600) -- Salvaging laser: medium duration, medium pitch, smooth sound
     elseif name == "shield_hit" then
@@ -129,6 +129,8 @@ function Sound.loadSFX(name, path)
         proceduralSound = SoundGenerator.getCachedSound("laser", 0.15, 400) -- Short, low laser
     elseif name == "shield_static" then
         proceduralSound = SoundGenerator.getCachedSound("shield_static", 0.14)
+    elseif name == "asteroid_pop" then
+        proceduralSound = SoundGenerator.getCachedSound("asteroid_pop", 0.3)
     end
     
     if proceduralSound then
@@ -174,7 +176,7 @@ function Sound.playSFX(name, volume, pitch, path)
     if pitch then instance:setPitch(pitch) end
     
     love.audio.play(instance)
-    return true
+    return instance
 end
 
 -- Play a positional SFX (attenuated based on distance to listener)
@@ -196,7 +198,7 @@ function Sound.playSFXAt(name, x, y, volume, pitch, path)
         instance:setStereoPan(pan)
     end
     love.audio.play(instance)
-    return true
+    return instance
 end
 
 -- Play music

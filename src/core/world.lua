@@ -72,6 +72,7 @@ function World.new(width, height)
   self.nebulaW, self.nebulaH = 0, 0
   self.nebulaCanvas = nil
   self.planets = {}
+  self.ecs_world = nil
   -- Initial stars build
   local sw, sh = Viewport.getDimensions()
   self.starW, self.starH = sw, sh
@@ -90,6 +91,14 @@ end
 -- Attach a quadtree implementation for accelerated spatial queries.
 function World:setQuadtree(quadtree)
     self.quadtree = quadtree
+end
+
+function World:setECSWorld(ecs_world)
+    self.ecs_world = ecs_world
+end
+
+function World:getECSWorld()
+    return self.ecs_world
 end
 
 -- A lightweight throttle for background animation work; avoids redundant math.
@@ -132,12 +141,18 @@ function World:addEntity(entity)
     self.next_id = self.next_id + 1
     entity.id = id
     self.entities[id] = entity
+    if self.ecs_world then
+        self.ecs_world:addEntity(entity)
+    end
     return entity
 end
 
 function World:removeEntity(entity)
     if entity and entity.id then
         self.entities[entity.id] = nil
+        if self.ecs_world then
+            self.ecs_world:removeEntity(entity)
+        end
     end
 end
 
@@ -186,6 +201,12 @@ function World:update(dt)
         if entity.dead then
             self:removeEntity(entity)
         end
+    end
+end
+
+function World:refreshEntity(entity)
+    if self.ecs_world then
+        self.ecs_world:refresh(entity)
     end
 end
 

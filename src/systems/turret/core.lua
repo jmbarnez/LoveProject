@@ -204,6 +204,13 @@ function Turret:update(dt, target, locked, world)
         elseif self.kind == "salvaging_laser" then
             UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
         end
+    else
+        -- Handle weapons that need to be updated even when not firing (for sound management)
+        if self.kind == "mining_laser" then
+            UtilityBeams.updateMiningLaser(self, dt, target, locked, world)
+        elseif self.kind == "salvaging_laser" then
+            UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
+        end
 
         -- Consume energy for weapon firing (skip for utility beams as they handle their own energy)
         -- Skip energy consumption for enemies - they ignore energy usage

@@ -42,6 +42,7 @@ local LifetimeSystem = require("src.systems.lifetime")
 local EngineTrailSystem = require("src.systems.engine_trail")
 local WarpGateSystem = require("src.systems.warp_gate_system")
 local SystemPipeline = require("src.core.system_pipeline")
+local ECS = require("src.core.ecs")
 local StatusBars = require("src.ui.hud.status_bars")
 local SkillXpPopup = require("src.ui.hud.skill_xp_popup")
 local HotbarSystem = require("src.systems.hotbar")
@@ -73,6 +74,7 @@ local windfieldManager
 local refreshDockingState
 local systemPipeline
 local systemContext = {}
+local ecsManager
 
 -- Make world accessible
 Game.world = world
@@ -157,7 +159,9 @@ local function createSystemPipeline()
       PhysicsSystem.update(ctx.dt, ctx.world:getEntities())
     end,
     function(ctx)
-      LifetimeSystem.update(ctx.dt, ctx.world)
+      if ecsManager then
+        ecsManager:update(ctx.dt, ctx)
+      end
     end,
     function(ctx)
       BoundarySystem.update(ctx.world)
@@ -284,6 +288,10 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   world.spawn_projectile = spawn_projectile
   -- Update the accessible world reference
   Game.world = world
+  ecsManager = ECS.new()
+  ecsManager:setWorld(world)
+  world:setECSWorld(ecsManager)
+  ecsManager:addSystem(LifetimeSystem.create())
   camera = Camera.new()
 
   -- Step 6: Create stations
@@ -719,8 +727,13 @@ function Game.unload()
 
   systemPipeline = nil
   systemContext = {}
+  ecsManager = nil
 
   Input.init({})
+
+  if world then
+    world:setECSWorld(nil)
+  end
 
   world = nil
   Game.world = nil
