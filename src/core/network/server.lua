@@ -77,28 +77,7 @@ function NetworkServer:start()
         end
     end
 
-    -- Fallback to file-based networking for local testing
-    local ok, FileNetwork = pcall(require, "src.core.network.file_network")
-    if ok and FileNetwork then
-        local fileNetworkInstance = FileNetwork.new(self.port, true)
-        if fileNetworkInstance then
-            self.fileNetwork = fileNetworkInstance
-            self.transport = "file"
-            self.isRunning = true
-            self.connectedPeers = {}
-            self.peerToPlayerId = {}
-            self.playerToPeer = {}
-            Log.info("Server started with file-based transport on port", self.port)
-            Events.emit("NETWORK_SERVER_STARTED", { port = self.port })
-            return true
-        else
-            Log.error("Failed to create FileNetwork instance")
-        end
-    else
-        Log.error("Failed to load FileNetwork module")
-    end
-
-    Log.error("Failed to start server")
+    Log.error("Failed to start server - ENet transport not available")
     self.transport = "none"
     self.isRunning = false
     return false
@@ -113,8 +92,6 @@ function NetworkServer:stop()
         local EnetTransport = require("src.core.network.transport.enet")
         EnetTransport.destroy(self.enetServer)
         self.enetServer = nil
-    elseif self.transport == "file" then
-        self.fileNetwork = nil
     end
 
     self.transport = "none"
@@ -240,16 +217,6 @@ function NetworkServer:update(dt)
                 end
             end
             event = EnetTransport.service(self.enetServer, 0)
-        end
-    elseif self.transport == "file" and self.fileNetwork then
-        local messages = self.fileNetwork:receiveMessages()
-        if messages then
-            for _, packet in ipairs(messages) do
-                if packet.message then
-                    self:handleMessage(packet.message, packet)
-                end
-            end
-            self.fileNetwork:cleanup()
         end
     end
 
@@ -442,8 +409,6 @@ function NetworkServer:broadcastToOthers(excludePlayerId, message, reliable)
                 end
             end
         end
-    elseif self.transport == "file" and self.fileNetwork then
-        self.fileNetwork:sendMessage(message)
     end
 end
 

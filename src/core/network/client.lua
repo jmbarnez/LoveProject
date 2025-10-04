@@ -115,10 +115,17 @@ function NetworkClient:connect(address, port)
     Log.info("ENet transport check - ok:", ok, "EnetTransport:", EnetTransport and "loaded" or "nil")
     if ok and EnetTransport then
         Log.info("ENet transport available:", EnetTransport.isAvailable())
+        if not EnetTransport.isAvailable() then
+            Log.warn("ENet transport loaded but not available - lua-enet library may not be compiled")
+        end
+    else
+        Log.warn("Failed to load ENet transport - lua-enet library not available")
     end
     if ok and EnetTransport and EnetTransport.isAvailable() then
+        Log.info("ENet is available, attempting to create client")
         local client, err = EnetTransport.createClient()
         if client then
+            Log.info("ENet client created, attempting to connect to", self.serverAddress, self.serverPort)
             local peer, peerErr = EnetTransport.connect(client, self.serverAddress, self.serverPort)
             if peer then
                 self.enetClient = client
@@ -137,26 +144,11 @@ function NetworkClient:connect(address, port)
         else
             Log.error("Failed to create ENet client:", err)
         end
-    end
-
-    -- Only use file-based networking for localhost connections
-    if self.serverAddress == "localhost" or self.serverAddress == "127.0.0.1" then
-        Log.info("Using file-based networking for localhost connection")
-        local ok, FileNetwork = pcall(require, "src.core.network.file_network")
-        if ok and FileNetwork then
-            self.fileNetwork = FileNetwork.new(self.serverPort, false)
-            self.transport = "file"
-            self.state = CONNECTION_STATES.CONNECTED
-            Log.info("Connected using file-based transport (localhost)")
-            Events.emit("NETWORK_CONNECTED")
-            if self.pendingJoinPayload then
-                self:sendMessage(self.pendingJoinPayload)
-                self.pendingJoinPayload = nil
-            end
-            return true
-        end
     else
-        Log.info("Not using file-based networking for non-localhost address:", self.serverAddress)
+        Log.error("ENet transport not available - ok:", ok, "EnetTransport:", EnetTransport and "loaded" or "nil")
+        if EnetTransport then
+            Log.error("ENet isAvailable:", EnetTransport.isAvailable())
+        end
     end
 
     Log.error("No networking transport available for", self.serverAddress)
@@ -176,15 +168,6 @@ function NetworkClient:disconnect()
         EnetTransport.disconnectClient(self.enetClient)
         EnetTransport.destroy(self.enetClient)
         self.enetClient = nil
-    elseif self.transport == "file" then
-        if self.state == CONNECTION_STATES.CONNECTED then
-            self:sendMessage({
-                type = MESSAGE_TYPES.PLAYER_LEAVE,
-                playerId = self.playerId,
-                timestamp = currentTime()
-            })
-        end
-        self.fileNetwork = nil
     end
 
     self.transport = "none"
@@ -212,13 +195,6 @@ function NetworkClient:sendMessage(message)
         local success, err = EnetTransport.send(self.enetClient, data, 0, true)
         if not success then
             Log.warn("Failed to send message via ENet transport:", err)
-            return false
-        end
-        return true
-    elseif self.transport == "file" and self.fileNetwork then
-        local success = self.fileNetwork:sendMessage(message, self.serverAddress, self.serverPort)
-        if not success then
-            Log.warn("Failed to send message via file transport")
             return false
         end
         return true
@@ -252,14 +228,6 @@ function NetworkClient:update(dt)
             end
             event = EnetTransport.service(self.enetClient, 0)
         end
-    elseif self.transport == "file" and self.fileNetwork then
-        local messages = self.fileNetwork:receiveMessages()
-        for _, packet in ipairs(messages) do
-            if packet.message then
-                self:handleMessage(packet.message)
-            end
-        end
-        self.fileNetwork:cleanup()
     end
 
     if self.state == CONNECTION_STATES.CONNECTED then

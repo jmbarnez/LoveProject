@@ -246,26 +246,6 @@ end
 function Start:update(dt)
    SettingsPanel.update(dt)
    self.networkManager:update(dt)
-   
-   -- Check for connection validation
-   if _G.PENDING_MULTIPLAYER_CONNECTION and _G.PENDING_MULTIPLAYER_CONNECTION.connecting then
-     -- Update connection timeout
-     _G.PENDING_MULTIPLAYER_CONNECTION.timeout = (_G.PENDING_MULTIPLAYER_CONNECTION.timeout or 0) + dt
-     
-     if self.networkManager:isMultiplayer() and self.networkManager:isConnected() then
-       print("Connection confirmed! Transitioning to game...")
-       _G.PENDING_MULTIPLAYER_CONNECTION.connected = true
-       _G.PENDING_MULTIPLAYER_CONNECTION.connecting = false
-       self.showJoinUI = false
-       -- Set a flag to trigger game transition on next mouse click
-       self.readyToJoin = true
-     elseif _G.PENDING_MULTIPLAYER_CONNECTION.timeout > 10.0 then
-       -- Connection timeout after 10 seconds
-       print("Connection timeout - failed to connect to server")
-       _G.PENDING_MULTIPLAYER_CONNECTION = nil
-       self.showJoinUI = true -- Show join UI again
-     end
-   end
 end
 
 function Start:draw()
@@ -611,13 +591,6 @@ function Start:drawJoinUI()
 end
 
 function Start:mousepressed(x, y, button)
-  -- Check if ready to join multiplayer game (highest priority)
-  if self.readyToJoin then
-    print("Ready to join - triggering game transition")
-    self.readyToJoin = false -- Reset the flag
-    return "joinGame" -- Signal to start multiplayer game
-  end
-
   -- Check multiplayer UI first (highest priority)
   if self.showJoinUI then
     print("Multiplayer UI is open, checking button clicks at", x, y)
@@ -637,20 +610,19 @@ function Start:mousepressed(x, y, button)
       print("Join button bounds:", self.joinButton.x, self.joinButton.y, self.joinButton.w, self.joinButton.h)
       local port = tonumber(self.joinPort) or 7777
       print("Attempting to join game at", self.joinAddress, port)
-      if self.networkManager:joinGame(self.joinAddress, port) then
-        print("Join initiated, waiting for connection confirmation...")
-        -- Store connection info globally for Game.load to use
-        _G.PENDING_MULTIPLAYER_CONNECTION = {
-          address = self.joinAddress,
-          port = port,
-          connected = false, -- Will be set to true when connection is confirmed
-          connecting = true
-        }
-        -- Don't close UI yet - wait for connection confirmation
-        return false -- Don't transition yet
-      else
-        print("Join failed")
-      end
+      
+      -- Store connection info globally for Game.load to use
+      _G.PENDING_MULTIPLAYER_CONNECTION = {
+        address = self.joinAddress,
+        port = port,
+        connected = false, -- Will be set to true when connection is confirmed
+        connecting = true
+      }
+      
+      -- Close UI and trigger game transition immediately
+      -- Let the global network manager handle the actual connection
+      self.showJoinUI = false
+      _G.TRIGGER_JOIN_GAME = true
       return false
     elseif self.cancelButton and x >= self.cancelButton.x and x <= self.cancelButton.x + self.cancelButton.w and
            y >= self.cancelButton.y and y <= self.cancelButton.y + self.cancelButton.h then

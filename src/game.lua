@@ -319,22 +319,27 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   if isMultiplayer and isHost then
     networkManager:startHost()
   elseif isMultiplayer and not isHost then
-    -- Client mode - check if there's a pending connection from start screen
-    if _G.PENDING_MULTIPLAYER_CONNECTION and _G.PENDING_MULTIPLAYER_CONNECTION.connected then
-      Log.info("Transferring connection from start screen to game")
-      -- Transfer the connection to the global network manager
-      if networkManager:joinGame(_G.PENDING_MULTIPLAYER_CONNECTION.address, _G.PENDING_MULTIPLAYER_CONNECTION.port) then
-        Log.info("Successfully transferred connection to game")
+    -- Client mode - attempt connection from start screen parameters
+    if _G.PENDING_MULTIPLAYER_CONNECTION and _G.PENDING_MULTIPLAYER_CONNECTION.connecting then
+      Log.info("Attempting connection to server from start screen parameters")
+      Log.info("Connection details:", _G.PENDING_MULTIPLAYER_CONNECTION.address, _G.PENDING_MULTIPLAYER_CONNECTION.port)
+      -- Attempt the connection to the server
+      local connectionResult = networkManager:joinGame(_G.PENDING_MULTIPLAYER_CONNECTION.address, _G.PENDING_MULTIPLAYER_CONNECTION.port)
+      Log.info("Connection result:", connectionResult)
+      if connectionResult then
+        Log.info("Successfully connected to server")
         -- Ensure the game knows it's in client mode
         Game.setMultiplayerMode(true, false)
         _G.PENDING_MULTIPLAYER_CONNECTION = nil -- Clear the pending connection
       else
-        Log.error("Failed to transfer connection to game")
+        Log.error("Failed to connect to server - aborting game load")
+        -- Connection failed, don't load the game
+        return false
       end
     else
-      Log.info("Game loaded in client multiplayer mode (no pending connection)")
-      -- Ensure the game knows it's in client mode
-      Game.setMultiplayerMode(true, false)
+      Log.error("No pending connection found for client mode - aborting game load")
+      -- No connection to attempt, don't load the game
+      return false
     end
   end
   

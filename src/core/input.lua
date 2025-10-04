@@ -145,19 +145,14 @@ local function transitionToGame(opts)
         loadingScreen:hide()
     end
 
+    -- Check if Game.load() succeeded
     if not success then
-        Log.error("Game load failed with error:", result)
+        Log.error("Game.load() failed with error:", result)
         Notifications.add("Failed to load game: " .. tostring(result), "error")
         return false
-    end
-
-    if not result then
-        Log.error("Game.load returned false")
-        if fromSave then
-            Notifications.add("Game load failed - save file may be corrupted", "error")
-        else
-            Notifications.add("Failed to start new game", "error")
-        end
+    elseif result == false then
+        Log.error("Game.load() returned false - connection failed")
+        Notifications.add("Failed to connect to server", "error")
         return false
     end
 
