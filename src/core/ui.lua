@@ -5,6 +5,8 @@ local Viewport = require("src.core.viewport")
 local UIUtils = require("src.ui.common.utils")
 local Events = require("src.core.events")
 local Settings = require("src.core.settings")
+local IconSystem = require("src.core.icon_system")
+local RepairSystem = require("src.systems.repair_system")
 
 -- Import modular HUD components
 local StatusBars = require("src.ui.hud.status_bars")
@@ -34,6 +36,199 @@ local cratePromptState = {
   collectRect = nil,
   pickup = nil,
 }
+
+local beaconRepairPromptState = {
+  visible = false,
+  buttonRect = nil,
+  station = nil,
+  canRepair = false,
+}
+
+local function clampColorComponent(value)
+  if value < 0 then return 0 end
+  if value > 1 then return 1 end
+  return value
+end
+
+local function lightenColor(color, delta)
+  local baseR = (color and color[1]) or 0
+  local baseG = (color and color[2]) or 0
+  local baseB = (color and color[3]) or 0
+  local r = clampColorComponent(baseR + delta)
+  local g = clampColorComponent(baseG + delta)
+  local b = clampColorComponent(baseB + delta)
+  local a = (color and color[4]) or 1
+  return { r, g, b, a }
+end
+
+local function getItemDisplayName(itemId)
+  local def = Content.getItem(itemId)
+  if def and def.name then
+    return def.name
+  end
+
+  local pretty = tostring(itemId or "")
+  pretty = pretty:gsub("_", " ")
+  return pretty:gsub("^%l", string.upper)
+end
+
+local function drawBeaconRepairPopup(station, player, screenX, screenY, sw, sh)
+  local requirements = (station.components.repairable and station.components.repairable.repairCost) or {}
+  local hasAllMaterials = RepairSystem.hasAllMaterials(player, requirements)
+
+  beaconRepairPromptState.visible = true
+  beaconRepairPromptState.station = station
+  beaconRepairPromptState.canRepair = hasAllMaterials
+
+  local paddingX, paddingY = 18, 14
+  local headerSpacing = 8
+  local rowSpacing = 6
+  local statusSpacing = 10
+  local buttonSpacing = 14
+  local instructionSpacing = 6
+  local iconSize = 28
+  local buttonWidth, buttonHeight = 160, 36
+
+  local headerFont = (Theme.fonts and Theme.fonts.medium) or love.graphics.getFont()
+  local textFont = (Theme.fonts and Theme.fonts.small) or love.graphics.getFont()
+  local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
+  local oldFont = love.graphics.getFont()
+
+  local headerHeight = headerFont:getHeight()
+  local textHeight = textFont:getHeight()
+
+  local panelWidth = 240
+  panelWidth = math.max(panelWidth, headerFont:getWidth("Repair Beacon") + paddingX * 2)
+
+  local totalRowHeight = 0
+  for _, req in ipairs(requirements) do
+    local itemName = getItemDisplayName(req.item)
+    local nameWidth = textFont:getWidth(itemName)
+    local playerCount = RepairSystem.getPlayerItemCount(player, req.item)
+    local countText = string.format("%d / %d", playerCount, req.amount)
+    local countWidth = textFont:getWidth(countText)
+    local rowHeight = math.max(iconSize, textHeight)
+    totalRowHeight = totalRowHeight + rowHeight
+    panelWidth = math.max(panelWidth, iconSize + 8 + nameWidth + 8 + countWidth + paddingX * 2)
+  end
+  if #requirements > 1 then
+    totalRowHeight = totalRowHeight + (#requirements - 1) * rowSpacing
+  end
+
+  local statusText = hasAllMaterials and "Materials Ready" or "Missing Materials"
+  panelWidth = math.max(panelWidth, textFont:getWidth(statusText) + paddingX * 2)
+
+  local binding = Settings.getBindingValue and Settings.getBindingValue("repair_beacon", "primary") or "r"
+  local bindingLabel = UIUtils.formatKeyLabel(binding, "R")
+  local instructionText
+  if hasAllMaterials then
+    instructionText = string.format("Press [%s] or Click to Repair", bindingLabel)
+  else
+    instructionText = "Gather required resources"
+  end
+  panelWidth = math.max(panelWidth, textFont:getWidth(instructionText) + paddingX * 2)
+
+  local panelHeight = paddingY * 2 + headerHeight
+  if #requirements > 0 then
+    panelHeight = panelHeight + headerSpacing + totalRowHeight
+  else
+    panelHeight = panelHeight + headerSpacing
+  end
+  panelHeight = panelHeight + statusSpacing + textHeight
+  panelHeight = panelHeight + buttonSpacing + buttonHeight
+  panelHeight = panelHeight + instructionSpacing + textHeight
+
+  local panelX = math.floor(screenX - panelWidth * 0.5 + 0.5)
+  local panelY = math.floor(screenY - panelHeight - 60 + 0.5)
+  panelX = math.max(8, math.min(sw - panelWidth - 8, panelX))
+  panelY = math.max(8, math.min(sh - panelHeight - 8, panelY))
+
+  Theme.drawGradientGlowRect(panelX, panelY, panelWidth, panelHeight, 6,
+    Theme.colors.bg2, Theme.colors.bg1, Theme.colors.accent, Theme.effects.glowWeak * 0.2)
+  Theme.drawEVEBorder(panelX, panelY, panelWidth, panelHeight, 6, Theme.colors.border, 2)
+
+  local triCx = math.floor(screenX + 0.5)
+  local triY = panelY + panelHeight
+  Theme.setColor(Theme.colors.bg2)
+  love.graphics.polygon('fill', triCx - 8, triY, triCx + 8, triY, triCx, triY + 10)
+  Theme.setColor(Theme.colors.border)
+  love.graphics.line(triCx - 8, triY, triCx, triY + 10)
+  love.graphics.line(triCx + 8, triY, triCx, triY + 10)
+
+  local currentY = panelY + paddingY
+  love.graphics.setFont(headerFont)
+  Theme.setColor(Theme.colors.textHighlight)
+  love.graphics.print("Repair Beacon", panelX + paddingX, currentY)
+  currentY = currentY + headerHeight + headerSpacing
+
+  love.graphics.setFont(textFont)
+  Theme.setColor(Theme.colors.text)
+
+  if #requirements > 0 then
+    for index, req in ipairs(requirements) do
+      local rowHeight = math.max(iconSize, textHeight)
+      local iconX = panelX + paddingX
+      local iconY = currentY + (rowHeight - iconSize) * 0.5
+      IconSystem.drawIconAny({ Content.getItem(req.item), req.item }, iconX, iconY, iconSize, 1.0)
+
+      local itemName = getItemDisplayName(req.item)
+      local textY = currentY + (rowHeight - textHeight) * 0.5
+      Theme.setColor(Theme.colors.text)
+      love.graphics.print(itemName, iconX + iconSize + 8, textY)
+
+      local playerCount = RepairSystem.getPlayerItemCount(player, req.item)
+      local countText = string.format("%d / %d", playerCount, req.amount)
+      local countColor = playerCount >= req.amount and Theme.colors.success or Theme.colors.danger
+      Theme.setColor(countColor)
+      local countWidth = textFont:getWidth(countText)
+      local countX = panelX + panelWidth - paddingX - countWidth
+      love.graphics.print(countText, countX, textY)
+
+      currentY = currentY + rowHeight
+      if index < #requirements then
+        currentY = currentY + rowSpacing
+      end
+    end
+  end
+
+  currentY = currentY + statusSpacing
+  Theme.setColor(hasAllMaterials and Theme.colors.success or Theme.colors.danger)
+  love.graphics.print(statusText, panelX + paddingX, currentY)
+  currentY = currentY + textHeight + buttonSpacing
+
+  local buttonX = math.floor(panelX + (panelWidth - buttonWidth) * 0.5 + 0.5)
+  local buttonY = currentY
+  local mouseX, mouseY = Viewport.getMousePosition()
+  local hover = UIUtils.pointInRect(mouseX, mouseY, {
+    x = buttonX,
+    y = buttonY,
+    w = buttonWidth,
+    h = buttonHeight,
+  })
+
+  local baseColor = hasAllMaterials and {0, 0.6, 0, 1} or {0.6, 0, 0, 1}
+  local hoverColor = lightenColor(baseColor, 0.15)
+  local activeColor = lightenColor(baseColor, 0.25)
+
+  love.graphics.setFont(buttonFont)
+  beaconRepairPromptState.buttonRect = UIUtils.drawButton(buttonX, buttonY, buttonWidth, buttonHeight,
+    "Repair", hover, false, {
+      font = buttonFont,
+      bg = baseColor,
+      hoverBg = hoverColor,
+      activeBg = activeColor,
+      textColor = Theme.colors.text,
+    })
+
+  currentY = currentY + buttonHeight + instructionSpacing
+  love.graphics.setFont(textFont)
+  Theme.setColor(Theme.colors.textSecondary)
+  love.graphics.print(instructionText, panelX + paddingX, currentY)
+
+  if oldFont then
+    love.graphics.setFont(oldFont)
+  end
+end
 
 -- Helper function to check if player has required turret type
 local function hasRequiredTurret(player, requiredType)
@@ -80,6 +275,10 @@ function UI.drawHelpers(player, world, hub, camera)
   cratePromptState.visible = false
   cratePromptState.collectRect = nil
   cratePromptState.pickup = nil
+  beaconRepairPromptState.visible = false
+  beaconRepairPromptState.buttonRect = nil
+  beaconRepairPromptState.station = nil
+  beaconRepairPromptState.canRepair = false
 
   -- Helper tooltip above stations (docking prompt and repair requirements)
   do
@@ -117,7 +316,11 @@ function UI.drawHelpers(player, world, hub, camera)
           -- Check station type and show appropriate tooltip
           if station.components.station and station.components.station.type == "beacon_station" then
             if station.components.repairable and station.components.repairable.broken then
-              text = "Beacon Array Offline\nPress [R] to repair the beacon."
+              drawBeaconRepairPopup(station, player, screenX, screenY, sw, sh)
+              text = nil
+            elseif station.broken then
+              -- Fallback: if station has broken property but no repairable component
+              text = "REPAIR REQUIRED:\n✗ ore_tritanium: 0/25\n✗ ore_palladium: 0/15\n✗ scraps: 0/50\n\n✗ Insufficient materials"
             else
               text = "Beacon Array - OPERATIONAL"
             end
@@ -582,15 +785,34 @@ function UI.drawHelpers(player, world, hub, camera)
 end
 
 -- Export universal icon drawing helper
-local IconSystem = require("src.core.icon_system")
 UI.drawIcon = IconSystem.drawIconAny
 UI.drawTurretIcon = IconSystem.drawIconAny
 
 function UI.handleHelperMousePressed(x, y, button, player)
   if button ~= 1 then return false end
-  if not dockPromptState.visible and not warpPromptState.visible and not cratePromptState.visible then return false end
+  if not dockPromptState.visible and not warpPromptState.visible and not cratePromptState.visible and not beaconRepairPromptState.visible then
+    return false
+  end
   local docking = getDocking(player)
   if not player or (docking and docking.docked) then return false end
+
+  if beaconRepairPromptState.buttonRect and UIUtils.pointInRect(x, y, beaconRepairPromptState.buttonRect) then
+    local station = beaconRepairPromptState.station
+    if station and station.components and station.components.repairable and station.components.repairable.broken then
+      local success = RepairSystem.tryRepair(station, player)
+      local Notifications = require("src.ui.notifications")
+      if success then
+        Notifications.add("Beacon station repaired successfully!", "success")
+        beaconRepairPromptState.visible = false
+        beaconRepairPromptState.buttonRect = nil
+        beaconRepairPromptState.station = nil
+        beaconRepairPromptState.canRepair = false
+      else
+        Notifications.add("Insufficient materials for repair", "error")
+      end
+    end
+    return true
+  end
 
   if cratePromptState.collectRect and UIUtils.pointInRect(x, y, cratePromptState.collectRect) then
     local crate = cratePromptState.pickup
