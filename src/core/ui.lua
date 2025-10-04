@@ -315,7 +315,6 @@ function UI.drawHelpers(player, world, hub, camera)
 
           -- Check station type and show appropriate tooltip
           if station.components.station and station.components.station.type == "beacon_station" then
-            -- Handle beacon stations specially
             if station.components.repairable and station.components.repairable.broken then
               drawBeaconRepairPopup(station, player, screenX, screenY, sw, sh)
               text = nil
@@ -323,7 +322,6 @@ function UI.drawHelpers(player, world, hub, camera)
               -- Fallback: if station has broken property but no repairable component
               text = "REPAIR REQUIRED:\n✗ ore_tritanium: 0/25\n✗ ore_palladium: 0/15\n✗ scraps: 0/50\n\n✗ Insufficient materials"
             else
-              -- Repaired beacon station
               text = "Beacon Array - OPERATIONAL"
             end
           elseif station.components.station and station.components.station.type == "ore_furnace_station" then

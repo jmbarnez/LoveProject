@@ -26,8 +26,10 @@ function Effects.addDamageNumber(x, y, amount, type)
     y = y,
     text = tostring(amount),
     color = color,
-    life = 1.0,
+    life = 2.5,  -- Increased lifetime for better visibility
     timer = 0,
+    scale = 1.0,  -- Starting scale
+    maxScale = 1.3,  -- Maximum scale during animation
   })
 end
 
@@ -243,7 +245,23 @@ function Effects.update(dt)
   for i = #damageNumbers, 1, -1 do
     local dn = damageNumbers[i]
     dn.timer = dn.timer + dt
-    dn.y = dn.y - 20 * dt
+    
+    -- Animate scale: grow quickly then shrink slowly
+    local progress = dn.timer / dn.life
+    if progress < 0.3 then
+      -- Quick growth phase
+      local growProgress = progress / 0.3
+      dn.scale = 1.0 + (dn.maxScale - 1.0) * growProgress
+    else
+      -- Slow shrink phase
+      local shrinkProgress = (progress - 0.3) / 0.7
+      dn.scale = dn.maxScale - (dn.maxScale - 0.8) * shrinkProgress
+    end
+    
+    -- Move upward with slight deceleration
+    local moveSpeed = 30 * (1.0 - progress * 0.5)  -- Slower over time
+    dn.y = dn.y - moveSpeed * dt
+    
     if dn.timer > dn.life then
       table.remove(damageNumbers, i)
     end
@@ -276,12 +294,27 @@ end
 
 function Effects.draw()
   -- Draw damage numbers
-  love.graphics.setFont(Theme.fonts.medium)
+  love.graphics.setFont(Theme.fonts.large)  -- Use larger font for better visibility
   for i = #damageNumbers, 1, -1 do
     local dn = damageNumbers[i]
-    local alpha = 1.0 - (dn.timer / dn.life)
+    local progress = dn.timer / dn.life
+    local alpha = 1.0 - progress
+    
+    -- Apply scale transformation
+    love.graphics.push()
+    love.graphics.translate(dn.x, dn.y)
+    love.graphics.scale(dn.scale, dn.scale)
+    love.graphics.translate(-dn.x, -dn.y)
+    
+    -- Draw text shadow for better visibility
+    love.graphics.setColor(0, 0, 0, alpha * 0.8)
+    love.graphics.print(dn.text, dn.x + 2, dn.y + 2)
+    
+    -- Draw main text
     love.graphics.setColor(dn.color[1], dn.color[2], dn.color[3], alpha)
     love.graphics.print(dn.text, dn.x, dn.y)
+    
+    love.graphics.pop()
   end
 
   -- Shield impact effects are now drawn by the render system with proper transforms

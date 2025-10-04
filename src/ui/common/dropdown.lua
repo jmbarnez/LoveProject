@@ -390,12 +390,16 @@ function Dropdown:mousemoved(mx, my)
         end
 
         if isWithinBounds then
+            -- Check if mouse is over any option
             for i in ipairs(self.options) do
                 if self:isPointInOption(mx, my, i) then
                     self.hoveredOption = i
                     break
                 end
             end
+            
+            -- If no option is hovered but mouse is still within dropdown bounds,
+            -- don't reset hoveredOption to nil - keep the dropdown open
         end
         
         -- Don't close dropdown on mouse movement - only on clicks outside

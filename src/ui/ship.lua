@@ -718,9 +718,18 @@ function Ship:draw(player, x, y, w, h)
                 end
             else
                 self.hoverTimers[i] = 0
-                -- Close dropdown if not hovering and it's open
-                if dropdown.open then
-                    dropdown.open = false
+                -- Only close dropdown if it's open and mouse is not hovering over button or options
+                -- Don't close if mouse is over the dropdown area
+                if dropdown.open and not dropdownHover and not optionsHover then
+                    -- Additional check: make sure mouse is truly outside the entire dropdown area
+                    local dropdownY = dropdown._dropdownY or (dropdown.y + dropdown.optionHeight + 2)
+                    local totalDropdownHeight = dropdown.optionHeight + dropdown.dropdownHeight + 2
+                    local isOutsideDropdown = not (mx >= dropdown.x and mx <= dropdown.x + dropdown.width and
+                                                 my >= dropdown.y and my <= dropdown.y + totalDropdownHeight)
+                    
+                    if isOutsideDropdown then
+                        dropdown.open = false
+                    end
                 end
             end
             

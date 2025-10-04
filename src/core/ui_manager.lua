@@ -23,6 +23,8 @@ local Warp = require("src.ui.warp")
 local DebugPanel = require("src.ui.debug_panel")
 local Ship = require("src.ui.ship")
 local RewardWheelPanel = require("src.ui.reward_wheel_panel")
+local RepairPopup = require("src.ui.repair_popup")
+local BeaconRepairPopup = require("src.ui.beacon_repair_popup")
 
 -- Normalize potentially-broken modules (protect against empty/incomplete inventory module)
 if type(Inventory) ~= "table" then
@@ -49,6 +51,8 @@ local DEFAULT_Z_INDEX = {
   warp = 60,
   escape = 100,
   settings = 110,
+  repairPopup = 112,
+  beaconRepair = 113,
   rewardWheel = 115,
   debug = 120,
 }
@@ -66,6 +70,8 @@ UIManager.state = {
   warp = { open = false, zIndex = DEFAULT_Z_INDEX.warp },
   escape = { open = false, zIndex = DEFAULT_Z_INDEX.escape, showingSaveSlots = false }, -- Escape menu should be on top
   settings = { open = false, zIndex = DEFAULT_Z_INDEX.settings }, -- Settings panel should be on top of escape
+  repairPopup = { open = false, zIndex = DEFAULT_Z_INDEX.repairPopup },
+  beaconRepair = { open = false, zIndex = DEFAULT_Z_INDEX.beaconRepair },
   rewardWheel = { open = false, zIndex = DEFAULT_Z_INDEX.rewardWheel }, -- Reward wheel panel
   debug = { open = false, zIndex = DEFAULT_Z_INDEX.debug } -- Debug panel should be on top of everything
 }
@@ -81,6 +87,8 @@ UIManager.layerOrder = {
   "warp",
   "escape",
   "settings",
+  "repairPopup",
+  "beaconRepair",
   "rewardWheel",
   "debug"
 }
@@ -175,6 +183,7 @@ local componentFallbacks = {
   },
   settings = { module = SettingsPanel },
   rewardWheel = { module = RewardWheelPanel },
+  beaconRepair = { module = BeaconRepairPopup },
   debug = { module = DebugPanel },
 }
 
@@ -381,12 +390,13 @@ function UIManager.update(dt, player)
   UIManager.state.warp.open = warpInstance.visible or false
   UIManager.state.settings.open = SettingsPanel.visible or false
   UIManager.state.rewardWheel.open = RewardWheelPanel.visible or false
+  UIManager.state.beaconRepair.open = BeaconRepairPopup.visible or false
   UIManager.state.debug.open = DebugPanel.isVisible()
   
   -- Update modal state - block camera movement when ANY UI is open
   UIManager.modalActive = UIManager.state.escape.open or UIManager.state.warp.open or UIManager.state.ship.open or SettingsPanel.visible or
                          UIManager.state.inventory.open or UIManager.state.docked.open or 
-                         UIManager.state.skills.open or UIManager.state.map.open or UIManager.state.rewardWheel.open or UIManager.state.debug.open
+                         UIManager.state.skills.open or UIManager.state.map.open or UIManager.state.rewardWheel.open or UIManager.state.beaconRepair.open or UIManager.state.debug.open
   if SettingsPanel.visible then
     UIManager.modalComponent = "settings"
   elseif UIManager.state.escape.open and UIManager.state.escape.showingSaveSlots then
@@ -397,6 +407,8 @@ function UIManager.update(dt, player)
     UIManager.modalComponent = "ship"
   elseif UIManager.state.warp.open then
     UIManager.modalComponent = "warp"
+  elseif UIManager.state.beaconRepair.open then
+    UIManager.modalComponent = "beaconRepair"
   else
     UIManager.modalComponent = nil
   end
@@ -411,6 +423,8 @@ function UIManager.update(dt, player)
   if Map.update then Map.update(dt, player) end
   if warpInstance.update then warpInstance:update(dt) end
   if RewardWheelPanel.update then RewardWheelPanel.update(dt) end
+  if RepairPopup.update then RepairPopup.update(dt) end
+  if BeaconRepairPopup.update then BeaconRepairPopup.update(dt) end
   if DebugPanel.update then DebugPanel.update(dt) end
   
   -- Update HUD notifications
@@ -508,6 +522,11 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops)
         Map.draw(player, world, enemies, asteroids, wrecks, stations, lootDrops)
       elseif component == "warp" then
         warpInstance:draw()
+      elseif component == "beaconRepair" then
+        if BeaconRepairPopup.window then
+          BeaconRepairPopup.window.visible = BeaconRepairPopup.visible
+          BeaconRepairPopup.window:draw()
+        end
       elseif component == "rewardWheel" then
         if RewardWheelPanel.window then
           RewardWheelPanel.window.visible = RewardWheelPanel.visible

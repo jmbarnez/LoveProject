@@ -148,6 +148,7 @@ function Reticle.draw(player, world, camera)
   -- Gather missile lock-on status/progress
   local lockInfo = Reticle.getMissileLockInfo(player)
   local incomingLockInfo = Reticle.getIncomingLockInfo(player, world)
+  local activeMissiles = Reticle.getActiveMissilesTargetingPlayer(player, world)
 
   love.graphics.push()
   -- Reticle draws in screen-space; make it crisp
@@ -175,9 +176,13 @@ function Reticle.draw(player, world, camera)
     Reticle.drawTargetMarker(lockInfo, camera)
   end
 
-  if incomingLockInfo.total > 0 then
-    Reticle.drawIncomingLockWarning(incomingLockInfo, player, camera)
+  -- Only show missile lock warning if there are active missiles targeting the player
+  if #activeMissiles > 0 then
+    Reticle.drawActiveMissileWarning(activeMissiles, player, camera)
   end
+  
+  -- Show offscreen target arrows for enemies targeting the player (but not firing missiles)
+  Reticle.drawOffscreenTargetArrows(incomingLockInfo, activeMissiles, player, camera)
 end
 
 -- Collect missile lock information from the player's turrets
@@ -220,6 +225,46 @@ function Reticle.getMissileLockInfo(player)
   end
 
   return info
+end
+
+-- Detect active missiles targeting the player
+function Reticle.getActiveMissilesTargetingPlayer(player, world)
+  local activeMissiles = {}
+  
+  if not player or not world or not world.get_entities_with_components then
+    return activeMissiles
+  end
+
+  local playerPos = player.components and player.components.position
+  if not playerPos then
+    return activeMissiles
+  end
+
+  -- Get all projectiles with homing effects
+  local projectiles = world:get_entities_with_components("bullet")
+  for _, projectile in ipairs(projectiles) do
+    if projectile.components and projectile.components.bullet then
+      local bullet = projectile.components.bullet
+      local source = bullet.source
+      
+      -- Check if this is an enemy missile targeting the player
+      if source and not source.isPlayer and bullet.additionalEffects then
+        for _, effect in ipairs(bullet.additionalEffects) do
+          if effect.type == "homing" and effect.target == player then
+            table.insert(activeMissiles, {
+              projectile = projectile,
+              source = source,
+              distance = math.sqrt((projectile.components.position.x - playerPos.x)^2 + 
+                                 (projectile.components.position.y - playerPos.y)^2)
+            })
+            break
+          end
+        end
+      end
+    end
+  end
+
+  return activeMissiles
 end
 
 -- Draw lock-on indicator around the reticle
@@ -450,6 +495,119 @@ local function drawDirectionIndicator(cx, cy, angle, color, locked, radius)
   love.graphics.setLineWidth(2)
   love.graphics.polygon('line', 0, -size * 0.5, size, 0, 0, size * 0.5)
   love.graphics.pop()
+end
+
+-- Draw warning for active missiles targeting the player
+function Reticle.drawActiveMissileWarning(activeMissiles, player, camera)
+  if not activeMissiles or #activeMissiles == 0 or not player or not player.components then
+    return
+  end
+
+  local playerPos = player.components.position
+  if not playerPos then return end
+
+  local sw, sh = Viewport.getDimensions()
+  local camScale = (camera and camera.scale) or 1
+  local camX = (camera and camera.x) or 0
+  local camY = (camera and camera.y) or 0
+
+  local playerScreenX = (playerPos.x - camX) * camScale + sw * 0.5
+  local playerScreenY = (playerPos.y - camY) * camScale + sh * 0.5
+
+  local message = "MISSILE INCOMING"
+  local color = Theme.colors.danger
+  local pulse = 0.65 + 0.35 * math.sin(love.timer.getTime() * 8)
+
+  local bannerWidth = 240
+  local bannerHeight = 34
+  local bannerX = math.floor(sw * 0.5 - bannerWidth * 0.5)
+  local bannerY = math.floor(sh * 0.12 - bannerHeight * 0.5)
+
+  Theme.setColor(Theme.withAlpha(color, pulse * 0.6))
+  love.graphics.rectangle('fill', bannerX, bannerY, bannerWidth, bannerHeight, 6, 6)
+  Theme.setColor(Theme.withAlpha(color, 0.95))
+  love.graphics.setLineWidth(2)
+  love.graphics.rectangle('line', bannerX, bannerY, bannerWidth, bannerHeight, 6, 6)
+  love.graphics.setLineWidth(1)
+
+  local prevFont = love.graphics.getFont()
+  if Theme.fonts and Theme.fonts.medium then love.graphics.setFont(Theme.fonts.medium) end
+  local font = love.graphics.getFont()
+  local textW = font:getWidth(message)
+  Theme.setColor({1, 1, 1, 0.95})
+  love.graphics.print(message, bannerX + (bannerWidth - textW) * 0.5, bannerY + 4)
+
+  -- Show missile count
+  local countText = tostring(#activeMissiles) .. " MISSILE" .. (#activeMissiles > 1 and "S" or "")
+  local countW = font:getWidth(countText)
+  Theme.setColor({1, 0.8, 0.8, 0.9})
+  love.graphics.print(countText, bannerX + (bannerWidth - countW) * 0.5, bannerY + 18)
+
+  if prevFont then love.graphics.setFont(prevFont) end
+end
+
+-- Draw offscreen target arrows for enemies targeting the player
+function Reticle.drawOffscreenTargetArrows(incomingLockInfo, activeMissiles, player, camera)
+  if not incomingLockInfo or incomingLockInfo.total <= 0 or not player or not player.components then
+    return
+  end
+
+  local playerPos = player.components.position
+  if not playerPos then return end
+
+  local sw, sh = Viewport.getDimensions()
+  local camScale = (camera and camera.scale) or 1
+  local camX = (camera and camera.x) or 0
+  local camY = (camera and camera.y) or 0
+
+  local playerScreenX = (playerPos.x - camX) * camScale + sw * 0.5
+  local playerScreenY = (playerPos.y - camY) * camScale + sh * 0.5
+
+  -- Create a set of active missile sources to exclude from arrows
+  local activeMissileSources = {}
+  for _, missile in ipairs(activeMissiles) do
+    if missile.source then
+      activeMissileSources[missile.source] = true
+    end
+  end
+
+  -- Draw arrows for threats that are not currently firing missiles
+  for _, threat in ipairs(incomingLockInfo.threats) do
+    if threat.position and not activeMissileSources[threat.entity] then
+      local threatScreenX = (threat.position.x - camX) * camScale + sw * 0.5
+      local threatScreenY = (threat.position.y - camY) * camScale + sh * 0.5
+      
+      -- Check if threat is offscreen
+      local margin = 50
+      local isOffscreen = threatScreenX < -margin or threatScreenX > sw + margin or 
+                         threatScreenY < -margin or threatScreenY > sh + margin
+      
+      if isOffscreen then
+        -- Calculate direction from player to threat
+        local dx = threatScreenX - playerScreenX
+        local dy = threatScreenY - playerScreenY
+        local angle = math.atan2(dy, dx)
+        
+        -- Clamp arrow position to screen edge
+        local arrowX = math.max(margin, math.min(sw - margin, threatScreenX))
+        local arrowY = math.max(margin, math.min(sh - margin, threatScreenY))
+        
+        -- Draw arrow
+        local color = threat.isLocked and Theme.colors.danger or Theme.colors.warning
+        local alpha = threat.isLocked and 0.9 or 0.6
+        local size = threat.isLocked and 12 or 8
+        
+        Theme.setColor(Theme.withAlpha(color, alpha))
+        love.graphics.push()
+        love.graphics.translate(arrowX, arrowY)
+        love.graphics.rotate(angle)
+        love.graphics.polygon('fill', 0, -size * 0.5, size, 0, 0, size * 0.5)
+        love.graphics.setLineWidth(2)
+        love.graphics.polygon('line', 0, -size * 0.5, size, 0, 0, size * 0.5)
+        love.graphics.pop()
+      end
+    end
+  end
 end
 
 function Reticle.drawIncomingLockWarning(info, player, camera)
