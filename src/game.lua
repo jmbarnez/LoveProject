@@ -81,6 +81,28 @@ local networkManager
 local isMultiplayer = false
 local isHost = false
 
+-- Expose network manager for external access
+function Game.getNetworkManager()
+    return networkManager
+end
+
+-- Set multiplayer mode (for F3 key)
+function Game.setMultiplayerMode(multiplayer, host)
+    isMultiplayer = multiplayer
+    isHost = host
+    Log.info("Game multiplayer mode set:", "multiplayer=" .. tostring(multiplayer), "host=" .. tostring(host))
+end
+
+-- Get multiplayer mode
+function Game.isMultiplayer()
+    return isMultiplayer
+end
+
+-- Get host mode
+function Game.isHost()
+    return isHost
+end
+
 -- Make world accessible
 Game.world = world
 Game.windfield = nil
@@ -247,7 +269,7 @@ local function createSystemPipeline()
     end,
     function(ctx)
       -- Update network synchronization if multiplayer
-      if networkManager and networkManager.isMultiplayer then
+      if networkManager and networkManager:isMultiplayer() then
         NetworkSync.update(ctx.dt, ctx.player, ctx.world, networkManager)
       end
     end,
@@ -291,14 +313,35 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   NodeMarket.init()
   PortfolioManager.init()
   
-  -- Initialize network manager if multiplayer
-  if isMultiplayer then
-    updateProgress(0.25, "Initializing multiplayer...")
-    networkManager = NetworkManager.new()
-    if isHost then
-      networkManager:startHost()
+  -- Initialize network manager (always available for F3 hosting)
+  updateProgress(0.25, "Initializing network...")
+  networkManager = NetworkManager.new()
+  if isMultiplayer and isHost then
+    networkManager:startHost()
+  elseif isMultiplayer and not isHost then
+    -- Client mode - check if there's a pending connection from start screen
+    if _G.PENDING_MULTIPLAYER_CONNECTION and _G.PENDING_MULTIPLAYER_CONNECTION.connected then
+      Log.info("Transferring connection from start screen to game")
+      -- Transfer the connection to the global network manager
+      if networkManager:joinGame(_G.PENDING_MULTIPLAYER_CONNECTION.address, _G.PENDING_MULTIPLAYER_CONNECTION.port) then
+        Log.info("Successfully transferred connection to game")
+        _G.PENDING_MULTIPLAYER_CONNECTION = nil -- Clear the pending connection
+      else
+        Log.error("Failed to transfer connection to game")
+      end
+    else
+      Log.info("Game loaded in client multiplayer mode (no pending connection)")
     end
   end
+  
+  -- Listen for when someone joins the host's game
+  Events.on("NETWORK_PLAYER_JOINED", function(data)
+    if not isMultiplayer and networkManager and networkManager:isHost() then
+      Log.info("Someone joined the host game, switching to multiplayer mode")
+      isMultiplayer = true
+      -- The host is already running, just need to enable multiplayer mode
+    end
+  end)
   
   -- Step 3: Setup input
   updateProgress(0.3, "Setting up input...")
@@ -893,7 +936,9 @@ function Game.draw()
     -- Blur effect is now handled in main.lua after viewport is finished
 
     -- Non-modal HUD (reticle, status bars, minimap, hotbar)
-    UI.drawHUD(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, camera, {})
+    local remotePlayerEntities = NetworkSync.getRemotePlayers()
+    local remotePlayerSnapshots = NetworkSync.getRemotePlayerSnapshots()
+    UI.drawHUD(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, camera, remotePlayerEntities, remotePlayerSnapshots)
     
     -- Draw interaction prompts
     InteractionSystem.draw(player, camera)

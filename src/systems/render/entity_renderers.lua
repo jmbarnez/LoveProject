@@ -124,79 +124,76 @@ function EntityRenderers.remote_player(entity, player)
     local size = v.size or 1.0
     local S = RenderUtils.createScaler(size)
 
-    -- Draw ship with a distinct color scheme for remote players
+    local bodyTint = {0.3, 0.6, 1.0, 1.0}
+    local outlineTint = {0.12, 0.3, 0.6, 1.0}
+    local accentTint = {0.55, 0.8, 1.0, 0.9}
+
+    local function mixWithTint(original, tint)
+        if type(original) ~= "table" then
+            return {tint[1], tint[2], tint[3], tint[4]}
+        end
+
+        local r = (original[1] or tint[1]) * 0.25 + tint[1] * 0.75
+        local g = (original[2] or tint[2]) * 0.25 + tint[2] * 0.75
+        local b = (original[3] or tint[3]) * 0.25 + tint[3] * 0.75
+        local a = original[4] or tint[4] or 1.0
+        return {r, g, b, a}
+    end
+
     local drewBody = false
     if type(v.shapes) == "table" and #v.shapes > 0 then
-        -- Modify colors to make remote players distinct
         for _, shape in ipairs(v.shapes) do
             local originalColor = shape.color
-            if originalColor and type(originalColor) == "table" then
-                -- Tint the shape with a greenish color to indicate it's a remote player
-                local tintedColor = {
-                    math.min(1, originalColor[1] * 0.7 + 0.3), -- More green
-                    math.min(1, originalColor[2] * 0.8 + 0.2), -- More green
-                    math.min(1, originalColor[3] * 0.6 + 0.4), -- Less blue
-                    originalColor[4] or 1
-                }
-                shape.color = tintedColor
-            end
+            shape.color = mixWithTint(originalColor, bodyTint)
             RenderUtils.drawShape(shape, S)
-            -- Restore original color
-            if originalColor then
-                shape.color = originalColor
-            end
+            shape.color = originalColor
         end
         drewBody = true
     end
 
     if not drewBody then
-        -- Fallback default drawing with green tint
-        RenderUtils.setColor({0.2, 0.6, 0.3, 1.0}) -- Green tint
+        RenderUtils.setColor(bodyTint)
         love.graphics.circle("fill", 0, 0, S(10))
-        RenderUtils.setColor({0.1, 0.4, 0.2, 1.0}) -- Darker green outline
+        RenderUtils.setColor(outlineTint)
         love.graphics.circle("line", 0, 0, S(10))
-        RenderUtils.setColor({0.4, 0.8, 0.5, 0.85}) -- Light green accent
+        RenderUtils.setColor(accentTint)
         love.graphics.circle("fill", S(3), 0, S(3.2))
     end
 
-    -- Draw player name above remote player
+    local previousLineWidth = love.graphics.getLineWidth and love.graphics.getLineWidth() or 1
+    love.graphics.setLineWidth(1.5)
+    RenderUtils.setColor({bodyTint[1], bodyTint[2], bodyTint[3], 0.35})
+    love.graphics.circle("line", 0, 0, S(14))
+    love.graphics.setLineWidth(previousLineWidth)
+
     if entity.playerName then
         local font = love.graphics.getFont()
         local textWidth = font:getWidth(entity.playerName)
         local textHeight = font:getHeight()
-        
-        -- Background for text
         RenderUtils.setColor({0, 0, 0, 0.7})
-        love.graphics.rectangle("fill", -textWidth/2 - 2, -S(20) - textHeight - 2, textWidth + 4, textHeight + 4)
-        
-        -- Text
-        RenderUtils.setColor({0.8, 1.0, 0.8, 1.0})
-        love.graphics.print(entity.playerName, -textWidth/2, -S(20) - textHeight)
+        love.graphics.rectangle("fill", -textWidth / 2 - 2, -S(20) - textHeight - 2, textWidth + 4, textHeight + 4)
+        RenderUtils.setColor({0.65, 0.85, 1.0, 1.0})
+        love.graphics.print(entity.playerName, -textWidth / 2, -S(20) - textHeight)
     end
 
-    -- Draw mini health bar for remote players
     if entity.components and entity.components.health then
         local health = entity.components.health
-        local hpPercent = health.hp / health.maxHP
-        local barWidth = S(20)
+        local hpPercent = math.max(0, math.min(1, health.hp / math.max(health.maxHP or 1, 1)))
+        local barWidth = S(22)
         local barHeight = S(3)
         local barY = -S(15)
-        
-        -- Background
-        RenderUtils.setColor({0.2, 0.2, 0.2, 0.8})
-        love.graphics.rectangle("fill", -barWidth/2, barY, barWidth, barHeight)
-        
-        -- Health bar
-        local healthColor = hpPercent > 0.5 and {0.2, 0.8, 0.2, 1.0} or 
-                           hpPercent > 0.25 and {0.8, 0.8, 0.2, 1.0} or 
-                           {0.8, 0.2, 0.2, 1.0}
-        RenderUtils.setColor(healthColor)
-        love.graphics.rectangle("fill", -barWidth/2, barY, barWidth * hpPercent, barHeight)
-        
-        -- Border
-        RenderUtils.setColor({1, 1, 1, 0.5})
+
+        RenderUtils.setColor({0.1, 0.18, 0.28, 0.85})
+        love.graphics.rectangle("fill", -barWidth / 2, barY, barWidth, barHeight)
+
+        RenderUtils.setColor({0.45, 0.75, 1.0, 1.0})
+        love.graphics.rectangle("fill", -barWidth / 2, barY, barWidth * hpPercent, barHeight)
+
+        local healthLineWidth = love.graphics.getLineWidth and love.graphics.getLineWidth() or 1
+        RenderUtils.setColor({0.8, 0.9, 1.0, 0.75})
         love.graphics.setLineWidth(1)
-        love.graphics.rectangle("line", -barWidth/2, barY, barWidth, barHeight)
+        love.graphics.rectangle("line", -barWidth / 2, barY, barWidth, barHeight)
+        love.graphics.setLineWidth(healthLineWidth)
     end
 end
 

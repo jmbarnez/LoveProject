@@ -5,7 +5,7 @@ local Log = require("src.core.log")
 local Minimap = {}
 
 -- Debug log to verify enemies passed to minimap
-function Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, asteroids)
+function Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, asteroids, remotePlayerSnapshots)
 
 
   local sw, sh = Viewport.getDimensions()
@@ -177,16 +177,38 @@ function Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePl
   end
   
   -- Remote player blips (blue with glow)
+  local drawnRemote = {}
+  local function drawRemoteBlip(worldX, worldY, key)
+    if not worldX or not worldY then
+      return
+    end
+    if key then
+      if drawnRemote[key] then
+        return
+      end
+      drawnRemote[key] = true
+    end
+    local rx, ry = ox + worldX * sx, oy + worldY * sy
+    Theme.setColor(Theme.withAlpha(Theme.colors.info, 0.4))
+    love.graphics.circle("fill", rx, ry, 6)
+    Theme.setColor(Theme.colors.info)
+    love.graphics.circle("fill", rx, ry, 3)
+  end
+
   if remotePlayers then
-    for _, remotePlayer in pairs(remotePlayers) do
-      if remotePlayer.components and remotePlayer.components.position then
-        local rx, ry = ox + remotePlayer.components.position.x * sx, oy + remotePlayer.components.position.y * sy
-        -- Blue glow for remote players
-        Theme.setColor(Theme.withAlpha(Theme.colors.info, 0.4))
-        love.graphics.circle("fill", rx, ry, 6)
-        -- Main blue blip
-        Theme.setColor(Theme.colors.info)
-        love.graphics.circle("fill", rx, ry, 3)
+    for id, remotePlayer in pairs(remotePlayers) do
+      local pos = remotePlayer and remotePlayer.components and remotePlayer.components.position
+      if pos then
+        drawRemoteBlip(pos.x, pos.y, remotePlayer.remotePlayerId or id)
+      end
+    end
+  end
+
+  if remotePlayerSnapshots then
+    for id, snapshot in pairs(remotePlayerSnapshots) do
+      local pos = snapshot and (snapshot.position or (snapshot.data and snapshot.data.position))
+      if pos then
+        drawRemoteBlip(pos.x, pos.y, snapshot.playerId or id)
       end
     end
   end

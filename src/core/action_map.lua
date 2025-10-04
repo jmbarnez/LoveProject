@@ -5,6 +5,9 @@ local ActionMap = {}
 
 local registeredActions = {}
 
+print("ACTION MAP LOADED!")
+
+
 local function normalizeKeys(value)
     local keys = {}
     if type(value) == "string" then
@@ -238,6 +241,67 @@ ActionMap.registerAction({
         return true
     end,
 })
+
+print("REGISTERING F3 ACTION!")
+ActionMap.registerAction({
+    name = "toggle_multiplayer_host",
+    priority = 25,
+    getKeys = function()
+        return { "f3" }
+    end,
+    enabled = function(ctx)
+        return ctx and ctx.player ~= nil and ctx.world ~= nil
+    end,
+    callback = function(ctx)
+        local Log = require("src.core.log")
+        local Game = require("src.game")
+        local Notifications = require("src.ui.notifications")
+        
+        print("F3 KEY PRESSED!")
+        Log.info("F3 key pressed - attempting to toggle multiplayer hosting")
+        print("Current state - isMultiplayer:", Game.isMultiplayer(), "isHost:", Game.isHost())
+        
+        local networkManager = Game.getNetworkManager()
+        if not networkManager then
+            Log.error("Network manager not available")
+            Notifications.add("Network manager not available", "error")
+            return false
+        end
+        
+        Log.info("Network manager found, isMultiplayer:", networkManager:isMultiplayer(), "isHost:", networkManager:isHost())
+        
+        if networkManager:isMultiplayer() then
+            if networkManager:isHost() then
+                -- Stop hosting
+                Log.info("Stopping host")
+                networkManager:leaveGame()
+                Game.setMultiplayerMode(false, false)
+                Notifications.add("Stopped hosting multiplayer game", "info")
+            else
+                -- Leave client mode
+                Log.info("Leaving client mode")
+                networkManager:leaveGame()
+                Game.setMultiplayerMode(false, false)
+                Notifications.add("Left multiplayer game", "info")
+            end
+        else
+            -- Start hosting and switch to multiplayer mode
+            Log.info("Starting host and switching to multiplayer mode")
+            if networkManager:startHost() then
+                Game.setMultiplayerMode(true, true)
+                print("After setMultiplayerMode - isMultiplayer:", Game.isMultiplayer(), "isHost:", Game.isHost())
+                Log.info("Host started successfully, game is now in multiplayer mode")
+                Notifications.add("Started hosting multiplayer game (F3 to stop)", "success")
+            else
+                Log.error("Failed to start host")
+                Notifications.add("Failed to start multiplayer server", "error")
+            end
+        end
+        
+        return true
+    end,
+})
+
 
 
 return ActionMap

@@ -73,9 +73,9 @@ local startScreenHandler = function(self, x, y, button)
     return false -- don't start game, show load UI
   end
 
-  -- Multiplayer button click
+  -- Join Game button click
   if Theme.handleButtonClick(self.multiplayerButton, x, y, function()
-    print("Multiplayer button clicked, opening UI")
+    print("Join Game button clicked, opening UI")
     self.showJoinUI = true
   end) then
     return false
@@ -187,6 +187,7 @@ function Start.new()
   self.showJoinUI = false
   self.joinAddress = "localhost"
   self.joinPort = "7777"
+  -- Create a temporary network manager for the start screen
   self.networkManager = NetworkManager.new()
   self.versionWindow = Window.new({
     title = Strings.getUI("version_log_title"),
@@ -245,6 +246,26 @@ end
 function Start:update(dt)
    SettingsPanel.update(dt)
    self.networkManager:update(dt)
+   
+   -- Check for connection validation
+   if _G.PENDING_MULTIPLAYER_CONNECTION and _G.PENDING_MULTIPLAYER_CONNECTION.connecting then
+     -- Update connection timeout
+     _G.PENDING_MULTIPLAYER_CONNECTION.timeout = (_G.PENDING_MULTIPLAYER_CONNECTION.timeout or 0) + dt
+     
+     if self.networkManager:isMultiplayer() and self.networkManager:isConnected() then
+       print("Connection confirmed! Transitioning to game...")
+       _G.PENDING_MULTIPLAYER_CONNECTION.connected = true
+       _G.PENDING_MULTIPLAYER_CONNECTION.connecting = false
+       self.showJoinUI = false
+       -- Set a flag to trigger game transition on next mouse click
+       self.readyToJoin = true
+     elseif _G.PENDING_MULTIPLAYER_CONNECTION.timeout > 10.0 then
+       -- Connection timeout after 10 seconds
+       print("Connection timeout - failed to connect to server")
+       _G.PENDING_MULTIPLAYER_CONNECTION = nil
+       self.showJoinUI = true -- Show join UI again
+     end
+   end
 end
 
 function Start:draw()
@@ -392,11 +413,11 @@ function Start:draw()
   UIButton.drawRect(lbx, lby, bw, bh, "Load Game", lhover, t, { compact = true, menuButton = true })
   self.loadButton._rect = { x = lbx, y = lby, w = bw, h = bh }
 
-  -- Multiplayer button
+  -- Join Multiplayer button
   local mbx = bx
   local mby = lby + bh + 20 * s
   local mhover = mx >= mbx and mx <= mbx + bw and my >= mby and my <= mby + bh
-  UIButton.drawRect(mbx, mby, bw, bh, "Multiplayer", mhover, t, { compact = true, menuButton = true })
+  UIButton.drawRect(mbx, mby, bw, bh, "Join Game", mhover, t, { compact = true, menuButton = true })
   self.multiplayerButton._rect = { x = mbx, y = mby, w = bw, h = bh }
 
   local versionText = Strings.getUI('version') or ""
@@ -515,7 +536,7 @@ function Start:drawJoinUI()
   -- Title
   love.graphics.setFont(Theme.fonts.normal)
   Theme.setColor(Theme.colors.text)
-  local title = "Multiplayer Game"
+  local title = "Join Multiplayer Game"
   local titleW = Theme.fonts.normal:getWidth(title)
   love.graphics.print(title, windowX + (windowW - titleW) / 2, windowY + 20 * s)
   
@@ -561,26 +582,22 @@ function Start:drawJoinUI()
   local buttonW = 80 * s
   local buttonH = 30 * s
   local buttonY = portY + 50 * s
-  local hostX = windowX + (windowW - buttonW * 3 - 40 * s) / 2
-  local joinX = hostX + buttonW + 20 * s
+  local joinX = windowX + (windowW - buttonW * 2 - 20 * s) / 2
   local cancelX = joinX + buttonW + 20 * s
   
   local mx, my = Viewport.getMousePosition()
-  local hostHover = mx >= hostX and mx <= hostX + buttonW and my >= buttonY and my <= buttonY + buttonH
   local joinHover = mx >= joinX and mx <= joinX + buttonW and my >= buttonY and my <= buttonY + buttonH
   local cancelHover = mx >= cancelX and mx <= cancelX + buttonW and my >= buttonY and my <= buttonY + buttonH
   
-  -- Host button
-  Theme.setColor(hostHover and Theme.colors.accent or Theme.colors.primary)
-  love.graphics.rectangle("fill", hostX, buttonY, buttonW, buttonH)
-  Theme.setColor(Theme.colors.text)
-  love.graphics.print("Host", hostX + 10 * s, buttonY + 5 * s)
-  
   -- Join button
-  Theme.setColor(joinHover and Theme.colors.accent or Theme.colors.primary)
+  local isConnecting = _G.PENDING_MULTIPLAYER_CONNECTION and _G.PENDING_MULTIPLAYER_CONNECTION.connecting
+  local buttonText = isConnecting and "Connecting..." or "Join"
+  local buttonColor = isConnecting and Theme.colors.bg2 or (joinHover and Theme.colors.accent or Theme.colors.primary)
+  
+  Theme.setColor(buttonColor)
   love.graphics.rectangle("fill", joinX, buttonY, buttonW, buttonH)
   Theme.setColor(Theme.colors.text)
-  love.graphics.print("Join", joinX + 10 * s, buttonY + 5 * s)
+  love.graphics.print(buttonText, joinX + 10 * s, buttonY + 5 * s)
   
   -- Cancel button
   Theme.setColor(cancelHover and Theme.colors.accent or Theme.colors.primary)
@@ -589,7 +606,6 @@ function Start:drawJoinUI()
   love.graphics.print("Cancel", cancelX + 10 * s, buttonY + 5 * s)
   
   -- Store button positions for click handling
-  self.hostButton = { x = hostX, y = buttonY, w = buttonW, h = buttonH }
   self.joinButton = { x = joinX, y = buttonY, w = buttonW, h = buttonH }
   self.cancelButton = { x = cancelX, y = buttonY, w = buttonW, h = buttonH }
 end
@@ -598,30 +614,33 @@ function Start:mousepressed(x, y, button)
   -- Check multiplayer UI first (highest priority)
   if self.showJoinUI then
     print("Multiplayer UI is open, checking button clicks at", x, y)
-    print("Host button:", self.hostButton and "exists" or "nil")
     print("Join button:", self.joinButton and "exists" or "nil")
     print("Cancel button:", self.cancelButton and "exists" or "nil")
     
-    if self.hostButton and x >= self.hostButton.x and x <= self.hostButton.x + self.hostButton.w and
-       y >= self.hostButton.y and y <= self.hostButton.y + self.hostButton.h then
-      -- Host button clicked
-      print("Host button clicked")
-      if self.networkManager:startHost() then
-        self.showJoinUI = false
-        return "hostGame" -- signal to start hosting
+    if self.joinButton and x >= self.joinButton.x and x <= self.joinButton.x + self.joinButton.w and
+       y >= self.joinButton.y and y <= self.joinButton.y + self.joinButton.h then
+      -- Check if already connecting
+      if _G.PENDING_MULTIPLAYER_CONNECTION and _G.PENDING_MULTIPLAYER_CONNECTION.connecting then
+        print("Already connecting, please wait...")
+        return false
       end
-      return false
-    elseif self.joinButton and x >= self.joinButton.x and x <= self.joinButton.x + self.joinButton.w and
-           y >= self.joinButton.y and y <= self.joinButton.y + self.joinButton.h then
+      
       -- Join button clicked
       print("Join button clicked at", x, y)
       print("Join button bounds:", self.joinButton.x, self.joinButton.y, self.joinButton.w, self.joinButton.h)
       local port = tonumber(self.joinPort) or 7777
       print("Attempting to join game at", self.joinAddress, port)
       if self.networkManager:joinGame(self.joinAddress, port) then
-        print("Join successful, closing UI")
-        self.showJoinUI = false
-        return "joinGame" -- signal to join game
+        print("Join initiated, waiting for connection confirmation...")
+        -- Store connection info globally for Game.load to use
+        _G.PENDING_MULTIPLAYER_CONNECTION = {
+          address = self.joinAddress,
+          port = port,
+          connected = false, -- Will be set to true when connection is confirmed
+          connecting = true
+        }
+        -- Don't close UI yet - wait for connection confirmation
+        return false -- Don't transition yet
       else
         print("Join failed")
       end

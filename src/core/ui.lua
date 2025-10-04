@@ -244,7 +244,7 @@ local function hasRequiredTurret(player, requiredType)
   return false
 end
 
-function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, remotePlayers)
+function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, remotePlayers, remotePlayerSnapshots)
   -- Draw modular HUD components
   StatusBars.draw(player, world)
   -- Always hide system mouse cursor - use in-game cursors instead
@@ -257,7 +257,7 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
   if not overUI then
     Reticle.draw(player, world, camera)
   end
-  Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, world:get_entities_with_components("mineable"))
+  Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, world:get_entities_with_components("mineable"), remotePlayerSnapshots)
   Hotbar.draw(player)
   ExperienceNotification.draw()
 end

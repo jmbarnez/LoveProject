@@ -321,6 +321,13 @@ end
 
 function Input.love_mousepressed(x, y, button)
   if mainState.screen == "start" then
+    -- Check for global join game trigger
+    if _G.TRIGGER_JOIN_GAME then
+      _G.TRIGGER_JOIN_GAME = false
+      transitionToGame({ fromSave = false, multiplayer = true, isHost = false })
+      return
+    end
+    
     local vx, vy = Viewport.toVirtual(x, y)
     local start = mainState.startScreen:mousepressed(vx, vy, button)
     if start == true then
