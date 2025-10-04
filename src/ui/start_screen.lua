@@ -15,12 +15,13 @@ local VersionLog = require("src.ui.version_log")
 local Start = {}
 Start.__index = Start
 
--- Function to draw a simple cog icon
+-- Function to draw an improved cog icon
 local function drawCogIcon(centerX, centerY, radius)
-    local segments = 12
-    local innerRadius = radius * 0.6
-    local outerRadius = radius
-    local toothDepth = radius * 0.2
+    local segments = 8  -- Fewer segments for cleaner look
+    local innerRadius = radius * 0.5
+    local outerRadius = radius * 0.8
+    local toothDepth = radius * 0.15
+    local toothWidth = 0.3  -- Width of each tooth as fraction of segment
     
     love.graphics.push()
     love.graphics.translate(centerX, centerY)
@@ -28,25 +29,30 @@ local function drawCogIcon(centerX, centerY, radius)
     -- Draw outer gear teeth
     for i = 0, segments - 1 do
         local angle1 = (i * 2 * math.pi) / segments
-        local angle2 = ((i + 0.5) * 2 * math.pi) / segments
-        local angle3 = ((i + 1) * 2 * math.pi) / segments
+        local angle2 = angle1 + (toothWidth * math.pi / segments)
+        local angle3 = angle1 + ((1 - toothWidth) * math.pi / segments)
+        local angle4 = ((i + 1) * 2 * math.pi) / segments
         
+        -- Tooth outer points
         local x1 = math.cos(angle1) * outerRadius
         local y1 = math.sin(angle1) * outerRadius
         local x2 = math.cos(angle2) * (outerRadius + toothDepth)
         local y2 = math.sin(angle2) * (outerRadius + toothDepth)
-        local x3 = math.cos(angle3) * outerRadius
-        local y3 = math.sin(angle3) * outerRadius
+        local x3 = math.cos(angle3) * (outerRadius + toothDepth)
+        local y3 = math.sin(angle3) * (outerRadius + toothDepth)
+        local x4 = math.cos(angle4) * outerRadius
+        local y4 = math.sin(angle4) * outerRadius
         
-        love.graphics.polygon("fill", 0, 0, x1, y1, x2, y2, x3, y3)
+        -- Draw tooth
+        love.graphics.polygon("fill", x1, y1, x2, y2, x3, y3, x4, y4)
     end
     
-    -- Draw inner circle
+    -- Draw inner circle (gear body)
     love.graphics.circle("fill", 0, 0, innerRadius)
     
     -- Draw center hole
     love.graphics.setColor(0, 0, 0, 1)
-    love.graphics.circle("fill", 0, 0, innerRadius * 0.3)
+    love.graphics.circle("fill", 0, 0, innerRadius * 0.4)
     
     love.graphics.pop()
 end
@@ -163,7 +169,7 @@ function Start.new()
   self.settingsButton = { x = 0, y = 0, w = 40, h = 40 }
   self.versionWindow = Window.new({
     title = Strings.getUI("version_log_title"),
-    width = 820,
+    width = 1000,
     height = 640,
     visible = false,
     closable = true,
@@ -396,15 +402,15 @@ function Start:draw()
 
   self.versionButton._rect = { x = vbx, y = vby, w = vbw, h = vbh }
 
-  -- Settings button in top right
-  local settingsButtonSize = 40 * s
+  -- Settings button in top right (smaller)
+  local settingsButtonSize = 32 * s
   local settingsButtonX = w - settingsButtonSize - 20 * s
   local settingsButtonY = 20 * s
   local settingsHover = mx >= settingsButtonX and mx <= settingsButtonX + settingsButtonSize and my >= settingsButtonY and my <= settingsButtonY + settingsButtonSize
 
   -- Draw cog icon only (no background or border)
   Theme.setColor(settingsHover and {0.9, 0.9, 0.9, 1.0} or {0.7, 0.7, 0.7, 1.0})
-  drawCogIcon(settingsButtonX + settingsButtonSize/2, settingsButtonY + settingsButtonSize/2, settingsButtonSize * 0.4)
+  drawCogIcon(settingsButtonX + settingsButtonSize/2, settingsButtonY + settingsButtonSize/2, settingsButtonSize * 0.35)
 
   self.settingsButton._rect = { x = settingsButtonX, y = settingsButtonY, w = settingsButtonSize, h = settingsButtonSize }
 

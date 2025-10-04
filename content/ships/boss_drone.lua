@@ -8,7 +8,7 @@ return {
   ai = {
     intelligenceLevel = "STANDARD",
     aggressiveType = "hostile",
-    detectionRange = 4000,  -- Higher detection range for boss Mila
+    detectionRange = 2000,  -- Detection range for boss Mila
   },
 
   visuals = {

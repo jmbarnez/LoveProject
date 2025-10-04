@@ -171,16 +171,26 @@ function Hotbar.draw(player)
       drewIcon = true
     end
 
-    -- Draw clip status above slot for gun turrets
+    -- Draw clip status above slot for gun turrets (only when weapon is equipped and has ammo)
     if player and slot.item and type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
       local idx = tonumber(slot.item:match('^turret_slot_(%d+)$'))
       if player.components and player.components.equipment and player.components.equipment.grid and idx then
         local gridData = player.components.equipment.grid[idx]
         if gridData and gridData.module then
           local t = gridData.module
+          -- Only show ammo bar for gun turrets that have clip system
           if t and t.kind == "gun" and t.clipSize and t.clipSize > 0 then
             local clipStatus = t:getClipStatus()
             if clipStatus then
+              -- Only show ammo bar if:
+              -- 1. Currently reloading, OR
+              -- 2. Ammo is low (less than 50%), OR  
+              -- 3. Recently fired (has been used recently)
+              local shouldShowAmmoBar = clipStatus.isReloading or 
+                                       (clipStatus.current / clipStatus.max) < 0.5 or
+                                       (t.lastFireTime and (love.timer.getTime() - t.lastFireTime) < 5.0)
+              
+              if shouldShowAmmoBar then
               local barHeight = 4 -- Slim bar height
               local barY = ry - barHeight - 2 -- Above the slot
               local barWidth = size
@@ -237,6 +247,7 @@ function Hotbar.draw(player)
                 
                 if fOld then love.graphics.setFont(fOld) end
               end
+              end -- Close shouldShowAmmoBar condition
             end
           end
         end

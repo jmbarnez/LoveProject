@@ -32,19 +32,129 @@ local VersionLog = {
 }
 
 local REFRESH_INTERVAL = 60
-local ENTRY_PADDING_Y = 16
-local ENTRY_SPACING = 24
-local BODY_PARAGRAPH_SPACING = 10
+local ENTRY_PADDING_Y = 12
+local ENTRY_SPACING = 16
+local BODY_PARAGRAPH_SPACING = 6
 local BULLET_LINE_SPACING = 6
 local TEXT_LEFT_MARGIN = 16
 local TEXT_RIGHT_PADDING = 12
 local BULLET_INDENT = 12
 local SCROLL_TRACK_WIDTH = 8
 local SCROLL_EXTRA_GAP = 8
-local HERO_HEIGHT = 104
-local HERO_PADDING = 18
-local HERO_RADIUS = 14
 local PATH_SEPARATOR = package.config and package.config:sub(1, 1) or "/"
+
+-- Categorize commit by type based on subject line
+local function categorizeCommit(subject)
+    if not subject then return "other" end
+    
+    local lowerSubject = string.lower(subject)
+    
+    -- Feature additions
+    if string.match(lowerSubject, "add") or 
+       string.match(lowerSubject, "new") or 
+       string.match(lowerSubject, "feature") or
+       string.match(lowerSubject, "implement") then
+        return "feature"
+    end
+    
+    -- Bug fixes
+    if string.match(lowerSubject, "fix") or 
+       string.match(lowerSubject, "bug") or 
+       string.match(lowerSubject, "error") or
+       string.match(lowerSubject, "crash") or
+       string.match(lowerSubject, "issue") then
+        return "fix"
+    end
+    
+    -- Improvements/Enhancements
+    if string.match(lowerSubject, "improve") or 
+       string.match(lowerSubject, "enhance") or 
+       string.match(lowerSubject, "optimize") or
+       string.match(lowerSubject, "better") or
+       string.match(lowerSubject, "update") then
+        return "improvement"
+    end
+    
+    -- UI/Visual changes
+    if string.match(lowerSubject, "ui") or 
+       string.match(lowerSubject, "visual") or 
+       string.match(lowerSubject, "graphic") or
+       string.match(lowerSubject, "theme") or
+       string.match(lowerSubject, "style") or
+       string.match(lowerSubject, "icon") or
+       string.match(lowerSubject, "color") then
+        return "ui"
+    end
+    
+    -- Performance changes
+    if string.match(lowerSubject, "performance") or 
+       string.match(lowerSubject, "speed") or 
+       string.match(lowerSubject, "fps") or
+       string.match(lowerSubject, "memory") or
+       string.match(lowerSubject, "optimize") then
+        return "performance"
+    end
+    
+    -- Refactoring/Code changes
+    if string.match(lowerSubject, "refactor") or 
+       string.match(lowerSubject, "clean") or 
+       string.match(lowerSubject, "code") or
+       string.match(lowerSubject, "restructure") then
+        return "refactor"
+    end
+    
+    return "other"
+end
+
+-- Get color scheme for commit type
+local function getCommitColors(commitType)
+    local colors = {
+        feature = {
+            bg = {0.2, 0.6, 0.3, 0.15},      -- Green background
+            accent = {0.3, 0.8, 0.4, 0.8},   -- Green accent
+            text = {0.9, 1.0, 0.9, 1.0},     -- Light green text
+            border = {0.3, 0.8, 0.4, 0.6}    -- Green border
+        },
+        fix = {
+            bg = {0.8, 0.3, 0.2, 0.15},      -- Red background
+            accent = {0.9, 0.4, 0.3, 0.8},   -- Red accent
+            text = {1.0, 0.9, 0.9, 1.0},     -- Light red text
+            border = {0.9, 0.4, 0.3, 0.6}    -- Red border
+        },
+        improvement = {
+            bg = {0.2, 0.4, 0.8, 0.15},      -- Blue background
+            accent = {0.3, 0.6, 0.9, 0.8},   -- Blue accent
+            text = {0.9, 0.95, 1.0, 1.0},    -- Light blue text
+            border = {0.3, 0.6, 0.9, 0.6}    -- Blue border
+        },
+        ui = {
+            bg = {0.6, 0.3, 0.8, 0.15},      -- Purple background
+            accent = {0.7, 0.4, 0.9, 0.8},   -- Purple accent
+            text = {0.95, 0.9, 1.0, 1.0},    -- Light purple text
+            border = {0.7, 0.4, 0.9, 0.6}    -- Purple border
+        },
+        performance = {
+            bg = {0.8, 0.6, 0.2, 0.15},      -- Orange background
+            accent = {0.9, 0.7, 0.3, 0.8},   -- Orange accent
+            text = {1.0, 0.95, 0.9, 1.0},    -- Light orange text
+            border = {0.9, 0.7, 0.3, 0.6}    -- Orange border
+        },
+        refactor = {
+            bg = {0.4, 0.4, 0.4, 0.15},      -- Gray background
+            accent = {0.6, 0.6, 0.6, 0.8},   -- Gray accent
+            text = {0.9, 0.9, 0.9, 1.0},     -- Light gray text
+            border = {0.6, 0.6, 0.6, 0.6}    -- Gray border
+        },
+        other = {
+            bg = {0.3, 0.3, 0.3, 0.15},      -- Dark gray background
+            accent = {0.5, 0.5, 0.5, 0.8},   -- Gray accent
+            text = {0.9, 0.9, 0.9, 1.0},     -- Light gray text
+            border = {0.5, 0.5, 0.5, 0.6}    -- Gray border
+        }
+    }
+    
+    return colors[commitType] or colors.other
+end
 
 local function getCommitGroupCount(data)
     if type(data) ~= "table" then
@@ -101,66 +211,6 @@ local function getLatestVersionInfo()
     }
 end
 
-local function drawHeroHeader(x, y, w)
-    local info = getLatestVersionInfo()
-    if not info then
-        return 0
-    end
-
-    local height = HERO_HEIGHT
-    local radius = HERO_RADIUS
-
-    Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.35))
-    love.graphics.rectangle("fill", x + 6, y + 8, w - 12, height - 12, radius + 6, radius + 6)
-
-    Theme.setColor(Theme.withAlpha(Theme.colors.primaryBright, 0.55))
-    love.graphics.rectangle("fill", x, y, w, height, radius, radius)
-
-    Theme.setColor(Theme.withAlpha(Theme.colors.accent, 0.45))
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", x, y, w, height, radius, radius)
-    love.graphics.setLineWidth(1)
-
-    Theme.setColor(Theme.withAlpha(Theme.colors.accent, 0.18))
-    love.graphics.circle("fill", x + w - 60, y + height * 0.45, 46)
-    Theme.setColor(Theme.withAlpha(Theme.colors.accent, 0.12))
-    love.graphics.circle("fill", x + w - 28, y + height * 0.72, 28)
-
-    local titleFont = Theme.fonts.title or Theme.fonts.large or love.graphics.getFont()
-    local metaFont = Theme.fonts.medium or Theme.fonts.normal or love.graphics.getFont()
-    local bodyFont = Theme.fonts.normal or love.graphics.getFont()
-
-    local cursorX = x + 28
-    local cursorY = y + 22
-
-    love.graphics.setFont(titleFont)
-    Theme.setColor(Theme.colors.text)
-    local versionLabel = string.format("Version %s", info.version or Strings.getUI("version") or "")
-    love.graphics.print(versionLabel, cursorX, cursorY)
-
-    cursorY = cursorY + titleFont:getHeight() + 6
-    love.graphics.setFont(metaFont)
-    Theme.setColor(Theme.colors.textHighlight)
-    local subtitle = info.headline or Strings.getUI("version_log_title") or ""
-    love.graphics.print(subtitle, cursorX, cursorY)
-
-    cursorY = cursorY + metaFont:getHeight() + 4
-    love.graphics.setFont(bodyFont)
-    Theme.setColor(Theme.colors.textSecondary)
-    local metaParts = {}
-    if info.date and info.date ~= "" then table.insert(metaParts, info.date) end
-    if info.author and info.author ~= "" then table.insert(metaParts, info.author) end
-    if info.updateCount and info.updateCount > 0 then
-        table.insert(metaParts, string.format("%d detailed notes", info.updateCount))
-    end
-    local metaLine = table.concat(metaParts, "  •  ")
-    if metaLine ~= "" then
-        love.graphics.print(metaLine, cursorX, cursorY)
-    end
-
-    love.graphics.setFont(Theme.fonts.small or bodyFont)
-    return height
-end
 
 local function measureEntryWidth(text)
     local font = Theme.fonts.normal
@@ -491,12 +541,11 @@ function VersionLog.draw(x, y, w, h)
         return
     end
 
-    local heroHeight = drawHeroHeader(listX, listY, listW)
-    local contentOffset = heroHeight > 0 and (heroHeight + HERO_PADDING) or 0
+    -- No hero header - show log content directly
     local contentX = listX
-    local contentY = listY + contentOffset
+    local contentY = listY
     local contentW = listW
-    local contentH = math.max(0, listH - contentOffset)
+    local contentH = listH
 
     if contentW <= 0 or contentH <= 0 then
         return
@@ -514,9 +563,11 @@ function VersionLog.draw(x, y, w, h)
             local font = Theme.fonts.small or love.graphics.getFont()
             local lineHeight = font:getHeight()
             love.graphics.setFont(font)
-            local reservedTrackSpace = SCROLL_TRACK_WIDTH + SCROLL_EXTRA_GAP
-            local textAreaWidth = math.max(0, contentW - reservedTrackSpace)
-            local textColumnWidth = math.max(0, textAreaWidth - TEXT_LEFT_MARGIN - TEXT_RIGHT_PADDING)
+        -- Calculate text area width for layout (same as drawing)
+        local scrollTrackWidth = SCROLL_TRACK_WIDTH
+        local scrollGap = SCROLL_EXTRA_GAP
+        local textAreaWidth = math.max(0, contentW - scrollTrackWidth - scrollGap)
+        local textColumnWidth = math.max(0, textAreaWidth - TEXT_LEFT_MARGIN - TEXT_RIGHT_PADDING)
             local bodyColumnWidth = math.max(0, textColumnWidth - BULLET_INDENT)
             for _, versionKey in ipairs(commitData.order) do
                 local commits = commitData.grouped[versionKey]
@@ -533,6 +584,10 @@ function VersionLog.draw(x, y, w, h)
                     for _, commit in ipairs(commits) do
                         local headerText = commit.subject or ""
                         local headerLines = wrapText(font, headerText, textColumnWidth)
+                        
+                        -- Categorize commit and get colors
+                        local commitType = categorizeCommit(commit.subject)
+                        local commitColors = getCommitColors(commitType)
 
                         local metaLines = {}
                         if (commit.date and commit.date ~= "") or (commit.author and commit.author ~= "") then
@@ -591,6 +646,8 @@ function VersionLog.draw(x, y, w, h)
                         table.insert(VersionLog.layoutCache.entries, {
                             kind = "commit",
                             commit = commit,
+                            commitType = commitType,
+                            commitColors = commitColors,
                             headerLines = headerLines,
                             metaLines = metaLines,
                             bodyWraps = bodyWraps,
@@ -610,9 +667,16 @@ function VersionLog.draw(x, y, w, h)
 
     local contentHeight = math.max(totalContentHeight, contentH)
 
+    -- Calculate scroll area dimensions - separate from text content
+    local scrollTrackWidth = SCROLL_TRACK_WIDTH
+    local scrollGap = SCROLL_EXTRA_GAP
+    local textAreaWidth = math.max(0, contentW - scrollTrackWidth - scrollGap)
+    local scrollAreaX = contentX + textAreaWidth + scrollGap
+    local scrollAreaWidth = scrollTrackWidth
+
     local mx, my = Viewport.getMousePosition()
     local draggingThumb = VersionLog.scrollState and VersionLog.scrollState.dragging
-    VersionLog.scrollY, VersionLog.scrollGeom = ScrollArea.draw(contentX, contentY, contentW, contentH, contentHeight, VersionLog.scrollY, {
+    VersionLog.scrollY, VersionLog.scrollGeom = ScrollArea.draw(scrollAreaX, contentY, scrollAreaWidth, contentH, contentHeight, VersionLog.scrollY, {
         dragging = draggingThumb,
         dragOffset = VersionLog.scrollState and VersionLog.scrollState.dragOffset or 0,
         mouseY = my,
@@ -651,9 +715,7 @@ function VersionLog.draw(x, y, w, h)
         local lineHeight = font:getHeight()
         love.graphics.setFont(font)
         local rowY = contentY - VersionLog.scrollY
-        local trackWidth = (VersionLog.scrollGeom.track and VersionLog.scrollGeom.track.w) or SCROLL_TRACK_WIDTH
-        local reservedTrackSpace = trackWidth + SCROLL_EXTRA_GAP
-        local textAreaWidth = math.max(0, contentW - reservedTrackSpace)
+        -- Use the pre-calculated text area width
         local textX = contentX + TEXT_LEFT_MARGIN
         local textWidth = math.max(0, textAreaWidth - TEXT_LEFT_MARGIN - TEXT_RIGHT_PADDING)
 
@@ -663,11 +725,8 @@ function VersionLog.draw(x, y, w, h)
             if entryBottom >= contentY - ENTRY_SPACING and entryTop <= contentY + contentH + ENTRY_SPACING then
                 if entry.kind == "version" then
                     local headerLines = wrapText(font, entry.text, textWidth)
-                    local headerX = textX - TEXT_LEFT_MARGIN + 4
-                    local headerW = math.max(0, textAreaWidth - 8)
-                    Theme.setColor(Theme.withAlpha(Theme.colors.accent, 0.12))
-                    love.graphics.rectangle("fill", headerX, entryTop + 6, headerW, entry.height - 12, 10, 10)
-                    Theme.setColor(Theme.colors.accentGold or Theme.colors.accent)
+                    -- Simple version header with just colored text
+                    Theme.setColor(Theme.colors.accent)
                     local cursorY = entryTop + ENTRY_PADDING_Y
                     for _, line in ipairs(headerLines) do
                         love.graphics.print(line, textX, cursorY)
@@ -675,16 +734,19 @@ function VersionLog.draw(x, y, w, h)
                     end
                 elseif entry.kind == "commit" then
                     local commit = entry.commit
-                    local cardX = textX - TEXT_LEFT_MARGIN + 4
-                    local cardY = entryTop + 4
-                    local cardW = math.max(0, textAreaWidth - 8)
-                    local cardH = math.max(0, entry.height - 8)
-                    Theme.setColor(Theme.withAlpha(Theme.colors.primaryDim or Theme.colors.primary, 0.65))
-                    love.graphics.rectangle("fill", cardX, cardY, cardW, cardH, 10, 10)
-                    Theme.setColor(Theme.withAlpha(Theme.colors.accent, 0.65))
-                    love.graphics.rectangle("fill", cardX - 2, cardY + 6, 4, math.max(0, cardH - 12), 2, 2)
+                    local commitType = entry.commitType or "other"
+                    local commitColors = entry.commitColors or getCommitColors("other")
+                    
+                    -- Simple colored accent bar only (no background cards)
+                    local accentX = textX - TEXT_LEFT_MARGIN
+                    local accentY = entryTop + 6
+                    local accentW = 3
+                    local accentH = math.max(0, entry.height - 12)
+                    Theme.setColor(commitColors.accent)
+                    love.graphics.rectangle("fill", accentX, accentY, accentW, accentH, 1, 1)
 
                     local cursorY = entryTop + ENTRY_PADDING_Y
+                    -- Use standard text colors for cleaner look
                     Theme.setColor(Theme.colors.textHighlight)
                     for _, line in ipairs(entry.headerLines) do
                         love.graphics.print(line, textX, cursorY)

@@ -171,7 +171,7 @@ Constants.COMBAT = {
 
 Constants.SPAWNING = {
     MARGIN = 75,
-    STATION_BUFFER = 5000,
+    STATION_BUFFER = 2500,
     MIN_PLAYER_DIST = 150,
     INTERVAL_MIN = 2.0,
     INTERVAL_MAX = 4.0,

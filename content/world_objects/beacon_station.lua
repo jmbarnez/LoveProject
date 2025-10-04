@@ -56,7 +56,7 @@ return {
     },
 
     -- Special property: large no-spawn radius (only when repaired)
-    no_spawn_radius = 5000,  -- Large radius around beacon when repaired
+    no_spawn_radius = 2500,  -- Large radius around beacon when repaired
 
     -- Beacon Station Design - looks like a communications/defense array
     visuals = {
