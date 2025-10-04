@@ -111,12 +111,52 @@ function CollisionSystem:update(world, dt)
 
         if self.windfield then
             local pos = e.components.position
+            local physics = e.components.physics
+            local physics_body = physics and physics.body or nil
+            local sync_angle = pos.angle
+
+            if physics_body then
+                local body_x, body_y
+                if physics_body.getPosition then
+                    body_x, body_y = physics_body:getPosition()
+                else
+                    body_x = physics_body.x
+                    body_y = physics_body.y
+                end
+
+                if body_x ~= nil and body_y ~= nil then
+                    pos.x = body_x
+                    pos.y = body_y
+                end
+
+                if physics_body.getAngle then
+                    sync_angle = physics_body:getAngle()
+                elseif physics_body.angle ~= nil then
+                    sync_angle = physics_body.angle
+                end
+
+                if sync_angle ~= nil then
+                    pos.angle = sync_angle
+                end
+            end
+
             local collider = self.windfield:syncCircle(e, pos.x, pos.y, r, {
                 bodyType = determine_body_type(e),
-                angle = pos.angle,
+                angle = sync_angle,
             })
-            if collider and e.components.physics and e.components.physics.body then
-                self.windfield:syncFromPhysicsBody(e, e.components.physics.body)
+
+            if collider and physics_body then
+                local vx, vy
+                if physics_body.getLinearVelocity then
+                    vx, vy = physics_body:getLinearVelocity()
+                else
+                    vx = physics_body.vx
+                    vy = physics_body.vy
+                end
+
+                if vx ~= nil and vy ~= nil then
+                    collider:setLinearVelocity(vx, vy)
+                end
             end
         end
     end
