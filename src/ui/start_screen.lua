@@ -611,6 +611,13 @@ function Start:drawJoinUI()
 end
 
 function Start:mousepressed(x, y, button)
+  -- Check if ready to join multiplayer game (highest priority)
+  if self.readyToJoin then
+    print("Ready to join - triggering game transition")
+    self.readyToJoin = false -- Reset the flag
+    return "joinGame" -- Signal to start multiplayer game
+  end
+
   -- Check multiplayer UI first (highest priority)
   if self.showJoinUI then
     print("Multiplayer UI is open, checking button clicks at", x, y)

@@ -78,8 +78,9 @@ function NetworkManager:startHost(port)
         self._isHost = true
         self._isMultiplayer = true
         
-        -- Add the host player to the server
-        self.server:addHostPlayer("Host", {
+        -- Add the host player to the server with unique name
+        local hostName = "Host_" .. os.time() .. "_" .. math.random(1000, 9999)
+        self.server:addHostPlayer(hostName, {
             position = { x = 0, y = 0, angle = 0 },
             velocity = { x = 0, y = 0 },
             health = { hp = 100, maxHp = 100, shield = 0, maxShield = 0 }
@@ -204,13 +205,18 @@ function NetworkManager:getPlayerCount()
     end
 
     if self._isHost then
-        return self.server:getPlayerCount()
+        local count = self.server:getPlayerCount()
+        Log.info("Host player count:", count)
+        return count
     end
 
     local count = 1 -- include local player
-    for _ in pairs(self.client:getPlayers()) do
+    local clientPlayers = self.client:getPlayers()
+    for playerId, _ in pairs(clientPlayers) do
         count = count + 1
+        Log.info("Client sees player:", playerId)
     end
+    Log.info("Client player count:", count)
     return count
 end
 

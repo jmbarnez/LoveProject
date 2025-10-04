@@ -35,7 +35,7 @@ function NetworkServer.new(port)
     self.fileNetwork = nil
 
     self.players = {}
-    self.nextPlayerId = 1
+    self.nextPlayerId = 1  -- Clients start from ID 1, host is ID 0
     self.isRunning = false
 
     self.lastCleanup = 0
@@ -241,6 +241,7 @@ function NetworkServer:handlePlayerJoin(message, peer)
     })
 
     Log.info("Player joined:", playerName, "(" .. playerId .. ")")
+    Log.info("Server now has", self:getPlayerCount(), "players total")
     Events.emit("NETWORK_PLAYER_JOINED", { playerId = playerId, player = player })
 end
 
@@ -384,8 +385,9 @@ function NetworkServer:addHostPlayer(playerName, initialData)
         return
     end
     
-    local hostPlayerId = 1
+    local hostPlayerId = 0  -- Host gets ID 0, clients get 1, 2, 3, etc.
     local player = {
+        id = hostPlayerId,
         name = playerName,
         data = initialData or {},
         lastSeen = currentTime()
@@ -400,8 +402,8 @@ function NetworkServer:updateHostPlayer(playerData)
         return
     end
     
-    -- Find the host player (usually player ID 1)
-    local hostPlayerId = 1
+    -- Find the host player (ID 0)
+    local hostPlayerId = 0
     if self.players[hostPlayerId] then
         Log.info("Updating host player data for ID:", hostPlayerId)
         self.players[hostPlayerId].data = playerData

@@ -35,10 +35,11 @@ local function currentTime()
 end
 
 local function randomPlayerName()
-    -- Use timestamp and random number to ensure uniqueness across instances
+    -- Use timestamp, random number, and process ID to ensure uniqueness across instances
     local timestamp = os.time()
     local random = math.random(1000, 9999)
-    return "Player" .. timestamp .. "_" .. random
+    local pid = (love and love.timer and love.timer.getTime and math.floor(love.timer.getTime() * 1000)) or math.random(100000, 999999)
+    return "Player_" .. timestamp .. "_" .. random .. "_" .. pid
 end
 
 local function mergePlayerSnapshot(store, playerId, snapshot, playerName)
@@ -280,7 +281,9 @@ function NetworkClient:handleMessage(message)
             Log.info("Assigned player ID:", self.playerId)
 
             if message.players then
+                Log.info("Client received", #message.players, "existing players from server")
                 for _, entry in ipairs(message.players) do
+                    Log.info("Processing existing player:", entry.playerId, "name:", entry.name)
                     mergePlayerSnapshot(self.players, entry.playerId, entry.data, entry.name)
                     Events.emit("NETWORK_PLAYER_JOINED", {
                         playerId = entry.playerId,
