@@ -104,6 +104,9 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
 
     -- Add heat and play effects
     TurretEffects.playFiringSound(turret)
+    
+    -- Set cooldown after firing
+    turret.cooldown = turret.cycle or 1.0
 end
 
 -- Perform hitscan collision detection for laser weapons (collides with ALL objects)

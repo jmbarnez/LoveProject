@@ -212,25 +212,8 @@ function Turret:update(dt, target, locked, world)
             UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
         end
 
-        -- Consume energy for weapon firing (skip for utility beams as they handle their own energy)
-        -- Skip energy consumption for enemies - they ignore energy usage
-        if self.capCost and self.capCost > 0 and self.owner and self.owner.components and self.owner.components.health and self.owner.isPlayer then
-            local currentEnergy = self.owner.components.health.energy or 0
-            local energyCost = self.capCost
-            self.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
-        end
-
-        local overrideCooldown = self.cooldownOverride
-        self.cooldownOverride = nil
-
-        if overrideCooldown ~= nil then
-            self.cooldown = overrideCooldown
-        else
-            -- Set cooldown for next shot
-            self.cooldown = effectiveCycle
-        end
-
-        Log.debug("Turret:update - Cooldown set to: " .. tostring(self.cooldown) .. " for turret: " .. tostring(self.id))
+        -- Don't set cooldown when not firing - cooldown should only be set when actually firing
+        -- The cooldown will be set by the weapon handlers when they actually fire
     end
 
     -- Update last fire time (legacy compatibility)

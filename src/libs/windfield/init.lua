@@ -134,7 +134,7 @@ end
 function Collider:destroy()
     if self._destroyed then return end
     if self.fixture then safe_call(self.fixture, "destroy") end
-    if self.body and not (has_love_physics and self.body:isDestroyed and self.body:isDestroyed()) then
+    if self.body and not (has_love_physics and self.body.isDestroyed and self.body:isDestroyed()) then
         safe_call(self.body, "destroy")
     end
     self._destroyed = true

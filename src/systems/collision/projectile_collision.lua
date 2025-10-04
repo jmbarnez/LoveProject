@@ -69,7 +69,8 @@ local function perform_collision_check(x1, y1, x2, y2, target, target_radius)
 
     -- Shields always take priority - they're larger than the hull
     if target.components.health and (target.components.health.shield or 0) > 0 then
-        return Geometry.calculateShieldHitPoint(x1, y1, x2, y2, ex, ey, target_radius)
+        local shield_radius = Radius.getShieldRadius(target)
+        return Geometry.calculateShieldHitPoint(x1, y1, x2, y2, ex, ey, shield_radius)
     end
 
     -- Check for polygon collision shape (hull collision)
