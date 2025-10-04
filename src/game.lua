@@ -70,6 +70,7 @@ local clickMarkers = {}
 local hoveredEntity = nil
 local hoveredEntityType = nil
 local collisionSystem
+local windfieldManager
 local refreshDockingState
 local systemPipeline
 local systemContext = {}
@@ -77,6 +78,7 @@ local ecsManager
 
 -- Make world accessible
 Game.world = world
+Game.windfield = nil
 
 
 --[[
@@ -505,6 +507,8 @@ function Game.load(fromSave, saveSlot, loadingScreen)
   camera:setTarget(player)
   SpawningSystem.init(player, hub, world)
   collisionSystem = CollisionSystem:new({x = 0, y = 0, width = world.width, height = world.height})
+  windfieldManager = collisionSystem and collisionSystem:getWindfield()
+  Game.windfield = windfieldManager
 
   world:setQuadtree(collisionSystem.quadtree)
 
@@ -739,6 +743,11 @@ function Game.unload()
   clickMarkers = {}
   hoveredEntity = nil
   hoveredEntityType = nil
+  if windfieldManager and windfieldManager.destroy then
+    windfieldManager:destroy()
+  end
+  windfieldManager = nil
+  Game.windfield = nil
   collisionSystem = nil
   refreshDockingState = nil
 end
@@ -785,6 +794,12 @@ function Game.update(dt)
     systemContext.hub = hub
     systemContext.camera = camera
     systemContext.collisionSystem = collisionSystem
+    systemContext.windfield = windfieldManager
+    if collisionSystem and collisionSystem.getWindfieldContacts then
+        systemContext.windfieldContacts = collisionSystem:getWindfieldContacts()
+    else
+        systemContext.windfieldContacts = nil
+    end
     systemContext.refreshDockingState = refreshDockingState
     systemContext.gameState = {}
 

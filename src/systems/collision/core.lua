@@ -2,6 +2,7 @@ local Quadtree = require("src.core.quadtree")
 local Radius = require("src.systems.collision.radius")
 local EntityCollision = require("src.systems.collision.entity_collision")
 local ProjectileCollision = require("src.systems.collision.projectile_collision")
+local WindfieldWorld = require("src.core.windfield_world")
 
 local CollisionSystem = {}
 
@@ -60,11 +61,41 @@ end
 function CollisionSystem:new(worldBounds)
     local self = setmetatable({}, {__index = self})
     self.quadtree = Quadtree.new(worldBounds, 4)
+    self.windfield = WindfieldWorld.new({
+        gravityX = 0,
+        gravityY = 0,
+        allowSleep = true,
+        debugFlag = "collision",
+    })
+    self.lastWindfieldContacts = {}
     return self
+end
+
+function CollisionSystem:getWindfield()
+    return self.windfield
+end
+
+function CollisionSystem:getWindfieldContacts()
+    return self.lastWindfieldContacts
+end
+
+local function determine_body_type(entity)
+    if not entity or not entity.components then return "static" end
+    if entity.components.physics and entity.components.physics.body then
+        return "dynamic"
+    end
+    if entity.components.bullet then
+        return "kinematic"
+    end
+    return "static"
 end
 
 function CollisionSystem:update(world, dt)
     self.quadtree:clear()
+
+    if self.windfield then
+        self.windfield:beginSync()
+    end
 
     -- Insert all collidable entities into the quadtree
     for _, e in pairs(world:get_entities_with_components("collidable", "position")) do
@@ -77,6 +108,17 @@ function CollisionSystem:update(world, dt)
             height = r * 2,
             entity = e
         })
+
+        if self.windfield then
+            local pos = e.components.position
+            local collider = self.windfield:syncCircle(e, pos.x, pos.y, r, {
+                bodyType = determine_body_type(e),
+                angle = pos.angle,
+            })
+            if collider and e.components.physics and e.components.physics.body then
+                self.windfield:syncFromPhysicsBody(e, e.components.physics.body)
+            end
+        end
     end
 
     -- Insert renderable-only entities (e.g., stations, planets, warp gates) for rendering culling
@@ -95,6 +137,12 @@ function CollisionSystem:update(world, dt)
                 })
             end
         end
+    end
+
+    if self.windfield then
+        self.windfield:endSync()
+        self.windfield:update(dt)
+        self.lastWindfieldContacts = self.windfield:drainContacts()
     end
 
     -- Process all bullets/projectiles
