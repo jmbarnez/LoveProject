@@ -59,6 +59,7 @@ local Log = require("src.core.log")
 local Debug = require("src.core.debug")
 local Constants = require("src.core.constants")
 local NetworkManager = require("src.core.network.manager")
+local NetworkSync = require("src.systems.network_sync")
 
 local Game = {}
 
@@ -242,6 +243,12 @@ local function createSystemPipeline()
       -- Update network manager if multiplayer
       if networkManager then
         networkManager:update(ctx.dt)
+      end
+    end,
+    function(ctx)
+      -- Update network synchronization if multiplayer
+      if networkManager and networkManager.isMultiplayer then
+        NetworkSync.update(ctx.dt, ctx.player, ctx.world, networkManager)
       end
     end,
   }

@@ -94,13 +94,15 @@ function NetworkManager:joinGame(address, port)
     address = address or "localhost"
     port = port or 7777
     
+    Log.info("Attempting to join game at", address .. ":" .. port)
+    
     if self.client:connect(address, port) then
         self.isHost = false
         self.isMultiplayer = true
-        Log.info("Joined multiplayer game at", address .. ":" .. port)
+        Log.info("Successfully joined multiplayer game at", address .. ":" .. port)
         return true
     else
-        Log.error("Failed to join multiplayer game")
+        Log.error("Failed to join multiplayer game at", address .. ":" .. port)
         return false
     end
 end
@@ -193,6 +195,26 @@ function NetworkManager:isConnected()
         end
     end
     return false
+end
+
+function NetworkManager:sendPlayerUpdate(data)
+  if self.isHost and self.server then
+    -- Host broadcasts to all clients
+    self.server:broadcast("PLAYER_UPDATE", data)
+  elseif self.client then
+    -- Client sends to server
+    self.client:send("PLAYER_UPDATE", data)
+  end
+end
+
+function NetworkManager:getPlayers()
+  -- Return connected players data
+  if self.isHost and self.server then
+    return self.server:getPlayers()
+  elseif self.client then
+    return self.client:getPlayers()
+  end
+  return {}
 end
 
 return NetworkManager

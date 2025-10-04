@@ -22,7 +22,9 @@ local rendererCounter = 0
 local function getEntityRendererType(entity)
     -- Use a simple counter-based caching system
     if not entity._rendererType then
-        if entity.components.ai then
+        if entity.isRemotePlayer then
+            entity._rendererType = 'remote_player'
+        elseif entity.components.ai then
             entity._rendererType = 'enemy'
         elseif entity.components.warp_gate then
             entity._rendererType = 'warp_gate'
@@ -113,6 +115,89 @@ function EntityRenderers.enemy(entity, player)
         end
     end
 
+end
+
+-- Remote player renderer (for multiplayer)
+function EntityRenderers.remote_player(entity, player)
+    local props = entity.components.renderable.props or {}
+    local v = props.visuals or {}
+    local size = v.size or 1.0
+    local S = RenderUtils.createScaler(size)
+
+    -- Draw ship with a distinct color scheme for remote players
+    local drewBody = false
+    if type(v.shapes) == "table" and #v.shapes > 0 then
+        -- Modify colors to make remote players distinct
+        for _, shape in ipairs(v.shapes) do
+            local originalColor = shape.color
+            if originalColor and type(originalColor) == "table" then
+                -- Tint the shape with a greenish color to indicate it's a remote player
+                local tintedColor = {
+                    math.min(1, originalColor[1] * 0.7 + 0.3), -- More green
+                    math.min(1, originalColor[2] * 0.8 + 0.2), -- More green
+                    math.min(1, originalColor[3] * 0.6 + 0.4), -- Less blue
+                    originalColor[4] or 1
+                }
+                shape.color = tintedColor
+            end
+            RenderUtils.drawShape(shape, S)
+            -- Restore original color
+            if originalColor then
+                shape.color = originalColor
+            end
+        end
+        drewBody = true
+    end
+
+    if not drewBody then
+        -- Fallback default drawing with green tint
+        RenderUtils.setColor({0.2, 0.6, 0.3, 1.0}) -- Green tint
+        love.graphics.circle("fill", 0, 0, S(10))
+        RenderUtils.setColor({0.1, 0.4, 0.2, 1.0}) -- Darker green outline
+        love.graphics.circle("line", 0, 0, S(10))
+        RenderUtils.setColor({0.4, 0.8, 0.5, 0.85}) -- Light green accent
+        love.graphics.circle("fill", S(3), 0, S(3.2))
+    end
+
+    -- Draw player name above remote player
+    if entity.playerName then
+        local font = love.graphics.getFont()
+        local textWidth = font:getWidth(entity.playerName)
+        local textHeight = font:getHeight()
+        
+        -- Background for text
+        RenderUtils.setColor({0, 0, 0, 0.7})
+        love.graphics.rectangle("fill", -textWidth/2 - 2, -S(20) - textHeight - 2, textWidth + 4, textHeight + 4)
+        
+        -- Text
+        RenderUtils.setColor({0.8, 1.0, 0.8, 1.0})
+        love.graphics.print(entity.playerName, -textWidth/2, -S(20) - textHeight)
+    end
+
+    -- Draw mini health bar for remote players
+    if entity.components and entity.components.health then
+        local health = entity.components.health
+        local hpPercent = health.hp / health.maxHP
+        local barWidth = S(20)
+        local barHeight = S(3)
+        local barY = -S(15)
+        
+        -- Background
+        RenderUtils.setColor({0.2, 0.2, 0.2, 0.8})
+        love.graphics.rectangle("fill", -barWidth/2, barY, barWidth, barHeight)
+        
+        -- Health bar
+        local healthColor = hpPercent > 0.5 and {0.2, 0.8, 0.2, 1.0} or 
+                           hpPercent > 0.25 and {0.8, 0.8, 0.2, 1.0} or 
+                           {0.8, 0.2, 0.2, 1.0}
+        RenderUtils.setColor(healthColor)
+        love.graphics.rectangle("fill", -barWidth/2, barY, barWidth * hpPercent, barHeight)
+        
+        -- Border
+        RenderUtils.setColor({1, 1, 1, 0.5})
+        love.graphics.setLineWidth(1)
+        love.graphics.rectangle("line", -barWidth/2, barY, barWidth, barHeight)
+    end
 end
 
 -- Massive planet renderer (decorative background body)
@@ -1045,7 +1130,9 @@ function EntityRenderers.draw(world, camera, player)
             renderer(entity, player)
         else
             -- Create renderer function once and cache it
-            if rendererType == 'enemy' then
+            if rendererType == 'remote_player' then
+                renderer = EntityRenderers.remote_player
+            elseif rendererType == 'enemy' then
                 renderer = EntityRenderers.enemy
             elseif rendererType == 'warp_gate' then
                 renderer = EntityRenderers.warp_gate

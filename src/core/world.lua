@@ -192,7 +192,11 @@ end
 
 function World:resize(w, h)
     self.nebulaW, self.nebulaH = w, h
-    self.nebulaCanvas = World.buildNebulaCanvas(w, h, 12345)
+    -- Create a simple nebula canvas (placeholder for now)
+    self.nebulaCanvas = love.graphics.newCanvas(w, h)
+    love.graphics.setCanvas(self.nebulaCanvas)
+    love.graphics.clear(0, 0, 0, 0) -- Transparent
+    love.graphics.setCanvas()
 end
 
 function World:update(dt)

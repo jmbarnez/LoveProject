@@ -75,6 +75,7 @@ local startScreenHandler = function(self, x, y, button)
 
   -- Multiplayer button click
   if Theme.handleButtonClick(self.multiplayerButton, x, y, function()
+    print("Multiplayer button clicked, opening UI")
     self.showJoinUI = true
   end) then
     return false
@@ -596,9 +597,15 @@ end
 function Start:mousepressed(x, y, button)
   -- Check multiplayer UI first (highest priority)
   if self.showJoinUI then
+    print("Multiplayer UI is open, checking button clicks at", x, y)
+    print("Host button:", self.hostButton and "exists" or "nil")
+    print("Join button:", self.joinButton and "exists" or "nil")
+    print("Cancel button:", self.cancelButton and "exists" or "nil")
+    
     if self.hostButton and x >= self.hostButton.x and x <= self.hostButton.x + self.hostButton.w and
        y >= self.hostButton.y and y <= self.hostButton.y + self.hostButton.h then
       -- Host button clicked
+      print("Host button clicked")
       if self.networkManager:startHost() then
         self.showJoinUI = false
         return "hostGame" -- signal to start hosting
@@ -607,18 +614,26 @@ function Start:mousepressed(x, y, button)
     elseif self.joinButton and x >= self.joinButton.x and x <= self.joinButton.x + self.joinButton.w and
            y >= self.joinButton.y and y <= self.joinButton.y + self.joinButton.h then
       -- Join button clicked
+      print("Join button clicked at", x, y)
+      print("Join button bounds:", self.joinButton.x, self.joinButton.y, self.joinButton.w, self.joinButton.h)
       local port = tonumber(self.joinPort) or 7777
+      print("Attempting to join game at", self.joinAddress, port)
       if self.networkManager:joinGame(self.joinAddress, port) then
+        print("Join successful, closing UI")
         self.showJoinUI = false
         return "joinGame" -- signal to join game
+      else
+        print("Join failed")
       end
       return false
     elseif self.cancelButton and x >= self.cancelButton.x and x <= self.cancelButton.x + self.cancelButton.w and
            y >= self.cancelButton.y and y <= self.cancelButton.y + self.cancelButton.h then
       -- Cancel button clicked
+      print("Cancel button clicked")
       self.showJoinUI = false
       return false
     end
+    print("No button clicked in multiplayer UI")
     return false -- Consume all clicks when multiplayer UI is open
   end
 
