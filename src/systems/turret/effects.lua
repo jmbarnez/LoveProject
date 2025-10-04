@@ -31,7 +31,13 @@ function TurretEffects.playFiringSound(turret)
         turret.miningSoundInstance = Sound.triggerEvent('weapon_mining_laser', x, y)
         Log.debug("Started mining laser sound")
     elseif turret.kind == "salvaging_laser" then
-        Sound.triggerEvent('weapon_salvaging_laser', x, y)
+        if turret.salvagingSoundInstance then
+            TurretEffects.stopSalvagingSound(turret)
+        end
+        turret.salvagingSoundInstance = Sound.triggerEvent('weapon_salvaging_laser', x, y)
+        if turret.salvagingSoundInstance then
+            turret.salvagingSoundActive = true
+        end
     end
 end
 
@@ -46,6 +52,24 @@ function TurretEffects.stopMiningSound(turret)
         turret.miningSoundActive = false
         Log.debug("Stopped mining laser sound")
     end
+end
+
+-- Stop salvaging laser sound
+function TurretEffects.stopSalvagingSound(turret)
+    if not turret then
+        return
+    end
+
+    if turret.salvagingSoundInstance and turret.salvagingSoundInstance.stop then
+        turret.salvagingSoundInstance:stop()
+    end
+
+    if turret.salvagingSoundInstance then
+        Log.debug("Stopped salvaging laser sound")
+    end
+
+    turret.salvagingSoundInstance = nil
+    turret.salvagingSoundActive = false
 end
 
 -- Stop all mining sounds (cleanup function)

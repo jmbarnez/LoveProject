@@ -8,6 +8,22 @@ local Events = require("src.core.events")
 
 local UtilityBeams = {}
 
+local function isTurretInputActive(turret)
+    if not turret then
+        return false
+    end
+
+    if turret.fireMode == "automatic" then
+        return turret.autoFire == true
+    end
+
+    if turret.firing ~= nil then
+        return turret.firing == true
+    end
+
+    return turret.autoFire == true
+end
+
 local function spawnSalvagePickup(target, amount, world)
     if not world or amount <= 0 then
         return
@@ -33,7 +49,7 @@ end
 
 -- Handle mining laser operation (continuous beam with continuous damage)
 function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
-    if locked or not turret:canFire() then
+    if locked or not isTurretInputActive(turret) or not turret:canFire() then
         turret.beamActive = false
         turret.beamTarget = nil
         -- Stop mining laser sound if it was playing
@@ -166,8 +182,10 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     -- Handle continuous mining laser sound
     if not wasActive then
         -- Start the mining laser sound (it will loop)
-        TurretEffects.playFiringSound(turret)
-        turret.miningSoundActive = true
+        if isTurretInputActive(turret) then
+            TurretEffects.playFiringSound(turret)
+            turret.miningSoundActive = true
+        end
     end
 end
 
@@ -332,9 +350,12 @@ end
 
 -- Handle salvaging laser operation (continuous beam with continuous damage)
 function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
-    if locked or not turret:canFire() then
+    if locked or not isTurretInputActive(turret) or not turret:canFire() then
         turret.beamActive = false
         turret.beamTarget = nil
+        if turret.salvagingSoundActive then
+            TurretEffects.stopSalvagingSound(turret)
+        end
         return
     end
 
@@ -396,6 +417,9 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
         else
             -- Not enough energy, stop the beam
             turret.beamActive = false
+            if turret.salvagingSoundActive then
+                TurretEffects.stopSalvagingSound(turret)
+            end
             return
         end
     else
@@ -435,7 +459,7 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     turret.cooldownOverride = 0
 
-    if not wasActive then
+    if not wasActive and isTurretInputActive(turret) then
         TurretEffects.playFiringSound(turret)
     end
 end
