@@ -86,6 +86,13 @@ function NetworkManager:startHost(port)
             health = { hp = 100, maxHp = 100, shield = 0, maxShield = 0 }
         })
         
+        -- Emit host player joined event
+        Events.emit("NETWORK_PLAYER_JOINED", {
+            playerId = 0,
+            playerName = hostName,
+            isSelf = true
+        })
+        
         Log.info("Started hosting multiplayer game as HOST - isHost:", self._isHost, "isMultiplayer:", self._isMultiplayer)
         return true
     end

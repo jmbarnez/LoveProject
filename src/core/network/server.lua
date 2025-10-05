@@ -259,7 +259,7 @@ function NetworkServer:handlePlayerJoin(message, peer)
         id = playerId,
         name = playerName,
         lastSeen = currentTime(),
-        data = {}
+        data = message.data or {}
     }
 
     self.players[playerId] = player
@@ -482,6 +482,12 @@ function NetworkServer:updateHostPlayer(playerData)
             playerId = hostPlayerId,
             data = playerData,
             timestamp = currentTime()
+        })
+        
+        -- Also emit the event for local processing
+        Events.emit("NETWORK_PLAYER_UPDATED", {
+            playerId = hostPlayerId,
+            data = playerData
         })
     else
         Log.warn("Host player not found with ID:", hostPlayerId)

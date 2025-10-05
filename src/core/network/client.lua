@@ -178,6 +178,11 @@ function NetworkClient:connect(address, port, options)
     self.pendingJoinPayload = {
         type = MESSAGE_TYPES.PLAYER_JOIN,
         playerName = randomPlayerName(),
+        data = {
+            position = { x = 0, y = 0, angle = 0 },
+            velocity = { x = 0, y = 0 },
+            health = { hp = 100, maxHp = 100, shield = 0, maxShield = 0 }
+        },
         timestamp = currentTime()
     }
     self.localPlayerName = self.pendingJoinPayload.playerName

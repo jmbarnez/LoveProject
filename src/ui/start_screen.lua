@@ -12,6 +12,7 @@ local Window = require("src.ui.common.window")
 local Strings = require("src.core.strings")
 local VersionLog = require("src.ui.version_log")
 local NetworkManager = require("src.core.network.manager")
+local Notifications = require("src.ui.notifications")
 
 local Start = {}
 Start.__index = Start
@@ -78,6 +79,7 @@ local startScreenHandler = function(self, x, y, button)
     print("Join Game button clicked, opening UI")
     self.showJoinUI = true
     self.joinErrorMessage = nil
+    self.joinWindow:show()
   end) then
     return false
   end
@@ -191,6 +193,25 @@ function Start.new()
   self.joinErrorMessage = nil
   -- Create a temporary network manager for the start screen
   self.networkManager = NetworkManager.new()
+  
+  -- Create join game window
+  self.joinWindow = Window.new({
+    title = "Join Multiplayer Game",
+    width = 400,
+    height = 250,
+    visible = false,
+    closable = true,
+    draggable = true,
+    resizable = false,
+    useLoadPanelTheme = true,
+    drawContent = function(window, x, y, w, h)
+      self:drawJoinWindowContent(window, x, y, w, h)
+    end,
+    onClose = function()
+      self.showJoinUI = false
+      self.joinErrorMessage = nil
+    end
+  })
   self.versionWindow = Window.new({
     title = Strings.getUI("version_log_title"),
     width = 1000,
@@ -226,7 +247,6 @@ function Start.new()
   -- Aurora title shader
   self.auroraShader = AuroraTitle.new()
 
-
   return self
 end
 
@@ -248,6 +268,7 @@ end
 function Start:update(dt)
    SettingsPanel.update(dt)
    self.networkManager:update(dt)
+   Notifications.update(dt)
 end
 
 function Start:draw()
@@ -413,24 +434,11 @@ function Start:draw()
 
   local vhover = mx >= vbx and mx <= vbx + vbw and my >= vby and my <= vby + vbh
 
-  -- Draw transparent background with subtle gray border
-  local borderColor = vhover and {0.6, 0.6, 0.6, 1.0} or {0.4, 0.4, 0.4, 1.0}
-  Theme.setColor(borderColor)
-  love.graphics.setLineWidth(1)
-  love.graphics.rectangle("line", vbx, vby, vbw, vbh)
-
-  -- Draw button text with appropriate color for transparent background
-  local prevColor = {love.graphics.getColor()}
-  local prevFont = love.graphics.getFont()
-  local textColor = vhover and {0.9, 0.9, 0.9, 1.0} or {0.7, 0.7, 0.7, 1.0}
-  Theme.setColor(textColor)
-  local font = Theme.fonts and Theme.fonts.normal or prevFont
-  love.graphics.setFont(font)
-  local tw = font:getWidth(versionText)
-  local th = font:getHeight()
-  love.graphics.print(versionText, math.floor(vbx + (vbw - tw) * 0.5 + 0.5), math.floor(vby + (vbh - th) * 0.5 + 0.5))
-  love.graphics.setFont(prevFont)
-  love.graphics.setColor(prevColor[1], prevColor[2], prevColor[3], prevColor[4])
+  -- Use proper button system for version button
+  UIButton.drawRect(vbx, vby, vbw, vbh, versionText, vhover, t, { 
+    compact = true,
+    color = {0, 0, 0, 0.3} -- Semi-transparent background
+  })
 
   self.versionButton._rect = { x = vbx, y = vby, w = vbw, h = vbh }
 
@@ -440,7 +448,13 @@ function Start:draw()
   local settingsButtonY = 20 * s
   local settingsHover = mx >= settingsButtonX and mx <= settingsButtonX + settingsButtonSize and my >= settingsButtonY and my <= settingsButtonY + settingsButtonSize
 
-  -- Draw cog icon only (no background or border)
+  -- Use proper button system for settings button
+  UIButton.drawRect(settingsButtonX, settingsButtonY, settingsButtonSize, settingsButtonSize, "", settingsHover, t, { 
+    compact = true,
+    color = {0, 0, 0, 0.3} -- Semi-transparent background
+  })
+  
+  -- Draw cog icon on top of button
   Theme.setColor(settingsHover and {0.9, 0.9, 0.9, 1.0} or {0.7, 0.7, 0.7, 1.0})
   drawCogIcon(settingsButtonX + settingsButtonSize/2, settingsButtonY + settingsButtonSize/2, settingsButtonSize * 0.35)
 
@@ -452,12 +466,14 @@ function Start:draw()
   local exitButtonY = 20 * s
   local exitHover = mx >= exitButtonX and mx <= exitButtonX + exitButtonSize and my >= exitButtonY and my <= exitButtonY + exitButtonSize
 
-  -- Draw red X button
+  -- Use proper button system for exit button with red color
   local exitColor = exitHover and {1.0, 0.3, 0.3, 1.0} or {0.8, 0.2, 0.2, 1.0}
-  Theme.setColor(exitColor)
-  love.graphics.rectangle("fill", exitButtonX, exitButtonY, exitButtonSize, exitButtonSize)
+  UIButton.drawRect(exitButtonX, exitButtonY, exitButtonSize, exitButtonSize, "", exitHover, t, { 
+    compact = true,
+    color = exitColor
+  })
   
-  -- Draw X symbol
+  -- Draw X symbol on top of button
   Theme.setColor({1, 1, 1, 1})
   love.graphics.setLineWidth(3)
   local centerX = exitButtonX + exitButtonSize / 2
@@ -467,9 +483,10 @@ function Start:draw()
   love.graphics.line(centerX + crossSize, centerY - crossSize, centerX - crossSize, centerY + crossSize)
 
   self.exitButton._rect = { x = exitButtonX, y = exitButtonY, w = exitButtonSize, h = exitButtonSize }
-  -- Draw join game UI
-  if self.showJoinUI then
-    self:drawJoinUI()
+  
+  -- Draw join game window
+  if self.showJoinUI and self.joinWindow then
+    self.joinWindow:draw()
   end
 
   -- Draw load UI on top of everything else
@@ -489,47 +506,26 @@ function Start:draw()
     self.versionWindow:draw()
   end
   
+  -- Draw notifications on top of everything else
+  Notifications.draw()
+  
   -- Version number in bottom right
 end
 
-function Start:drawJoinUI()
-  local w, h = self.w, self.h
+function Start:drawJoinWindowContent(window, x, y, w, h)
   local s = uiScale()
-  
-  -- Semi-transparent overlay
-  Theme.setColor({0, 0, 0, 0.7})
-  love.graphics.rectangle("fill", 0, 0, w, h)
-  
-  -- Join game window
-  local windowW = 400 * s
-  local windowH = 200 * s
-  local windowX = (w - windowW) / 2
-  local windowY = (h - windowH) / 2
-  
-  -- Window background
-  Theme.setColor(Theme.colors.bg1)
-  love.graphics.rectangle("fill", windowX, windowY, windowW, windowH)
-  
-  -- Window border
-  Theme.setColor(Theme.colors.border)
-  love.graphics.setLineWidth(2)
-  love.graphics.rectangle("line", windowX, windowY, windowW, windowH)
-  
-  -- Title
-  love.graphics.setFont(Theme.fonts.normal)
-  Theme.setColor(Theme.colors.text)
-  local title = "Join Multiplayer Game"
-  local titleW = Theme.fonts.normal:getWidth(title)
-  love.graphics.print(title, windowX + (windowW - titleW) / 2, windowY + 20 * s)
+  local padding = 20 * s
   
   -- Address input
-  local inputY = windowY + 60 * s
+  local inputY = y + 40 * s
   local inputW = 200 * s
   local inputH = 30 * s
-  local inputX = windowX + (windowW - inputW) / 2
+  local inputX = x + (w - inputW) / 2
   
   -- Address label
-  love.graphics.print("Server Address:", windowX + 20 * s, inputY - 20 * s)
+  love.graphics.setFont(Theme.fonts.normal)
+  Theme.setColor(Theme.colors.text)
+  love.graphics.print("Server Address:", x + padding, inputY - 20 * s)
   
   -- Address input box
   Theme.setColor(Theme.colors.bg0)
@@ -545,10 +541,10 @@ function Start:drawJoinUI()
   local portY = inputY + 50 * s
   local portW = 100 * s
   local portH = 30 * s
-  local portX = windowX + (windowW - portW) / 2
+  local portX = x + (w - portW) / 2
   
   -- Port label
-  love.graphics.print("Port:", windowX + 20 * s, portY - 20 * s)
+  love.graphics.print("Port:", x + padding, portY - 20 * s)
   
   -- Port input box
   Theme.setColor(Theme.colors.bg0)
@@ -563,7 +559,7 @@ function Start:drawJoinUI()
   if self.joinErrorMessage then
     Theme.setColor(Theme.colors.danger)
     local messageY = portY + portH + 10 * s
-    love.graphics.printf(self.joinErrorMessage, windowX + 20 * s, messageY, windowW - 40 * s, "center")
+    love.graphics.printf(self.joinErrorMessage, x + padding, messageY, w - padding * 2, "center")
   end
 
   -- Buttons
@@ -571,7 +567,7 @@ function Start:drawJoinUI()
   local buttonH = 30 * s
   local buttonYOffset = self.joinErrorMessage and 80 * s or 50 * s
   local buttonY = portY + buttonYOffset
-  local joinX = windowX + (windowW - buttonW * 2 - 20 * s) / 2
+  local joinX = x + (w - buttonW * 2 - 20 * s) / 2
   local cancelX = joinX + buttonW + 20 * s
   
   local mx, my = Viewport.getMousePosition()
@@ -581,18 +577,16 @@ function Start:drawJoinUI()
   -- Join button
   local isConnecting = _G.PENDING_MULTIPLAYER_CONNECTION and _G.PENDING_MULTIPLAYER_CONNECTION.connecting
   local buttonText = isConnecting and "Connecting..." or "Join"
-  local buttonColor = isConnecting and Theme.colors.bg2 or (joinHover and Theme.colors.accent or Theme.colors.primary)
   
-  Theme.setColor(buttonColor)
-  love.graphics.rectangle("fill", joinX, buttonY, buttonW, buttonH)
-  Theme.setColor(Theme.colors.text)
-  love.graphics.print(buttonText, joinX + 10 * s, buttonY + 5 * s)
+  UIButton.drawRect(joinX, buttonY, buttonW, buttonH, buttonText, joinHover, love.timer.getTime(), { 
+    compact = true,
+    color = isConnecting and Theme.colors.bg2 or nil
+  })
   
   -- Cancel button
-  Theme.setColor(cancelHover and Theme.colors.accent or Theme.colors.primary)
-  love.graphics.rectangle("fill", cancelX, buttonY, buttonW, buttonH)
-  Theme.setColor(Theme.colors.text)
-  love.graphics.print("Cancel", cancelX + 10 * s, buttonY + 5 * s)
+  UIButton.drawRect(cancelX, buttonY, buttonW, buttonH, "Cancel", cancelHover, love.timer.getTime(), { 
+    compact = true 
+  })
   
   -- Store button positions for click handling
   self.joinButton = { x = joinX, y = buttonY, w = buttonW, h = buttonH }
@@ -601,11 +595,13 @@ end
 
 function Start:mousepressed(x, y, button)
   -- Check multiplayer UI first (highest priority)
-  if self.showJoinUI then
-    print("Multiplayer UI is open, checking button clicks at", x, y)
-    print("Join button:", self.joinButton and "exists" or "nil")
-    print("Cancel button:", self.cancelButton and "exists" or "nil")
+  if self.showJoinUI and self.joinWindow then
+    -- Handle window interactions first
+    if self.joinWindow:mousepressed(x, y, button) then
+      return false
+    end
     
+    -- Handle custom button clicks within the window
     if self.joinButton and x >= self.joinButton.x and x <= self.joinButton.x + self.joinButton.w and
        y >= self.joinButton.y and y <= self.joinButton.y + self.joinButton.h then
       -- Check if already connecting
@@ -616,7 +612,6 @@ function Start:mousepressed(x, y, button)
       
       -- Join button clicked
       print("Join button clicked at", x, y)
-      print("Join button bounds:", self.joinButton.x, self.joinButton.y, self.joinButton.w, self.joinButton.h)
       local port = tonumber(self.joinPort) or 7777
       print("Attempting to join game at", self.joinAddress, port)
 
@@ -633,6 +628,7 @@ function Start:mousepressed(x, y, button)
       -- Close UI and trigger game transition immediately
       -- Let the global network manager handle the actual connection
       self.showJoinUI = false
+      self.joinWindow:hide()
       _G.TRIGGER_JOIN_GAME = true
       return false
     elseif self.cancelButton and x >= self.cancelButton.x and x <= self.cancelButton.x + self.cancelButton.w and
@@ -641,10 +637,10 @@ function Start:mousepressed(x, y, button)
       print("Cancel button clicked")
       self.showJoinUI = false
       self.joinErrorMessage = nil
+      self.joinWindow:hide()
       _G.PENDING_MULTIPLAYER_CONNECTION = nil
       return false
     end
-    print("No button clicked in multiplayer UI")
     return false -- Consume all clicks when multiplayer UI is open
   end
 
@@ -707,6 +703,9 @@ function Start:mousepressed(x, y, button)
 end
 
 function Start:mousereleased(x, y, button)
+  if self.showJoinUI and self.joinWindow then
+    self.joinWindow:mousereleased(x, y, button)
+  end
   if self.showLoadUI and self.loadSlotsUI and self.loadSlotsUI.window then
     self.loadSlotsUI.window:mousereleased(x, y, button)
   end
@@ -718,6 +717,9 @@ function Start:mousereleased(x, y, button)
 end
 
 function Start:mousemoved(x, y, dx, dy)
+  if self.showJoinUI and self.joinWindow then
+    self.joinWindow:mousemoved(x, y, dx, dy)
+  end
   if self.showLoadUI and self.loadSlotsUI and self.loadSlotsUI.window then
     self.loadSlotsUI.window:mousemoved(x, y, dx, dy)
   end
@@ -755,12 +757,33 @@ function Start:onJoinFailed(message)
   end
   self.joinErrorMessage = message or "Failed to connect to server."
   self.showJoinUI = true
+  if self.joinWindow then
+    self.joinWindow:show()
+  end
 end
 
 function Start:keypressed(key)
     -- Handle ESC key to exit game
     if key == "escape" then
         love.event.quit()
+        return true
+    end
+
+    -- Test notifications with number keys
+    if key == "1" then
+        Notifications.info("This is an info notification from the start screen!")
+        return true
+    elseif key == "2" then
+        Notifications.action("This is an action notification from the start screen!")
+        return true
+    elseif key == "3" then
+        Notifications.add("This is a success notification!", "success")
+        return true
+    elseif key == "4" then
+        Notifications.add("This is a warning notification!", "warning")
+        return true
+    elseif key == "5" then
+        Notifications.add("This is an error notification!", "error")
         return true
     end
 

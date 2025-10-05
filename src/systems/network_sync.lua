@@ -13,6 +13,7 @@ local storeRemoteSnapshot
 local updateRemotePlayer
 local createRemotePlayer
 local getLocalPlayerCanonicalId
+
 local resolvePlayerSnapshot
 
 -- Remote players storage
@@ -20,7 +21,7 @@ local remotePlayers = {}
 local remotePlayerSnapshots = {}
 local lastSentPosition = { x = 0, y = 0, angle = 0 }
 local positionUpdateTimer = 0
-local POSITION_UPDATE_INTERVAL = 1/20 -- 20 times per second
+local POSITION_UPDATE_INTERVAL = 1/30 -- 30 times per second
 
 local function canonicalizePlayerId(playerId)
     if playerId == nil then
@@ -213,7 +214,7 @@ createRemotePlayer = function(playerId, data, world)
     -- Add to world
     world:addEntity(remotePlayer)
     
-    Log.info("Created remote player:", playerId, "at", x, y)
+    Log.info("Created remote player:", playerId, "at", x, y, "isRemotePlayer:", remotePlayer.isRemotePlayer)
     return remotePlayer
 end
 
@@ -286,7 +287,7 @@ function NetworkSync.update(dt, player, world, networkManager)
         local dy = currentPos.y - lastSentPosition.y
         local distance = math.sqrt(dx * dx + dy * dy)
         
-        if distance > 5 or positionUpdateTimer >= POSITION_UPDATE_INTERVAL then
+        if distance > 2 or positionUpdateTimer >= POSITION_UPDATE_INTERVAL then
             -- Send position update using the existing event system
             local updateData = {
                 position = currentPos,
@@ -336,19 +337,13 @@ function NetworkSync.update(dt, player, world, networkManager)
             remotePlayerSnapshots[canonicalId] = nil
         else
             if canonicalId then
-                local snapshot = resolvePlayerSnapshot(playerData)
-
-                if not snapshot then
-                    snapshot = remotePlayerSnapshots[canonicalId]
-                    if snapshot then
-                        Log.info("Using stored snapshot for remote player:", canonicalId)
-                    end
-                end
-
-                if snapshot then
-                    Log.info("Processing player:", canonicalId, "has position:", snapshot.position ~= nil)
-                    Log.info("Player data structure:", json.encode(playerData))
+                local snapshot = playerData
+                Log.info("Processing player:", canonicalId, "has position:", snapshot and snapshot.position ~= nil)
+                Log.info("Player data structure:", json.encode(playerData))
+                if snapshot and snapshot.position then
                     updateRemotePlayer(canonicalId, snapshot, world)
+                elseif snapshot and snapshot.data and snapshot.data.position then
+                    updateRemotePlayer(canonicalId, snapshot.data, world)
                 else
                     -- Even if we don't yet have full position data, keep the latest identifiers around
                     storeRemoteSnapshot(canonicalId, playerData)
