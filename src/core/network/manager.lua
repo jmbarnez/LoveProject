@@ -32,6 +32,7 @@ function NetworkManager.new()
     self._players = {}
     self._localPlayerId = nil
     self._worldSnapshot = nil
+    self._pendingWorldSnapshot = nil
 
     self:setupEventListeners()
 
@@ -141,6 +142,10 @@ function NetworkManager:startHost(port)
         }
     }
 
+    if self._pendingWorldSnapshot then
+        self.server:updateWorldSnapshot(self._pendingWorldSnapshot)
+    end
+
     Events.emit("NETWORK_PLAYER_JOINED", {
         playerId = 0,
         playerName = hostName,
@@ -244,6 +249,12 @@ function NetworkManager:update(dt)
 end
 
 function NetworkManager:updateWorldSnapshot(snapshot, peer)
+    if snapshot ~= nil then
+        self._pendingWorldSnapshot = Util.deepCopy(snapshot)
+    else
+        self._pendingWorldSnapshot = nil
+    end
+
     if not self._isHost or not self.server then
         return
     end

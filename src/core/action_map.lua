@@ -260,44 +260,25 @@ ActionMap.registerAction({
         print("F3 KEY PRESSED!")
         Log.info("F3 key pressed - attempting to toggle multiplayer hosting")
         print("Current state - isMultiplayer:", Game.isMultiplayer(), "isHost:", Game.isHost())
-        
-        local networkManager = Game.getNetworkManager()
-        if not networkManager then
-            Log.error("Network manager not available")
-            Notifications.add("Network manager not available", "error")
-            return false
-        end
-        
-        Log.info("Network manager found, isMultiplayer:", networkManager:isMultiplayer(), "isHost:", networkManager:isHost())
-        
-        if networkManager:isMultiplayer() then
-            if networkManager:isHost() then
-                -- Stop hosting
-                Log.info("Stopping host")
-                networkManager:leaveGame()
-                Game.setMultiplayerMode(false, false)
-                Notifications.add("Stopped hosting multiplayer game", "info")
+
+        local success, result = Game.toggleLanHosting()
+        if not success then
+            if result == "no_network" then
+                Notifications.add("Network manager not available", "error")
             else
-                -- Leave client mode
-                Log.info("Leaving client mode")
-                networkManager:leaveGame()
-                Game.setMultiplayerMode(false, false)
-                Notifications.add("Left multiplayer game", "info")
-            end
-        else
-            -- Start hosting and switch to multiplayer mode
-            Log.info("Starting host and switching to multiplayer mode")
-            if networkManager:startHost() then
-                Game.setMultiplayerMode(true, true)
-                print("After setMultiplayerMode - isMultiplayer:", Game.isMultiplayer(), "isHost:", Game.isHost())
-                Log.info("Host started successfully, game is now in multiplayer mode")
-                Notifications.add("Started hosting multiplayer game (F3 to stop)", "success")
-            else
-                Log.error("Failed to start host")
                 Notifications.add("Failed to start multiplayer server", "error")
             end
+            return false
         end
-        
+
+        if result == "lan_opened" then
+            Notifications.add("Opened current world to LAN players (F3 to close)", "success")
+        elseif result == "lan_closed" then
+            Notifications.add("Stopped hosting multiplayer game", "info")
+        else
+            Notifications.add("Left multiplayer game", "info")
+        end
+
         return true
     end,
 })
