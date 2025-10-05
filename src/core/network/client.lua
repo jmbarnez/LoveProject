@@ -375,7 +375,7 @@ function NetworkClient:_handleMessage(message)
                 Events.emit("NETWORK_PLAYER_JOINED", {
                     playerId = entry.playerId,
                     playerName = entry.name,
-                    data = entry.state
+                    data = sanitiseState(entry.state)
                 })
             end
         end

@@ -84,6 +84,7 @@ local isMultiplayer = false
 local isHost = false
 local syncedWorldEntities = {}
 local pendingWorldSnapshot = nil
+local pendingSelfNetworkState = nil
 local worldSyncHandlersRegistered = false
 
 -- Expose network manager for external access
@@ -197,6 +198,115 @@ local function spawnEntityFromSnapshot(entry)
     end
 
     return EntityFactory.create(entry.kind, entry.id, entry.x or 0, entry.y or 0, extra)
+end
+
+local function sanitisePlayerNetworkState(state)
+    if type(state) ~= "table" then
+        return nil
+    end
+
+    local position = state.position or {}
+    local velocity = state.velocity or {}
+    local health = state.health
+
+    local sanitised = {
+        position = {
+            x = tonumber(position.x) or 0,
+            y = tonumber(position.y) or 0,
+            angle = tonumber(position.angle) or 0
+        },
+        velocity = {
+            x = tonumber(velocity.x) or 0,
+            y = tonumber(velocity.y) or 0
+        }
+    }
+
+    if type(health) == "table" then
+        sanitised.health = {
+            hp = tonumber(health.hp) or 100,
+            maxHP = tonumber(health.maxHP) or 100,
+            shield = tonumber(health.shield) or 0,
+            maxShield = tonumber(health.maxShield) or 0,
+            energy = tonumber(health.energy) or 0,
+            maxEnergy = tonumber(health.maxEnergy) or 0
+        }
+    end
+
+    return sanitised
+end
+
+local function applySelfNetworkStateIfAvailable()
+    if not player or not pendingSelfNetworkState then
+        return
+    end
+
+    local state = pendingSelfNetworkState
+    local applied = false
+
+    local newPos = state.position
+    if newPos and player.components and player.components.position then
+        local positionComponent = player.components.position
+        positionComponent.x = newPos.x or 0
+        positionComponent.y = newPos.y or 0
+        positionComponent.angle = newPos.angle or 0
+
+        local physics = player.components.physics
+        if physics and physics.body then
+            local body = physics.body
+            if body.setPosition then
+                body:setPosition(positionComponent.x, positionComponent.y)
+            else
+                body.x = positionComponent.x
+                body.y = positionComponent.y
+            end
+            if body.setAngle then
+                body:setAngle(positionComponent.angle)
+            else
+                body.angle = positionComponent.angle
+            end
+        end
+
+        applied = true
+    end
+
+    local newVel = state.velocity
+    if newVel and player.components and player.components.velocity then
+        local velocityComponent = player.components.velocity
+        velocityComponent.x = newVel.x or 0
+        velocityComponent.y = newVel.y or 0
+
+        local physics = player.components.physics
+        if physics and physics.body then
+            local body = physics.body
+            if body.setLinearVelocity then
+                body:setLinearVelocity(velocityComponent.x, velocityComponent.y)
+            elseif body.setVelocity then
+                body:setVelocity(velocityComponent.x, velocityComponent.y)
+            else
+                body.vx = velocityComponent.x
+                body.vy = velocityComponent.y
+            end
+        end
+
+        applied = true
+    end
+
+    if state.health and player.components and player.components.health then
+        local healthComponent = player.components.health
+        for key, value in pairs(state.health) do
+            healthComponent[key] = value
+        end
+        applied = true
+    end
+
+    if applied then
+        Log.info(
+            "Client: Applied pending server-assigned player state:",
+            (newPos and newPos.x) or 0,
+            (newPos and newPos.y) or 0
+        )
+        pendingSelfNetworkState = nil
+    end
 end
 
 local function applyWorldSnapshot(snapshot)
@@ -360,6 +470,7 @@ local function registerWorldSyncEventHandlers()
 
         clearSyncedWorldEntities()
         pendingWorldSnapshot = nil
+        pendingSelfNetworkState = nil
     end)
 
     Events.on("NETWORK_SERVER_STOPPED", function()
@@ -369,6 +480,7 @@ local function registerWorldSyncEventHandlers()
 
         clearSyncedWorldEntities()
         pendingWorldSnapshot = nil
+        pendingSelfNetworkState = nil
     end)
 
     Events.on("NETWORK_SERVER_STARTED", function()
@@ -433,16 +545,13 @@ local function registerWorldSyncEventHandlers()
             return
         end
 
-        -- Client received their assigned position - update player position
-        if player and data.data and data.data.position then
-            local newPos = data.data.position
-            if player.components and player.components.position then
-                player.components.position.x = newPos.x or 0
-                player.components.position.y = newPos.y or 0
-                player.components.position.angle = newPos.angle or 0
-                Log.info("Client: Updated player position to server-assigned position:", newPos.x, newPos.y)
-            end
+        local sanitisedState = sanitisePlayerNetworkState(data.data)
+        if not sanitisedState then
+            return
         end
+
+        pendingSelfNetworkState = sanitisedState
+        applySelfNetworkStateIfAvailable()
     end)
 
     worldSyncHandlersRegistered = true
@@ -1085,7 +1194,7 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
       -- Client mode - use position assigned by server
       local networkManager = Game.getNetworkManager()
       local assignedPosition = nil
-      
+
       if networkManager and networkManager.getPlayers then
         local players = networkManager:getPlayers()
         local localPlayerId = networkManager:getLocalPlayerId()
@@ -1093,7 +1202,11 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
           assignedPosition = players[localPlayerId].state.position
         end
       end
-      
+
+      if not assignedPosition and pendingSelfNetworkState then
+        assignedPosition = pendingSelfNetworkState.position
+      end
+
       if assignedPosition then
         -- Use the position assigned by the server
         px = assignedPosition.x or Constants.SPAWNING.MARGIN
@@ -1179,6 +1292,8 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
     Debug.error("game", "Failed to create player")
     return false
   end
+
+  applySelfNetworkStateIfAvailable()
 
   camera:setTarget(player)
   if not isMultiplayer or isHost then
@@ -1451,6 +1566,7 @@ function Game.unload()
   end
 
   world = nil
+  pendingSelfNetworkState = nil
   Game.world = nil
   camera = nil
   player = nil
@@ -1473,6 +1589,10 @@ function Game.update(dt)
     StatusBars.update(dt, player, world)
     SkillXpPopup.update(dt)
     local input = Input.getInputState()
+
+    if pendingSelfNetworkState then
+        applySelfNetworkStateIfAvailable()
+    end
 
     -- Check if game should be paused (escape menu)
     local shouldPause = false
