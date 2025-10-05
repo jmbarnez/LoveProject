@@ -84,7 +84,12 @@ local function sanitiseProjectileSnapshot(snapshot)
                 sourceId = projectile.sourceId or nil,
                 damage = projectile.damage or nil,
                 kind = (projectile.kind and tostring(projectile.kind)) or ((projectile.renderableProps and projectile.renderableProps.kind) and tostring(projectile.renderableProps.kind)) or "bullet",
-                timed_life = projectile.timed_life or nil
+                timed_life = projectile.timed_life or nil,
+                sourcePlayerId = projectile.sourcePlayerId or projectile.source_player_id or nil,
+                sourceShipId = projectile.sourceShipId or projectile.source_ship_id or nil,
+                sourceTurretSlot = tonumber(projectile.sourceTurretSlot or projectile.source_turret_slot) or nil,
+                sourceTurretId = projectile.sourceTurretId or projectile.source_turret_id or nil,
+                sourceTurretType = projectile.sourceTurretType or projectile.source_turret_type or nil,
             }
 
             -- Include damage data if available
@@ -184,6 +189,14 @@ local function buildProjectileSnapshotFromWorld(world)
             end
 
             local impact = entity.components.bullet and entity.components.bullet.impact
+            local bulletMeta = entity.components.bullet or {}
+
+            local sourcePlayerId = bulletMeta.sourcePlayerId
+            if not sourcePlayerId and source then
+                sourcePlayerId = source.remotePlayerId or source.playerId or source.id
+            end
+
+            local sourceShipId = bulletMeta.sourceShipId or (source and (source.shipId or (source.ship and source.ship.id)))
 
             local projectileData = {
                 id = entity.id or tostring(entity),
@@ -201,7 +214,12 @@ local function buildProjectileSnapshotFromWorld(world)
                 sourceId = sourceId,
                 kind = projectileKind,
                 renderableProps = renderableSnapshot,
-                impact = impact and Util.deepCopy(impact) or nil
+                impact = impact and Util.deepCopy(impact) or nil,
+                sourcePlayerId = sourcePlayerId,
+                sourceShipId = sourceShipId,
+                sourceTurretSlot = bulletMeta.slot,
+                sourceTurretId = bulletMeta.turretId,
+                sourceTurretType = bulletMeta.turretType,
             }
 
             -- Include damage data
@@ -285,7 +303,12 @@ local function ensureRemoteProjectile(projectileId, projectileData, world)
         kind = projectileData.kind,
         timed_life = projectileData.timed_life,
         source = source,
-        impact = projectileData.impact and Util.deepCopy(projectileData.impact) or nil
+        impact = projectileData.impact and Util.deepCopy(projectileData.impact) or nil,
+        sourcePlayerId = projectileData.sourcePlayerId,
+        sourceShipId = projectileData.sourceShipId,
+        sourceTurretSlot = projectileData.sourceTurretSlot,
+        sourceTurretId = projectileData.sourceTurretId,
+        sourceTurretType = projectileData.sourceTurretType,
     }
 
     if projectileData.renderableProps then
@@ -351,6 +374,25 @@ local function updateProjectileFromSnapshot(entity, projectileData)
     -- Update impact configuration for consistent collision FX
     if entity.components and entity.components.bullet and projectileData.impact then
         entity.components.bullet.impact = Util.deepCopy(projectileData.impact)
+    end
+
+    if entity.components and entity.components.bullet then
+        local bullet = entity.components.bullet
+        if projectileData.sourceTurretSlot ~= nil then
+            bullet.slot = projectileData.sourceTurretSlot
+        end
+        if projectileData.sourceTurretId ~= nil then
+            bullet.turretId = projectileData.sourceTurretId
+        end
+        if projectileData.sourceTurretType ~= nil then
+            bullet.turretType = projectileData.sourceTurretType
+        end
+        if projectileData.sourcePlayerId ~= nil then
+            bullet.sourcePlayerId = projectileData.sourcePlayerId
+        end
+        if projectileData.sourceShipId ~= nil then
+            bullet.sourceShipId = projectileData.sourceShipId
+        end
     end
 
     -- Update renderable properties (beam length, colors, etc.)

@@ -31,6 +31,11 @@ function Projectiles.spawn(x, y, angle, friendly, opts)
         length = opts.length,
         timed_life = opts.timed_life,
         additionalEffects = opts.additionalEffects,
+        sourcePlayerId = opts.sourcePlayerId,
+        sourceShipId = opts.sourceShipId,
+        sourceTurretSlot = opts.sourceTurretSlot,
+        sourceTurretId = opts.sourceTurretId,
+        sourceTurretType = opts.sourceTurretType,
     }
     extra_config.source = opts.source
 

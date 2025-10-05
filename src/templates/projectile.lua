@@ -27,9 +27,14 @@ function Projectile.new(x, y, angle, friendly, config)
     local vy = math.sin(angle) * speed
 
     self.components = {
-        bullet = { 
+        bullet = {
             source = config.source, -- Track shooter to avoid self-hit
-            impact = config.impact  -- Pass impact effects for collision visuals
+            impact = config.impact,  -- Pass impact effects for collision visuals
+            slot = config.sourceTurretSlot,
+            turretId = config.sourceTurretId,
+            turretType = config.sourceTurretType,
+            sourcePlayerId = config.sourcePlayerId,
+            sourceShipId = config.sourceShipId,
         },
         position = Position.new({ x = x, y = y, angle = angle }),
         velocity = Velocity.new({ x = vx, y = vy }),
