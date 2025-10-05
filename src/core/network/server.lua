@@ -63,6 +63,9 @@ local function sanitiseState(state)
     local position = state.position or {}
     local velocity = state.velocity or {}
     local health = state.health or {}
+    local thrusterState = state.thrusterState or {}
+    local timestamp = tonumber(state.timestamp)
+    local updateInterval = tonumber(state.updateInterval)
 
     return {
         name = state.name,
@@ -83,7 +86,17 @@ local function sanitiseState(state)
             energy = tonumber(health.energy) or 0,
             maxEnergy = tonumber(health.maxEnergy) or 0
         },
-        shieldChannel = state.shieldChannel == true
+        shieldChannel = state.shieldChannel == true,
+        thrusterState = {
+            isThrusting = thrusterState.isThrusting == true,
+            forward = math.max(0, math.min(1, tonumber(thrusterState.forward) or 0)),
+            reverse = math.max(0, math.min(1, tonumber(thrusterState.reverse) or 0)),
+            strafeLeft = math.max(0, math.min(1, tonumber(thrusterState.strafeLeft) or 0)),
+            strafeRight = math.max(0, math.min(1, tonumber(thrusterState.strafeRight) or 0)),
+            boost = math.max(0, math.min(1, tonumber(thrusterState.boost) or 0))
+        },
+        timestamp = timestamp,
+        updateInterval = updateInterval
     }
 end
 
