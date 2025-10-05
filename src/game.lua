@@ -189,9 +189,11 @@ end
 
 local function applyWorldSnapshot(snapshot)
     if not snapshot or not world then
+        Log.warn("applyWorldSnapshot: missing snapshot or world", snapshot ~= nil, world ~= nil)
         return
     end
 
+    Log.info("applyWorldSnapshot: applying snapshot with", #(snapshot.entities or {}), "entities")
     clearSyncedWorldEntities()
 
     world.width = snapshot.width or world.width
@@ -844,6 +846,9 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   if networkManager and networkManager.setupEventListeners then
     networkManager:setupEventListeners()
   end
+  
+  -- Re-register world sync event handlers after clearing events
+  registerWorldSyncEventHandlers()
 
   -- Listen for when someone joins the host's game
   Events.on("NETWORK_PLAYER_JOINED", function(data)
@@ -851,6 +856,11 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
       Log.info("Someone joined the host game, switching to multiplayer mode")
       isMultiplayer = true
       -- The host is already running, just need to enable multiplayer mode
+    end
+    
+    -- Send world snapshot to newly joined client
+    if networkManager and networkManager:isHost() then
+      broadcastHostWorldSnapshot()
     end
   end)
 

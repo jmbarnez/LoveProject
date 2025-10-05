@@ -193,11 +193,15 @@ function NetworkServer:start()
     self.enetServer = host
     self.isRunning = true
     self.peers = {}
+    
+    -- Initialize with empty world snapshot
+    self.worldSnapshot = {
+        entities = {}
+    }
     self.peerToPlayer = {}
     self.players = {}
     self.nextPlayerId = 1
     self.events = {}
-    self.worldSnapshot = nil
 
     Log.info("Server started on port", self.port)
     Events.emit("NETWORK_SERVER_STARTED", { port = self.port })
