@@ -8,7 +8,8 @@ Messages.TYPES = {
     PING = "ping",
     PONG = "pong",
     WORLD_SNAPSHOT = "world_snapshot",
-    HOST_MIGRATED = "host_migrated"
+    HOST_MIGRATED = "host_migrated",
+    ENEMY_UPDATE = "enemy_update"
 }
 
 function Messages.encode(payload)

@@ -280,6 +280,17 @@ function NetworkManager:sendPlayerUpdate(playerData)
     end
 end
 
+function NetworkManager:sendEnemyUpdate(enemyData)
+    if not self._isMultiplayer or not self._isHost then
+        return
+    end
+
+    if self.server then
+        -- Send enemy updates to all connected clients
+        self.server:broadcastEnemyUpdate(enemyData)
+    end
+end
+
 function NetworkManager:getPlayers()
     return self._players
 end

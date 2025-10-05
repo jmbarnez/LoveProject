@@ -37,12 +37,14 @@ local function sanitiseState(state)
     if type(state) ~= "table" then
         return {
             position = { x = 0, y = 0, angle = 0 },
-            velocity = { x = 0, y = 0 }
+            velocity = { x = 0, y = 0 },
+            health = { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 }
         }
     end
 
     local position = state.position or {}
     local velocity = state.velocity or {}
+    local health = state.health or {}
 
     return {
         name = state.name,
@@ -54,6 +56,14 @@ local function sanitiseState(state)
         velocity = {
             x = tonumber(velocity.x) or 0,
             y = tonumber(velocity.y) or 0
+        },
+        health = {
+            hp = tonumber(health.hp) or 100,
+            maxHP = tonumber(health.maxHP) or 100,
+            shield = tonumber(health.shield) or 0,
+            maxShield = tonumber(health.maxShield) or 0,
+            energy = tonumber(health.energy) or 0,
+            maxEnergy = tonumber(health.maxEnergy) or 0
         }
     }
 end
@@ -284,6 +294,8 @@ function NetworkServer:_handleMessage(peer, message)
         self:_handleState(peer, message)
     elseif message.type == TYPES.GOODBYE then
         self:_handleDisconnect(peer)
+    elseif message.type == TYPES.ENEMY_UPDATE then
+        self:_handleEnemyUpdate(peer, message)
     end
 end
 
@@ -391,6 +403,13 @@ function NetworkServer:_handleDisconnect(peer)
     })
 
     Log.info("Player", playerId, "disconnected")
+end
+
+function NetworkServer:_handleEnemyUpdate(peer, message)
+    -- For now, just log that we received an enemy update
+    -- In a full implementation, this might be used for client-side prediction
+    -- or validation, but for host-authoritative mode, we ignore client enemy updates
+    Log.debug("Received enemy update from peer (ignored in host-authoritative mode)")
 end
 
 function NetworkServer:_broadcastExcept(excludedPeer, data)
@@ -501,6 +520,23 @@ function NetworkServer:updateWorldSnapshot(snapshot, peer)
     end
 
     Events.emit("NETWORK_WORLD_SNAPSHOT", { snapshot = self.worldSnapshot })
+end
+
+function NetworkServer:broadcastEnemyUpdate(enemyData)
+    if not self.transport or not enemyData then
+        return
+    end
+
+    local encoded = Messages.encode({
+        type = TYPES.ENEMY_UPDATE,
+        enemies = enemyData
+    })
+
+    if encoded then
+        self:_broadcastExcept(nil, encoded)
+    end
+
+    Events.emit("NETWORK_ENEMY_UPDATE", { enemies = enemyData })
 end
 
 return NetworkServer

@@ -59,6 +59,9 @@ local settings = {
             nil,              -- T
             nil,              -- F
         }
+    },
+    networking = {
+        host_authoritative_enemies = false  -- Feature flag for host-authoritative enemy combat
     }
 }
 
@@ -327,6 +330,18 @@ end
 
 function Settings.getDefaultKeymap()
     return Util.deepCopy(defaultSettings.keymap)
+end
+
+function Settings.getNetworkingSettings()
+    return settings.networking
+end
+
+function Settings.setNetworkingSettings(newSettings)
+    settings.networking = newSettings
+end
+
+function Settings.getDefaultNetworkingSettings()
+    return Util.deepCopy(defaultSettings.networking)
 end
 
 return Settings

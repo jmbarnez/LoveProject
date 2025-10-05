@@ -659,6 +659,19 @@ local function updateAIState(entity, dt, player)
 end
 
 function AISystem.update(dt, world, spawnProjectile)
+    -- Check if host-authoritative enemies is enabled and we're a client
+    local Settings = require("src.core.settings")
+    local NetworkManager = require("src.core.network.manager")
+    
+    local networkingSettings = Settings.getNetworkingSettings()
+    if networkingSettings and networkingSettings.host_authoritative_enemies then
+        local networkManager = NetworkManager.getInstance()
+        if networkManager and networkManager:isMultiplayer() and not networkManager:isHost() then
+            -- Client with host authority enabled - don't run AI locally
+            return
+        end
+    end
+
     -- Get all entities with AI component
     local aiEntities = world:get_entities_with_components("ai", "position")
 

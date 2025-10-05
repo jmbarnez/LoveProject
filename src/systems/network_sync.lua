@@ -25,12 +25,14 @@ local function sanitiseSnapshot(snapshot)
     if type(snapshot) ~= "table" then
         return {
             position = { x = 0, y = 0, angle = 0 },
-            velocity = { x = 0, y = 0 }
+            velocity = { x = 0, y = 0 },
+            health = { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 }
         }
     end
 
     local position = snapshot.position or {}
     local velocity = snapshot.velocity or {}
+    local health = snapshot.health or {}
 
     return {
         position = {
@@ -41,6 +43,14 @@ local function sanitiseSnapshot(snapshot)
         velocity = {
             x = tonumber(velocity.x) or 0,
             y = tonumber(velocity.y) or 0
+        },
+        health = {
+            hp = tonumber(health.hp) or 100,
+            maxHP = tonumber(health.maxHP) or 100,
+            shield = tonumber(health.shield) or 0,
+            maxShield = tonumber(health.maxShield) or 0,
+            energy = tonumber(health.energy) or 0,
+            maxEnergy = tonumber(health.maxEnergy) or 0
         }
     }
 end
@@ -52,12 +62,18 @@ local function snapshotsDiffer(a, b)
 
     local posA, posB = a.position or {}, b.position or {}
     local velA, velB = a.velocity or {}, b.velocity or {}
+    local healthA, healthB = a.health or {}, b.health or {}
 
     local posDelta = math.abs((posA.x or 0) - (posB.x or 0)) + math.abs((posA.y or 0) - (posB.y or 0))
     local angleDelta = math.abs((posA.angle or 0) - (posB.angle or 0))
     local velDelta = math.abs((velA.x or 0) - (velB.x or 0)) + math.abs((velA.y or 0) - (velB.y or 0))
+    
+    -- Health changes are significant enough to always send
+    local healthChanged = (healthA.hp or 100) ~= (healthB.hp or 100) or
+                         (healthA.shield or 0) ~= (healthB.shield or 0) or
+                         (healthA.energy or 0) ~= (healthB.energy or 0)
 
-    return posDelta > 1 or angleDelta > 0.01 or velDelta > 0.5
+    return posDelta > 1 or angleDelta > 0.01 or velDelta > 0.5 or healthChanged
 end
 
 local function ensureRemoteEntity(playerId, playerData, world)
@@ -106,6 +122,16 @@ local function updateEntityFromSnapshot(entity, snapshot)
     if entity.components and entity.components.velocity then
         entity.components.velocity.x = data.velocity.x
         entity.components.velocity.y = data.velocity.y
+    end
+
+    -- Apply health data to remote player entities
+    if entity.components and entity.components.health and data.health then
+        entity.components.health.hp = data.health.hp
+        entity.components.health.maxHP = data.health.maxHP
+        entity.components.health.shield = data.health.shield
+        entity.components.health.maxShield = data.health.maxShield
+        entity.components.health.energy = data.health.energy
+        entity.components.health.maxEnergy = data.health.maxEnergy
     end
 
     if entity.components and entity.components.physics and entity.components.physics.body then
@@ -164,10 +190,19 @@ function NetworkSync.update(dt, player, world, networkManager)
     if player and player.components and player.components.position then
         local position = player.components.position
         local velocity = player.components.velocity
+        local health = player.components.health
 
         local snapshot = {
             position = { x = position.x, y = position.y, angle = position.angle or 0 },
-            velocity = velocity and { x = velocity.x or 0, y = velocity.y or 0 } or { x = 0, y = 0 }
+            velocity = velocity and { x = velocity.x or 0, y = velocity.y or 0 } or { x = 0, y = 0 },
+            health = health and {
+                hp = health.hp or 100,
+                maxHP = health.maxHP or 100,
+                shield = health.shield or 0,
+                maxShield = health.maxShield or 0,
+                energy = health.energy or 0,
+                maxEnergy = health.maxEnergy or 0
+            } or { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 }
         }
 
         if sendAccumulator >= POSITION_SEND_INTERVAL or snapshotsDiffer(snapshot, lastSentSnapshot) then

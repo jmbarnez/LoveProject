@@ -60,6 +60,7 @@ local Debug = require("src.core.debug")
 local Constants = require("src.core.constants")
 local NetworkManager = require("src.core.network.manager")
 local NetworkSync = require("src.systems.network_sync")
+local RemoteEnemySync = require("src.systems.remote_enemy_sync")
 
 local Game = {}
 
@@ -333,6 +334,19 @@ local function registerWorldSyncEventHandlers()
         broadcastHostWorldSnapshot()
     end)
 
+    Events.on("NETWORK_ENEMY_UPDATE", function(data)
+        if isHost then
+            return
+        end
+
+        local enemies = data and data.enemies or nil
+        if not enemies then
+            return
+        end
+
+        RemoteEnemySync.applyEnemySnapshot(enemies, world)
+    end)
+
     worldSyncHandlersRegistered = true
 end
 
@@ -463,6 +477,13 @@ local function createSystemPipeline()
       -- Update network synchronization if multiplayer
       if networkManager and networkManager:isMultiplayer() then
         NetworkSync.update(ctx.dt, ctx.player, ctx.world, networkManager)
+        
+        -- Update remote enemy synchronization
+        if networkManager:isHost() then
+          RemoteEnemySync.updateHost(ctx.dt, ctx.world, networkManager)
+        else
+          RemoteEnemySync.updateClient(ctx.dt, ctx.world, networkManager)
+        end
       end
     end,
   }
