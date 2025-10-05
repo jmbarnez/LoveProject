@@ -19,6 +19,9 @@ local function sanitiseState(state)
 
     local position = state.position or {}
     local velocity = state.velocity or {}
+    local thrusterState = state.thrusterState or {}
+    local timestamp = tonumber(state.timestamp)
+    local updateInterval = tonumber(state.updateInterval)
 
     return {
         position = {
@@ -32,7 +35,17 @@ local function sanitiseState(state)
         },
         health = state.health,
         shieldChannel = state.shieldChannel == true,
-        name = state.name
+        name = state.name,
+        thrusterState = {
+            isThrusting = thrusterState.isThrusting == true,
+            forward = math.max(0, math.min(1, tonumber(thrusterState.forward) or 0)),
+            reverse = math.max(0, math.min(1, tonumber(thrusterState.reverse) or 0)),
+            strafeLeft = math.max(0, math.min(1, tonumber(thrusterState.strafeLeft) or 0)),
+            strafeRight = math.max(0, math.min(1, tonumber(thrusterState.strafeRight) or 0)),
+            boost = math.max(0, math.min(1, tonumber(thrusterState.boost) or 0))
+        },
+        timestamp = timestamp,
+        updateInterval = updateInterval
     }
 end
 
@@ -238,8 +251,10 @@ function NetworkClient.new()
     self.maxConnectionAttempts = 3
     self.lastHeartbeat = 0
     self.heartbeatInterval = 5.0 -- seconds
-    self.connectionTimeout = 10.0 -- seconds
+    self.connectionTimeout = 12.0 -- seconds
+    self.connectionGracePeriod = 3.0 -- seconds
     self.lastConnectionAttempt = 0
+    self.lastReceiveTime = 0
 
     return self
 end
@@ -248,7 +263,12 @@ function NetworkClient:isConnected()
     if not self.connected or not self.enetClient or self.connectionState ~= "connected" then
         return false
     end
-    
+
+    local currentTime = now()
+    if self.lastReceiveTime > 0 and (currentTime - self.lastReceiveTime) <= (self.connectionTimeout + self.connectionGracePeriod) then
+        return true
+    end
+
     -- Check if the underlying ENet connection is still alive
     if self.enetClient.peer then
         local rtt = self.enetClient.peer:round_trip_time()
@@ -377,7 +397,9 @@ function NetworkClient:connect(address, port)
     self.players = {}
     self.lastError = nil
     self.connectionAttempts = 0 -- Reset on successful connection
-    self.lastHeartbeat = now()
+    local connectedAt = now()
+    self.lastHeartbeat = connectedAt
+    self.lastReceiveTime = connectedAt
 
 
     -- Send initial HELLO message immediately after connection
@@ -438,6 +460,7 @@ function NetworkClient:disconnect()
     self.players = {}
     self.worldSnapshot = nil
     self.connectionAttempts = 0
+    self.lastReceiveTime = 0
 
     Events.emit("NETWORK_DISCONNECTED")
 end
@@ -465,6 +488,12 @@ function NetworkClient:update(dt)
             self:_sendHeartbeat()
             self.lastHeartbeat = currentTime
         end
+
+        if self.lastReceiveTime > 0 and (currentTime - self.lastReceiveTime) > (self.connectionTimeout + self.connectionGracePeriod) then
+            self.lastError = "Timed out waiting for server update"
+            self:disconnect()
+            return
+        end
     end
 
     local event = self.transport.service(self.enetClient, 0)
@@ -476,6 +505,7 @@ function NetworkClient:update(dt)
             self:disconnect()
             return
         elseif event.type == "receive" then
+            self.lastReceiveTime = now()
             local message = Messages.decode(event.data)
             if message then
                 self:_handleMessage(message)
