@@ -381,13 +381,18 @@ function NetworkServer:update(dt)
         return
     end
 
-    local ok, event = pcall(self.transport.service, self.enetServer, 10)
+    -- Allow a small timeout for the first poll to avoid busy waiting when idle,
+    -- but switch to non-blocking reads once we start draining the queue. This
+    -- prevents the host from sleeping 10ms for every queued event which caused
+    -- massive frame hitches when a lot of packets arrived in the same frame.
+    local pollTimeout = 10
+    local ok, event = pcall(self.transport.service, self.enetServer, pollTimeout)
     if not ok then
         Log.error("Network server service error:", event)
         -- Don't stop the server on service errors, just log and continue
         return
     end
-    
+
     while event do
         if event.type == "connect" then
             if event.peer then
@@ -416,7 +421,7 @@ function NetworkServer:update(dt)
         end
 
         -- Get next event with error handling
-        local ok2, nextEvent = pcall(self.transport.service, self.enetServer, 10)
+        local ok2, nextEvent = pcall(self.transport.service, self.enetServer, 0)
         if ok2 then
             event = nextEvent
         else
