@@ -58,7 +58,7 @@ local PlayerRef = require("src.core.player_ref")
 local Log = require("src.core.log")
 local Debug = require("src.core.debug")
 local Constants = require("src.core.constants")
-local NetworkManager = require("src.core.network.manager")
+local NetworkSession = require("src.core.network.session")
 local NetworkSync = require("src.systems.network_sync")
 local RemoteEnemySync = require("src.systems.remote_enemy_sync")
 local RemoteProjectileSync = require("src.systems.remote_projectile_sync")
@@ -80,33 +80,30 @@ local systemPipeline
 local systemContext = {}
 local ecsManager
 local networkManager
-local isMultiplayer = false
-local isHost = false
-local syncedWorldEntities = {}
-local pendingWorldSnapshot = nil
-local pendingSelfNetworkState = nil
-local worldSyncHandlersRegistered = false
 
--- Expose network manager for external access
+-- Expose network session for external access
+function Game.getNetworkSession()
+    return NetworkSession
+end
+
 function Game.getNetworkManager()
-    return networkManager
+    return NetworkSession.getManager()
 end
 
--- Set multiplayer mode (for F3 key)
 function Game.setMultiplayerMode(multiplayer, host)
-    isMultiplayer = multiplayer
-    isHost = host
-    Log.info("Game multiplayer mode set:", "multiplayer=" .. tostring(multiplayer), "host=" .. tostring(host))
+    NetworkSession.setMode(multiplayer, host)
 end
 
--- Get multiplayer mode
 function Game.isMultiplayer()
-    return isMultiplayer
+    return NetworkSession.isMultiplayer()
 end
 
--- Get host mode
 function Game.isHost()
-    return isHost
+    return NetworkSession.isHost()
+end
+
+function Game.toggleLanHosting()
+    return NetworkSession.toggleHosting()
 end
 
 -- Make world accessible
@@ -164,638 +161,7 @@ local function spawn_projectile(x, y, angle, friendly, opts)
     end
 end
 
-local function clearSyncedWorldEntities()
-    if world then
-        for _, entity in ipairs(syncedWorldEntities) do
-            if entity then
-                world:removeEntity(entity)
-            end
-        end
-    end
-
-    syncedWorldEntities = {}
-    hub = nil
-end
-
-local function spawnEntityFromSnapshot(entry)
-    if not entry or not entry.kind or not entry.id then
-        return nil
-    end
-
-    local extra = {}
-    if entry.extra then
-        for key, value in pairs(entry.extra) do
-            extra[key] = value
-        end
-    end
-
-    if entry.angle ~= nil then
-        extra.angle = entry.angle
-    end
-
-    if next(extra) == nil then
-        extra = nil
-    end
-
-    return EntityFactory.create(entry.kind, entry.id, entry.x or 0, entry.y or 0, extra)
-end
-
-local function sanitisePlayerNetworkState(state)
-    if type(state) ~= "table" then
-        return nil
-    end
-
-    local position = state.position or {}
-    local velocity = state.velocity or {}
-    local health = state.health
-
-    local sanitised = {
-        position = {
-            x = tonumber(position.x) or 0,
-            y = tonumber(position.y) or 0,
-            angle = tonumber(position.angle) or 0
-        },
-        velocity = {
-            x = tonumber(velocity.x) or 0,
-            y = tonumber(velocity.y) or 0
-        }
-    }
-
-    if type(health) == "table" then
-        sanitised.health = {
-            hp = tonumber(health.hp) or 100,
-            maxHP = tonumber(health.maxHP) or 100,
-            shield = tonumber(health.shield) or 0,
-            maxShield = tonumber(health.maxShield) or 0,
-            energy = tonumber(health.energy) or 0,
-            maxEnergy = tonumber(health.maxEnergy) or 0
-        }
-    end
-
-    return sanitised
-end
-
-local function applySelfNetworkStateIfAvailable()
-    if not player or not pendingSelfNetworkState then
-        Log.debug("applySelfNetworkStateIfAvailable: No player or pendingSelfNetworkState")
-        return
-    end
-
-    local state = pendingSelfNetworkState
-    local applied = false
-    Log.info("applySelfNetworkStateIfAvailable: Applying state with position", state.position.x, state.position.y)
-
-    local newPos = state.position
-    if newPos and player.components and player.components.position then
-        local positionComponent = player.components.position
-        positionComponent.x = newPos.x or 0
-        positionComponent.y = newPos.y or 0
-        positionComponent.angle = newPos.angle or 0
-
-        local physics = player.components.physics
-        if physics and physics.body then
-            local body = physics.body
-            if body.setPosition then
-                body:setPosition(positionComponent.x, positionComponent.y)
-            else
-                body.x = positionComponent.x
-                body.y = positionComponent.y
-            end
-            if body.setAngle then
-                body:setAngle(positionComponent.angle)
-            else
-                body.angle = positionComponent.angle
-            end
-        end
-
-        applied = true
-    end
-
-    local newVel = state.velocity
-    if newVel and player.components and player.components.velocity then
-        local velocityComponent = player.components.velocity
-        velocityComponent.x = newVel.x or 0
-        velocityComponent.y = newVel.y or 0
-
-        local physics = player.components.physics
-        if physics and physics.body then
-            local body = physics.body
-            if body.setLinearVelocity then
-                body:setLinearVelocity(velocityComponent.x, velocityComponent.y)
-            elseif body.setVelocity then
-                body:setVelocity(velocityComponent.x, velocityComponent.y)
-            else
-                body.vx = velocityComponent.x
-                body.vy = velocityComponent.y
-            end
-        end
-
-        applied = true
-    end
-
-    if state.health and player.components and player.components.health then
-        local healthComponent = player.components.health
-        for key, value in pairs(state.health) do
-            healthComponent[key] = value
-        end
-        applied = true
-    end
-
-    if applied then
-        Log.info(
-            "Client: Applied pending server-assigned player state:",
-            (newPos and newPos.x) or 0,
-            (newPos and newPos.y) or 0
-        )
-        pendingSelfNetworkState = nil
-    end
-end
-
-local function applyWorldSnapshot(snapshot)
-    if not snapshot or not world then
-        Log.warn("applyWorldSnapshot: missing snapshot or world", snapshot ~= nil, world ~= nil)
-        return
-    end
-
-    Log.info("applyWorldSnapshot: applying snapshot with", #(snapshot.entities or {}), "entities")
-    clearSyncedWorldEntities()
-
-    world.width = snapshot.width or world.width
-    world.height = snapshot.height or world.height
-
-    for _, entry in ipairs(snapshot.entities or {}) do
-        local entity = spawnEntityFromSnapshot(entry)
-        if entity then
-            entity.isSyncedEntity = true  -- Mark as synced entity to prevent duplication
-            world:addEntity(entity)
-            if entry.kind == "station" and entry.id == "hub_station" then
-                hub = entity
-            end
-            table.insert(syncedWorldEntities, entity)
-        else
-            Log.warn("Failed to spawn world entity from snapshot", tostring(entry.kind), tostring(entry.id))
-        end
-    end
-end
-
-local function queueWorldSnapshot(snapshot)
-    if not snapshot then
-        return
-    end
-
-    if not world then
-        pendingWorldSnapshot = Util.deepCopy(snapshot)
-        return
-    end
-
-    applyWorldSnapshot(snapshot)
-    pendingWorldSnapshot = nil
-end
-
-local function buildWorldSnapshotFromWorld()
-    if not world then
-        return nil
-    end
-
-    local snapshot = {
-        width = world.width or 0,
-        height = world.height or 0,
-        entities = {}
-    }
-
-    for _, entity in pairs(world:getEntities()) do
-        local components = entity.components or {}
-        local position = components.position
-
-        -- Only include entities that are not players, not remote players, and not already synced entities
-        if position and not entity.isPlayer and not entity.isRemotePlayer and not entity.isSyncedEntity then
-            local entry = nil
-
-            if entity.isStation or components.station then
-                local station = components.station or {}
-                entry = {
-                    kind = "station",
-                    id = station.type or "station",
-                    x = position.x or 0,
-                    y = position.y or 0
-                }
-            elseif entity.type == "world_object" or components.mineable or components.interactable then
-                local subtype = entity.subtype or (components.renderable and components.renderable.type) or "world_object"
-                entry = {
-                    kind = "world_object",
-                    id = subtype,
-                    x = position.x or 0,
-                    y = position.y or 0
-                }
-            end
-
-            if entry then
-                if position.angle ~= nil then
-                    entry.angle = position.angle
-                end
-
-                snapshot.entities[#snapshot.entities + 1] = entry
-            end
-        end
-    end
-
-    return snapshot
-end
-
-local function broadcastHostWorldSnapshot(peer)
-    if not networkManager or not networkManager:isHost() then
-        return
-    end
-
-    local snapshot = buildWorldSnapshotFromWorld()
-    if not snapshot then
-        return
-    end
-
-    networkManager:updateWorldSnapshot(snapshot, peer)
-end
-
-function Game.toggleLanHosting()
-    if not networkManager then
-        Log.error("toggleLanHosting called without network manager")
-        return false, "no_network"
-    end
-
-    if networkManager:isMultiplayer() then
-        if networkManager:isHost() then
-            Log.info("Stopping LAN hosting session")
-            networkManager:leaveGame()
-            Game.setMultiplayerMode(false, false)
-            return true, "lan_closed"
-        else
-            Log.info("Leaving multiplayer session before enabling LAN host")
-            networkManager:leaveGame()
-            Game.setMultiplayerMode(false, false)
-            return true, "client_left"
-        end
-    end
-
-    Log.info("Starting LAN host from single-player session")
-    Game.setMultiplayerMode(true, true)
-
-    if not networkManager:startHost() then
-        Log.error("Failed to start LAN host")
-        Game.setMultiplayerMode(false, false)
-        return false, "start_failed"
-    end
-
-    return true, "lan_opened"
-end
-
-local function registerWorldSyncEventHandlers()
-    if worldSyncHandlersRegistered then
-        return
-    end
-
-    Events.on("NETWORK_WORLD_SNAPSHOT", function(data)
-        if isHost then
-            return
-        end
-
-        local snapshot = data and data.snapshot or nil
-        if not snapshot then
-            return
-        end
-
-        queueWorldSnapshot(snapshot)
-    end)
-
-    Events.on("NETWORK_DISCONNECTED", function()
-        if isHost then
-            return
-        end
-
-        clearSyncedWorldEntities()
-        pendingWorldSnapshot = nil
-        pendingSelfNetworkState = nil
-    end)
-
-    Events.on("NETWORK_SERVER_STOPPED", function()
-        if isHost then
-            return
-        end
-
-        clearSyncedWorldEntities()
-        pendingWorldSnapshot = nil
-        pendingSelfNetworkState = nil
-    end)
-
-    Events.on("NETWORK_SERVER_STARTED", function()
-        if not isHost or not world then
-            return
-        end
-
-        broadcastHostWorldSnapshot()
-    end)
-
-    Events.on("NETWORK_ENEMY_UPDATE", function(data)
-        if isHost then
-            return
-        end
-
-        local enemies = data and data.enemies or nil
-        if not enemies then
-            return
-        end
-
-        -- Apply enemy snapshot (RemoteEnemySync.applyEnemySnapshot already sanitizes internally)
-        RemoteEnemySync.applyEnemySnapshot(enemies, world)
-    end)
-
-    Events.on("NETWORK_PROJECTILE_UPDATE", function(data)
-        if isHost then
-            return
-        end
-
-        local projectiles = data and data.projectiles or nil
-        if not projectiles then
-            return
-        end
-
-        -- Apply projectile snapshot (RemoteProjectileSync.applyProjectileSnapshot already sanitizes internally)
-        RemoteProjectileSync.applyProjectileSnapshot(projectiles, world)
-    end)
-
-    Events.on("NETWORK_WEAPON_FIRE_REQUEST", function(data)
-        if not isHost then
-            return
-        end
-
-        local request = data and data.request or nil
-        if not request then
-            return
-        end
-
-        -- Process weapon fire request from client
-        if request.type == "beam_weapon_fire_request" then
-            processBeamWeaponFireRequest(request, data.playerId)
-        elseif request.type == "utility_beam_weapon_fire_request" then
-            processUtilityBeamWeaponFireRequest(request, data.playerId)
-        else
-            processWeaponFireRequest(request, data.playerId)
-        end
-    end)
-
-    -- Handle client position updates when they receive their assigned position
-    Events.on("NETWORK_PLAYER_JOINED", function(data)
-        if isHost or not data or not data.playerId or not data.isSelf then
-            return
-        end
-
-        Log.info("NETWORK_PLAYER_JOINED: Received self data with position", data.data.position.x, data.data.position.y)
-        local sanitisedState = sanitisePlayerNetworkState(data.data)
-        if not sanitisedState then
-            Log.warn("NETWORK_PLAYER_JOINED: Failed to sanitize state")
-            return
-        end
-
-        Log.info("NETWORK_PLAYER_JOINED: Setting pendingSelfNetworkState with position", sanitisedState.position.x, sanitisedState.position.y)
-        pendingSelfNetworkState = sanitisedState
-        applySelfNetworkStateIfAvailable()
-    end)
-
-    worldSyncHandlersRegistered = true
-end
-
--- Process weapon fire requests from clients
-function processWeaponFireRequest(request, playerId)
-    if not world or not request then
-        return
-    end
-
-    local json = require("src.libs.json")
-    Log.info("Host processing weapon fire request from player", playerId, "projectileId=" .. tostring(request.projectileId))
-
-    -- Find the player entity
-    local player = nil
-    if playerId == 0 then
-        -- Host player
-        player = findPlayer(world)
-    else
-        -- Remote player - find by player ID
-        local players = world:get_entities_with_components("player")
-        Log.debug("Looking for remote player", playerId, "among", #players, "player entities")
-        for _, p in ipairs(players) do
-            Log.debug("Player entity:", "id=" .. tostring(p.id), "remotePlayerId=" .. tostring(p.remotePlayerId), "isRemotePlayer=" .. tostring(p.isRemotePlayer))
-            if p.remotePlayerId == playerId then
-                player = p
-                break
-            end
-        end
-    end
-
-    if not player then
-        Log.warn("Could not find player for weapon fire request", playerId, "- attempting to create remote player entity")
-        -- Try to create the remote player entity if it doesn't exist
-        local NetworkSync = require("src.systems.network_sync")
-        local networkManager = Game.getNetworkManager()
-        if networkManager then
-            local players = networkManager:getPlayers()
-            local playerInfo = players[playerId]
-            if playerInfo then
-                Log.info("Creating remote player entity for player", playerId, "with state:", json.encode(playerInfo.state or {}))
-                player = NetworkSync.ensureRemoteEntity(playerId, playerInfo.state or {}, world)
-                if player then
-                    player.playerName = playerInfo.playerName or string.format("Player %d", playerId)
-                    Log.info("Successfully created remote player entity for player", playerId, "entity id:", tostring(player.id))
-                else
-                    Log.warn("Failed to create remote player entity for player", playerId)
-                end
-            else
-                Log.warn("No player info found for player", playerId, "available players:", json.encode(players))
-            end
-        end
-        
-        if not player then
-            Log.warn("Failed to create remote player entity for weapon fire request", playerId)
-            return
-        end
-    end
-
-    Log.info("Found/created player entity for weapon fire request", playerId, "proceeding to create projectile")
-
-    -- Create projectile using the request data
-    local projectile_id = request.projectileId or "gun_bullet"
-    local extra_config = {
-        angle = request.angle or 0,
-        friendly = true, -- Prevent self-hit but allow PvP
-        damage = request.damageConfig,
-        kind = "bullet",
-        additionalEffects = request.additionalEffects,
-        source = player
-    }
-
-    Log.info("Creating projectile for player", playerId, "projectileId=" .. projectile_id, "at position", request.position.x, request.position.y)
-    local projectile = EntityFactory.create("projectile", projectile_id, request.position.x, request.position.y, extra_config)
-    if projectile then
-        world:addEntity(projectile)
-        Log.info("Processed weapon fire request from player", playerId, "spawned projectile", projectile_id)
-    else
-        Log.warn("Failed to create projectile from weapon fire request", playerId, projectile_id)
-    end
-end
-
--- Process beam weapon fire requests from clients
-function processBeamWeaponFireRequest(request, playerId)
-    if not world or not request then
-        return
-    end
-
-    local json = require("src.libs.json")
-    Log.info("Host processing beam weapon fire request from player", playerId, "beamLength=" .. tostring(request.beamLength))
-
-    -- Find the player entity
-    local player = nil
-    if playerId == 0 then
-        -- Host player
-        player = findPlayer(world)
-    else
-        -- Remote player - find by player ID
-        local players = world:get_entities_with_components("player")
-        for _, p in ipairs(players) do
-            if p.remotePlayerId == playerId then
-                player = p
-                break
-            end
-        end
-    end
-
-    if not player then
-        Log.warn("Could not find player for beam weapon fire request", playerId, "- attempting to create remote player entity")
-        -- Try to create the remote player entity if it doesn't exist
-        local NetworkSync = require("src.systems.network_sync")
-        local networkManager = Game.getNetworkManager()
-        if networkManager then
-            local players = networkManager:getPlayers()
-            local playerInfo = players[playerId]
-            if playerInfo then
-                Log.info("Creating remote player entity for player", playerId, "with state:", json.encode(playerInfo.state or {}))
-                player = NetworkSync.ensureRemoteEntity(playerId, playerInfo.state or {}, world)
-                if player then
-                    player.playerName = playerInfo.playerName or string.format("Player %d", playerId)
-                    Log.info("Successfully created remote player entity for player", playerId, "entity id:", tostring(player.id))
-                else
-                    Log.warn("Failed to create remote player entity for player", playerId)
-                end
-            else
-                Log.warn("No player info found for player", playerId, "available players:", json.encode(players))
-            end
-        end
-        
-        if not player then
-            Log.warn("Failed to create remote player entity for beam weapon fire request", playerId)
-            return
-        end
-    end
-
-    Log.info("Found/created player entity for beam weapon fire request", playerId, "proceeding to create beam")
-
-    -- Instead of creating a projectile entity, let's create a beam state for the remote player
-    -- This avoids collision issues that might cause respawning
-    local beamLength = request.beamLength or 100
-    local endX = request.position.x + math.cos(request.angle) * beamLength
-    local endY = request.position.y + math.sin(request.angle) * beamLength
-    
-    -- Store beam state on the remote player entity for rendering
-    if player then
-        player.remoteBeamActive = true
-        player.remoteBeamStartX = request.position.x
-        player.remoteBeamStartY = request.position.y
-        player.remoteBeamEndX = endX
-        player.remoteBeamEndY = endY
-        player.remoteBeamAngle = request.angle
-        player.remoteBeamLength = beamLength
-        player.remoteBeamStartTime = love.timer and love.timer.getTime() or os.clock()
-        
-        Log.info("Processed beam weapon fire request from player", playerId, "set remote beam state")
-    else
-        Log.warn("Failed to set beam state for player", playerId)
-    end
-end
-
--- Process utility beam weapon fire requests from clients (mining/salvaging lasers)
-function processUtilityBeamWeaponFireRequest(request, playerId)
-    if not world or not request then
-        return
-    end
-
-    local json = require("src.libs.json")
-    Log.info("Host processing utility beam weapon fire request from player", playerId, "beamType=" .. tostring(request.beamType), "beamLength=" .. tostring(request.beamLength))
-
-    -- Find the player entity
-    local player = nil
-    if playerId == 0 then
-        -- Host player
-        player = findPlayer(world)
-    else
-        -- Remote player - find by player ID
-        local players = world:get_entities_with_components("player")
-        for _, p in ipairs(players) do
-            if p.remotePlayerId == playerId then
-                player = p
-                break
-            end
-        end
-    end
-
-    if not player then
-        Log.warn("Could not find player for utility beam weapon fire request", playerId, "- attempting to create remote player entity")
-        -- Try to create the remote player entity if it doesn't exist
-        local NetworkSync = require("src.systems.network_sync")
-        local networkManager = Game.getNetworkManager()
-        if networkManager then
-            local players = networkManager:getPlayers()
-            local playerInfo = players[playerId]
-            if playerInfo then
-                Log.info("Creating remote player entity for player", playerId, "with state:", json.encode(playerInfo.state or {}))
-                player = NetworkSync.ensureRemoteEntity(playerId, playerInfo.state or {}, world)
-                if player then
-                    player.playerName = playerInfo.playerName or string.format("Player %d", playerId)
-                    Log.info("Successfully created remote player entity for player", playerId, "entity id:", tostring(player.id))
-                else
-                    Log.warn("Failed to create remote player entity for player", playerId)
-                end
-            else
-                Log.warn("No player info found for player", playerId, "available players:", json.encode(players))
-            end
-        end
-        
-        if not player then
-            Log.warn("Failed to create remote player entity for utility beam weapon fire request", playerId)
-            return
-        end
-    end
-
-    Log.info("Found/created player entity for utility beam weapon fire request", playerId, "proceeding to create utility beam")
-
-    -- Store utility beam state on the remote player entity for rendering
-    local beamLength = request.beamLength or 100
-    local endX = request.position.x + math.cos(request.angle) * beamLength
-    local endY = request.position.y + math.sin(request.angle) * beamLength
-    
-    if player then
-        player.remoteUtilityBeamActive = true
-        player.remoteUtilityBeamType = request.beamType -- "mining" or "salvaging"
-        player.remoteUtilityBeamStartX = request.position.x
-        player.remoteUtilityBeamStartY = request.position.y
-        player.remoteUtilityBeamEndX = endX
-        player.remoteUtilityBeamEndY = endY
-        player.remoteUtilityBeamAngle = request.angle
-        player.remoteUtilityBeamLength = beamLength
-        player.remoteUtilityBeamStartTime = love.timer and love.timer.getTime() or os.clock()
-        
-        Log.info("Processed utility beam weapon fire request from player", playerId, "set remote utility beam state", request.beamType)
-    else
-        Log.warn("Failed to set utility beam state for player", playerId)
-    end
-end
-
-registerWorldSyncEventHandlers()
+-- Multiplayer orchestration now handled by src/core/network/session.lua
 
 local function tryCollectNearbyRewardCrate(playerEntity, activeWorld)
   if not playerEntity or not activeWorld then return false end
@@ -853,7 +219,7 @@ local function createSystemPipeline()
     function(ctx)
       -- Only run spawning system in single-player mode
       -- When hosting, we want to sync the existing world, not spawn new entities
-      if not isMultiplayer then
+      if not NetworkSession.isMultiplayer() then
         SpawningSystem.update(ctx.dt, ctx.player, ctx.hub, ctx.world)
       end
     end,
@@ -915,12 +281,6 @@ local function createSystemPipeline()
       TurretEffects.cleanupOrphanedSounds()
     end,
     function(ctx)
-      -- Update network manager if multiplayer
-      if networkManager then
-        networkManager:update(ctx.dt)
-      end
-    end,
-    function(ctx)
       -- Update network synchronization if multiplayer
       if networkManager and networkManager:isMultiplayer() then
         NetworkSync.update(ctx.dt, ctx.player, ctx.world, networkManager)
@@ -958,11 +318,30 @@ end
 function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   Log.setInfoEnabled(true)
   
-  -- Set multiplayer state
-  isMultiplayer = multiplayer or false
-  isHost = isHost or false
-  syncedWorldEntities = {}
-  pendingWorldSnapshot = nil
+  local pendingConnection = nil
+  if multiplayer and not isHost then
+    local pending = _G.PENDING_MULTIPLAYER_CONNECTION
+    if pending and pending.connecting then
+      pendingConnection = { address = pending.address, port = pending.port }
+    else
+      Log.error("No pending connection found for client mode - aborting game load")
+      return false, "No pending connection details found."
+    end
+  end
+
+  local sessionOk, sessionError = NetworkSession.load({
+    multiplayer = multiplayer or false,
+    isHost = isHost or false,
+    pendingConnection = pendingConnection,
+  })
+  if not sessionOk then
+    return false, sessionError
+  end
+
+  networkManager = NetworkSession.getManager()
+  if multiplayer and not isHost then
+    _G.PENDING_MULTIPLAYER_CONNECTION = nil
+  end
 
   -- updateProgress provides a tiny abstraction so future steps can remain
   -- focused on logic rather than remembering to null-check the loading screen.
@@ -984,33 +363,7 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   
   -- Initialize network manager (always available for F3 hosting)
   updateProgress(0.25, "Initializing network...")
-  networkManager = NetworkManager.new()
-  if isMultiplayer and isHost then
-    networkManager:startHost()
-  elseif isMultiplayer and not isHost then
-    -- Client mode - attempt connection from start screen parameters
-    if _G.PENDING_MULTIPLAYER_CONNECTION and _G.PENDING_MULTIPLAYER_CONNECTION.connecting then
-      Log.info("Attempting connection to server from start screen parameters")
-      Log.info("Connection details:", _G.PENDING_MULTIPLAYER_CONNECTION.address, _G.PENDING_MULTIPLAYER_CONNECTION.port)
-      -- Attempt the connection to the server
-      local connectionResult, connectionError = networkManager:joinGame(_G.PENDING_MULTIPLAYER_CONNECTION.address, _G.PENDING_MULTIPLAYER_CONNECTION.port)
-      Log.info("Connection result:", connectionResult, connectionError)
-      if connectionResult then
-        Log.info("Successfully connected to server")
-        -- Ensure the game knows it's in client mode
-        Game.setMultiplayerMode(true, false)
-        _G.PENDING_MULTIPLAYER_CONNECTION = nil -- Clear the pending connection
-      else
-        Log.error("Failed to connect to server - aborting game load", connectionError)
-        -- Connection failed, don't load the game
-        return false, connectionError
-      end
-    else
-      Log.error("No pending connection found for client mode - aborting game load")
-      -- No connection to attempt, don't load the game
-      return false, "No pending connection details found."
-    end
-  end
+  networkManager = NetworkSession.getManager()
   
   -- Step 3: Setup input
   updateProgress(0.3, "Setting up input...")
@@ -1035,6 +388,7 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   world.spawn_projectile = spawn_projectile
   -- Update the accessible world reference
   Game.world = world
+  NetworkSession.setContext({ world = world })
   ecsManager = ECS.new()
   ecsManager:setWorld(world)
   world:setECSWorld(ecsManager)
@@ -1043,7 +397,7 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
 
   -- Step 6: Create stations
   updateProgress(0.6, "Creating stations...")
-  if not isMultiplayer or isHost then
+  if not NetworkSession.isMultiplayer() or NetworkSession.isHost() then
     hub = EntityFactory.create("station", "hub_station", 5000, 5000)
     if hub then
       world:addEntity(hub)
@@ -1073,10 +427,11 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   else
     hub = nil
   end
+  NetworkSession.setContext({ hub = hub })
 
   -- Step 7: Create world objects
   updateProgress(0.7, "Creating world objects...")
-  if not isMultiplayer or isHost then
+  if not NetworkSession.isMultiplayer() or NetworkSession.isHost() then
     -- Add a massive background planet at the world center
     do
       -- Place the planet at the center of the world (15000, 15000)
@@ -1148,10 +503,6 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
     end
   end
 
-  if isMultiplayer and not isHost and pendingWorldSnapshot then
-    queueWorldSnapshot(pendingWorldSnapshot)
-  end
-
   -- Step 8: Create warp gate (DISABLED)
   updateProgress(0.8, "Creating warp gate...")
   -- Warp gate creation disabled for now
@@ -1195,9 +546,9 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
     -- Start new game - create player at spawn location
     local px, py
     
-    if isMultiplayer and not isHost then
+    if NetworkSession.isMultiplayer() and not NetworkSession.isHost() then
       -- Client mode - use position assigned by server
-      local networkManager = Game.getNetworkManager()
+      local networkManager = NetworkSession.getManager()
       local assignedPosition = nil
 
       if networkManager and networkManager.getPlayers then
@@ -1206,10 +557,6 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
         if localPlayerId and players[localPlayerId] and players[localPlayerId].state then
           assignedPosition = players[localPlayerId].state.position
         end
-      end
-
-      if not assignedPosition and pendingSelfNetworkState then
-        assignedPosition = pendingSelfNetworkState.position
       end
 
       if assignedPosition then
@@ -1235,7 +582,7 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
     end
     
     -- Check for collision with all stations to ensure we don't spawn inside one (only for single-player/host)
-    if not (isMultiplayer and not isHost) then
+    if not (NetworkSession.isMultiplayer() and not NetworkSession.isHost()) then
       local attempts = 0
       local maxAttempts = 50
       local spawnValid = false
@@ -1293,20 +640,15 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
     HotbarSystem.populateFromPlayer(player)
     -- Set global player reference for UI systems
     PlayerRef.set(player)
+    NetworkSession.setContext({ player = player })
   else
     Debug.error("game", "Failed to create player")
     return false
   end
 
-  applySelfNetworkStateIfAvailable()
-
   camera:setTarget(player)
-  if not isMultiplayer or isHost then
+  if not NetworkSession.isMultiplayer() or NetworkSession.isHost() then
     SpawningSystem.init(player, hub, world)
-  end
-  
-  if isMultiplayer and isHost then
-    broadcastHostWorldSnapshot()
   end
 
   collisionSystem = CollisionSystem:new({x = 0, y = 0, width = world.width, height = world.height})
@@ -1352,34 +694,19 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   
   -- Initialize UI Manager
   UIManager.init()
-  
+
   QuestLogHUD = QuestLogHUD or require("src.ui.hud.quest_log")
-  
+
   -- Clear any existing event listeners to prevent conflicts
   Events.clear()
-  worldSyncHandlersRegistered = false
+  NetworkSession.resetEventHandlers()
 
   -- Re-register network listeners that were cleared above
   if networkManager and networkManager.setupEventListeners then
     networkManager:setupEventListeners()
   end
-  
-  -- Re-register world sync event handlers after clearing events
-  registerWorldSyncEventHandlers()
 
-  -- Listen for when someone joins the host's game
-  Events.on("NETWORK_PLAYER_JOINED", function(data)
-    if not isMultiplayer and networkManager and networkManager:isHost() then
-      Log.info("Someone joined the host game, switching to multiplayer mode")
-      isMultiplayer = true
-      -- The host is already running, just need to enable multiplayer mode
-    end
-    
-    -- Send world snapshot to newly joined client
-    if networkManager and networkManager:isHost() then
-      broadcastHostWorldSnapshot(data.peer)
-    end
-  end)
+  NetworkSession.setupEventHandlers()
 
   -- Re-subscribe experience notification to events after clearing
   local ExperienceNotification = require("src.ui.hud.experience_notification")
@@ -1535,7 +862,7 @@ function Game.unload()
   end
 
   Events.clear()
-  worldSyncHandlersRegistered = false
+  NetworkSession.teardown()
 
   if StateManager and StateManager.reset then
     StateManager.reset()
@@ -1556,13 +883,7 @@ function Game.unload()
   systemContext = {}
   ecsManager = nil
 
-  -- Clean up network manager
-  if networkManager then
-    networkManager:leaveGame()
-    networkManager = nil
-  end
-  isMultiplayer = false
-  isHost = false
+  networkManager = nil
 
   Input.init({})
 
@@ -1571,7 +892,6 @@ function Game.unload()
   end
 
   world = nil
-  pendingSelfNetworkState = nil
   Game.world = nil
   camera = nil
   player = nil
@@ -1595,9 +915,11 @@ function Game.update(dt)
     SkillXpPopup.update(dt)
     local input = Input.getInputState()
 
-    if pendingSelfNetworkState then
-        applySelfNetworkStateIfAvailable()
-    end
+    NetworkSession.update(dt, {
+        world = world,
+        player = player,
+        hub = hub,
+    })
 
     -- Check if game should be paused (escape menu)
     local shouldPause = false

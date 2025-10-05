@@ -6,13 +6,13 @@ local Skills = require("src.core.skills")
 local Notifications = require("src.ui.notifications")
 local Events = require("src.core.events")
 local Log = require("src.core.log")
+local NetworkSession = require("src.core.network.session")
 
 local UtilityBeams = {}
 
 -- Helper function to send utility beam weapon fire request to host
 local function sendUtilityBeamWeaponFireRequest(turret, sx, sy, angle, beamLength, beamType)
-    local Game = require("src.game")
-    local networkManager = Game.getNetworkManager()
+    local networkManager = NetworkSession.getManager()
     
     if networkManager and networkManager:isMultiplayer() and not networkManager:isHost() then
         -- Client: send utility beam weapon fire request to host
