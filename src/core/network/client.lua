@@ -59,6 +59,83 @@ local function randomName()
     return string.format("Pilot_%d", love and love.timer and love.timer.getTime and math.floor(love.timer.getTime() * 1000) or os.time())
 end
 
+local function sanitiseWorldExtras(extra)
+    if type(extra) ~= "table" then
+        return nil
+    end
+
+    local sanitised = {}
+    for key, value in pairs(extra) do
+        local valueType = type(value)
+        if valueType == "number" or valueType == "string" or valueType == "boolean" then
+            sanitised[key] = value
+        end
+    end
+
+    if next(sanitised) then
+        return sanitised
+    end
+
+    return nil
+end
+
+local function sanitiseWorldEntry(entry)
+    if type(entry) ~= "table" then
+        return nil
+    end
+
+    if not entry.kind or not entry.id then
+        return nil
+    end
+
+    local x = tonumber(entry.x)
+    local y = tonumber(entry.y)
+    if not x or not y then
+        return nil
+    end
+
+    local sanitised = {
+        kind = tostring(entry.kind),
+        id = tostring(entry.id),
+        x = x,
+        y = y
+    }
+
+    if entry.angle ~= nil then
+        sanitised.angle = tonumber(entry.angle) or 0
+    end
+
+    local extra = sanitiseWorldExtras(entry.extra)
+    if extra then
+        sanitised.extra = extra
+    end
+
+    return sanitised
+end
+
+local function sanitiseWorldSnapshot(snapshot)
+    if type(snapshot) ~= "table" then
+        return nil
+    end
+
+    local sanitised = {
+        width = tonumber(snapshot.width) or 0,
+        height = tonumber(snapshot.height) or 0,
+        entities = {}
+    }
+
+    if type(snapshot.entities) == "table" then
+        for _, entry in ipairs(snapshot.entities) do
+            local sanitisedEntry = sanitiseWorldEntry(entry)
+            if sanitisedEntry then
+                sanitised.entities[#sanitised.entities + 1] = sanitisedEntry
+            end
+        end
+    end
+
+    return sanitised
+end
+
 function NetworkClient.new()
     local self = setmetatable({}, NetworkClient)
 
@@ -69,6 +146,7 @@ function NetworkClient.new()
     self.connected = false
     self.lastError = nil
     self.localName = randomName()
+    self.worldSnapshot = nil
 
     return self
 end
@@ -79,6 +157,10 @@ end
 
 function NetworkClient:getPlayers()
     return self.players
+end
+
+function NetworkClient:getWorldSnapshot()
+    return self.worldSnapshot
 end
 
 function NetworkClient:getPing()
@@ -177,6 +259,7 @@ function NetworkClient:disconnect()
     self.connected = false
     self.playerId = nil
     self.players = {}
+    self.worldSnapshot = nil
 
     Events.emit("NETWORK_DISCONNECTED")
 end
@@ -233,6 +316,14 @@ function NetworkClient:_handleMessage(message)
                 })
             end
         end
+
+        if message.worldSnapshot then
+            local snapshot = sanitiseWorldSnapshot(message.worldSnapshot)
+            if snapshot then
+                self.worldSnapshot = snapshot
+                Events.emit("NETWORK_WORLD_SNAPSHOT", { snapshot = snapshot })
+            end
+        end
     elseif message.type == TYPES.STATE then
         if message.playerId == self.playerId then
             return
@@ -259,6 +350,12 @@ function NetworkClient:_handleMessage(message)
     elseif message.type == TYPES.GOODBYE then
         self.players[message.playerId] = nil
         Events.emit("NETWORK_PLAYER_LEFT", { playerId = message.playerId })
+    elseif message.type == TYPES.WORLD_SNAPSHOT then
+        local snapshot = sanitiseWorldSnapshot(message.snapshot)
+        if snapshot then
+            self.worldSnapshot = snapshot
+            Events.emit("NETWORK_WORLD_SNAPSHOT", { snapshot = snapshot })
+        end
     end
 end
 

@@ -70,6 +70,83 @@ local function buildSnapshot(players)
     return snapshot
 end
 
+local function sanitiseWorldExtras(extra)
+    if type(extra) ~= "table" then
+        return nil
+    end
+
+    local sanitised = {}
+    for key, value in pairs(extra) do
+        local valueType = type(value)
+        if valueType == "number" or valueType == "string" or valueType == "boolean" then
+            sanitised[key] = value
+        end
+    end
+
+    if next(sanitised) then
+        return sanitised
+    end
+
+    return nil
+end
+
+local function sanitiseWorldEntry(entry)
+    if type(entry) ~= "table" then
+        return nil
+    end
+
+    if not entry.kind or not entry.id then
+        return nil
+    end
+
+    local x = tonumber(entry.x)
+    local y = tonumber(entry.y)
+    if not x or not y then
+        return nil
+    end
+
+    local sanitised = {
+        kind = tostring(entry.kind),
+        id = tostring(entry.id),
+        x = x,
+        y = y
+    }
+
+    if entry.angle ~= nil then
+        sanitised.angle = tonumber(entry.angle) or 0
+    end
+
+    local extra = sanitiseWorldExtras(entry.extra)
+    if extra then
+        sanitised.extra = extra
+    end
+
+    return sanitised
+end
+
+local function sanitiseWorldSnapshot(snapshot)
+    if type(snapshot) ~= "table" then
+        return nil
+    end
+
+    local sanitised = {
+        width = tonumber(snapshot.width) or 0,
+        height = tonumber(snapshot.height) or 0,
+        entities = {}
+    }
+
+    if type(snapshot.entities) == "table" then
+        for _, entry in ipairs(snapshot.entities) do
+            local sanitisedEntry = sanitiseWorldEntry(entry)
+            if sanitisedEntry then
+                sanitised.entities[#sanitised.entities + 1] = sanitisedEntry
+            end
+        end
+    end
+
+    return sanitised
+end
+
 function NetworkServer.new(port)
     local self = setmetatable({}, NetworkServer)
 
@@ -83,6 +160,7 @@ function NetworkServer.new(port)
     self.peerToPlayer = {}
     self.nextPlayerId = 1
     self.events = {}
+    self.worldSnapshot = nil
 
     return self
 end
@@ -119,6 +197,7 @@ function NetworkServer:start()
     self.players = {}
     self.nextPlayerId = 1
     self.events = {}
+    self.worldSnapshot = nil
 
     Log.info("Server started on port", self.port)
     Events.emit("NETWORK_SERVER_STARTED", { port = self.port })
@@ -142,6 +221,7 @@ function NetworkServer:stop()
     self.peerToPlayer = {}
     self.nextPlayerId = 1
     self.events = {}
+    self.worldSnapshot = nil
 
     Log.info("Server stopped")
     Events.emit("NETWORK_SERVER_STOPPED")
@@ -209,11 +289,17 @@ function NetworkServer:_handleHello(peer, message)
 
     self.peerToPlayer[peer] = playerId
 
-    local welcome = Messages.encode({
+    local welcomePayload = {
         type = TYPES.WELCOME,
         playerId = playerId,
         players = buildSnapshot(self.players)
-    })
+    }
+
+    if self.worldSnapshot then
+        welcomePayload.worldSnapshot = self.worldSnapshot
+    end
+
+    local welcome = Messages.encode(welcomePayload)
     self.transport.send({ peer = peer }, welcome, 0, true)
 
     local broadcast = Messages.encode({
@@ -373,6 +459,34 @@ function NetworkServer:addHostPlayer(name, state)
         state = self.players[hostId].state,
         name = self.players[hostId].name
     })
+end
+
+function NetworkServer:updateWorldSnapshot(snapshot)
+    if snapshot == nil then
+        return
+    end
+
+    local sanitised = sanitiseWorldSnapshot(snapshot)
+    if not sanitised then
+        return
+    end
+
+    self.worldSnapshot = sanitised
+
+    pushEvent(self, "world_snapshot", { snapshot = self.worldSnapshot })
+
+    if self.transport then
+        local encoded = Messages.encode({
+            type = TYPES.WORLD_SNAPSHOT,
+            snapshot = self.worldSnapshot
+        })
+
+        if encoded then
+            self:_broadcastExcept(nil, encoded)
+        end
+    end
+
+    Events.emit("NETWORK_WORLD_SNAPSHOT", { snapshot = self.worldSnapshot })
 end
 
 return NetworkServer

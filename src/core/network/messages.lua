@@ -6,7 +6,8 @@ Messages.TYPES = {
     STATE = "state",
     GOODBYE = "goodbye",
     PING = "ping",
-    PONG = "pong"
+    PONG = "pong",
+    WORLD_SNAPSHOT = "world_snapshot"
 }
 
 function Messages.encode(payload)

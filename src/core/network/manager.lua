@@ -9,6 +9,7 @@ local Events = require("src.core.events")
 local json = require("src.libs.json")
 local NetworkClient = require("src.core.network.client")
 local NetworkServer = require("src.core.network.server")
+local Util = require("src.core.util")
 
 local NetworkManager = {}
 NetworkManager.__index = NetworkManager
@@ -30,6 +31,7 @@ function NetworkManager.new()
     self._isMultiplayer = false
     self._players = {}
     self._localPlayerId = nil
+    self._worldSnapshot = nil
 
     self:setupEventListeners()
 
@@ -45,6 +47,7 @@ function NetworkManager:setupEventListeners()
         Log.info("Disconnected from multiplayer server")
         self._players = {}
         self._localPlayerId = nil
+        self._worldSnapshot = nil
     end)
 
     Events.on("NETWORK_PLAYER_JOINED", function(data)
@@ -93,6 +96,18 @@ function NetworkManager:setupEventListeners()
             return
         end
         self:sendPlayerUpdate(payload)
+    end)
+
+    Events.on("NETWORK_WORLD_SNAPSHOT", function(data)
+        if not data then
+            return
+        end
+
+        if data.snapshot then
+            self._worldSnapshot = Util.deepCopy(data.snapshot)
+        else
+            self._worldSnapshot = nil
+        end
     end)
 end
 
@@ -171,6 +186,7 @@ function NetworkManager:leaveGame()
     self._isMultiplayer = false
     self._players = {}
     self._localPlayerId = nil
+    self._worldSnapshot = nil
 
     Log.info("Left multiplayer session")
 end
@@ -206,6 +222,13 @@ function NetworkManager:update(dt)
                     if payload.playerId ~= nil then
                         self._players[payload.playerId] = nil
                     end
+                elseif event.type == "world_snapshot" then
+                    local payload = event.payload or {}
+                    if payload.snapshot then
+                        self._worldSnapshot = Util.deepCopy(payload.snapshot)
+                    else
+                        self._worldSnapshot = nil
+                    end
                 end
             end
         end
@@ -218,6 +241,22 @@ function NetworkManager:update(dt)
             end
         end
     end
+end
+
+function NetworkManager:updateWorldSnapshot(snapshot)
+    if not self._isHost or not self.server then
+        return
+    end
+
+    self.server:updateWorldSnapshot(snapshot)
+end
+
+function NetworkManager:getWorldSnapshot()
+    if not self._worldSnapshot then
+        return nil
+    end
+
+    return Util.deepCopy(self._worldSnapshot)
 end
 
 function NetworkManager:sendPlayerUpdate(playerData)
