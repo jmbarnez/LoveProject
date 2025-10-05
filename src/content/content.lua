@@ -22,12 +22,12 @@ function Content.load()
   end
   
   -- Try auto-discovery first (preferred for easy content drops)
-  local discoveredItems, discoveredShips, discoveredTurrets, discoveredProjectiles, discoveredWorldObjects = DesignLoader.discover()
+  local discoveredItems, discoveredShips, discoveredTurrets, discoveredWorldObjects = DesignLoader.discover()
 
   local items = discoveredItems
   local ships = discoveredShips
   local turrets = discoveredTurrets
-  local projectiles = discoveredProjectiles
+  local projectiles = {} -- Projectiles are now embedded in turrets, so this is empty
   local worldObjects = discoveredWorldObjects
 
   -- No legacy fallback: content must be discovered via files

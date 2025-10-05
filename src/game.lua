@@ -322,7 +322,7 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   if multiplayer and not isHost then
     local pending = _G.PENDING_MULTIPLAYER_CONNECTION
     if pending and pending.connecting then
-      pendingConnection = { address = pending.address, port = pending.port }
+      pendingConnection = { address = pending.address, port = pending.port, username = pending.username }
     else
       Log.error("No pending connection found for client mode - aborting game load")
       return false, "No pending connection details found."

@@ -59,7 +59,7 @@ local function sanitiseSnapshot(snapshot)
         shieldChannel = shieldChannel == true
     }
 
-    Log.info("sanitiseSnapshot: Original health shield:", health.shield, "maxShield:", health.maxShield, "-> Sanitized shield:", sanitized.health.shield, "maxShield:", sanitized.health.maxShield)
+    -- Log.info("sanitiseSnapshot: Original health shield:", health.shield, "maxShield:", health.maxShield, "-> Sanitized shield:", sanitized.health.shield, "maxShield:", sanitized.health.maxShield)
     return sanitized
 end
 
@@ -147,7 +147,7 @@ local function updateEntityFromSnapshot(entity, snapshot)
     local invalidateRadius = false
 
     if entity.components and entity.components.health and data.health then
-        Log.info("updateEntityFromSnapshot: Applying health data to entity", entity.id or "unknown", "shield:", data.health.shield, "maxShield:", data.health.maxShield)
+        -- Log.info("updateEntityFromSnapshot: Applying health data to entity", entity.id or "unknown", "shield:", data.health.shield, "maxShield:", data.health.maxShield)
         local health = entity.components.health
         local oldShield = health.shield
         local oldMaxShield = health.maxShield

@@ -37,9 +37,10 @@ local function list_modules(dir, modulePrefix)
   return mods
 end
 
--- Public: discover item, ship, turret, projectile, and world object definitions.
+-- Public: discover item, ship, turret, and world object definitions.
+-- Note: Projectiles are now embedded within turret definitions, so they are not loaded separately.
 function DesignLoader.discover()
-  local itemDefs, shipDefs, turretDefs, projectileDefs, worldObjectDefs = {}, {}, {}, {}, {}
+  local itemDefs, shipDefs, turretDefs, worldObjectDefs = {}, {}, {}, {}
 
   -- Items
   for _, modName in ipairs(list_modules("content/items", "content.items")) do
@@ -53,16 +54,10 @@ function DesignLoader.discover()
     table.insert(shipDefs, def)
   end
 
-  -- Turrets
+  -- Turrets (with embedded projectiles)
   for _, modName in ipairs(list_modules("content/turrets", "content.turrets")) do
     local def = require_strict(modName)
     table.insert(turretDefs, def)
-  end
-
-  -- Projectiles
-  for _, modName in ipairs(list_modules("content/projectiles", "content.projectiles")) do
-    local def = require_strict(modName)
-    table.insert(projectileDefs, def)
   end
 
   -- World Objects
@@ -71,7 +66,7 @@ function DesignLoader.discover()
     table.insert(worldObjectDefs, def)
   end
 
-  return itemDefs, shipDefs, turretDefs, projectileDefs, worldObjectDefs
+  return itemDefs, shipDefs, turretDefs, worldObjectDefs
 end
 
 return DesignLoader
