@@ -123,6 +123,23 @@ local function transitionToGame(opts)
     local loadingScreen = mainState.loadingScreen
     local Game = require("src.game")
 
+    if not multiplayer then
+        if _G.PENDING_MULTIPLAYER_CONNECTION then
+            _G.PENDING_MULTIPLAYER_CONNECTION = nil
+        end
+
+        if Game and Game.getNetworkManager then
+            local existingManager = Game.getNetworkManager()
+            if existingManager and existingManager:isMultiplayer() then
+                existingManager:leaveGame()
+            end
+        end
+
+        if Game and Game.setMultiplayerMode then
+            Game.setMultiplayerMode(false, false)
+        end
+    end
+
     local function handleMultiplayerJoinFailure(message)
         if _G.PENDING_MULTIPLAYER_CONNECTION then
             _G.PENDING_MULTIPLAYER_CONNECTION = nil
@@ -346,7 +363,15 @@ function Input.love_mousepressed(x, y, button)
     local start = mainState.startScreen:mousepressed(vx, vy, button)
     
     if start == true then
-        transitionToGame({ fromSave = false })
+        if mainState.startScreen then
+          if mainState.startScreen.networkManager and mainState.startScreen.networkManager.leaveGame then
+            mainState.startScreen.networkManager:leaveGame()
+          end
+          mainState.startScreen.showJoinUI = false
+          mainState.startScreen.joinErrorMessage = nil
+        end
+        _G.PENDING_MULTIPLAYER_CONNECTION = nil
+        transitionToGame({ fromSave = false, multiplayer = false, isHost = false })
       return
     elseif start == "loadGame" then
       local loadedSlot = mainState.startScreen.loadedSlot
