@@ -22,6 +22,23 @@ local function shallowCopy(source)
     return out
 end
 
+-- Simple hash function for change detection
+local function simpleHash(data)
+    if not data or type(data) ~= "table" then
+        return tostring(data)
+    end
+    
+    local hash = ""
+    for key, value in pairs(data) do
+        if type(value) == "table" then
+            hash = hash .. tostring(key) .. ":" .. simpleHash(value) .. ";"
+        else
+            hash = hash .. tostring(key) .. ":" .. tostring(value) .. ";"
+        end
+    end
+    return hash
+end
+
 function NetworkManager.new()
     local self = setmetatable({}, NetworkManager)
 
@@ -35,6 +52,18 @@ function NetworkManager.new()
     self._pendingWorldSnapshot = nil
     self._eventListenersSetup = false
     self._lastPlayerUpdate = 0
+    
+    -- Performance optimization: Cache for avoiding unnecessary deep copies
+    self._worldSnapshotCache = nil
+    self._lastWorldSnapshotHash = nil
+    self._playerDataCache = {}
+    self._lastPlayerDataHashes = {}
+    
+    -- Method to invalidate caches when data changes
+    self.invalidateCache = function()
+        self._worldSnapshotCache = nil
+        self._playerDataCache = {}
+    end
 
     self:setupEventListeners()
 
@@ -245,9 +274,16 @@ function NetworkManager:update(dt)
                 elseif event.type == "world_snapshot" then
                     local payload = event.payload or {}
                     if payload.snapshot then
-                        self._worldSnapshot = Util.deepCopy(payload.snapshot)
+                        -- Only deep copy if the snapshot has actually changed
+                        local newHash = simpleHash(payload.snapshot)
+                        if newHash ~= self._lastWorldSnapshotHash then
+                            self._worldSnapshot = Util.deepCopy(payload.snapshot)
+                            self._lastWorldSnapshotHash = newHash
+                            self.invalidateCache() -- Invalidate cache when snapshot changes
+                        end
                     else
                         self._worldSnapshot = nil
+                        self._lastWorldSnapshotHash = nil
                     end
                 end
             end
@@ -279,9 +315,16 @@ end
 
 function NetworkManager:updateWorldSnapshot(snapshot, peer)
     if snapshot ~= nil then
-        self._pendingWorldSnapshot = Util.deepCopy(snapshot)
+        -- Only deep copy if the snapshot has actually changed
+        local newHash = simpleHash(snapshot)
+        if newHash ~= self._lastWorldSnapshotHash then
+            self._pendingWorldSnapshot = Util.deepCopy(snapshot)
+            self._lastWorldSnapshotHash = newHash
+            self.invalidateCache() -- Invalidate cache when snapshot changes
+        end
     else
         self._pendingWorldSnapshot = nil
+        self._lastWorldSnapshotHash = nil
     end
 
     if not self._isHost or not self.server then
@@ -296,13 +339,25 @@ function NetworkManager:getWorldSnapshot()
         return nil
     end
 
-    return Util.deepCopy(self._worldSnapshot)
+    -- Return cached shallow copy if available, otherwise create one
+    if not self._worldSnapshotCache then
+        self._worldSnapshotCache = shallowCopy(self._worldSnapshot)
+    end
+    return self._worldSnapshotCache
 end
 
 function NetworkManager:sendPlayerUpdate(playerData)
     if not self._isMultiplayer then
         return
     end
+
+    -- Check if player data has actually changed to avoid unnecessary updates
+    local playerId = self._isHost and 0 or (self._localPlayerId or "unknown")
+    local newHash = simpleHash(playerData)
+    if self._lastPlayerDataHashes[playerId] == newHash then
+        return -- No change, skip update
+    end
+    self._lastPlayerDataHashes[playerId] = newHash
 
     if self._isHost then
         if self.server then

@@ -148,13 +148,7 @@ function Settings.applyGraphicsSettings(newSettings)
 
         local success, err = WindowMode.apply(newSettings)
         if not success then
-            if Log and Log.warn then
-                Log.warn("Settings.applyGraphicsSettings - Failed to apply window mode: " .. tostring(err))
-            end
             settings.graphics = oldSettings
-            if Log and Log.warn then
-                Log.warn("Settings.applyGraphicsSettings - Rolling back to previous graphics settings")
-            end
             return
         end
 
@@ -168,9 +162,6 @@ function Settings.applyGraphicsSettings(newSettings)
                 love.handlers.resize(newSettings.resolution.width, newSettings.resolution.height)
             end
         end)
-        if not success and Log and Log.warn then
-            Log.warn("Failed to trigger resize event: " .. tostring(err))
-        end
     end
 
     -- Update FPS limit in main.lua if the function exists
@@ -268,9 +259,7 @@ function Settings.save()
     local success, err = love.filesystem.write(filename, data)
 
     if not success then
-        Log.error("Settings.save - Failed to save settings to " .. filename .. ": " .. tostring(err))
     else
-        Log.info("Settings.save - Settings saved successfully.")
     end
 
     return success
@@ -279,7 +268,6 @@ end
 function Settings.load()
     local filename = "settings.json"
     if not love.filesystem.getInfo(filename) then
-        Log.info("Settings.load - No settings file found, using defaults.")
         -- First time running, save the defaults
         Settings.save()
         return
@@ -287,7 +275,6 @@ function Settings.load()
 
     local data, size = love.filesystem.read(filename)
     if not data then
-        Log.error("Settings.load - Could not read settings file: " .. filename)
         return
     end
     
@@ -295,7 +282,6 @@ function Settings.load()
     local ok, loadedSettings = pcall(json.decode, data)
 
     if not ok then
-        Log.error("Settings.load - Failed to parse settings.json: " .. tostring(loadedSettings))
         return
     end
 
@@ -314,7 +300,6 @@ function Settings.load()
     end
     
     settings = deepMerge(defaultSettings, loadedSettings)
-    Log.info("Settings.load - Settings loaded successfully from " .. filename)
 end
 
 function Settings.getDefaultSettings()

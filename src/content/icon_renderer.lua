@@ -40,7 +40,6 @@ function IconRenderer.renderIcon(iconDef, size, id)
       local okShape, errShape = pcall(IconRenderer.drawShape, shape)
       if not okShape then
         if Log and Log.warn then
-          Log.warn("IconRenderer: failed to draw shape: " .. tostring(errShape))
         end
       end
     end

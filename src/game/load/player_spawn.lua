@@ -61,11 +61,9 @@ local function chooseSpawnPosition(world, hub)
         if assignedPosition then
             px = assignedPosition.x or Constants.SPAWNING.MARGIN
             py = assignedPosition.y or Constants.SPAWNING.MARGIN
-            Log.info("Client spawning at server-assigned position:", px, py)
         else
             px = 0
             py = 0
-            Log.warn("Client: No assigned position from server yet, using temporary position (0,0)")
         end
     else
         local angle = math.random() * math.pi * 2

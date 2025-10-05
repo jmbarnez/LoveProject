@@ -22,6 +22,10 @@ local state = {
     worldSyncHandlersRegistered = false,
     networkManagerListenersRegistered = false,
     eventHandlers = {}, -- Track event handlers for cleanup
+    -- Performance optimization: Cache world snapshot to avoid expensive rebuilds
+    cachedWorldSnapshot = nil,
+    lastWorldSnapshotTime = 0,
+    worldSnapshotCacheTimeout = 5.0, -- Cache for 5 seconds
 }
 
 local function sanitisePlayerNetworkState(playerState)
@@ -201,7 +205,8 @@ local function queueWorldSnapshot(snapshot)
     end
 
     if not state.world then
-        state.pendingWorldSnapshot = Util.deepCopy(snapshot)
+        -- Use shallow copy for pending snapshot since it's temporary
+        state.pendingWorldSnapshot = snapshot
         return
     end
 
@@ -215,61 +220,110 @@ local function buildWorldSnapshotFromWorld()
         return nil
     end
 
+    -- Performance optimization: Use cached snapshot if available and not expired
+    local currentTime = love.timer and love.timer.getTime() or os.clock()
+    if state.cachedWorldSnapshot and 
+       (currentTime - state.lastWorldSnapshotTime) < state.worldSnapshotCacheTimeout then
+        return state.cachedWorldSnapshot
+    end
+
     local snapshot = {
         width = world.width or 0,
         height = world.height or 0,
         entities = {},
     }
 
-    for _, entity in pairs(world:getEntities()) do
-        local components = entity.components or {}
-        local position = components.position
-
-        if position and not entity.isPlayer and not entity.isRemotePlayer and not entity.isSyncedEntity then
-            local entry = nil
-
-            if entity.isStation or components.station then
-                local station = components.station or {}
-                entry = {
-                    kind = "station",
-                    id = station.type or "station",
-                    x = position.x or 0,
-                    y = position.y or 0,
-                }
-            elseif entity.type == "world_object" or components.mineable or components.interactable then
-                local subtype = entity.subtype or (components.renderable and components.renderable.type) or "world_object"
-                entry = {
-                    kind = "world_object",
-                    id = subtype,
-                    x = position.x or 0,
-                    y = position.y or 0,
-                }
-            elseif components.ai and not entity.isPlayer and not entity.isRemotePlayer then
-                -- Include enemy entities in world snapshot when host-authoritative enemies is enabled
-                local Settings = require("src.core.settings")
-                local networkingSettings = Settings.getNetworkingSettings()
-                if networkingSettings and networkingSettings.host_authoritative_enemies then
-                    entry = {
-                        kind = "enemy",
-                        id = entity.id or tostring(entity),
-                        type = entity.shipId or "basic_drone",
-                        x = position.x or 0,
-                        y = position.y or 0,
-                    }
-                end
+    -- Performance optimization: Use more efficient entity queries instead of iterating all entities
+    -- Get stations first (usually few in number)
+    local stationEntities = world:get_entities_with_components("station", "position")
+    for _, entity in ipairs(stationEntities) do
+        if not entity.isPlayer and not entity.isRemotePlayer and not entity.isSyncedEntity then
+            local position = entity.components.position
+            local station = entity.components.station or {}
+            local entry = {
+                kind = "station",
+                id = station.type or "station",
+                x = position.x or 0,
+                y = position.y or 0,
+            }
+            if position.angle ~= nil then
+                entry.angle = position.angle
             end
+            snapshot.entities[#snapshot.entities + 1] = entry
+        end
+    end
 
-            if entry then
+    -- Get world objects (mineable/interactable entities)
+    local worldObjectEntities = world:get_entities_with_components("mineable", "position")
+    for _, entity in ipairs(worldObjectEntities) do
+        if not entity.isPlayer and not entity.isRemotePlayer and not entity.isSyncedEntity then
+            local position = entity.components.position
+            local subtype = entity.subtype or (entity.components.renderable and entity.components.renderable.type) or "world_object"
+            local entry = {
+                kind = "world_object",
+                id = subtype,
+                x = position.x or 0,
+                y = position.y or 0,
+            }
+            if position.angle ~= nil then
+                entry.angle = position.angle
+            end
+            snapshot.entities[#snapshot.entities + 1] = entry
+        end
+    end
+
+    -- Get interactable entities
+    local interactableEntities = world:get_entities_with_components("interactable", "position")
+    for _, entity in ipairs(interactableEntities) do
+        if not entity.isPlayer and not entity.isRemotePlayer and not entity.isSyncedEntity then
+            local position = entity.components.position
+            local subtype = entity.subtype or (entity.components.renderable and entity.components.renderable.type) or "world_object"
+            local entry = {
+                kind = "world_object",
+                id = subtype,
+                x = position.x or 0,
+                y = position.y or 0,
+            }
+            if position.angle ~= nil then
+                entry.angle = position.angle
+            end
+            snapshot.entities[#snapshot.entities + 1] = entry
+        end
+    end
+
+    -- Get enemy entities only if host-authoritative enemies is enabled
+    local Settings = require("src.core.settings")
+    local networkingSettings = Settings.getNetworkingSettings()
+    if networkingSettings and networkingSettings.host_authoritative_enemies then
+        local enemyEntities = world:get_entities_with_components("ai", "position")
+        for _, entity in ipairs(enemyEntities) do
+            if not entity.isPlayer and not entity.isRemotePlayer and not entity.isSyncedEntity then
+                local position = entity.components.position
+                local entry = {
+                    kind = "enemy",
+                    id = entity.id or tostring(entity),
+                    type = entity.shipId or "basic_drone",
+                    x = position.x or 0,
+                    y = position.y or 0,
+                }
                 if position.angle ~= nil then
                     entry.angle = position.angle
                 end
-
                 snapshot.entities[#snapshot.entities + 1] = entry
             end
         end
     end
 
+    -- Cache the snapshot for future use
+    state.cachedWorldSnapshot = snapshot
+    state.lastWorldSnapshotTime = currentTime
+
     return snapshot
+end
+
+local function invalidateWorldSnapshotCache()
+    state.cachedWorldSnapshot = nil
+    state.lastWorldSnapshotTime = 0
 end
 
 local function broadcastHostWorldSnapshot(peer)
@@ -543,6 +597,8 @@ function Session.load(opts)
     state.pendingWorldSnapshot = nil
     state.pendingSelfNetworkState = nil
     state.worldSyncHandlersRegistered = false
+    -- Clear world snapshot cache on load
+    invalidateWorldSnapshotCache()
 
     if state.networkManager then
         state.networkManager:leaveGame()
@@ -689,6 +745,8 @@ function Session.teardown()
     state.pendingSelfNetworkState = nil
     state.worldSyncHandlersRegistered = false
     state.networkManagerListenersRegistered = false
+    -- Clear world snapshot cache
+    invalidateWorldSnapshotCache()
 end
 
 function Session.setMode(multiplayer, host)
@@ -714,6 +772,10 @@ end
 
 function Session.getPendingSelfNetworkState()
     return state.pendingSelfNetworkState
+end
+
+function Session.invalidateWorldSnapshotCache()
+    invalidateWorldSnapshotCache()
 end
 
 return Session

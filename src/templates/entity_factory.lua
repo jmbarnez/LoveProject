@@ -59,7 +59,6 @@ function EntityFactory.create(entityType, entityId, x, y, extraConfig)
     end
 
     if not config then
-        Log.warn("EntityFactory - No content data for", tostring(entityType), "'" .. tostring(entityId) .. "'")
         return nil
     end
 

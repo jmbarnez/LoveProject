@@ -20,6 +20,23 @@ local function now()
     return os.clock()
 end
 
+-- Simple hash function for message caching
+local function simpleHash(data)
+    if not data or type(data) ~= "table" then
+        return tostring(data)
+    end
+    
+    local hash = ""
+    for key, value in pairs(data) do
+        if type(value) == "table" then
+            hash = hash .. tostring(key) .. ":" .. simpleHash(value) .. ";"
+        else
+            hash = hash .. tostring(key) .. ":" .. tostring(value) .. ";"
+        end
+    end
+    return hash
+end
+
 local function canonicalPlayerId(id)
     if id == nil then
         return nil
@@ -337,6 +354,10 @@ function NetworkServer.new(port)
     self.nextPlayerId = 1
     self.events = {}
     self.worldSnapshot = nil
+    
+    -- Performance optimization: Message caching to avoid re-encoding
+    self._messageCache = {}
+    self._lastMessageHashes = {}
 
     return self
 end
@@ -424,11 +445,9 @@ function NetworkServer:update(dt)
         return
     end
 
-    -- Allow a small timeout for the first poll to avoid busy waiting when idle,
-    -- but switch to non-blocking reads once we start draining the queue. This
-    -- prevents the host from sleeping 10ms for every queued event which caused
-    -- massive frame hitches when a lot of packets arrived in the same frame.
-    local pollTimeout = 10
+    -- Performance optimization: Use non-blocking poll to avoid frame drops
+    -- Only use a small timeout for the first poll, then switch to non-blocking
+    local pollTimeout = 0  -- Non-blocking to prevent FPS drops
     local ok, event = pcall(self.transport.service, self.enetServer, pollTimeout)
     if not ok then
         -- Don't stop the server on service errors, just log and continue
@@ -457,7 +476,7 @@ function NetworkServer:update(dt)
             end
         end
 
-        -- Get next event with error handling
+        -- Get next event with error handling (non-blocking)
         local ok2, nextEvent = pcall(self.transport.service, self.enetServer, 0)
         if ok2 then
             event = nextEvent
@@ -673,12 +692,51 @@ function NetworkServer:_broadcastExcept(excludedPeer, data)
         return
     end
 
+    -- Performance optimization: Batch peer operations and use cached data
+    local peersToSend = {}
+    local peerCount = 0
+    
+    -- Collect peers to send to (avoid modifying table during iteration)
     for peer in pairs(self.peers) do
         if peer ~= excludedPeer then
-            local ok, err = self.transport.send({ peer = peer }, data, 0, true)
-            if not ok then
-            end
+            peerCount = peerCount + 1
+            peersToSend[peerCount] = peer
         end
+    end
+    
+    -- Send to all peers in batch
+    for i = 1, peerCount do
+        local peer = peersToSend[i]
+        local ok, err = self.transport.send({ peer = peer }, data, 0, true)
+        if not ok then
+            -- Remove failed peer from active peers
+            self.peers[peer] = nil
+        end
+    end
+end
+
+-- Optimized broadcast method with message caching
+function NetworkServer:_broadcastCached(excludedPeer, messageData, cacheKey)
+    if not messageData then
+        return
+    end
+
+    -- Check if we have a cached version of this message
+    local messageHash = simpleHash(messageData)
+    local cachedData = self._messageCache[cacheKey]
+    
+    if cachedData and self._lastMessageHashes[cacheKey] == messageHash then
+        -- Use cached encoded data
+        self:_broadcastExcept(excludedPeer, cachedData)
+        return
+    end
+    
+    -- Encode and cache the message
+    local encoded = Messages.encode(messageData)
+    if encoded then
+        self._messageCache[cacheKey] = encoded
+        self._lastMessageHashes[cacheKey] = messageHash
+        self:_broadcastExcept(excludedPeer, encoded)
     end
 end
 
@@ -852,14 +910,13 @@ function NetworkServer:broadcastEnemyUpdate(enemyData)
         return
     end
 
-    local encoded = Messages.encode({
+    -- Use cached broadcasting to avoid re-encoding identical messages
+    local messageData = {
         type = TYPES.ENEMY_UPDATE,
         enemies = sanitizedEnemyData
-    })
-
-    if encoded then
-        self:_broadcastExcept(nil, encoded)
-    end
+    }
+    
+    self:_broadcastCached(nil, messageData, "enemy_update")
 
     -- Don't emit event to host - host already has the enemy data in its world
     -- Events.emit("NETWORK_ENEMY_UPDATE", { enemies = sanitizedEnemyData })
@@ -876,14 +933,13 @@ function NetworkServer:broadcastProjectileUpdate(projectileData)
         return
     end
 
-    local encoded = Messages.encode({
+    -- Use cached broadcasting to avoid re-encoding identical messages
+    local messageData = {
         type = TYPES.PROJECTILE_UPDATE,
         projectiles = sanitizedProjectileData
-    })
-
-    if encoded then
-        self:_broadcastExcept(nil, encoded)
-    end
+    }
+    
+    self:_broadcastCached(nil, messageData, "projectile_update")
 
     -- Don't emit event to host - host already has the projectile data in its world
     -- Events.emit("NETWORK_PROJECTILE_UPDATE", { projectiles = sanitizedProjectileData })

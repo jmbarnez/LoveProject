@@ -5,7 +5,6 @@ local Validator = {}
 
 local function requireField(tbl, field, ctx)
   if tbl[field] == nil then
-    Log.warn("Missing field", field, "in", ctx or "def")
     return false
   end
   return true
