@@ -150,16 +150,43 @@ updateRemotePlayer = function(playerId, data, world)
         -- Smooth position interpolation
         local pos = remotePlayer.components.position
         local targetPos = data.position
-        
+
         -- Simple linear interpolation for smooth movement
         pos.x = pos.x + (targetPos.x - pos.x) * 0.3
         pos.y = pos.y + (targetPos.y - pos.y) * 0.3
         pos.angle = targetPos.angle or 0
 
+        -- Keep physics body in sync with interpolated position so the
+        -- physics system doesn't snap us back to the old body position on
+        -- the next frame.
+        if remotePlayer.components.physics and remotePlayer.components.physics.body then
+            local body = remotePlayer.components.physics.body
+
+            if body.setPosition then
+                body:setPosition(pos.x, pos.y)
+            else
+                body.x = pos.x
+                body.y = pos.y
+            end
+
+            body.angle = pos.angle or body.angle or 0
+        end
+
         -- Update velocity if available
         if remotePlayer.components.velocity and data.velocity then
             remotePlayer.components.velocity.x = data.velocity.x
             remotePlayer.components.velocity.y = data.velocity.y
+        end
+
+        -- Mirror velocity on the physics body to avoid thruster artefacts
+        if data.velocity and remotePlayer.components.physics and remotePlayer.components.physics.body then
+            local body = remotePlayer.components.physics.body
+            if body.setVelocity then
+                body:setVelocity(data.velocity.x or 0, data.velocity.y or 0)
+            else
+                body.vx = data.velocity.x or 0
+                body.vy = data.velocity.y or 0
+            end
         end
 
         -- Update health if available
