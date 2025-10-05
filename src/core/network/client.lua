@@ -118,11 +118,20 @@ local function sanitiseWorldSnapshot(snapshot)
         return nil
     end
 
+    local width = tonumber(snapshot.width)
+    local height = tonumber(snapshot.height)
+
     local sanitised = {
-        width = tonumber(snapshot.width) or 0,
-        height = tonumber(snapshot.height) or 0,
         entities = {}
     }
+
+    if width ~= nil then
+        sanitised.width = width
+    end
+
+    if height ~= nil then
+        sanitised.height = height
+    end
 
     if type(snapshot.entities) == "table" then
         for _, entry in ipairs(snapshot.entities) do
