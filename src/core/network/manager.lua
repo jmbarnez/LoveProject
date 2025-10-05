@@ -1,6 +1,7 @@
 --[[
     Network Manager
-    Central coordinator for multiplayer functionality
+    High level facade that coordinates the multiplayer session and exposes
+    normalised state to gameplay systems.
 ]]
 
 local Log = require("src.core.log")
@@ -12,13 +13,23 @@ local NetworkServer = require("src.core.network.server")
 local NetworkManager = {}
 NetworkManager.__index = NetworkManager
 
+local function shallowCopy(source)
+    local out = {}
+    for key, value in pairs(source) do
+        out[key] = value
+    end
+    return out
+end
+
 function NetworkManager.new()
     local self = setmetatable({}, NetworkManager)
 
     self.client = NetworkClient.new()
-    self.server = NetworkServer.new(7777)
+    self.server = nil
     self._isHost = false
     self._isMultiplayer = false
+    self._players = {}
+    self._localPlayerId = nil
 
     self:setupEventListeners()
 
@@ -32,99 +43,117 @@ function NetworkManager:setupEventListeners()
 
     Events.on("NETWORK_DISCONNECTED", function()
         Log.info("Disconnected from multiplayer server")
+        self._players = {}
+        self._localPlayerId = nil
     end)
 
     Events.on("NETWORK_PLAYER_JOINED", function(data)
-        if data and data.playerId then
-            if data.isSelf then
-                Log.info("You joined with player ID", data.playerId)
-            else
-                Log.info("Player joined:", data.playerId, "name:", data.playerName)
-            end
+        if not data or not data.playerId then
+            return
         end
+
+        local id = data.playerId
+        self._players[id] = self._players[id] or { state = {} }
+        self._players[id].playerId = id
+        self._players[id].playerName = data.playerName or self._players[id].playerName
+        if data.data then
+            self._players[id].state = data.data
+        end
+        if data.isSelf then
+            self._localPlayerId = id
+        end
+
+        Log.info("Player joined:", id, data.playerName or "")
     end)
 
     Events.on("NETWORK_PLAYER_LEFT", function(data)
-        if data and data.playerId then
-            Log.info("Player left:", data.playerId)
+        if not data or not data.playerId then
+            return
+        end
+        self._players[data.playerId] = nil
+        Log.info("Player left:", data.playerId)
+    end)
+
+    Events.on("NETWORK_PLAYER_UPDATED", function(data)
+        if not data or not data.playerId then
+            return
+        end
+        local id = data.playerId
+        self._players[id] = self._players[id] or { playerId = id }
+        if data.data then
+            self._players[id].state = data.data
+        end
+        if data.playerName then
+            self._players[id].playerName = data.playerName
         end
     end)
 
-
-    Events.on("NETWORK_SEND_PLAYER_UPDATE", function(data)
-        if not data then
+    Events.on("NETWORK_SEND_PLAYER_UPDATE", function(payload)
+        if not payload then
             return
         end
-
-        if not self._isMultiplayer then
-            return
-        end
-
-        -- Both host and client should send player updates
-        self:sendPlayerUpdate(data)
+        self:sendPlayerUpdate(payload)
     end)
 end
 
 function NetworkManager:startHost(port)
     if self._isMultiplayer then
-        Log.warn("Already in multiplayer mode")
         return false
     end
 
-    port = port or 7777
-    self.server = NetworkServer.new(port)
-
-    if self.server:start() then
-        self._isHost = true
-        self._isMultiplayer = true
-        
-        -- Add the host player to the server with unique name
-        local hostName = "Host_" .. os.time() .. "_" .. math.random(1000, 9999)
-        self.server:addHostPlayer(hostName, {
-            position = { x = 0, y = 0, angle = 0 },
-            velocity = { x = 0, y = 0 },
-            health = { hp = 100, maxHp = 100, shield = 0, maxShield = 0 }
-        })
-        
-        -- Emit host player joined event
-        Events.emit("NETWORK_PLAYER_JOINED", {
-            playerId = 0,
-            playerName = hostName,
-            isSelf = true
-        })
-        
-        Log.info("Started hosting multiplayer game as HOST - isHost:", self._isHost, "isMultiplayer:", self._isMultiplayer)
-        return true
+    self.server = NetworkServer.new(port or 7777)
+    if not self.server:start() then
+        return false
     end
 
-    Log.error("Failed to start multiplayer server")
-    return false
+    self._isHost = true
+    self._isMultiplayer = true
+    self._localPlayerId = 0
+
+    local hostName = string.format("Host_%d", os.time())
+    self.server:addHostPlayer(hostName, {
+        position = { x = 0, y = 0, angle = 0 },
+        velocity = { x = 0, y = 0 }
+    })
+
+    self._players = {}
+    self._players[0] = {
+        playerId = 0,
+        playerName = hostName,
+        state = {
+            position = { x = 0, y = 0, angle = 0 },
+            velocity = { x = 0, y = 0 }
+        }
+    }
+
+    Events.emit("NETWORK_PLAYER_JOINED", {
+        playerId = 0,
+        playerName = hostName,
+        isSelf = true,
+        data = self._players[0].state
+    })
+
+    Log.info("Started hosting multiplayer game")
+    return true
 end
 
-function NetworkManager:joinGame(address, port, options)
+function NetworkManager:joinGame(address, port)
     if self._isMultiplayer then
-        Log.warn("Already in multiplayer mode")
-        return false, "Already connected to a multiplayer session."
+        return false, "Already in multiplayer"
     end
 
-    address = address or "localhost"
-    port = port or 7777
-
-    Log.info("Attempting to join game at", string.format("%s:%d", address, port))
-
-    local connected, err = self.client:connect(address, port, options)
-    if connected then
-        self._isHost = false
-        self._isMultiplayer = true
-        Log.info("Successfully joined multiplayer game as CLIENT - isHost:", self._isHost, "isMultiplayer:", self._isMultiplayer)
-        return true
+    local ok, err = self.client:connect(address or "localhost", port or 7777)
+    if not ok then
+        return false, err
     end
 
-    local message = err or self.client:getLastError() or "Failed to join multiplayer game."
-    Log.error("Failed to join multiplayer game:", message)
     self._isHost = false
-    self._isMultiplayer = false
-    return false, message
+    self._isMultiplayer = true
+    self._players = {}
+    self._localPlayerId = nil
+
+    Log.info("Attempting to join host", address or "localhost", port or 7777)
+    return true
 end
 
 function NetworkManager:leaveGame()
@@ -132,15 +161,18 @@ function NetworkManager:leaveGame()
         return
     end
 
-    if self._isHost then
+    if self._isHost and self.server then
         self.server:stop()
-    else
+    elseif self.client then
         self.client:disconnect()
     end
 
     self._isHost = false
     self._isMultiplayer = false
-    Log.info("Left multiplayer game")
+    self._players = {}
+    self._localPlayerId = nil
+
+    Log.info("Left multiplayer session")
 end
 
 function NetworkManager:update(dt)
@@ -149,9 +181,42 @@ function NetworkManager:update(dt)
     end
 
     if self._isHost then
-        self.server:update(dt)
+        if self.server then
+            self.server:update(dt)
+            for _, event in ipairs(self.server:pullEvents()) do
+                if event.type == "state" then
+                    local payload = event.payload or {}
+                    if payload.playerId ~= nil then
+                        self._players[payload.playerId] = self._players[payload.playerId] or {}
+                        self._players[payload.playerId].playerId = payload.playerId
+                        self._players[payload.playerId].playerName = payload.name or self._players[payload.playerId].playerName
+                        self._players[payload.playerId].state = payload.state or self._players[payload.playerId].state
+                    end
+                elseif event.type == "joined" then
+                    local payload = event.payload or {}
+                    if payload.playerId ~= nil then
+                        self._players[payload.playerId] = {
+                            playerId = payload.playerId,
+                            playerName = payload.name,
+                            state = payload.state
+                        }
+                    end
+                elseif event.type == "left" then
+                    local payload = event.payload or {}
+                    if payload.playerId ~= nil then
+                        self._players[payload.playerId] = nil
+                    end
+                end
+            end
+        end
     else
-        self.client:update(dt)
+        if self.client then
+            self.client:update(dt)
+            self._players = shallowCopy(self.client:getPlayers())
+            if self.client.playerId then
+                self._localPlayerId = self.client.playerId
+            end
+        end
     end
 end
 
@@ -161,78 +226,38 @@ function NetworkManager:sendPlayerUpdate(playerData)
     end
 
     if self._isHost then
-        -- Host sends updates to the server
-        if self.server and self.server:isRunning() then
-            -- Directly update the server's host player data
-            Log.info("Host sending player update:", json.encode(playerData))
-            self.server:updateHostPlayer(playerData)
-        else
-            Log.warn("Host server not running, cannot send update")
+        if self.server then
+            self.server:updateHostState(playerData)
+            self._players[0] = self._players[0] or {}
+            self._players[0].playerId = 0
+            self._players[0].playerName = self._players[0].playerName or "Host"
+            self._players[0].state = playerData
         end
     else
-        -- Client sends updates to the server
-        if self.client:isConnected() then
+        if self.client and self.client:isConnected() then
+            Log.info("Client sending player update:", json.encode(playerData))
             self.client:sendPlayerUpdate(playerData)
         end
     end
 end
 
-
 function NetworkManager:getPlayers()
-    if not self._isMultiplayer then
-        return {}
-    end
-
-    if self._isHost then
-        local normalized = {}
-        local serverPlayers = self.server:getPlayers()
-        for playerId, player in pairs(serverPlayers) do
-            local snapshot = {}
-            -- Copy all data from player.data (includes position, velocity, health)
-            if player.data then
-                for key, value in pairs(player.data) do
-                    snapshot[key] = value
-                end
-            end
-            -- Set basic player info
-            snapshot.playerId = snapshot.playerId or playerId
-            if player.name then
-                snapshot.playerName = snapshot.playerName or player.name
-            end
-            if player.lastSeen then
-                snapshot.lastSeen = player.lastSeen
-            end
-            normalized[playerId] = snapshot
-        end
-        return normalized
-    end
-
-    return self.client:getPlayers()
+    return self._players
 end
 
 function NetworkManager:getPlayerCount()
-    if not self._isMultiplayer then
-        return 1
-    end
-
-    if self._isHost then
-        local count = self.server:getPlayerCount()
-        Log.info("Host player count:", count)
-        return count
-    end
-
-    local count = 1 -- include local player
-    local clientPlayers = self.client:getPlayers()
-    for playerId, _ in pairs(clientPlayers) do
+    local count = 0
+    for _ in pairs(self._players) do
         count = count + 1
-        Log.info("Client sees player:", playerId)
     end
-    Log.info("Client player count:", count)
-    return count
+    return count > 0 and count or 1
 end
 
 function NetworkManager:getPing()
-    if self._isMultiplayer and not self._isHost then
+    if self._isHost then
+        return 0
+    end
+    if self.client then
         return self.client:getPing()
     end
     return 0
@@ -252,10 +277,14 @@ function NetworkManager:isConnected()
     end
 
     if self._isHost then
-        return self.server:isRunning()
+        return self.server ~= nil
     end
 
-    return self.client:isConnected()
+    return self.client and self.client:isConnected() or false
+end
+
+function NetworkManager:getLocalPlayerId()
+    return self._localPlayerId
 end
 
 return NetworkManager
