@@ -135,7 +135,7 @@ function EnetTransport.createServer(port, options)
     end
 
     options = options or {}
-    local endpoint = string.format("*:%d", port)
+    local endpoint = string.format("127.0.0.1:%d", port)
     local peerLimit = options.peerLimit or 64
     local channelLimit = options.channelLimit or 2
     local inBandwidth = options.inBandwidth or 0

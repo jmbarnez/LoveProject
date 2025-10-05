@@ -104,24 +104,10 @@ local function buildAddressAttempts(address)
         end
     end
 
-    if lowered == "localhost" then
-        -- Prioritise IPv4 first as ENet commonly runs IPv4-only on Windows.
-        prefer("127.0.0.1")
-        prefer("::1")
-        prefer(normalised)
-    elseif lowered == "127.0.0.1" then
-        prefer(normalised)
-        prefer("localhost")
-        prefer("::1")
-    elseif lowered == "::1" then
-        prefer(normalised)
-        prefer("localhost")
+    if lowered == "localhost" or lowered == "127.0.0.1" or lowered == "::1" then
         prefer("127.0.0.1")
     else
         prefer(normalised)
-        if lowered == "0.0.0.0" then
-            prefer("127.0.0.1")
-        end
     end
 
     return attempts

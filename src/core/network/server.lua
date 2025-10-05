@@ -373,6 +373,11 @@ function NetworkServer:update(dt)
     if not self.isRunning or not self.transport or not self.enetServer then
         return
     end
+    
+    -- Debug: Log that server update is being called (but only occasionally to avoid spam)
+    if math.random() < 0.01 then -- 1% chance to log
+        Log.info("Server update called, isRunning:", self.isRunning)
+    end
 
     -- Additional safety check for ENet server
     if not self.enetServer.host then
@@ -380,12 +385,13 @@ function NetworkServer:update(dt)
         return
     end
 
-    local ok, event = pcall(self.transport.service, self.transport, self.enetServer, 0)
+    local ok, event = pcall(self.transport.service, self.transport, self.enetServer, 10)
     if not ok then
         Log.error("Network server service error:", event)
         return
     end
     while event do
+        Log.info("Server received event:", event.type)
         if event.type == "connect" then
             self.peers[event.peer] = true
             Log.info("Peer connected")
@@ -398,7 +404,7 @@ function NetworkServer:update(dt)
             self:_handleDisconnect(event.peer)
         end
 
-        event = self.transport.service(self.enetServer, 0)
+        event = self.transport.service(self.enetServer, 10)
     end
 end
 
