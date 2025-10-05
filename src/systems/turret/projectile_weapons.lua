@@ -10,6 +10,23 @@ local PLAYER_LOCK_ANGLE_TOLERANCE = math.rad(25)
 local PLAYER_LOCK_HOLD_TOLERANCE_SCALE = 1.5
 local LOCK_PROGRESS_DECAY_MULT = 2.0
 
+local function buildProjectileMetadata(turret)
+    if not turret or not turret.owner then
+        return {}
+    end
+
+    local owner = turret.owner
+    local metadata = {
+        playerId = owner.remotePlayerId or owner.playerId or owner.id,
+        shipId = owner.shipId or (owner.ship and owner.ship.id) or nil,
+        turretSlot = turret.slot,
+        turretId = turret.id,
+        turretType = turret.kind or turret.type,
+    }
+
+    return metadata
+end
+
 -- Helper function to send weapon fire request to host
 local function sendWeaponFireRequest(turret, sx, sy, angle, projectileId, damageConfig, additionalEffects)
     local NetworkSession = require("src.core.network.session")
@@ -17,6 +34,7 @@ local function sendWeaponFireRequest(turret, sx, sy, angle, projectileId, damage
     
     if networkManager and networkManager:isMultiplayer() and not networkManager:isHost() then
         -- Client: send weapon fire request to host
+        local metadata = buildProjectileMetadata(turret)
         local request = {
             type = "weapon_fire_request",
             turretId = turret.id or tostring(turret),
@@ -25,7 +43,11 @@ local function sendWeaponFireRequest(turret, sx, sy, angle, projectileId, damage
             projectileId = projectileId,
             damageConfig = damageConfig,
             additionalEffects = additionalEffects,
-            ownerId = turret.owner and turret.owner.id or nil
+            ownerId = turret.owner and turret.owner.id or nil,
+            playerId = metadata.playerId,
+            shipId = metadata.shipId,
+            turretSlot = metadata.turretSlot,
+            turretType = metadata.turretType,
         }
         
         -- Send via network manager
@@ -366,12 +388,18 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
 
             -- If not a client or request failed, spawn projectile directly (for host)
             if not requestSent and world and world.spawn_projectile then
+                local metadata = buildProjectileMetadata(turret)
                 world.spawn_projectile(sx, sy, finalAngle, friendly, {
                     projectile = projectileId,
                     vx = vx,
                     vy = vy,
                     source = turret.owner,
-                    damage = damageConfig
+                    damage = damageConfig,
+                    sourcePlayerId = metadata.playerId,
+                    sourceShipId = metadata.shipId,
+                    sourceTurretSlot = metadata.turretSlot,
+                    sourceTurretId = metadata.turretId,
+                    sourceTurretType = metadata.turretType,
                 })
             end
         end
@@ -498,13 +526,19 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
 
         -- If not a client or request failed, spawn projectile directly (for host)
         if not requestSent and world and world.spawn_projectile then
+            local metadata = buildProjectileMetadata(turret)
             world.spawn_projectile(sx, sy, angle, friendly, {
                 projectile = projectileId,
                 vx = vx,
                 vy = vy,
                 source = turret.owner,
                 damage = damageConfig,
-                additionalEffects = additionalEffects
+                additionalEffects = additionalEffects,
+                sourcePlayerId = metadata.playerId,
+                sourceShipId = metadata.shipId,
+                sourceTurretSlot = metadata.turretSlot,
+                sourceTurretId = metadata.turretId,
+                sourceTurretType = metadata.turretType,
             })
         end
 
@@ -577,13 +611,19 @@ function ProjectileWeapons.fireSecondaryProjectile(turret, target, primaryAngle,
 
     -- If not a client or request failed, spawn projectile directly (for host)
     if not requestSent and world and world.spawn_projectile then
+        local metadata = buildProjectileMetadata(turret)
         world.spawn_projectile(sx, sy, angle, friendly, {
             projectile = turret.secondaryProjectile.id,
             vx = vx,
             vy = vy,
             source = turret.owner,
             damage = dmg,
-            kind = 'missile'
+            kind = 'missile',
+            sourcePlayerId = metadata.playerId,
+            sourceShipId = metadata.shipId,
+            sourceTurretSlot = metadata.turretSlot,
+            sourceTurretId = metadata.turretId,
+            sourceTurretType = metadata.turretType,
         })
     end
 end
