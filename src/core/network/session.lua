@@ -25,8 +25,28 @@ local state = {
     -- Performance optimization: Cache world snapshot to avoid expensive rebuilds
     cachedWorldSnapshot = nil,
     lastWorldSnapshotTime = 0,
-    worldSnapshotCacheTimeout = 5.0, -- Cache for 5 seconds
+    worldSnapshotCacheTimeout = 10.0, -- Cache for 10 seconds (reduced frequency)
+    lastWorldSnapshotHash = nil, -- Track changes for delta updates
+    worldSnapshotSendInterval = 2.0, -- Send snapshots every 2 seconds instead of on every change
+    lastWorldSnapshotSend = 0
 }
+
+-- Simple hash function for change detection
+local function simpleHash(data)
+    if not data or type(data) ~= "table" then
+        return tostring(data)
+    end
+    
+    local hash = ""
+    for key, value in pairs(data) do
+        if type(value) == "table" then
+            hash = hash .. tostring(key) .. ":" .. simpleHash(value) .. ";"
+        else
+            hash = hash .. tostring(key) .. ":" .. tostring(value) .. ";"
+        end
+    end
+    return hash
+end
 
 local function sanitisePlayerNetworkState(playerState)
     if type(playerState) ~= "table" then
@@ -324,6 +344,76 @@ local function buildWorldSnapshotFromWorld()
     return snapshot
 end
 
+-- Optimized function to build delta world snapshot (only changed entities)
+local function buildDeltaWorldSnapshot()
+    local world = state.world
+    if not world then
+        return nil
+    end
+
+    local currentTime = love.timer and love.timer.getTime() or os.clock()
+    
+    -- Check if we should send a snapshot based on time interval
+    if (currentTime - state.lastWorldSnapshotSend) < state.worldSnapshotSendInterval then
+        return nil -- Too soon to send another snapshot
+    end
+
+    local snapshot = {
+        width = world.width or 0,
+        height = world.height or 0,
+        entities = {},
+        isDelta = true, -- Mark as delta update
+        timestamp = currentTime
+    }
+
+    -- Only include entities that have changed since last snapshot
+    -- For now, we'll use a simplified approach and only send static entities
+    -- Dynamic entities (enemies) are handled by the enemy sync system
+    
+    -- Get stations (these rarely change)
+    local stationEntities = world:get_entities_with_components("station", "position")
+    for _, entity in ipairs(stationEntities) do
+        if not entity.isPlayer and not entity.isRemotePlayer and not entity.isSyncedEntity then
+            local position = entity.components.position
+            local station = entity.components.station or {}
+            local entry = {
+                kind = "station",
+                id = station.type or "station",
+                x = position.x or 0,
+                y = position.y or 0,
+            }
+            if position.angle ~= nil then
+                entry.angle = position.angle
+            end
+            snapshot.entities[#snapshot.entities + 1] = entry
+        end
+    end
+
+    -- Get world objects (these rarely change)
+    local worldObjectEntities = world:get_entities_with_components("mineable", "position")
+    for _, entity in ipairs(worldObjectEntities) do
+        if not entity.isPlayer and not entity.isRemotePlayer and not entity.isSyncedEntity then
+            local position = entity.components.position
+            local subtype = entity.subtype or (entity.components.renderable and entity.components.renderable.type) or "world_object"
+            local entry = {
+                kind = "world_object",
+                id = subtype,
+                x = position.x or 0,
+                y = position.y or 0,
+            }
+            if position.angle ~= nil then
+                entry.angle = position.angle
+            end
+            snapshot.entities[#snapshot.entities + 1] = entry
+        end
+    end
+
+    -- Update send time
+    state.lastWorldSnapshotSend = currentTime
+
+    return snapshot
+end
+
 local function invalidateWorldSnapshotCache()
     state.cachedWorldSnapshot = nil
     state.lastWorldSnapshotTime = 0
@@ -335,10 +425,37 @@ local function broadcastHostWorldSnapshot(peer)
         return
     end
 
+    -- Use delta snapshot for better performance
+    local snapshot = buildDeltaWorldSnapshot()
+    if not snapshot then
+        return
+    end
+
+    -- Check if snapshot has actually changed
+    local snapshotHash = simpleHash(snapshot)
+    if snapshotHash == state.lastWorldSnapshotHash then
+        return -- No changes, skip broadcast
+    end
+    state.lastWorldSnapshotHash = snapshotHash
+
+    manager:updateWorldSnapshot(snapshot, peer)
+end
+
+-- Send full world snapshot (for new players or when explicitly requested)
+local function broadcastFullWorldSnapshot(peer)
+    local manager = state.networkManager
+    if not manager or not manager:isHost() then
+        return
+    end
+
     local snapshot = buildWorldSnapshotFromWorld()
     if not snapshot then
         return
     end
+
+    -- Mark as full snapshot
+    snapshot.isFullSnapshot = true
+    snapshot.timestamp = love.timer and love.timer.getTime() or os.clock()
 
     manager:updateWorldSnapshot(snapshot, peer)
 end
@@ -436,6 +553,7 @@ local function handleBeamRequest(request, playerId)
     local endX = startX + math.cos(request.angle or 0) * beamLength
     local endY = startY + math.sin(request.angle or 0) * beamLength
 
+    -- Set visual beam properties
     player.remoteBeamActive = true
     player.remoteBeamStartX = startX
     player.remoteBeamStartY = startY
@@ -444,6 +562,35 @@ local function handleBeamRequest(request, playerId)
     player.remoteBeamAngle = request.angle or 0
     player.remoteBeamLength = beamLength
     player.remoteBeamStartTime = love.timer and love.timer.getTime() or os.clock()
+
+    -- Apply beam damage and collision detection
+    local BeamWeapons = require("src.systems.turret.beam_weapons")
+    local hitTarget, hitX, hitY = BeamWeapons.performLaserHitscan(startX, startY, endX, endY, { owner = player }, world)
+    
+    if hitTarget then
+        -- Calculate damage from request
+        local damagePerSecond = 100 -- Default damage
+        if request.damageConfig then
+            if request.damageConfig.min and request.damageConfig.max then
+                damagePerSecond = (request.damageConfig.min + request.damageConfig.max) * 0.5
+            elseif request.damageConfig.value then
+                damagePerSecond = request.damageConfig.value
+            end
+        end
+        
+        -- Apply damage using the same system as local beams
+        -- Use a more accurate beam duration based on the combat laser config (0.16 seconds from combat_laser.lua)
+        local beamDuration = 0.16 -- Combat laser beam duration
+        local damageAmount = damagePerSecond * beamDuration
+        if damageAmount > 0 then
+            local damageMeta = request.damageConfig or { min = 1, max = 2 }
+            BeamWeapons.applyLaserDamage(hitTarget, damageAmount, player, request.damageConfig and request.damageConfig.skill, damageMeta)
+        end
+        
+        -- Create impact effect
+        local TurretEffects = require("src.systems.turret.effects")
+        TurretEffects.createImpactEffect({ owner = player }, hitX, hitY, hitTarget, "laser")
+    end
 end
 
 local function handleUtilityBeamRequest(request, playerId)
@@ -528,7 +675,7 @@ local function registerWorldSyncEventHandlers()
             return
         end
 
-        broadcastHostWorldSnapshot()
+        broadcastFullWorldSnapshot() -- Send full snapshot when server starts
     end)
 
     state.eventHandlers["NETWORK_ENEMY_UPDATE"] = Events.on("NETWORK_ENEMY_UPDATE", function(data)
@@ -572,7 +719,7 @@ local function registerWorldSyncEventHandlers()
                 Session.setMode(true, true)
             end
             if state.networkManager and state.networkManager:isHost() then
-                broadcastHostWorldSnapshot(data and data.peer)
+                broadcastFullWorldSnapshot(data and data.peer) -- Send full snapshot for new players
             end
             return
         end
@@ -646,6 +793,11 @@ function Session.update(dt, context)
     end
 
     applySelfNetworkStateIfAvailable()
+    
+    -- Send periodic delta world snapshots for existing players
+    if state.isHost and state.networkManager and state.networkManager:isHost() then
+        broadcastHostWorldSnapshot() -- This will use delta snapshots with time-based throttling
+    end
 end
 
 function Session.setContext(context)

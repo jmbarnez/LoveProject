@@ -229,17 +229,33 @@ function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMet
     end
 
     -- Laser weapons: 15% more damage to shields, half damage to hulls
-    local shieldDamage = math.min(health.shield, baseDamage * 1.15) -- 15% more damage to shields
-    health.shield = health.shield - shieldDamage
-
-    local hullDamageApplied = false
+    -- Use the same calculation logic as CollisionEffects.applyDamage for consistency
+    local shieldBefore = health.shield or 0
+    local shieldDamage = math.min(shieldBefore, baseDamage * 1.15) -- 15% more damage to shields
     local remainingDamage = baseDamage - (shieldDamage / 1.15) -- Convert back to original damage for hull calculation
+    local hullDamage = 0
+    
     if remainingDamage > 0 then
-        local hullDamage = remainingDamage * 0.5 -- Half damage to hull
-        if hullDamage > 0 then
-            health.hp = health.hp - hullDamage
-            hullDamageApplied = true
-        end
+        hullDamage = remainingDamage * 0.5 -- Half damage to hull
+    end
+
+    -- Apply shield damage
+    if shieldDamage > 0 then
+        health.shield = math.max(0, shieldBefore - shieldDamage)
+        -- Add damage number effect
+        local Effects = require("src.systems.effects")
+        Effects.addDamageNumber(target.components.position.x, target.components.position.y, math.floor(shieldDamage), "shield")
+    end
+
+    -- Apply hull damage
+    local hullDamageApplied = false
+    if hullDamage > 0 then
+        health.hp = math.max(0, (health.hp or 0) - hullDamage)
+        hullDamageApplied = true
+        -- Add damage number effect
+        local Effects = require("src.systems.effects")
+        Effects.addDamageNumber(target.components.position.x, target.components.position.y, math.floor(hullDamage), "hull")
+        
         if health.hp <= 0 then
             target.dead = true
             target._killedBy = source
