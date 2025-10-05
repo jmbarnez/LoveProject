@@ -166,6 +166,55 @@ local function sanitiseWorldSnapshot(snapshot)
     return sanitised
 end
 
+local function sanitiseEnemySnapshot(snapshot)
+    if type(snapshot) ~= "table" then
+        return {}
+    end
+
+    local sanitised = {}
+    for _, enemy in ipairs(snapshot) do
+        if type(enemy) == "table" and enemy.id and enemy.type then
+            local sanitisedEnemy = {
+                id = tostring(enemy.id),
+                type = tostring(enemy.type),
+                position = {
+                    x = tonumber(enemy.position and enemy.position.x) or 0,
+                    y = tonumber(enemy.position and enemy.position.y) or 0,
+                    angle = tonumber(enemy.position and enemy.position.angle) or 0
+                },
+                velocity = {
+                    x = tonumber(enemy.velocity and enemy.velocity.x) or 0,
+                    y = tonumber(enemy.velocity and enemy.velocity.y) or 0
+                }
+            }
+
+            -- Include health data if available
+            if enemy.health then
+                sanitisedEnemy.health = {
+                    hp = tonumber(enemy.health.hp) or 100,
+                    maxHP = tonumber(enemy.health.maxHP) or 100,
+                    shield = tonumber(enemy.health.shield) or 0,
+                    maxShield = tonumber(enemy.health.maxShield) or 0,
+                    energy = tonumber(enemy.health.energy) or 0,
+                    maxEnergy = tonumber(enemy.health.maxEnergy) or 0
+                }
+            end
+
+            -- Include AI state if available
+            if enemy.ai then
+                sanitisedEnemy.ai = {
+                    state = tostring(enemy.ai.state) or "patrolling",
+                    target = enemy.ai.target or nil
+                }
+            end
+
+            table.insert(sanitised, sanitisedEnemy)
+        end
+    end
+
+    return sanitised
+end
+
 function NetworkServer.new(port)
     local self = setmetatable({}, NetworkServer)
 
@@ -527,16 +576,23 @@ function NetworkServer:broadcastEnemyUpdate(enemyData)
         return
     end
 
+    -- Sanitize enemy data before broadcasting
+    local sanitizedEnemyData = sanitiseEnemySnapshot(enemyData)
+    if not sanitizedEnemyData or #sanitizedEnemyData == 0 then
+        return
+    end
+
     local encoded = Messages.encode({
         type = TYPES.ENEMY_UPDATE,
-        enemies = enemyData
+        enemies = sanitizedEnemyData
     })
 
     if encoded then
         self:_broadcastExcept(nil, encoded)
     end
 
-    Events.emit("NETWORK_ENEMY_UPDATE", { enemies = enemyData })
+    -- Don't emit event to host - host already has the enemy data in its world
+    -- Events.emit("NETWORK_ENEMY_UPDATE", { enemies = sanitizedEnemyData })
 end
 
 return NetworkServer

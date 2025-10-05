@@ -77,12 +77,12 @@ local function buildEnemySnapshotFromWorld(world)
     end
 
     local snapshot = {}
-    local entities = world:getEntities()
+    -- Use the more efficient method to get entities with AI and position components
+    local entities = world:get_entities_with_components("ai", "position")
 
-    for _, entity in pairs(entities) do
+    for _, entity in ipairs(entities) do
         -- Only include enemy entities (not players or stations)
-        if entity.components and entity.components.ai and entity.components.position and 
-           not entity.isPlayer and not entity.isRemotePlayer and not entity.isStation then
+        if not entity.isPlayer and not entity.isRemotePlayer and not entity.isStation then
             
             local position = entity.components.position
             local velocity = entity.components.velocity
@@ -247,12 +247,23 @@ function RemoteEnemySync.updateHost(dt, world, networkManager)
         local snapshot = buildEnemySnapshotFromWorld(world)
         local sanitised = sanitiseEnemySnapshot(snapshot)
         
-        -- Send enemy update to all clients
-        if networkManager.sendEnemyUpdate then
-            networkManager:sendEnemyUpdate(sanitised)
+        -- Only send updates if there are enemies and the snapshot has changed
+        if #sanitised > 0 and (not lastEnemySnapshot or #sanitised ~= #lastEnemySnapshot) then
+            -- Send enemy update to all clients
+            if networkManager.sendEnemyUpdate then
+                networkManager:sendEnemyUpdate(sanitised)
+            end
+            
+            lastEnemySnapshot = sanitised
+        elseif #sanitised == 0 and lastEnemySnapshot and #lastEnemySnapshot > 0 then
+            -- Send empty snapshot to clear enemies on clients
+            if networkManager.sendEnemyUpdate then
+                networkManager:sendEnemyUpdate(sanitised)
+            end
+            
+            lastEnemySnapshot = sanitised
         end
         
-        lastEnemySnapshot = sanitised
         enemySendAccumulator = 0
     end
 end

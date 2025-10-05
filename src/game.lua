@@ -203,6 +203,7 @@ local function applyWorldSnapshot(snapshot)
     for _, entry in ipairs(snapshot.entities or {}) do
         local entity = spawnEntityFromSnapshot(entry)
         if entity then
+            entity.isSyncedEntity = true  -- Mark as synced entity to prevent duplication
             world:addEntity(entity)
             if entry.kind == "station" and entry.id == "hub_station" then
                 hub = entity
@@ -243,7 +244,8 @@ local function buildWorldSnapshotFromWorld()
         local components = entity.components or {}
         local position = components.position
 
-        if position and not entity.isPlayer and not entity.isRemotePlayer then
+        -- Only include entities that are not players, not remote players, and not already synced entities
+        if position and not entity.isPlayer and not entity.isRemotePlayer and not entity.isSyncedEntity then
             local entry = nil
 
             if entity.isStation or components.station then
@@ -344,6 +346,7 @@ local function registerWorldSyncEventHandlers()
             return
         end
 
+        -- Apply enemy snapshot (RemoteEnemySync.applyEnemySnapshot already sanitizes internally)
         RemoteEnemySync.applyEnemySnapshot(enemies, world)
     end)
 
@@ -406,7 +409,9 @@ local function createSystemPipeline()
       DestructionSystem.update(ctx.world, ctx.gameState, ctx.hub)
     end,
     function(ctx)
-      if not isMultiplayer or isHost then
+      -- Only run spawning system in single-player mode
+      -- When hosting, we want to sync the existing world, not spawn new entities
+      if not isMultiplayer then
         SpawningSystem.update(ctx.dt, ctx.player, ctx.hub, ctx.world)
       end
     end,
