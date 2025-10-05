@@ -43,7 +43,7 @@ local function sanitiseProjectileSnapshot(snapshot)
                     y = tonumber(projectile.velocity and projectile.velocity.y) or 0
                 },
                 friendly = projectile.friendly or false,
-                source = projectile.source or nil,
+                sourceId = projectile.sourceId or nil,
                 damage = projectile.damage or nil,
                 kind = projectile.kind or "bullet",
                 timed_life = projectile.timed_life or nil
@@ -92,6 +92,24 @@ local function buildProjectileSnapshotFromWorld(world)
             local damage = entity.components.damage
             local timed_life = entity.components.timed_life
 
+            -- Convert source entity to player ID for network transmission
+            local sourceId = nil
+            local source = entity.components.bullet.source
+            if source then
+                if source.isPlayer and source.id then
+                    sourceId = source.id
+                    Log.debug("Host: Projectile", entity.id, "source is local player", sourceId)
+                elseif source.remotePlayerId then
+                    sourceId = source.remotePlayerId
+                    Log.debug("Host: Projectile", entity.id, "source is remote player", sourceId)
+                elseif source.id then
+                    sourceId = source.id
+                    Log.debug("Host: Projectile", entity.id, "source is entity", sourceId)
+                end
+            else
+                Log.debug("Host: Projectile", entity.id, "has no source")
+            end
+
             local projectileData = {
                 id = entity.id or tostring(entity),
                 type = entity.projectileType or "gun_bullet",
@@ -105,7 +123,7 @@ local function buildProjectileSnapshotFromWorld(world)
                     y = velocity and velocity.y or 0
                 },
                 friendly = entity.friendly or false,
-                source = entity.source or nil,
+                sourceId = sourceId,
                 kind = entity.kind or "bullet"
             }
 
@@ -152,6 +170,36 @@ local function ensureRemoteProjectile(projectileId, projectileData, world)
     -- Use the projectile type from the data, fallback to gun_bullet
     local projectileType = projectileData.type or "gun_bullet"
     
+    -- Resolve sourceId to actual player entity
+    local source = nil
+    if projectileData.sourceId then
+        Log.debug("Resolving sourceId", projectileData.sourceId, "for projectile", projectileId)
+        -- Try to find the player entity by ID
+        local Game = require("src.game")
+        local world = Game.world
+        if world then
+            -- First try to find local player
+            local player = world:getPlayer()
+            if player and player.id == projectileData.sourceId then
+                source = player
+                Log.debug("Found local player as source for projectile", projectileId)
+            else
+                -- Try to find remote player
+                local NetworkSync = require("src.systems.network_sync")
+                local remotePlayers = NetworkSync.getRemotePlayers()
+                for _, remotePlayer in pairs(remotePlayers) do
+                    if remotePlayer.id == projectileData.sourceId or remotePlayer.remotePlayerId == projectileData.sourceId then
+                        source = remotePlayer
+                        Log.debug("Found remote player as source for projectile", projectileId)
+                        break
+                    end
+                end
+            end
+        end
+    else
+        Log.debug("No sourceId provided for projectile", projectileId)
+    end
+
     -- Create projectile with proper configuration
     local extra_config = {
         angle = angle,
@@ -159,7 +207,7 @@ local function ensureRemoteProjectile(projectileId, projectileData, world)
         damage = projectileData.damage,
         kind = projectileData.kind or "bullet",
         timed_life = projectileData.timed_life,
-        source = projectileData.source
+        source = source
     }
     
     entity = EntityFactory.create("projectile", projectileType, x, y, extra_config)

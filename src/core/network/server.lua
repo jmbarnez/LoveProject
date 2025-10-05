@@ -236,7 +236,7 @@ local function sanitiseProjectileSnapshot(snapshot)
                     y = tonumber(projectile.velocity and projectile.velocity.y) or 0
                 },
                 friendly = projectile.friendly or false,
-                source = projectile.source or nil,
+                sourceId = projectile.sourceId or nil,
                 damage = projectile.damage or nil,
                 kind = projectile.kind or "bullet",
                 timed_life = projectile.timed_life or nil
@@ -407,10 +407,16 @@ function NetworkServer:_handleHello(peer, message)
 
     local name = message.name or string.format("Player %d", playerId)
 
+    -- Generate a proper spawn position for the new client
+    local spawnPosition = self:_generateSpawnPosition()
+
     self.players[playerId] = {
         playerId = playerId,
         name = name,
-        state = sanitiseState(message.state or {}),
+        state = {
+            position = spawnPosition,
+            velocity = { x = 0, y = 0 }
+        },
         lastSeen = now()
     }
 
@@ -564,6 +570,37 @@ function NetworkServer:getPlayerCount()
         count = count + 1
     end
     return count
+end
+
+function NetworkServer:_generateSpawnPosition()
+    -- Generate a spawn position outside station limits
+    -- This should match the logic used in game.lua for player spawning
+    local Constants = require("src.core.constants")
+    
+    -- Default spawn position if no hub is available
+    local hubX = Constants.SPAWNING.MARGIN or 1000
+    local hubY = Constants.SPAWNING.MARGIN or 1000
+    
+    -- Try to get hub position from world snapshot if available
+    if self.worldSnapshot and self.worldSnapshot.entities then
+        for _, entity in ipairs(self.worldSnapshot.entities) do
+            if entity.type == "hub_station" and entity.position then
+                hubX = entity.position.x
+                hubY = entity.position.y
+                break
+            end
+        end
+    end
+    
+    -- Spawn outside the station weapons-disable zone
+    local weapon_disable_radius = 200 -- Default radius
+    local spawn_dist = weapon_disable_radius * 1.2 -- Spawn 20% outside the weapon disable zone
+    local angle = math.random() * math.pi * 2
+    
+    local px = hubX + math.cos(angle) * spawn_dist
+    local py = hubY + math.sin(angle) * spawn_dist
+    
+    return { x = px, y = py, angle = 0 }
 end
 
 function NetworkServer:updateHostState(state)

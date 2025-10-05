@@ -427,6 +427,24 @@ local function registerWorldSyncEventHandlers()
         end
     end)
 
+    -- Handle client position updates when they receive their assigned position
+    Events.on("NETWORK_PLAYER_JOINED", function(data)
+        if isHost or not data or not data.playerId or not data.isSelf then
+            return
+        end
+
+        -- Client received their assigned position - update player position
+        if player and data.data and data.data.position then
+            local newPos = data.data.position
+            if player.components and player.components.position then
+                player.components.position.x = newPos.x or 0
+                player.components.position.y = newPos.y or 0
+                player.components.position.angle = newPos.angle or 0
+                Log.info("Client: Updated player position to server-assigned position:", newPos.x, newPos.y)
+            end
+        end
+    end)
+
     worldSyncHandlersRegistered = true
 end
 
@@ -1060,59 +1078,93 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
       return false
     end
   else
-    -- Start new game - create player at random spawn location
-    local angle = math.random() * math.pi * 2
-    -- Spawn outside the station weapons-disable zone
-    local weapon_disable_radius = hub and hub:getWeaponDisableRadius() or Constants.STATION.WEAPONS_DISABLE_DURATION * 200
-    local spawn_dist = weapon_disable_radius * 1.2 -- Spawn 20% outside the weapon disable zone
-    local px = (hub and hub.components and hub.components.position and hub.components.position.x or Constants.SPAWNING.MARGIN) + math.cos(angle) * spawn_dist
-    local py = (hub and hub.components and hub.components.position and hub.components.position.y or Constants.SPAWNING.MARGIN) + math.sin(angle) * spawn_dist
+    -- Start new game - create player at spawn location
+    local px, py
     
-    -- Check for collision with all stations to ensure we don't spawn inside one
-    local attempts = 0
-    local maxAttempts = 50
-    local spawnValid = false
-    
-    while not spawnValid and attempts < maxAttempts do
-      attempts = attempts + 1
-      spawnValid = true
+    if isMultiplayer and not isHost then
+      -- Client mode - use position assigned by server
+      local networkManager = Game.getNetworkManager()
+      local assignedPosition = nil
       
-      -- Check collision with all stations
-      local all_stations = world:get_entities_with_components("station")
-      for _, station in ipairs(all_stations) do
-        if station and station.components and station.components.position and station.components.collidable then
-          local sx, sy = station.components.position.x, station.components.position.y
-          local dx = px - sx
-          local dy = py - sy
-          local distance = math.sqrt(dx * dx + dy * dy)
-          
-          -- Check if player would spawn inside station collision area
-          local stationRadius = 50 -- Default safe radius
-          if station.components.collidable.radius then
-            stationRadius = station.components.collidable.radius
-          elseif station.radius then
-            stationRadius = station.radius
-          end
-          
-          -- Add some buffer to ensure we're not touching the station
-          local safeDistance = stationRadius + 30
-          
-          if distance < safeDistance then
-            spawnValid = false
-            -- Try a new random position
-            angle = math.random() * math.pi * 2
-            px = (hub and hub.components and hub.components.position and hub.components.position.x or Constants.SPAWNING.MARGIN) + math.cos(angle) * spawn_dist
-            py = (hub and hub.components and hub.components.position and hub.components.position.y or Constants.SPAWNING.MARGIN) + math.sin(angle) * spawn_dist
-            break
+      if networkManager and networkManager.getPlayers then
+        local players = networkManager:getPlayers()
+        local localPlayerId = networkManager:getLocalPlayerId()
+        if localPlayerId and players[localPlayerId] and players[localPlayerId].state then
+          assignedPosition = players[localPlayerId].state.position
+        end
+      end
+      
+      if assignedPosition then
+        -- Use the position assigned by the server
+        px = assignedPosition.x or Constants.SPAWNING.MARGIN
+        py = assignedPosition.y or Constants.SPAWNING.MARGIN
+        Log.info("Client spawning at server-assigned position:", px, py)
+      else
+        -- Client hasn't received their assigned position yet - create player at (0,0) temporarily
+        -- The position will be updated when the welcome message is processed
+        px = 0
+        py = 0
+        Log.warn("Client: No assigned position from server yet, using temporary position (0,0)")
+      end
+    else
+      -- Single-player or host mode - create player at random spawn location
+      local angle = math.random() * math.pi * 2
+      -- Spawn outside the station weapons-disable zone
+      local weapon_disable_radius = hub and hub:getWeaponDisableRadius() or Constants.STATION.WEAPONS_DISABLE_DURATION * 200
+      local spawn_dist = weapon_disable_radius * 1.2 -- Spawn 20% outside the weapon disable zone
+      px = (hub and hub.components and hub.components.position and hub.components.position.x or Constants.SPAWNING.MARGIN) + math.cos(angle) * spawn_dist
+      py = (hub and hub.components and hub.components.position and hub.components.position.y or Constants.SPAWNING.MARGIN) + math.sin(angle) * spawn_dist
+    end
+    
+    -- Check for collision with all stations to ensure we don't spawn inside one (only for single-player/host)
+    if not (isMultiplayer and not isHost) then
+      local attempts = 0
+      local maxAttempts = 50
+      local spawnValid = false
+      
+      while not spawnValid and attempts < maxAttempts do
+        attempts = attempts + 1
+        spawnValid = true
+        
+        -- Check collision with all stations
+        local all_stations = world:get_entities_with_components("station")
+        for _, station in ipairs(all_stations) do
+          if station and station.components and station.components.position and station.components.collidable then
+            local sx, sy = station.components.position.x, station.components.position.y
+            local dx = px - sx
+            local dy = py - sy
+            local distance = math.sqrt(dx * dx + dy * dy)
+            
+            -- Check if player would spawn inside station collision area
+            local stationRadius = 50 -- Default safe radius
+            if station.components.collidable.radius then
+              stationRadius = station.components.collidable.radius
+            elseif station.radius then
+              stationRadius = station.radius
+            end
+            
+            -- Add some buffer to ensure we're not touching the station
+            local safeDistance = stationRadius + 30
+            
+            if distance < safeDistance then
+              spawnValid = false
+              -- Try a new random position
+              local angle = math.random() * math.pi * 2
+              local weapon_disable_radius = hub and hub:getWeaponDisableRadius() or Constants.STATION.WEAPONS_DISABLE_DURATION * 200
+              local spawn_dist = weapon_disable_radius * 1.2
+              px = (hub and hub.components and hub.components.position and hub.components.position.x or Constants.SPAWNING.MARGIN) + math.cos(angle) * spawn_dist
+              py = (hub and hub.components and hub.components.position and hub.components.position.y or Constants.SPAWNING.MARGIN) + math.sin(angle) * spawn_dist
+              break
+            end
           end
         end
       end
-    end
-    
-    -- If we couldn't find a valid spawn after max attempts, use a fallback position
-    if not spawnValid then
-      px = Constants.SPAWNING.MARGIN
-      py = Constants.SPAWNING.MARGIN
+      
+      -- If we couldn't find a valid spawn after max attempts, use a fallback position
+      if not spawnValid then
+        px = Constants.SPAWNING.MARGIN
+        py = Constants.SPAWNING.MARGIN
+      end
     end
     
     -- Start player with basic combat drone

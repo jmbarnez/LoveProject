@@ -20,9 +20,19 @@ local function emit_projectile_event(projectile, event, payload)
 end
 
 local function shouldIgnoreCollision(bullet, target)
+    -- Safety check for null entities
+    if not bullet or not target or not bullet.components or not target.components then
+        return true
+    end
+
     -- Ignore self and source
     local source = (bullet.components and bullet.components.bullet and bullet.components.bullet.source) or nil
-    if target == bullet or target == source then return true end
+    if target == bullet or target == source then 
+        if target == source then
+            Log.debug("Ignoring collision: target is source of projectile")
+        end
+        return true 
+    end
 
     -- Ignore projectile vs projectile when from the same owner
     local bulletIsProjectile = bullet.components and bullet.components.bullet ~= nil
@@ -61,6 +71,11 @@ local function perform_collision_check(x1, y1, x2, y2, target, target_radius)
         return false
     end
 
+    -- Safety check for null target
+    if not target or not target.components then
+        return false
+    end
+
     local components = target.components or {}
     local position = components.position or {}
     local ex, ey = position.x, position.y
@@ -89,6 +104,11 @@ local function perform_collision_check(x1, y1, x2, y2, target, target_radius)
 end
 
 function ProjectileCollision.handle_projectile_collision(collision_system, bullet, world, dt)
+    -- Safety check for null bullet entity
+    if not bullet or not bullet.components then
+        return
+    end
+
     local pos = bullet.components.position
     local vel = bullet.components.velocity or {x = 0, y = 0}
     local renderable = bullet.components.renderable
@@ -110,7 +130,7 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
 
     for _, obj in ipairs(potential_colliders) do
         local target = obj.entity
-        if not target.components or not target.components.collidable then goto skip_target end
+        if not target or not target.components or not target.components.collidable then goto skip_target end
         if shouldIgnoreCollision(bullet, target) then goto skip_target end
 
         local target_radius = Radius.calculateEffectiveRadius(target)
@@ -250,6 +270,11 @@ function handle_chain_lightning(turret, initial_target, world)
 end
 
 function ProjectileCollision.handle_beam_collision(collision_system, beam, world, dt)
+    -- Safety check for null beam entity
+    if not beam or not beam.components then
+        return
+    end
+
     local pos = beam.components.position
     local renderable = beam.components.renderable
     local damage = beam.components.damage
@@ -276,7 +301,7 @@ function ProjectileCollision.handle_beam_collision(collision_system, beam, world
 
     for _, obj in ipairs(potentials) do
         local target = obj.entity
-        if not target.components or not target.components.collidable then goto skip_beam_target end
+        if not target or not target.components or not target.components.collidable then goto skip_beam_target end
         if shouldIgnoreCollision(beam, target) then goto skip_beam_target end
 
         local target_radius = Radius.calculateEffectiveRadius(target)
