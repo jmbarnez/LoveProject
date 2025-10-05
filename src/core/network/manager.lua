@@ -243,12 +243,12 @@ function NetworkManager:update(dt)
     end
 end
 
-function NetworkManager:updateWorldSnapshot(snapshot)
+function NetworkManager:updateWorldSnapshot(snapshot, peer)
     if not self._isHost or not self.server then
         return
     end
 
-    self.server:updateWorldSnapshot(snapshot)
+    self.server:updateWorldSnapshot(snapshot, peer)
 end
 
 function NetworkManager:getWorldSnapshot()

@@ -1,4 +1,4 @@
---[[
+ --[[
     Core game loop module.
 
     This module stitches together the content pipeline, world simulation, and
@@ -276,7 +276,7 @@ local function buildWorldSnapshotFromWorld()
     return snapshot
 end
 
-local function broadcastHostWorldSnapshot()
+local function broadcastHostWorldSnapshot(peer)
     if not networkManager or not networkManager:isHost() then
         return
     end
@@ -286,7 +286,7 @@ local function broadcastHostWorldSnapshot()
         return
     end
 
-    networkManager:updateWorldSnapshot(snapshot)
+    networkManager:updateWorldSnapshot(snapshot, peer)
 end
 
 local function registerWorldSyncEventHandlers()
@@ -788,10 +788,12 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   camera:setTarget(player)
   if not isMultiplayer or isHost then
     SpawningSystem.init(player, hub, world)
-    if isMultiplayer and isHost then
-      broadcastHostWorldSnapshot()
-    end
   end
+  
+  if isMultiplayer and isHost then
+    broadcastHostWorldSnapshot()
+  end
+
   collisionSystem = CollisionSystem:new({x = 0, y = 0, width = world.width, height = world.height})
   windfieldManager = collisionSystem and collisionSystem:getWindfield()
   Game.windfield = windfieldManager
@@ -860,7 +862,7 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
     
     -- Send world snapshot to newly joined client
     if networkManager and networkManager:isHost() then
-      broadcastHostWorldSnapshot()
+      broadcastHostWorldSnapshot(data.peer)
     end
   end)
 

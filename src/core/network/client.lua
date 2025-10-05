@@ -210,15 +210,20 @@ function NetworkClient:connect(address, port)
     local startTime = love.timer.getTime()
     local timeout = 5 -- 5 second timeout
     local connectedEvent = false
+    local eventQueue = {}
 
     while love.timer.getTime() - startTime < timeout do
         local event = EnetTransport.service(client, 10) -- Wait up to 10ms
-        if event and event.type == "connect" then
-            connectedEvent = true
-            break
-        elseif event and event.type == "disconnect" then
-            self.lastError = "Connection failed: Disconnected"
-            return false, self.lastError
+        if event then
+            if event.type == "connect" then
+                connectedEvent = true
+                break
+            elseif event.type == "disconnect" then
+                self.lastError = "Connection failed: Disconnected"
+                return false, self.lastError
+            else
+                table.insert(eventQueue, event)
+            end
         end
     end
 
@@ -233,6 +238,26 @@ function NetworkClient:connect(address, port)
     self.players = {}
 
     Log.info("Connecting to", address or "localhost", port or 7777)
+
+    -- Process any queued events that arrived during connection
+    for _, event in ipairs(eventQueue) do
+        if event.type == "receive" then
+            local message = Messages.decode(event.data)
+            if message then
+                self:_handleMessage(message)
+            end
+        end
+    end
+
+    self:_send({
+        type = TYPES.HELLO,
+        name = self.localName,
+        state = {
+            position = { x = 0, y = 0, angle = 0 },
+            velocity = { x = 0, y = 0 }
+        }
+    })
+    Events.emit("NETWORK_CONNECTED")
 
     return true
 end
@@ -326,13 +351,6 @@ function NetworkClient:_handleMessage(message)
             end
         end
 
-        if message.worldSnapshot then
-            local snapshot = sanitiseWorldSnapshot(message.worldSnapshot)
-            if snapshot then
-                self.worldSnapshot = snapshot
-                Events.emit("NETWORK_WORLD_SNAPSHOT", { snapshot = snapshot })
-            end
-        end
     elseif message.type == TYPES.STATE then
         if message.playerId == self.playerId then
             return

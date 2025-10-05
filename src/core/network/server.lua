@@ -308,10 +308,6 @@ function NetworkServer:_handleHello(peer, message)
         players = buildSnapshot(self.players)
     }
 
-    if self.worldSnapshot then
-        welcomePayload.worldSnapshot = self.worldSnapshot
-    end
-
     local welcome = Messages.encode(welcomePayload)
     self.transport.send({ peer = peer }, welcome, 0, true)
 
@@ -332,7 +328,8 @@ function NetworkServer:_handleHello(peer, message)
     Events.emit("NETWORK_PLAYER_JOINED", {
         playerId = playerId,
         playerName = name,
-        data = self.players[playerId].state
+        data = self.players[playerId].state,
+        peer = peer
     })
 
     Log.info("Player", name, "joined with id", playerId)
@@ -474,7 +471,7 @@ function NetworkServer:addHostPlayer(name, state)
     })
 end
 
-function NetworkServer:updateWorldSnapshot(snapshot)
+function NetworkServer:updateWorldSnapshot(snapshot, peer)
     if snapshot == nil then
         return
     end
@@ -495,7 +492,11 @@ function NetworkServer:updateWorldSnapshot(snapshot)
         })
 
         if encoded then
-            self:_broadcastExcept(nil, encoded)
+            if peer then
+                self.transport.send({ peer = peer }, encoded, 0, true)
+            else
+                self:_broadcastExcept(nil, encoded)
+            end
         end
     end
 
