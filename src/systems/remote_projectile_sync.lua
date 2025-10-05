@@ -8,6 +8,7 @@ local Events = require("src.core.events")
 local Log = require("src.core.log")
 local Settings = require("src.core.settings")
 local NetworkManager = require("src.core.network.manager")
+local Util = require("src.core.util")
 
 local RemoteProjectileSync = {}
 
@@ -20,6 +21,43 @@ function RemoteProjectileSync.reset()
     remoteProjectiles = {}
     lastProjectileSnapshot = nil
     projectileSendAccumulator = 0
+end
+
+local function copyColor(color)
+    if type(color) ~= "table" then
+        return nil
+    end
+
+    return {
+        tonumber(color[1]) or 1,
+        tonumber(color[2]) or 1,
+        tonumber(color[3]) or 1,
+        tonumber(color[4]) or 1,
+    }
+end
+
+local function sanitiseRenderableProps(props)
+    if type(props) ~= "table" then
+        return nil
+    end
+
+    local sanitised = {}
+
+    if props.kind ~= nil then sanitised.kind = tostring(props.kind) end
+    if props.length ~= nil then sanitised.length = tonumber(props.length) or 0 end
+    if props.maxLength ~= nil then sanitised.maxLength = tonumber(props.maxLength) or 0 end
+    if props.tracerWidth ~= nil then sanitised.tracerWidth = tonumber(props.tracerWidth) or 0 end
+    if props.coreRadius ~= nil then sanitised.coreRadius = tonumber(props.coreRadius) or 0 end
+    if props.angle ~= nil then sanitised.angle = tonumber(props.angle) or 0 end
+
+    local color = copyColor(props.color)
+    if color then sanitised.color = color end
+
+    if next(sanitised) then
+        return sanitised
+    end
+
+    return nil
 end
 
 local function sanitiseProjectileSnapshot(snapshot)
@@ -45,7 +83,7 @@ local function sanitiseProjectileSnapshot(snapshot)
                 friendly = projectile.friendly or false,
                 sourceId = projectile.sourceId or nil,
                 damage = projectile.damage or nil,
-                kind = projectile.kind or "bullet",
+                kind = (projectile.kind and tostring(projectile.kind)) or ((projectile.renderableProps and projectile.renderableProps.kind) and tostring(projectile.renderableProps.kind)) or "bullet",
                 timed_life = projectile.timed_life or nil
             }
 
@@ -64,6 +102,15 @@ local function sanitiseProjectileSnapshot(snapshot)
                     duration = tonumber(projectile.timed_life.duration) or 2.0,
                     elapsed = tonumber(projectile.timed_life.elapsed) or 0
                 }
+            end
+
+            local renderableProps = sanitiseRenderableProps(projectile.renderableProps)
+            if renderableProps then
+                sanitisedProjectile.renderableProps = renderableProps
+            end
+
+            if projectile.impact and type(projectile.impact) == "table" then
+                sanitisedProjectile.impact = Util.deepCopy(projectile.impact)
             end
 
             table.insert(sanitised, sanitisedProjectile)
@@ -110,6 +157,34 @@ local function buildProjectileSnapshotFromWorld(world)
                 Log.debug("Host: Projectile", entity.id, "has no source")
             end
 
+            local renderable = entity.components.renderable
+            local renderableProps = renderable and renderable.props or nil
+            local projectileKind = nil
+            if renderableProps and renderableProps.kind then
+                projectileKind = renderableProps.kind
+            elseif entity.kind then
+                projectileKind = entity.kind
+            end
+
+            local renderableSnapshot = nil
+            if renderableProps then
+                renderableSnapshot = {
+                    kind = renderableProps.kind,
+                    length = renderableProps.length,
+                    maxLength = renderableProps.maxLength,
+                    tracerWidth = renderableProps.tracerWidth,
+                    coreRadius = renderableProps.coreRadius,
+                    angle = renderableProps.angle,
+                }
+
+                local color = renderableProps.color
+                if color then
+                    renderableSnapshot.color = copyColor(color)
+                end
+            end
+
+            local impact = entity.components.bullet and entity.components.bullet.impact
+
             local projectileData = {
                 id = entity.id or tostring(entity),
                 type = entity.projectileType or "gun_bullet",
@@ -124,7 +199,9 @@ local function buildProjectileSnapshotFromWorld(world)
                 },
                 friendly = entity.friendly or false,
                 sourceId = sourceId,
-                kind = entity.kind or "bullet"
+                kind = projectileKind,
+                renderableProps = renderableSnapshot,
+                impact = impact and Util.deepCopy(impact) or nil
             }
 
             -- Include damage data
@@ -205,13 +282,26 @@ local function ensureRemoteProjectile(projectileId, projectileData, world)
         angle = angle,
         friendly = projectileData.friendly or false,
         damage = projectileData.damage,
-        kind = projectileData.kind or "bullet",
+        kind = projectileData.kind,
         timed_life = projectileData.timed_life,
-        source = source
+        source = source,
+        impact = projectileData.impact and Util.deepCopy(projectileData.impact) or nil
     }
-    
+
+    if projectileData.renderableProps then
+        extra_config.tracerWidth = projectileData.renderableProps.tracerWidth
+        extra_config.coreRadius = projectileData.renderableProps.coreRadius
+        extra_config.color = projectileData.renderableProps.color and Util.deepCopy(projectileData.renderableProps.color) or nil
+        extra_config.length = projectileData.renderableProps.length
+        extra_config.maxLength = projectileData.renderableProps.maxLength
+        -- Preserve explicit kind overrides if present in renderable props
+        if not extra_config.kind and projectileData.renderableProps.kind then
+            extra_config.kind = projectileData.renderableProps.kind
+        end
+    end
+
     entity = EntityFactory.create("projectile", projectileType, x, y, extra_config)
-    
+
     if not entity then
         Log.error("Failed to spawn remote projectile entity", projectileId, "of type", projectileType)
         return nil
@@ -256,6 +346,40 @@ local function updateProjectileFromSnapshot(entity, projectileData)
     if entity.components and entity.components.timed_life and projectileData.timed_life then
         entity.components.timed_life.duration = projectileData.timed_life.duration
         entity.components.timed_life.elapsed = projectileData.timed_life.elapsed
+    end
+
+    -- Update impact configuration for consistent collision FX
+    if entity.components and entity.components.bullet and projectileData.impact then
+        entity.components.bullet.impact = Util.deepCopy(projectileData.impact)
+    end
+
+    -- Update renderable properties (beam length, colors, etc.)
+    if entity.components and entity.components.renderable and projectileData.renderableProps then
+        local props = entity.components.renderable.props or {}
+
+        if projectileData.renderableProps.kind ~= nil then
+            props.kind = projectileData.renderableProps.kind
+        end
+        if projectileData.renderableProps.length ~= nil then
+            props.length = projectileData.renderableProps.length
+        end
+        if projectileData.renderableProps.maxLength ~= nil then
+            props.maxLength = projectileData.renderableProps.maxLength
+        end
+        if projectileData.renderableProps.tracerWidth ~= nil then
+            props.tracerWidth = projectileData.renderableProps.tracerWidth
+        end
+        if projectileData.renderableProps.coreRadius ~= nil then
+            props.coreRadius = projectileData.renderableProps.coreRadius
+        end
+        if projectileData.renderableProps.angle ~= nil then
+            props.angle = projectileData.renderableProps.angle
+        end
+        if projectileData.renderableProps.color then
+            props.color = Util.deepCopy(projectileData.renderableProps.color)
+        end
+
+        entity.components.renderable.props = props
     end
 
     -- Update physics body
