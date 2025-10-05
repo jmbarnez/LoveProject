@@ -111,6 +111,14 @@ local function sanitiseWorldEntry(entry)
 
     local x = tonumber(entry.x)
     local y = tonumber(entry.y)
+    local angle = entry.angle
+
+    if (not x or not y) and type(entry.position) == "table" then
+        x = tonumber(entry.position.x) or x
+        y = tonumber(entry.position.y) or y
+        angle = angle ~= nil and angle or entry.position.angle
+    end
+
     if not x or not y then
         return nil
     end
@@ -122,8 +130,8 @@ local function sanitiseWorldEntry(entry)
         y = y
     }
 
-    if entry.angle ~= nil then
-        sanitised.angle = tonumber(entry.angle) or 0
+    if angle ~= nil then
+        sanitised.angle = tonumber(angle) or 0
     end
 
     local extra = sanitiseWorldExtras(entry.extra)
