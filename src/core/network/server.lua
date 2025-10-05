@@ -381,18 +381,6 @@ function NetworkServer:update(dt)
         return
     end
 
-    -- Debug: Log that server update is being called (but only occasionally to avoid spam)
-    if math.random() < 0.01 then -- 1% chance to log
-        Log.info("Server update called, isRunning:", self.isRunning, "peers:", self:getPlayerCount())
-    end
-    
-    -- More frequent logging when waiting for connections
-    if self:getPlayerCount() == 1 then -- Only host, waiting for clients
-        if math.random() < 0.1 then -- 10% chance to log
-            Log.info("Server waiting for client connections...")
-        end
-    end
-
     local ok, event = pcall(self.transport.service, self.enetServer, 10)
     if not ok then
         Log.error("Network server service error:", event)
@@ -400,16 +388,11 @@ function NetworkServer:update(dt)
         return
     end
     
-    -- Log when we receive events
-    if event then
-        Log.info("Server received event:", event.type, "from peer:", event.peer and "yes" or "no")
-    end
-    
     while event do
         if event.type == "connect" then
             if event.peer then
                 self.peers[event.peer] = true
-                Log.info("Peer connected, total peers:", self:getPlayerCount())
+                Log.info("Peer connected")
             else
                 Log.warn("Received connect event without peer")
             end
@@ -473,7 +456,6 @@ function NetworkServer:_handleHello(peer, message)
 
     -- Generate a proper spawn position for the new client
     local spawnPosition = self:_generateSpawnPosition()
-    Log.info("Server: Generated spawn position for player", playerId, "at", spawnPosition.x, spawnPosition.y)
 
     self.players[playerId] = {
         playerId = playerId,
@@ -616,7 +598,6 @@ function NetworkServer:_handleWeaponFireRequest(peer, message)
     end
 
     local json = require("src.libs.json")
-    Log.info("Server <- WEAPON_FIRE_REQUEST", "playerId=" .. tostring(playerId), json.encode(request))
 
     -- Emit event for the game to handle the weapon fire request
     Events.emit("NETWORK_WEAPON_FIRE_REQUEST", {

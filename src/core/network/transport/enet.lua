@@ -78,14 +78,10 @@ function EnetTransport.connect(client, address, port)
     end
 
     local endpoint = string.format("%s:%d", address, port)
-    Log.info("Attempting to connect to endpoint:", endpoint)
     local peer = client.host:connect(endpoint, client.channelLimit or 2, 0)
     if not peer then
-        Log.error("Failed to initiate ENet connection to", endpoint)
         return nil, "Failed to initiate ENet connection"
     end
-
-    Log.info("ENet connection initiated to", endpoint)
     client.peer = peer
     return peer
 end
@@ -144,14 +140,10 @@ function EnetTransport.createServer(port, options)
     local inBandwidth = options.inBandwidth or 0
     local outBandwidth = options.outBandwidth or 0
 
-    Log.info("Creating ENet server on endpoint:", endpoint)
     local host = enet.host_create(endpoint, peerLimit, channelLimit, inBandwidth, outBandwidth)
     if not host then
-        Log.error("Failed to create ENet server on", endpoint)
         return nil, "Failed to create ENet server host"
     end
-
-    Log.info("ENet server created successfully on", endpoint)
     return {
         host = host,
         channelLimit = channelLimit

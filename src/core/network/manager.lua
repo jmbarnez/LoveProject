@@ -34,6 +34,7 @@ function NetworkManager.new()
     self._worldSnapshot = nil
     self._pendingWorldSnapshot = nil
     self._eventListenersSetup = false
+    self._lastPlayerUpdate = 0
 
     self:setupEventListeners()
 
@@ -267,7 +268,12 @@ function NetworkManager:update(dt)
             end
             
             self.client:update(dt)
-            self._players = shallowCopy(self.client:getPlayers())
+            -- Only update players every 0.1 seconds instead of every frame
+            local currentTime = love.timer.getTime()
+            if currentTime - self._lastPlayerUpdate > 0.1 then
+                self._players = shallowCopy(self.client:getPlayers())
+                self._lastPlayerUpdate = currentTime
+            end
             if self.client.playerId then
                 self._localPlayerId = self.client.playerId
             end
@@ -312,7 +318,6 @@ function NetworkManager:sendPlayerUpdate(playerData)
         end
     else
         if self.client and self.client:isConnected() then
-            Log.info("Client sending player update:", json.encode(playerData))
             self.client:sendPlayerUpdate(playerData)
         end
     end

@@ -117,35 +117,20 @@ local function waitForConnection(transport, client, timeoutSeconds)
     local timeout = timeoutSeconds or 5
     local start = now()
     local queue = {}
-    local lastEventTime = start
 
-    Log.info("Waiting for connection, timeout:", timeout, "seconds")
-    
     while now() - start < timeout do
         local event = transport.service(client, 10)
         if event then
-            lastEventTime = now()
-            Log.info("Received event during connection:", event.type)
             if event.type == "connect" then
-                Log.info("Connection established!")
                 return true, queue
             elseif event.type == "disconnect" then
-                Log.warn("Connection failed: Disconnected")
                 return false, "Connection failed: Disconnected"
             else
                 queue[#queue + 1] = event
-                Log.info("Queued event:", event.type)
             end
-        end
-        
-        -- Log progress every 2 seconds
-        if now() - lastEventTime > 2.0 then
-            Log.info("Still waiting for connection...", math.floor(now() - start), "seconds elapsed")
-            lastEventTime = now()
         end
     end
 
-    Log.warn("Connection timed out after", timeout, "seconds")
     return false, "Connection timed out"
 end
 
@@ -352,7 +337,6 @@ function NetworkClient:connect(address, port)
     local finalAddress = nil
 
     for _, target in ipairs(attempts) do
-        Log.info("NetworkClient: attempting connection", target, portToUse, "attempt", self.connectionAttempts)
         local client, err = EnetTransport.createClient()
         if not client then
             lastError = err
@@ -366,7 +350,6 @@ function NetworkClient:connect(address, port)
             Log.warn("Failed to initiate connection:", connectErr)
             EnetTransport.destroy(client)
         else
-            Log.info("Successfully initiated connection to", target, portToUse)
             local okConnect, result = waitForConnection(EnetTransport, client, self.connectionTimeout)
             if okConnect then
                 connectedClient = client
@@ -494,7 +477,6 @@ function NetworkClient:update(dt)
         if event.type == "connect" then
             -- Connection event should only happen during initial connection
             -- Don't send HELLO again or emit NETWORK_CONNECTED again
-            Log.info("Connection event received (already connected)")
         elseif event.type == "disconnect" then
             Log.warn("Disconnected from server")
             self:disconnect()
@@ -528,13 +510,11 @@ function NetworkClient:_handleMessage(message)
         local selfState = nil
         if selfEntry and selfEntry.state then
             selfState = sanitiseState(selfEntry.state)
-            Log.info("Client: Got self state from selfEntry at", selfState.position.x, selfState.position.y)
         elseif type(message.players) == "table" then
             -- Fallback: locate the raw snapshot entry if buildIndex filtered it out
             for _, entry in ipairs(message.players) do
                 if entry.playerId == self.playerId then
                     selfState = sanitiseState(entry.state)
-                    Log.info("Client: Got self state from fallback at", selfState.position.x, selfState.position.y)
                     break
                 end
             end
@@ -544,8 +524,6 @@ function NetworkClient:_handleMessage(message)
             position = { x = 0, y = 0, angle = 0 },
             velocity = { x = 0, y = 0 }
         }
-        
-        Log.info("Client: Final selfState position:", selfState.position.x, selfState.position.y)
 
         Events.emit("NETWORK_PLAYER_JOINED", {
             playerId = self.playerId,
@@ -601,15 +579,10 @@ function NetworkClient:_handleMessage(message)
         Events.emit("NETWORK_ENEMY_UPDATE", { enemies = message.enemies })
     elseif message.type == TYPES.PROJECTILE_UPDATE then
         -- Handle projectile updates from host
-        Log.debug("Client received PROJECTILE_UPDATE with", #(message.projectiles or {}), "projectiles")
         Events.emit("NETWORK_PROJECTILE_UPDATE", { projectiles = message.projectiles })
     elseif message.type == TYPES.PONG then
         -- Handle pong response for heartbeat
-        local currentTime = now()
-        if message.timestamp then
-            local rtt = currentTime - message.timestamp
-            Log.debug("Received PONG, RTT:", rtt)
-        end
+        -- RTT calculation could be added here if needed
     end
 end
 
