@@ -301,6 +301,56 @@ local function sanitiseEnemySnapshot(snapshot)
     return sanitised
 end
 
+local function sanitiseDamageData(damage)
+    if not damage then
+        return nil
+    end
+
+    local function toNumber(value)
+        if value == nil then
+            return nil
+        end
+        local number = tonumber(value)
+        return number or value
+    end
+
+    if type(damage) ~= "table" then
+        local numeric = tonumber(damage)
+        if numeric then
+            return {
+                min = numeric,
+                max = numeric,
+                value = numeric,
+            }
+        end
+        return nil
+    end
+
+    local sanitised = {}
+
+    sanitised.min = toNumber(damage.min or damage[1])
+    sanitised.max = toNumber(damage.max or damage[2])
+    sanitised.value = toNumber(damage.value)
+    sanitised.damagePerSecond = toNumber(damage.damagePerSecond or damage.dps)
+    sanitised.skill = damage.skill
+
+    if sanitised.min == nil and sanitised.value ~= nil then
+        sanitised.min = sanitised.value
+    end
+    if sanitised.max == nil and sanitised.value ~= nil then
+        sanitised.max = sanitised.value
+    end
+    if sanitised.value == nil and sanitised.min ~= nil and sanitised.max ~= nil and sanitised.min == sanitised.max then
+        sanitised.value = sanitised.min
+    end
+
+    if sanitised.min == nil and sanitised.max == nil and sanitised.value == nil and sanitised.damagePerSecond == nil and sanitised.skill == nil then
+        return nil
+    end
+
+    return sanitised
+end
+
 local function sanitiseProjectileSnapshot(snapshot)
     if type(snapshot) ~= "table" then
         return {}
@@ -329,12 +379,15 @@ local function sanitiseProjectileSnapshot(snapshot)
             }
 
             -- Include damage data if available
-            if projectile.damage then
-                sanitisedProjectile.damage = {
-                    min = tonumber(projectile.damage.min) or 1,
-                    max = tonumber(projectile.damage.max) or 2,
-                    skill = projectile.damage.skill or nil
-                }
+            local damageData = sanitiseDamageData(projectile.damage)
+            if damageData then
+                if damageData.min ~= nil then damageData.min = tonumber(damageData.min) or damageData.min end
+                if damageData.max ~= nil then damageData.max = tonumber(damageData.max) or damageData.max end
+                if damageData.value ~= nil then damageData.value = tonumber(damageData.value) or damageData.value end
+                if damageData.damagePerSecond ~= nil then
+                    damageData.damagePerSecond = tonumber(damageData.damagePerSecond) or damageData.damagePerSecond
+                end
+                sanitisedProjectile.damage = damageData
             end
 
             -- Include timed life data if available
