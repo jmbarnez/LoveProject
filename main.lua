@@ -111,6 +111,9 @@ function love.load()
     local Debug = require("src.core.debug")
     Debug.init()
     
+    -- Enable key repeating for text input
+    love.keyboard.setKeyRepeat(true)
+    
     -- Configure logging defaults so startup diagnostics flow through the console.
     Log.setLevel("info")
     Log.clearDebugWhitelist()

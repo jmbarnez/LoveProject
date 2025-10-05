@@ -115,6 +115,27 @@ function NetworkClient:connect(address, port)
         return false, connectErr
     end
 
+    -- Block until connected or timeout
+    local startTime = love.timer.getTime()
+    local timeout = 5 -- 5 second timeout
+    local connectedEvent = false
+
+    while love.timer.getTime() - startTime < timeout do
+        local event = EnetTransport.service(client, 10) -- Wait up to 10ms
+        if event and event.type == "connect" then
+            connectedEvent = true
+            break
+        elseif event and event.type == "disconnect" then
+            self.lastError = "Connection failed: Disconnected"
+            return false, self.lastError
+        end
+    end
+
+    if not connectedEvent then
+        self.lastError = "Connection timed out"
+        return false, self.lastError
+    end
+
     self.transport = EnetTransport
     self.enetClient = client
     self.connected = true

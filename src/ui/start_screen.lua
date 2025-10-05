@@ -191,6 +191,9 @@ function Start.new()
   self.joinAddress = "localhost"
   self.joinPort = "7777"
   self.joinErrorMessage = nil
+  self.activeInput = nil -- 'address', 'port', or nil
+  self.addressInputRect = {}
+  self.portInputRect = {}
   -- Create a temporary network manager for the start screen
   self.networkManager = NetworkManager.new()
   
@@ -516,49 +519,70 @@ function Start:drawJoinWindowContent(window, x, y, w, h)
   local s = uiScale()
   local padding = 20 * s
   
-  -- Address input
-  local inputY = y + 40 * s
-  local inputW = 200 * s
+  local font = Theme.fonts.normal
+  if not font then font = love.graphics.getFont() end
+  local fontHeight = font:getHeight()
+
   local inputH = 30 * s
-  local inputX = x + (w - inputW) / 2
+  local labelInputGap = 10 * s
+
+  -- Determine max label width for alignment
+  local addressLabel = "Server Address:"
+  local portLabel = "Port:"
+  local maxLabelWidth = math.max(font:getWidth(addressLabel), font:getWidth(portLabel))
+
+  local inputX = x + padding + maxLabelWidth + labelInputGap
+  local inputW = w - (padding + maxLabelWidth + labelInputGap + padding)
+
+  -- Address input
+  local addressY = y + 40 * s
   
   -- Address label
-  love.graphics.setFont(Theme.fonts.normal)
+  love.graphics.setFont(font)
   Theme.setColor(Theme.colors.text)
-  love.graphics.print("Server Address:", x + padding, inputY - 20 * s)
+  local labelY = addressY + (inputH - fontHeight) / 2
+  love.graphics.print(addressLabel, inputX - labelInputGap - font:getWidth(addressLabel), labelY)
   
   -- Address input box
+  self.addressInputRect = {x = inputX, y = addressY, w = inputW, h = inputH}
   Theme.setColor(Theme.colors.bg0)
-  love.graphics.rectangle("fill", inputX, inputY, inputW, inputH)
-  Theme.setColor(Theme.colors.border)
-  love.graphics.rectangle("line", inputX, inputY, inputW, inputH)
+  love.graphics.rectangle("fill", inputX, addressY, inputW, inputH)
+  Theme.setColor(self.activeInput == 'address' and Theme.colors.accent or Theme.colors.border)
+  love.graphics.rectangle("line", inputX, addressY, inputW, inputH)
   
   -- Address text
   Theme.setColor(Theme.colors.text)
-  love.graphics.print(self.joinAddress, inputX + 5 * s, inputY + 5 * s)
+  love.graphics.print(self.joinAddress, inputX + 5 * s, addressY + 5 * s)
+  if self.activeInput == 'address' and (love.timer.getTime() % 1) < 0.5 then
+    local textWidth = font:getWidth(self.joinAddress)
+    love.graphics.rectangle("fill", inputX + 5 * s + textWidth, addressY + 4 * s, 2 * s, inputH - 8 * s)
+  end
   
   -- Port input
-  local portY = inputY + 50 * s
-  local portW = 100 * s
-  local portH = 30 * s
-  local portX = x + (w - portW) / 2
+  local portY = addressY + 50 * s
   
   -- Port label
-  love.graphics.print("Port:", x + padding, portY - 20 * s)
+  local portLabelY = portY + (inputH - fontHeight) / 2
+  love.graphics.print(portLabel, inputX - labelInputGap - font:getWidth(portLabel), portLabelY)
   
   -- Port input box
+  self.portInputRect = {x = inputX, y = portY, w = inputW, h = inputH}
   Theme.setColor(Theme.colors.bg0)
-  love.graphics.rectangle("fill", portX, portY, portW, portH)
-  Theme.setColor(Theme.colors.border)
-  love.graphics.rectangle("line", portX, portY, portW, portH)
+  love.graphics.rectangle("fill", inputX, portY, inputW, inputH)
+  Theme.setColor(self.activeInput == 'port' and Theme.colors.accent or Theme.colors.border)
+  love.graphics.rectangle("line", inputX, portY, inputW, inputH)
   
   -- Port text
   Theme.setColor(Theme.colors.text)
-  love.graphics.print(self.joinPort, portX + 5 * s, portY + 5 * s)
+  love.graphics.print(self.joinPort, inputX + 5 * s, portY + 5 * s)
+  if self.activeInput == 'port' and (love.timer.getTime() % 1) < 0.5 then
+    local textWidth = font:getWidth(self.joinPort)
+    love.graphics.rectangle("fill", inputX + 5 * s + textWidth, portY + 4 * s, 2 * s, inputH - 8 * s)
+  end
 
   if self.joinErrorMessage then
     Theme.setColor(Theme.colors.danger)
-    local messageY = portY + portH + 10 * s
+    local messageY = portY + inputH + 10 * s
     love.graphics.printf(self.joinErrorMessage, x + padding, messageY, w - padding * 2, "center")
   end
 
@@ -601,6 +625,16 @@ function Start:mousepressed(x, y, button)
       return false
     end
     
+    if self.addressInputRect and x >= self.addressInputRect.x and x <= self.addressInputRect.x + self.addressInputRect.w and
+       y >= self.addressInputRect.y and y <= self.addressInputRect.y + self.addressInputRect.h then
+      self.activeInput = 'address'
+    elseif self.portInputRect and x >= self.portInputRect.x and x <= self.portInputRect.x + self.portInputRect.w and
+           y >= self.portInputRect.y and y <= self.portInputRect.y + self.portInputRect.h then
+      self.activeInput = 'port'
+    else
+      self.activeInput = nil
+    end
+
     -- Handle custom button clicks within the window
     if self.joinButton and x >= self.joinButton.x and x <= self.joinButton.x + self.joinButton.w and
        y >= self.joinButton.y and y <= self.joinButton.y + self.joinButton.h then
@@ -626,11 +660,9 @@ function Start:mousepressed(x, y, button)
       }
 
       -- Close UI and trigger game transition immediately
-      -- Let the global network manager handle the actual connection
       self.showJoinUI = false
       self.joinWindow:hide()
-      _G.TRIGGER_JOIN_GAME = true
-      return false
+      return "joinGame"
     elseif self.cancelButton and x >= self.cancelButton.x and x <= self.cancelButton.x + self.cancelButton.w and
            y >= self.cancelButton.y and y <= self.cancelButton.y + self.cancelButton.h then
       -- Cancel button clicked
@@ -802,6 +834,47 @@ function Start:keypressed(key)
   if VersionLog.visible and VersionLog.keypressed(key) then
     return true
   end
+    
+    if self.showJoinUI then
+      if key == "escape" then
+        self.showJoinUI = false
+        self.joinErrorMessage = nil
+        self.joinWindow:hide()
+        _G.PENDING_MULTIPLAYER_CONNECTION = nil
+        self.activeInput = nil
+        return true
+      elseif key == "tab" then
+        if self.activeInput == 'address' then
+          self.activeInput = 'port'
+        else
+          self.activeInput = 'address'
+        end
+        return true
+      elseif key == 'return' or key == 'kpenter' then
+        -- Simulate join button click
+        if not (_G.PENDING_MULTIPLAYER_CONNECTION and _G.PENDING_MULTIPLAYER_CONNECTION.connecting) then
+          local port = tonumber(self.joinPort) or 7777
+          _G.PENDING_MULTIPLAYER_CONNECTION = {
+            address = self.joinAddress,
+            port = port,
+            connected = false,
+            connecting = true
+          }
+          self.showJoinUI = false
+          self.joinWindow:hide()
+          return "joinGame"
+        end
+        return true
+      elseif key == 'backspace' then
+        if self.activeInput == 'address' then
+          self.joinAddress = self.joinAddress:sub(1, -2)
+        elseif self.activeInput == 'port' then
+          self.joinPort = self.joinPort:sub(1, -2)
+        end
+        return true
+      end
+    end
+
     return false
 end
 
@@ -809,6 +882,16 @@ function Start:textinput(text)
     if self.showLoadUI and self.loadSlotsUI then
         return self.loadSlotsUI:textinput(text)
     end
+    
+    if self.showJoinUI and self.activeInput then
+        if self.activeInput == 'address' then
+            self.joinAddress = self.joinAddress .. text
+        elseif self.activeInput == 'port' then
+            self.joinPort = self.joinPort .. text
+        end
+        return true
+    end
+
     return false
 end
 

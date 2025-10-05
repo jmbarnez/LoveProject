@@ -197,4 +197,13 @@ function NetworkSync.update(dt, player, world, networkManager)
     end
 end
 
+function NetworkSync.getRemotePlayers()
+    return remoteEntities
+end
+
+function NetworkSync.getRemotePlayerSnapshots()
+    -- NOTE: This is a placeholder. The snapshot logic is not yet implemented.
+    return {}
+end
+
 return NetworkSync
