@@ -14,11 +14,25 @@ local POSITION_SEND_INTERVAL = 1 / 15
 
 local remoteEntities = {}
 local lastSentSnapshot = nil
+local lastSentTimestamp = nil
 local sendAccumulator = 0
+
+local MIN_INTERP_DURATION = 1 / 120
+local MAX_INTERP_DURATION = 0.35
+local MAX_EXTRAPOLATION = 0.75
+
+local function now()
+    if love and love.timer and love.timer.getTime then
+        return love.timer.getTime()
+    end
+
+    return os.clock()
+end
 
 function NetworkSync.reset()
     remoteEntities = {}
     lastSentSnapshot = nil
+    lastSentTimestamp = nil
     sendAccumulator = 0
 end
 
@@ -29,6 +43,9 @@ local function sanitiseSnapshot(snapshot)
             velocity = { x = 0, y = 0 },
             health = { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 },
             shieldChannel = false,
+            thrusterState = { isThrusting = false, forward = 0, reverse = 0, strafeLeft = 0, strafeRight = 0, boost = 0 },
+            timestamp = now(),
+            updateInterval = POSITION_SEND_INTERVAL,
         }
     end
 
@@ -37,6 +54,8 @@ local function sanitiseSnapshot(snapshot)
     local health = snapshot.health or {}
     local shieldChannel = snapshot.shieldChannel
     local thrusterState = snapshot.thrusterState or {}
+    local timestamp = tonumber(snapshot.timestamp)
+    local updateInterval = tonumber(snapshot.updateInterval)
 
     local forward = math.max(0, math.min(1, tonumber(thrusterState.forward) or 0))
     local reverse = math.max(0, math.min(1, tonumber(thrusterState.reverse) or 0))
@@ -76,7 +95,9 @@ local function sanitiseSnapshot(snapshot)
             strafeLeft = strafeLeft,
             strafeRight = strafeRight,
             boost = boost
-        }
+        },
+        timestamp = timestamp or now(),
+        updateInterval = math.max(MIN_INTERP_DURATION, math.min(updateInterval or POSITION_SEND_INTERVAL, MAX_INTERP_DURATION))
     }
 
     return sanitized
@@ -158,20 +179,62 @@ local function ensureRemoteEntity(playerId, playerData, world)
     return entity
 end
 
+local function ensureInterpState(entity, currentPosition)
+    entity._netSync = entity._netSync or {
+        startPos = { x = currentPosition.x or 0, y = currentPosition.y or 0, angle = currentPosition.angle or 0 },
+        targetPos = { x = currentPosition.x or 0, y = currentPosition.y or 0, angle = currentPosition.angle or 0 },
+        lastVelocity = { x = 0, y = 0 },
+        startTime = now(),
+        duration = POSITION_SEND_INTERVAL,
+        lastTimestamp = 0,
+        lastHeard = now()
+    }
+
+    return entity._netSync
+end
+
 local function updateEntityFromSnapshot(entity, snapshot)
     if not entity or not snapshot then
         return
     end
 
     local data = sanitiseSnapshot(snapshot)
+    local posComponent = entity.components and entity.components.position or nil
 
-    if entity.components and entity.components.position then
-        entity.components.position.x = data.position.x
-        entity.components.position.y = data.position.y
-        entity.components.position.angle = data.position.angle
+    local isMovementStale = false
+
+    if posComponent then
+        local interp = ensureInterpState(entity, posComponent)
+
+        if interp.lastTimestamp and data.timestamp and data.timestamp <= interp.lastTimestamp then
+            isMovementStale = true
+        end
+
+        if not isMovementStale then
+            interp.startPos.x = posComponent.x or data.position.x
+            interp.startPos.y = posComponent.y or data.position.y
+            interp.startPos.angle = posComponent.angle or data.position.angle
+
+            interp.targetPos.x = data.position.x
+            interp.targetPos.y = data.position.y
+            interp.targetPos.angle = data.position.angle
+
+            interp.lastVelocity.x = data.velocity.x
+            interp.lastVelocity.y = data.velocity.y
+            interp.startTime = now()
+
+            local duration = data.updateInterval or POSITION_SEND_INTERVAL
+            if interp.lastTimestamp > 0 and data.timestamp then
+                duration = math.max(duration, data.timestamp - interp.lastTimestamp)
+            end
+            interp.duration = math.max(MIN_INTERP_DURATION, math.min(duration, MAX_INTERP_DURATION))
+            interp.lastTimestamp = data.timestamp or now()
+            interp.lastHeard = now()
+            interp.initialised = true
+        end
     end
 
-    if entity.components and entity.components.velocity then
+    if not isMovementStale and entity.components and entity.components.velocity then
         entity.components.velocity.x = data.velocity.x
         entity.components.velocity.y = data.velocity.y
     end
@@ -223,23 +286,6 @@ local function updateEntityFromSnapshot(entity, snapshot)
         Radius.invalidateCache(entity)
     end
 
-    if entity.components and entity.components.physics and entity.components.physics.body then
-        local body = entity.components.physics.body
-        if body.setPosition then
-            body:setPosition(data.position.x, data.position.y)
-        else
-            body.x = data.position.x
-            body.y = data.position.y
-        end
-        if body.setVelocity then
-            body:setVelocity(data.velocity.x, data.velocity.y)
-        else
-            body.vx = data.velocity.x
-            body.vy = data.velocity.y
-        end
-        body.angle = data.position.angle
-    end
-
     -- Update engine trail if thruster state is provided
     if data.thrusterState and entity.components and entity.components.engine_trail then
         local trail = entity.components.engine_trail
@@ -263,6 +309,70 @@ local function updateEntityFromSnapshot(entity, snapshot)
         
         -- Update trail position
         trail:updatePosition(data.position.x, data.position.y, data.position.angle or 0)
+    end
+end
+
+local function applyRemotePlayerSmoothing()
+    local currentTime = now()
+
+    for _, entity in pairs(remoteEntities) do
+        if entity and entity.components then
+            local pos = entity.components.position
+            local interp = entity._netSync
+
+            if pos and interp and interp.initialised then
+                local duration = math.max(MIN_INTERP_DURATION, interp.duration or POSITION_SEND_INTERVAL)
+                local elapsed = currentTime - (interp.startTime or currentTime)
+                local t = math.max(0, math.min(1, elapsed / duration))
+                local smoothT = t * t * (3 - 2 * t)
+
+                local newX, newY, newAngle
+
+                if elapsed <= duration then
+                    newX = interp.startPos.x + (interp.targetPos.x - interp.startPos.x) * smoothT
+                    newY = interp.startPos.y + (interp.targetPos.y - interp.startPos.y) * smoothT
+                    newAngle = interp.startPos.angle + (interp.targetPos.angle - interp.startPos.angle) * smoothT
+                else
+                    local sinceHeard = currentTime - (interp.lastHeard or currentTime)
+                    local extrapTime = math.min(sinceHeard, MAX_EXTRAPOLATION)
+                    newX = interp.targetPos.x + interp.lastVelocity.x * extrapTime
+                    newY = interp.targetPos.y + interp.lastVelocity.y * extrapTime
+                    newAngle = interp.targetPos.angle
+
+                    -- Prepare for smooth catch-up when the next packet arrives
+                    interp.startPos.x = newX
+                    interp.startPos.y = newY
+                    interp.startPos.angle = newAngle
+                end
+
+                pos.x = newX
+                pos.y = newY
+                pos.angle = newAngle
+
+                if entity.components.velocity then
+                    entity.components.velocity.x = interp.lastVelocity.x
+                    entity.components.velocity.y = interp.lastVelocity.y
+                end
+
+                if entity.components.physics and entity.components.physics.body then
+                    local body = entity.components.physics.body
+                    if body.setPosition then
+                        body:setPosition(newX, newY)
+                    else
+                        body.x = newX
+                        body.y = newY
+                    end
+                    body.angle = newAngle
+
+                    if body.setVelocity then
+                        body:setVelocity(interp.lastVelocity.x, interp.lastVelocity.y)
+                    else
+                        body.vx = interp.lastVelocity.x
+                        body.vy = interp.lastVelocity.y
+                    end
+                end
+            end
+        end
     end
 end
 
@@ -333,9 +443,14 @@ function NetworkSync.update(dt, player, world, networkManager)
             }
         }
 
+        local currentTimestamp = now()
+        snapshot.timestamp = currentTimestamp
+        snapshot.updateInterval = lastSentTimestamp and (currentTimestamp - lastSentTimestamp) or POSITION_SEND_INTERVAL
+
         if sendAccumulator >= POSITION_SEND_INTERVAL or snapshotsDiffer(snapshot, lastSentSnapshot) then
             networkManager:sendPlayerUpdate(snapshot)
             lastSentSnapshot = snapshot
+            lastSentTimestamp = currentTimestamp
             sendAccumulator = 0
         end
     end
@@ -358,6 +473,8 @@ function NetworkSync.update(dt, player, world, networkManager)
             removeRemoteEntity(world, id)
         end
     end
+
+    applyRemotePlayerSmoothing()
 end
 
 function NetworkSync.getRemotePlayers()
