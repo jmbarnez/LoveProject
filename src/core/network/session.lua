@@ -571,19 +571,37 @@ local function handleBeamRequest(request, playerId)
         -- Calculate damage from request
         local damagePerSecond = 100 -- Default damage
         if request.damageConfig then
-            if request.damageConfig.min and request.damageConfig.max then
+            if request.damageConfig.damagePerSecond then
+                damagePerSecond = request.damageConfig.damagePerSecond
+            elseif request.damageConfig.min and request.damageConfig.max then
                 damagePerSecond = (request.damageConfig.min + request.damageConfig.max) * 0.5
             elseif request.damageConfig.value then
                 damagePerSecond = request.damageConfig.value
             end
         end
-        
+
         -- Apply damage using the same system as local beams
-        -- Use a more accurate beam duration based on the combat laser config (0.16 seconds from combat_laser.lua)
-        local beamDuration = 0.16 -- Combat laser beam duration
+        local beamDuration = request.deltaTime or 0.016
+        if beamDuration < 0 then
+            beamDuration = 0
+        elseif beamDuration > 0.25 then
+            beamDuration = 0.25
+        end
+
         local damageAmount = damagePerSecond * beamDuration
         if damageAmount > 0 then
-            local damageMeta = request.damageConfig or { min = 1, max = 2 }
+            local damageMeta
+            if request.damageConfig then
+                damageMeta = {
+                    min = request.damageConfig.min,
+                    max = request.damageConfig.max,
+                    value = damageAmount,
+                    skill = request.damageConfig.skill,
+                    damagePerSecond = request.damageConfig.damagePerSecond
+                }
+            else
+                damageMeta = { min = 1, max = 2, value = damageAmount, damagePerSecond = damagePerSecond }
+            end
             BeamWeapons.applyLaserDamage(hitTarget, damageAmount, player, request.damageConfig and request.damageConfig.skill, damageMeta)
         end
         

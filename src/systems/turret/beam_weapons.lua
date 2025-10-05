@@ -6,10 +6,10 @@ local TargetUtils = require("src.core.target_utils")
 local BeamWeapons = {}
 
 -- Helper function to send beam weapon fire request to host
-local function sendBeamWeaponFireRequest(turret, sx, sy, angle, beamLength, damageConfig)
+local function sendBeamWeaponFireRequest(turret, sx, sy, angle, beamLength, damageConfig, deltaTime)
     local NetworkSession = require("src.core.network.session")
     local networkManager = NetworkSession.getManager()
-    
+
     if networkManager and networkManager:isMultiplayer() and not networkManager:isHost() then
         -- Client: send beam weapon fire request to host
         local request = {
@@ -19,6 +19,7 @@ local function sendBeamWeaponFireRequest(turret, sx, sy, angle, beamLength, dama
             angle = angle,
             beamLength = beamLength,
             damageConfig = damageConfig,
+            deltaTime = deltaTime,
             ownerId = turret.owner and turret.owner.id or nil
         }
         
@@ -106,13 +107,20 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
         damageConfig = {
             min = turret.damage_range.min,
             max = turret.damage_range.max,
-            skill = turret.skillId
+            skill = turret.skillId,
+            damagePerSecond = turret.damagePerSecond
         }
     else
-        damageConfig = { min = 1, max = 2, skill = turret.skillId }
+        damageConfig = {
+            min = 1,
+            max = 2,
+            value = turret.damagePerSecond or 1,
+            skill = turret.skillId,
+            damagePerSecond = turret.damagePerSecond
+        }
     end
     
-    local requestSent = sendBeamWeaponFireRequest(turret, sx, sy, angle, beamLength, damageConfig)
+    local requestSent = sendBeamWeaponFireRequest(turret, sx, sy, angle, beamLength, damageConfig, dt)
     
     -- If not a client or request failed, process beam locally (for host)
     if not requestSent then
