@@ -88,6 +88,25 @@ end
 
 function love.applyGraphicsSettings()
     local graphicsSettings = Settings.getGraphicsSettings()
+    -- Guard: avoid applying fullscreen automatically during the first startup
+    -- if the current window mode already matches desired settings. This helps
+    -- prevent an immediate fullscreen switch after the window is created.
+    local ok, curW, curH, curFlags = pcall(function() return love.window.getMode() end)
+    if ok and curW and curH and curFlags then
+        -- curFlags might be boolean or table depending on LÖVE version; normalize
+        local curFullscreen = false
+        if type(curFlags) == "table" then
+            curFullscreen = curFlags.fullscreen or false
+        elseif type(curFlags) == "boolean" then
+            curFullscreen = curFlags
+        end
+        -- If the desired fullscreen state matches current, avoid re-applying
+        if curFullscreen == graphicsSettings.fullscreen then
+            updateFPSLimit()
+            return
+        end
+    end
+
     local success = WindowMode.apply(graphicsSettings)
     if success then
         Viewport.init(graphicsSettings.resolution.width, graphicsSettings.resolution.height)
