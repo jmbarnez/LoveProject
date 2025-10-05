@@ -192,12 +192,17 @@ local function updateEntityFromSnapshot(entity, snapshot)
         health.energy = data.health.energy
         health.maxEnergy = data.health.maxEnergy
 
-        -- Detect health changes for remote players and show overhead bars
-        if entity.isRemotePlayer and (health.shield ~= oldShield or health.hp ~= oldHP) then
-            if love and love.timer and love.timer.getTime then
-                entity._hudDamageTime = love.timer.getTime()
-            else
-                entity._hudDamageTime = os.clock()
+        -- Detect damage for remote players and show overhead bars (only on health decrease, not healing)
+        if entity.isRemotePlayer then
+            local shieldDecreased = (oldShield or 0) > (health.shield or 0)
+            local hpDecreased = (oldHP or 0) > (health.hp or 0)
+            
+            if shieldDecreased or hpDecreased then
+                if love and love.timer and love.timer.getTime then
+                    entity._hudDamageTime = love.timer.getTime()
+                else
+                    entity._hudDamageTime = os.clock()
+                end
             end
         end
 

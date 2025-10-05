@@ -152,7 +152,13 @@ function Reticle.draw(player, world, camera)
 
   love.graphics.push()
   -- Reticle draws in screen-space; make it crisp
-  love.graphics.translate(mx, my)
+  -- Use the same coordinate conversion as the shooting system for consistency
+  local reticleX, reticleY = mx, my
+  if player and player.cursorWorldPos and camera then
+    -- Convert the world position back to screen coordinates to match shooting system
+    reticleX, reticleY = camera:worldToScreen(player.cursorWorldPos.x, player.cursorWorldPos.y)
+  end
+  love.graphics.translate(reticleX, reticleY)
 
   -- Read reticle settings (fixed scale)
   local style = (g and g.reticle_style) or 1

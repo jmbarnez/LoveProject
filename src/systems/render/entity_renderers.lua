@@ -170,10 +170,14 @@ function EntityRenderers.remote_player(entity, player)
         local font = love.graphics.getFont()
         local textWidth = font:getWidth(entity.playerName)
         local textHeight = font:getHeight()
+        -- Position player name above the health bar (health bar is at -(radius + 22) with height 12)
+        -- So we position the name at -(radius + 22 + 12 + 8) to be above it with some spacing
+        local radius = (entity.components.collidable and entity.components.collidable.radius) or 12
+        local nameY = -(radius + 22 + 12 + 8) - textHeight
         RenderUtils.setColor({0, 0, 0, 0.7})
-        love.graphics.rectangle("fill", -textWidth / 2 - 2, -S(20) - textHeight - 2, textWidth + 4, textHeight + 4)
+        love.graphics.rectangle("fill", -textWidth / 2 - 2, nameY - 2, textWidth + 4, textHeight + 4)
         RenderUtils.setColor({0.65, 0.85, 1.0, 1.0})
-        love.graphics.print(entity.playerName, -textWidth / 2, -S(20) - textHeight)
+        love.graphics.print(entity.playerName, -textWidth / 2, nameY)
     end
 
     -- Use the same health/shield bar system as enemies for consistent display

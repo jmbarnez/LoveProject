@@ -10,10 +10,10 @@ local defaultSettings = {} -- Will be populated with the initial settings
 local settings = {
   graphics = {
         resolution = {
-            width = 1600,
-            height = 900,
+            width = 1920,
+            height = 1080,
         },
-        fullscreen = false,
+        fullscreen = true,
         fullscreen_type = "desktop",
         borderless = false,
         vsync = true,
