@@ -584,10 +584,21 @@ function NetworkServer:_generateSpawnPosition()
     -- Try to get hub position from world snapshot if available
     if self.worldSnapshot and self.worldSnapshot.entities then
         for _, entity in ipairs(self.worldSnapshot.entities) do
-            if entity.type == "hub_station" and entity.position then
-                hubX = entity.position.x
-                hubY = entity.position.y
-                break
+            local kind = entity.kind or entity.type
+            if kind == "hub_station" then
+                local x = entity.x
+                local y = entity.y
+
+                if not (type(x) == "number" and type(y) == "number") and entity.position then
+                    x = entity.position.x
+                    y = entity.position.y
+                end
+
+                if type(x) == "number" and type(y) == "number" then
+                    hubX = x
+                    hubY = y
+                    break
+                end
             end
         end
     end
