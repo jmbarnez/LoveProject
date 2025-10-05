@@ -60,8 +60,8 @@ return {
   },
 
   hull = {
-    hp = 20,
-    shield = 10,
+    hp = 200,
+    shield = 100,
     cap = 0, -- No energy system for basic enemies
   },
 

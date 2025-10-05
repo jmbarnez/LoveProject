@@ -213,7 +213,7 @@ local function buildEnemySnapshotFromWorld(world)
     return snapshot
 end
 
-local function ensureRemoteEnemy(enemyId, world)
+local function ensureRemoteEnemy(enemyId, enemyData, world)
     if not world or not enemyId then
         return nil
     end
@@ -273,7 +273,35 @@ local function ensureRemoteEnemy(enemyId, world)
         end
     end
 
-    return nil
+    -- Fallback: Create new enemy entity if no existing entity found
+    -- This handles enemies that spawn after clients have connected
+    local EntityFactory = require("src.templates.entity_factory")
+    local x = 0
+    local y = 0
+    
+    -- Try to get position from enemy data if available
+    if enemyData and enemyData.position then
+        x = enemyData.position.x or 0
+        y = enemyData.position.y or 0
+    end
+    
+    -- Use the enemy type from the data, fallback to basic_drone
+    local enemyType = (enemyData and enemyData.type) or "basic_drone"
+    local entity = EntityFactory.createEnemy(enemyType, x, y)
+    
+    if not entity then
+        return nil
+    end
+
+    entity.isRemoteEnemy = true
+    entity.remoteEnemyId = id
+    entity.syncedHostId = id
+    entity.enemyType = enemyType
+
+    world:addEntity(entity)
+    remoteEnemies[id] = entity
+
+    return entity
 end
 
 local function updateEnemyFromSnapshot(entity, enemyData)
@@ -506,7 +534,7 @@ function RemoteEnemySync.applyEnemySnapshot(snapshot, world)
         local enemyId = enemyData.id
         currentEnemyIds[enemyId] = true
 
-        local entity = ensureRemoteEnemy(enemyId, world)
+        local entity = ensureRemoteEnemy(enemyId, enemyData, world)
         if entity then
             updateEnemyFromSnapshot(entity, enemyData)
             pendingEnemySnapshots[enemyId] = nil
@@ -517,7 +545,7 @@ function RemoteEnemySync.applyEnemySnapshot(snapshot, world)
 
     if next(pendingEnemySnapshots) then
         for enemyId, enemyData in pairs(pendingEnemySnapshots) do
-            local entity = ensureRemoteEnemy(enemyId, world)
+            local entity = ensureRemoteEnemy(enemyId, enemyData, world)
             if entity then
                 updateEnemyFromSnapshot(entity, enemyData)
                 pendingEnemySnapshots[enemyId] = nil

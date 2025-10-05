@@ -28,7 +28,7 @@ return {
   },
 
   -- Basic drone stats
-  hull = { hp = 10, shield = 5, cap = 110 },
+  hull = { hp = 100, shield = 50, cap = 110 },
   -- Much lighter for better maneuverability: lower mass, higher accel
   engine = { accel = 1200, maxSpeed = 500, drag = 0.985, mass = 150 },
   sig = 110,

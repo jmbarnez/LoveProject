@@ -54,7 +54,7 @@ return {
     },
 
   hull = {
-    hp = 5,
+    hp = 50,
     shield = 0,
     cap = 0, -- No energy system for basic enemies
   },
@@ -110,14 +110,14 @@ return {
             ai = { intelligenceLevel = "STANDARD", aggressiveType = "aggressive" },
             bounty = 12,
             xpReward = 15,
-            hull = { hp = 8, shield = 5, cap = 0 } -- No energy system
+            hull = { hp = 80, shield = 50, cap = 0 } -- No energy system
         },
         elite = {
             name = "Elite Hunter Drone",
             ai = { intelligenceLevel = "ELITE", aggressiveType = "hostile" },
             bounty = 20,
             xpReward = 25,
-            hull = { hp = 12, shield = 8, cap = 0 }, -- No energy system
+            hull = { hp = 120, shield = 80, cap = 0 }, -- No energy system
             engine = { maxSpeed = 400, accel = 650 }
         },
         ace = {
@@ -125,7 +125,7 @@ return {
             ai = { intelligenceLevel = "ACE", aggressiveType = "hostile" },
             bounty = 35,
             xpReward = 40,
-            hull = { hp = 18, shield = 12, cap = 0 }, -- No energy system
+            hull = { hp = 180, shield = 120, cap = 0 }, -- No energy system
             engine = { maxSpeed = 420, accel = 700 },
             hardpoints = {
                 { turret = "combat_laser" }  -- Use streamlined combat laser
