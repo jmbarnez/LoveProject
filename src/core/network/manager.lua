@@ -333,6 +333,13 @@ function NetworkManager:sendEnemyUpdate(enemyData)
         return
     end
 
+    -- Check if host authoritative enemies is enabled
+    local Settings = require("src.core.settings")
+    local networkingSettings = Settings.getNetworkingSettings()
+    if not networkingSettings or not networkingSettings.host_authoritative_enemies then
+        return
+    end
+
     if self.server then
         -- Send enemy updates to all connected clients
         self.server:broadcastEnemyUpdate(enemyData)

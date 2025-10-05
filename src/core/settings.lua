@@ -61,8 +61,8 @@ local settings = {
         }
     },
     networking = {
-        host_authoritative_enemies = true,  -- Feature flag for host-authoritative enemy combat
-        host_authoritative_projectiles = true  -- Feature flag for host-authoritative projectile combat
+        host_authoritative_enemies = false,  -- Feature flag for host-authoritative enemy combat (disabled until fully implemented)
+        host_authoritative_projectiles = false  -- Feature flag for host-authoritative projectile combat (disabled until fully implemented)
     }
 }
 

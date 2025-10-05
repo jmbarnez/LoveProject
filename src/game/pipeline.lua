@@ -145,6 +145,15 @@ function Pipeline.build()
             ctx.world:update(ctx.dt)
         end,
         function(ctx)
+            local StateManager = require("src.managers.state_manager")
+            StateManager.update(ctx.dt)
+        end,
+        function(ctx)
+            if ctx.refreshDockingState then
+                ctx.refreshDockingState()
+            end
+        end,
+        function(ctx)
             Events.processQueue()
         end,
         function(ctx)

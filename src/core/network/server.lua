@@ -813,6 +813,14 @@ function NetworkServer:broadcastEnemyUpdate(enemyData)
         return
     end
 
+    -- Check if host authoritative enemies is enabled
+    local Settings = require("src.core.settings")
+    local networkingSettings = Settings.getNetworkingSettings()
+    if not networkingSettings or not networkingSettings.host_authoritative_enemies then
+        Log.debug("Enemy updates disabled - host authoritative enemies not enabled")
+        return
+    end
+
     -- Sanitize enemy data before broadcasting
     local sanitizedEnemyData = sanitiseEnemySnapshot(enemyData)
     if not sanitizedEnemyData or #sanitizedEnemyData == 0 then
