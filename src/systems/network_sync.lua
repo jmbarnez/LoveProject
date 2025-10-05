@@ -48,72 +48,77 @@ local function normalizePlayerDataId(data, fallbackId)
     return canonicalizePlayerId(fallbackId)
 end
 
+local function mergeSnapshotFields(target, source)
+    if type(target) ~= "table" or type(source) ~= "table" then
+        return target
+    end
+
+    if target == source then
+        return target
+    end
+
+    for key, value in pairs(source) do
+        if value ~= nil then
+            if type(value) == "table" then
+                local existing = target[key]
+                if type(existing) ~= "table" then
+                    existing = {}
+                end
+                if existing ~= value then
+                    mergeSnapshotFields(existing, value)
+                end
+                target[key] = existing
+            else
+                target[key] = value
+            end
+        end
+    end
+
+    return target
+end
+
 -- Function definitions
 storeRemoteSnapshot = function(playerId, data)
     local canonicalId = canonicalizePlayerId(playerId)
-    if not canonicalId or not data then return end
+    if not canonicalId then return nil end
+
+    local snapshot = remotePlayerSnapshots[canonicalId]
+    if not snapshot then
+        snapshot = { playerId = canonicalId }
+        remotePlayerSnapshots[canonicalId] = snapshot
+    end
+
+    if not data then
+        return snapshot
+    end
 
     local payload = data
     if type(payload) == "table" and type(payload.data) == "table" then
         payload = payload.data
     end
 
-    local snapshot = remotePlayerSnapshots[canonicalId] or { playerId = canonicalId }
-
-    if type(payload.playerId) ~= "nil" then
-        snapshot.playerId = payload.playerId
-    elseif type(data.playerId) ~= "nil" then
-        snapshot.playerId = data.playerId
+    if type(payload) == "table" then
+        mergeSnapshotFields(snapshot, payload)
     end
 
-    if payload.playerName then
-        snapshot.playerName = payload.playerName
-    elseif data.playerName then
-        snapshot.playerName = data.playerName
-    end
+    if type(data) == "table" then
+        if data.playerId ~= nil then
+            snapshot.playerId = canonicalizePlayerId(data.playerId) or snapshot.playerId or canonicalId
+        elseif type(payload) == "table" and payload.playerId ~= nil then
+            snapshot.playerId = canonicalizePlayerId(payload.playerId) or snapshot.playerId or canonicalId
+        else
+            snapshot.playerId = snapshot.playerId or canonicalId
+        end
 
-    if payload.position then
-        snapshot.position = snapshot.position or {}
-        if payload.position.x ~= nil then
-            snapshot.position.x = payload.position.x
-        end
-        if payload.position.y ~= nil then
-            snapshot.position.y = payload.position.y
-        end
-        if payload.position.angle ~= nil then
-            snapshot.position.angle = payload.position.angle
-        end
-    end
-
-    if payload.velocity then
-        snapshot.velocity = snapshot.velocity or {}
-        if payload.velocity.x ~= nil then
-            snapshot.velocity.x = payload.velocity.x
-        end
-        if payload.velocity.y ~= nil then
-            snapshot.velocity.y = payload.velocity.y
-        end
-    end
-
-    if payload.health then
-        snapshot.health = snapshot.health or {}
-        if payload.health.hp ~= nil then
-            snapshot.health.hp = payload.health.hp
-        end
-        if payload.health.maxHp ~= nil then
-            snapshot.health.maxHp = payload.health.maxHp
-        elseif payload.health.maxHP ~= nil then
-            snapshot.health.maxHp = payload.health.maxHP
-        end
-        if payload.health.shield ~= nil then
-            snapshot.health.shield = payload.health.shield
-        end
-        if payload.health.maxShield ~= nil then
-            snapshot.health.maxShield = payload.health.maxShield
+        if data.playerName ~= nil then
+            snapshot.playerName = data.playerName
+        elseif type(payload) == "table" and payload.playerName ~= nil then
+            snapshot.playerName = payload.playerName
         end
     end
 
     remotePlayerSnapshots[canonicalId] = snapshot
+    return snapshot
 end
 
 updateRemotePlayer = function(playerId, data, world)
@@ -234,32 +239,48 @@ getLocalPlayerCanonicalId = function(networkManager)
     return nil
 end
 
-resolvePlayerSnapshot = function(playerData)
-    if not playerData then
+resolvePlayerSnapshot = function(playerId, playerData)
+    local canonicalId = canonicalizePlayerId(playerId)
+
+    if not canonicalId then
+        canonicalId = normalizePlayerDataId(playerData, playerId)
+    end
+
+    if not canonicalId then
         return nil
     end
 
-    if playerData.position then
-        return playerData
+    local snapshot = nil
+
+    if playerData ~= nil then
+        snapshot = storeRemoteSnapshot(canonicalId, playerData)
+    else
+        snapshot = remotePlayerSnapshots[canonicalId]
     end
 
-    if playerData.data and playerData.data.position then
-        return playerData.data
+    if not snapshot then
+        return nil
     end
 
-    return nil
+    return {
+        playerId = canonicalId,
+        data = snapshot
+    }
 end
 
 -- Listen for incoming player updates
 Events.on("NETWORK_PLAYER_UPDATED", function(data)
     Log.info("NETWORK_PLAYER_UPDATED received:", data and data.playerId or "nil")
-    if data and data.playerId and data.data then
-        storeRemoteSnapshot(data.playerId, data.data)
+    if not data or not data.playerId then
+        return
+    end
 
-        -- Store the player data for processing in the update loop
+    local resolved = resolvePlayerSnapshot(data.playerId, data)
+
+    if resolved and resolved.data and resolved.data.position then
         local world = require("src.game").world
         if world then
-            updateRemotePlayer(data.playerId, data.data, world)
+            updateRemotePlayer(resolved.playerId, resolved.data, world)
         end
     end
 end)
@@ -337,16 +358,12 @@ function NetworkSync.update(dt, player, world, networkManager)
             remotePlayerSnapshots[canonicalId] = nil
         else
             if canonicalId then
-                local snapshot = playerData
-                Log.info("Processing player:", canonicalId, "has position:", snapshot and snapshot.position ~= nil)
+                local resolved = resolvePlayerSnapshot(canonicalId, playerData)
+                Log.info("Processing player:", canonicalId, "has position:", resolved and resolved.data and resolved.data.position ~= nil)
                 Log.info("Player data structure:", json.encode(playerData))
-                if snapshot and snapshot.position then
-                    updateRemotePlayer(canonicalId, snapshot, world)
-                elseif snapshot and snapshot.data and snapshot.data.position then
-                    updateRemotePlayer(canonicalId, snapshot.data, world)
-                else
-                    -- Even if we don't yet have full position data, keep the latest identifiers around
-                    storeRemoteSnapshot(canonicalId, playerData)
+
+                if resolved and resolved.data and resolved.data.position then
+                    updateRemotePlayer(resolved.playerId, resolved.data, world)
                 end
             end
         end
