@@ -833,7 +833,6 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   if networkManager and networkManager.setupEventListeners then
     networkManager:setupEventListeners()
   end
-  registerWorldSyncEventHandlers()
 
   -- Listen for when someone joins the host's game
   Events.on("NETWORK_PLAYER_JOINED", function(data)
