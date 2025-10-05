@@ -7,12 +7,42 @@ local Radius = require("src.systems.collision.radius")
 local CollisionEffects = {}
 
 -- Check if entity is a player with active shields
-function CollisionEffects.isPlayerShieldActive(entity)
-    if entity and entity.isPlayer then
-        return (entity.shieldChannel or false) or
-               (entity.components and entity.components.health and entity.components.health.shield and entity.components.health.shield > 0)
+local function get_health(entity)
+    if not entity or not entity.components then
+        return nil
     end
-    return false
+    return entity.components.health
+end
+
+function CollisionEffects.isPlayerShieldActive(entity)
+    if not entity then return false end
+
+    local isPlayer = entity.isPlayer or (entity.components and entity.components.player ~= nil)
+    if not isPlayer then
+        return false
+    end
+
+    if entity.shieldChannel then
+        return true
+    end
+
+    local health = get_health(entity)
+    return health and (health.shield or 0) > 0 or false
+end
+
+function CollisionEffects.hasShield(entity)
+    if not entity then return false end
+
+    if StationShields.hasActiveShield(entity) then
+        return true
+    end
+
+    if entity.shieldChannel then
+        return true
+    end
+
+    local health = get_health(entity)
+    return health and (health.shield or 0) > 0 or false
 end
 
 -- Simple cooldown for repeated collision FX between the same pair to prevent spam
@@ -42,8 +72,8 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
     local e2CollisionY = e2y + ny * e2Radius
 
     -- Determine if each entity has shields active
-    local e1HasShield = StationShields.hasActiveShield(entity1) or CollisionEffects.isPlayerShieldActive(entity1)
-    local e2HasShield = StationShields.hasActiveShield(entity2) or CollisionEffects.isPlayerShieldActive(entity2)
+    local e1HasShield = CollisionEffects.hasShield(entity1)
+    local e2HasShield = CollisionEffects.hasShield(entity2)
 
     -- Create appropriate impact effects for entity1
     if e1HasShield then
