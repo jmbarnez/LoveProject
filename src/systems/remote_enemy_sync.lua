@@ -207,9 +207,7 @@ local function updateEnemyFromSnapshot(entity, enemyData)
             body.x = enemyData.position.x
             body.y = enemyData.position.y
         end
-        if body.setLinearVelocity then
-            body:setLinearVelocity(enemyData.velocity.x, enemyData.velocity.y)
-        elseif body.setVelocity then
+        if body.setVelocity then
             body:setVelocity(enemyData.velocity.x, enemyData.velocity.y)
         else
             body.vx = enemyData.velocity.x

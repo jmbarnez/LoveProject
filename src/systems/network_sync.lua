@@ -142,9 +142,7 @@ local function updateEntityFromSnapshot(entity, snapshot)
             body.x = data.position.x
             body.y = data.position.y
         end
-        if body.setLinearVelocity then
-            body:setLinearVelocity(data.velocity.x, data.velocity.y)
-        elseif body.setVelocity then
+        if body.setVelocity then
             body:setVelocity(data.velocity.x, data.velocity.y)
         else
             body.vx = data.velocity.x
