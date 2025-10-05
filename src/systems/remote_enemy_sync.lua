@@ -5,19 +5,20 @@
 ]]
 
 local Events = require("src.core.events")
-local Log = require("src.core.log")
 local Settings = require("src.core.settings")
 
 local RemoteEnemySync = {}
 
 local remoteEnemies = {}
+local pendingEnemySnapshots = {}
 local currentWorld = nil
 local lastEnemySnapshot = nil
 local enemySendAccumulator = 0
 local ENEMY_SEND_INTERVAL = 1 / 30  -- 30 Hz for enemy updates
 
 local function removeRemoteEnemy(world, enemyId)
-    local entity = remoteEnemies[enemyId]
+    local id = enemyId and tostring(enemyId) or nil
+    local entity = id and remoteEnemies[id] or nil
     if not entity then
         return
     end
@@ -26,7 +27,10 @@ local function removeRemoteEnemy(world, enemyId)
         world:removeEntity(entity)
     end
 
-    remoteEnemies[enemyId] = nil
+    if id then
+        remoteEnemies[id] = nil
+        pendingEnemySnapshots[id] = nil
+    end
 end
 
 function RemoteEnemySync.reset()
@@ -43,6 +47,7 @@ function RemoteEnemySync.reset()
     end
 
     remoteEnemies = {}
+    pendingEnemySnapshots = {}
     currentWorld = nil
     lastEnemySnapshot = nil
     enemySendAccumulator = 0
@@ -208,50 +213,67 @@ local function buildEnemySnapshotFromWorld(world)
     return snapshot
 end
 
-local function ensureRemoteEnemy(enemyId, enemyData, world)
-    if not world then
+local function ensureRemoteEnemy(enemyId, world)
+    if not world or not enemyId then
         return nil
     end
 
-    local entity = remoteEnemies[enemyId]
-    if entity then
-        return entity
+    local id = tostring(enemyId)
+    if id == "" then
+        return nil
     end
 
-    -- Try to find existing synced enemy entity with matching ID
-    local syncedEntities = world:get_entities_with_components("ai", "position")
-    for _, existingEntity in ipairs(syncedEntities) do
-        if existingEntity.isSyncedEntity and (existingEntity.id == enemyId or tostring(existingEntity) == enemyId) then
-            -- Found existing synced enemy entity, use it instead of creating a new one
-            entity = existingEntity
-            entity.isRemoteEnemy = true
-            entity.remoteEnemyId = enemyId
-            remoteEnemies[enemyId] = entity
+    local entity = remoteEnemies[id]
+    if entity then
+        if not entity.id or world:getEntity(entity.id) ~= entity then
+            remoteEnemies[id] = nil
+        else
             return entity
         end
     end
 
-    -- If no existing entity found, create a new one (fallback for backwards compatibility)
-    local EntityFactory = require("src.templates.entity_factory")
-    local x = enemyData.position and enemyData.position.x or 0
-    local y = enemyData.position and enemyData.position.y or 0
+    local function matchesHostId(candidate)
+        if not candidate then
+            return false
+        end
 
-    -- Use the enemy type from the data, fallback to basic_drone
-    local enemyType = enemyData.type or "basic_drone"
-    entity = EntityFactory.createEnemy(enemyType, x, y)
-    
-    if not entity then
-        return nil
+        local hostId = candidate.syncedHostId
+        if hostId == nil and candidate.remoteEnemyId then
+            hostId = candidate.remoteEnemyId
+        end
+        if hostId == nil and candidate.isSyncedEntity and candidate.id then
+            hostId = candidate.id
+        end
+
+        if hostId == nil then
+            return false
+        end
+
+        return tostring(hostId) == id
     end
 
-    entity.isRemoteEnemy = true
-    entity.remoteEnemyId = enemyId
-    entity.enemyType = enemyType
+    local syncedEntities = world:get_entities_with_components("ai", "position")
+    for _, existingEntity in ipairs(syncedEntities) do
+        if matchesHostId(existingEntity) then
+            existingEntity.syncedHostId = id
+            existingEntity.isRemoteEnemy = true
+            existingEntity.remoteEnemyId = id
+            remoteEnemies[id] = existingEntity
+            return existingEntity
+        end
+    end
 
-    world:addEntity(entity)
-    remoteEnemies[enemyId] = entity
+    for _, existingEntity in pairs(world:getEntities()) do
+        if matchesHostId(existingEntity) then
+            existingEntity.syncedHostId = id
+            existingEntity.isRemoteEnemy = true
+            existingEntity.remoteEnemyId = id
+            remoteEnemies[id] = existingEntity
+            return existingEntity
+        end
+    end
 
-    return entity
+    return nil
 end
 
 local function updateEnemyFromSnapshot(entity, enemyData)
@@ -481,11 +503,26 @@ function RemoteEnemySync.applyEnemySnapshot(snapshot, world)
 
     -- Update existing enemies and track which ones we've seen
     for _, enemyData in ipairs(sanitised) do
-        currentEnemyIds[enemyData.id] = true
-        
-        local entity = ensureRemoteEnemy(enemyData.id, enemyData, world)
+        local enemyId = enemyData.id
+        currentEnemyIds[enemyId] = true
+
+        local entity = ensureRemoteEnemy(enemyId, world)
         if entity then
             updateEnemyFromSnapshot(entity, enemyData)
+            pendingEnemySnapshots[enemyId] = nil
+        else
+            pendingEnemySnapshots[enemyId] = enemyData
+        end
+    end
+
+    if next(pendingEnemySnapshots) then
+        for enemyId, enemyData in pairs(pendingEnemySnapshots) do
+            local entity = ensureRemoteEnemy(enemyId, world)
+            if entity then
+                updateEnemyFromSnapshot(entity, enemyData)
+                pendingEnemySnapshots[enemyId] = nil
+                currentEnemyIds[enemyId] = true
+            end
         end
     end
 
