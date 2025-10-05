@@ -383,6 +383,12 @@ function NetworkClient:_handleMessage(message)
             self.worldSnapshot = snapshot
             Events.emit("NETWORK_WORLD_SNAPSHOT", { snapshot = snapshot })
         end
+    elseif message.type == TYPES.ENEMY_UPDATE then
+        -- Forward enemy replication payloads to gameplay systems
+        local enemies = type(message.enemies) == "table" and message.enemies or nil
+        if enemies then
+            Events.emit("NETWORK_ENEMY_UPDATE", { enemies = enemies })
+        end
     end
 end
 
