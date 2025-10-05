@@ -14,7 +14,7 @@ local remoteEnemies = {}
 local currentWorld = nil
 local lastEnemySnapshot = nil
 local enemySendAccumulator = 0
-local ENEMY_SEND_INTERVAL = 1 / 20  -- 20 Hz for enemy updates
+local ENEMY_SEND_INTERVAL = 1 / 30  -- 30 Hz for enemy updates
 
 local function removeRemoteEnemy(world, enemyId)
     local entity = remoteEnemies[enemyId]
@@ -218,9 +218,20 @@ local function ensureRemoteEnemy(enemyId, enemyData, world)
         return entity
     end
 
-    currentWorld = world
+    -- Try to find existing synced enemy entity with matching ID
+    local syncedEntities = world:get_entities_with_components("ai", "position")
+    for _, existingEntity in ipairs(syncedEntities) do
+        if existingEntity.isSyncedEntity and (existingEntity.id == enemyId or tostring(existingEntity) == enemyId) then
+            -- Found existing synced enemy entity, use it instead of creating a new one
+            entity = existingEntity
+            entity.isRemoteEnemy = true
+            entity.remoteEnemyId = enemyId
+            remoteEnemies[enemyId] = entity
+            return entity
+        end
+    end
 
-    -- Create a new remote enemy entity
+    -- If no existing entity found, create a new one (fallback for backwards compatibility)
     local EntityFactory = require("src.templates.entity_factory")
     local x = enemyData.position and enemyData.position.x or 0
     local y = enemyData.position and enemyData.position.y or 0
@@ -230,7 +241,6 @@ local function ensureRemoteEnemy(enemyId, enemyData, world)
     entity = EntityFactory.createEnemy(enemyType, x, y)
     
     if not entity then
-        Log.error("Failed to spawn remote enemy entity", enemyId, "of type", enemyType)
         return nil
     end
 
@@ -249,11 +259,21 @@ local function updateEnemyFromSnapshot(entity, enemyData)
         return
     end
 
-    -- Update position
+    -- Store previous position for interpolation
+    if entity.components and entity.components.position then
+        entity._prevPosition = entity._prevPosition or {}
+        entity._prevPosition.x = entity.components.position.x
+        entity._prevPosition.y = entity.components.position.y
+        entity._prevPosition.angle = entity.components.position.angle
+        entity._prevPositionTime = entity._prevPositionTime or 0
+    end
+
+    -- Update position with interpolation
     if entity.components and entity.components.position and enemyData.position then
         entity.components.position.x = enemyData.position.x
         entity.components.position.y = enemyData.position.y
         entity.components.position.angle = enemyData.position.angle
+        entity._lastUpdateTime = love.timer and love.timer.getTime() or os.clock()
     end
 
     -- Update velocity
@@ -279,7 +299,23 @@ local function updateEnemyFromSnapshot(entity, enemyData)
         ai.isHunting = enemyData.ai.state == "hunting"
         ai.targetId = enemyData.ai.target and enemyData.ai.target.id or nil
         ai.targetType = enemyData.ai.target and enemyData.ai.target.type or nil
-        ai.target = nil
+        
+        -- Try to find the actual target entity in the world
+        if enemyData.ai.target and enemyData.ai.target.id then
+            local world = currentWorld
+            if world then
+                local entities = world:getEntities()
+                for _, targetEntity in pairs(entities) do
+                    if (targetEntity.isPlayer or targetEntity.isRemotePlayer) and 
+                       (targetEntity.id == enemyData.ai.target.id or tostring(targetEntity) == enemyData.ai.target.id) then
+                        ai.target = targetEntity
+                        break
+                    end
+                end
+            end
+        else
+            ai.target = nil
+        end
     end
 
     -- Update physics body
@@ -353,9 +389,36 @@ function RemoteEnemySync.updateClient(dt, world, networkManager)
         return
     end
 
-    -- Client-side processing is handled via the NETWORK_ENEMY_UPDATE event
-    -- in game.lua, which calls RemoteEnemySync.applyEnemySnapshot
-    -- This function is kept for future client-side prediction/interpolation
+    -- Apply interpolation to smooth enemy movements
+    local currentTime = love.timer and love.timer.getTime() or os.clock()
+    for enemyId, entity in pairs(remoteEnemies) do
+        if entity and entity._prevPosition and entity._lastUpdateTime then
+            local timeSinceUpdate = currentTime - entity._lastUpdateTime
+            local interpolationFactor = math.min(timeSinceUpdate / (1/30), 1.0) -- Interpolate over one update period
+            
+            if interpolationFactor < 1.0 and entity.components and entity.components.position then
+                -- Smooth interpolation between previous and current position
+                local pos = entity.components.position
+                local prevPos = entity._prevPosition
+                
+                pos.x = prevPos.x + (pos.x - prevPos.x) * interpolationFactor
+                pos.y = prevPos.y + (pos.y - prevPos.y) * interpolationFactor
+                pos.angle = prevPos.angle + (pos.angle - prevPos.angle) * interpolationFactor
+                
+                -- Update physics body with interpolated position
+                if entity.components.physics and entity.components.physics.body then
+                    local body = entity.components.physics.body
+                    if body.setPosition then
+                        body:setPosition(pos.x, pos.y)
+                    else
+                        body.x = pos.x
+                        body.y = pos.y
+                    end
+                    body.angle = pos.angle
+                end
+            end
+        end
+    end
 end
 
 function RemoteEnemySync.applyEnemySnapshot(snapshot, world)
@@ -379,10 +442,15 @@ function RemoteEnemySync.applyEnemySnapshot(snapshot, world)
     end
 
     -- Remove enemies that are no longer in the snapshot
+    local enemiesToRemove = {}
     for enemyId, entity in pairs(remoteEnemies) do
         if not currentEnemyIds[enemyId] then
-            removeRemoteEnemy(world, enemyId)
+            enemiesToRemove[#enemiesToRemove + 1] = enemyId
         end
+    end
+    
+    for _, enemyId in ipairs(enemiesToRemove) do
+        removeRemoteEnemy(world, enemyId)
     end
 end
 

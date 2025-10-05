@@ -16,7 +16,6 @@ function Turret.new(owner, params)
 
     self.owner = owner
     self.kind = params.type
-    Log.info("Turret.new: Created turret", params.id or "unknown", "with kind:", self.kind, "type:", params.type)
 
     -- Skill progression tag used when this turret deals the killing blow
     self.skillId = params.skillId
@@ -200,7 +199,6 @@ function Turret:update(dt, target, locked, world)
         elseif self.kind == "missile" then
             ProjectileWeapons.updateMissileTurret(self, dt, target, locked, world)
         elseif self.kind == "laser" then
-            Log.info("Turret: Calling updateLaserTurret for turret", self.id or "unknown", "kind:", self.kind)
             BeamWeapons.updateLaserTurret(self, dt, target, locked, world)
         elseif self.kind == "mining_laser" then
             UtilityBeams.updateMiningLaser(self, dt, target, locked, world)

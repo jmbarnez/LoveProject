@@ -355,13 +355,11 @@ function NetworkServer:start()
 
     local ok, EnetTransport = pcall(require, "src.core.network.transport.enet")
     if not ok or not EnetTransport or not EnetTransport.isAvailable() then
-        Log.error("ENet transport not available for server")
         return false
     end
 
     local host, err = EnetTransport.createServer(self.port)
     if not host then
-        Log.error("Failed to create ENet server:", err)
         return false
     end
 
@@ -379,7 +377,6 @@ function NetworkServer:start()
     self.nextPlayerId = 1
     self.events = {}
 
-    Log.info("Server started on port", self.port)
     Events.emit("NETWORK_SERVER_STARTED", { port = self.port })
     return true
 end
@@ -403,7 +400,6 @@ function NetworkServer:stop()
     self.events = {}
     self.worldSnapshot = nil
 
-    Log.info("Server stopped")
     Events.emit("NETWORK_SERVER_STOPPED")
 end
 
@@ -424,7 +420,6 @@ function NetworkServer:update(dt)
     
     -- Additional safety checks for ENet server
     if not self.enetServer.host then
-        Log.error("Network server: ENet host is nil, stopping server")
         self:stop()
         return
     end
@@ -436,7 +431,6 @@ function NetworkServer:update(dt)
     local pollTimeout = 10
     local ok, event = pcall(self.transport.service, self.enetServer, pollTimeout)
     if not ok then
-        Log.error("Network server service error:", event)
         -- Don't stop the server on service errors, just log and continue
         return
     end
@@ -445,9 +439,7 @@ function NetworkServer:update(dt)
         if event.type == "connect" then
             if event.peer then
                 self.peers[event.peer] = true
-                Log.info("Peer connected")
             else
-                Log.warn("Received connect event without peer")
             end
         elseif event.type == "receive" then
             if event.peer and event.data then
@@ -455,16 +447,13 @@ function NetworkServer:update(dt)
                 if message then
                     self:_handleMessage(event.peer, message)
                 else
-                    Log.warn("Failed to decode message from peer")
                 end
             else
-                Log.warn("Received receive event without peer or data")
             end
         elseif event.type == "disconnect" then
             if event.peer then
                 self:_handleDisconnect(event.peer)
             else
-                Log.warn("Received disconnect event without peer")
             end
         end
 
@@ -473,7 +462,6 @@ function NetworkServer:update(dt)
         if ok2 then
             event = nextEvent
         else
-            Log.error("Error getting next server event:", nextEvent)
             break
         end
     end
@@ -497,7 +485,6 @@ function NetworkServer:_handleMessage(peer, message)
     elseif message.type == TYPES.WEAPON_FIRE_REQUEST then
         self:_handleWeaponFireRequest(peer, message)
     else
-        Log.warn("Received unknown message type:", message.type)
     end
 end
 
@@ -581,7 +568,6 @@ function NetworkServer:_handleHello(peer, message)
         peer = peer
     })
 
-    Log.info("Player", name, "joined with id", playerId)
 end
 
 function NetworkServer:_handleState(peer, message)
@@ -639,7 +625,6 @@ function NetworkServer:_handleDisconnect(peer)
         playerName = player and player.name or nil
     })
 
-    Log.info("Player", playerId, "disconnected")
 end
 
 function NetworkServer:_handlePing(peer, message)
@@ -652,7 +637,6 @@ function NetworkServer:_handlePing(peer, message)
     if pongMessage then
         local ok, err = self.transport.send({ peer = peer }, pongMessage, 0, true)
         if not ok then
-            Log.warn("Failed to send PONG response:", err)
         end
     end
 end
@@ -661,20 +645,17 @@ function NetworkServer:_handleEnemyUpdate(peer, message)
     -- For now, just log that we received an enemy update
     -- In a full implementation, this might be used for client-side prediction
     -- or validation, but for host-authoritative mode, we ignore client enemy updates
-    Log.debug("Received enemy update from peer (ignored in host-authoritative mode)")
 end
 
 function NetworkServer:_handleWeaponFireRequest(peer, message)
     -- Handle weapon fire requests from clients
     local playerId = self.peerToPlayer[peer]
     if not playerId then
-        Log.warn("Received weapon fire request from unknown peer")
         return
     end
 
     local request = message.request
     if not request then
-        Log.warn("Received weapon fire request without request data")
         return
     end
 
@@ -696,7 +677,6 @@ function NetworkServer:_broadcastExcept(excludedPeer, data)
         if peer ~= excludedPeer then
             local ok, err = self.transport.send({ peer = peer }, data, 0, true)
             if not ok then
-                Log.warn("Failed to broadcast to peer:", err)
             end
         end
     end
@@ -863,7 +843,6 @@ function NetworkServer:broadcastEnemyUpdate(enemyData)
     local Settings = require("src.core.settings")
     local networkingSettings = Settings.getNetworkingSettings()
     if not networkingSettings or not networkingSettings.host_authoritative_enemies then
-        Log.debug("Enemy updates disabled - host authoritative enemies not enabled")
         return
     end
 

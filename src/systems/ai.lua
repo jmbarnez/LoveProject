@@ -159,7 +159,7 @@ local function onEntityDamaged(eventData)
         local ai = entity.components.ai
 
         -- Only react to damage from players (not self-damage)
-        if source and source ~= entity and damage > 0 and source.components and source.components.player then
+        if source and source ~= entity and damage > 0 and (source.isPlayer or source.isRemotePlayer) then
             -- Mark as damaged by player and start hunting
             ai.damagedByPlayer = true
             ai.lastDamageTime = love.timer.getTime()
@@ -583,12 +583,40 @@ end
 -- ## Core AI Logic
 -- #################################################################################
 
-local function findPlayer(world)
-    local players = world:get_entities_with_components("player")
-    if #players > 0 then
-        return players[1]  -- Return first player
+local function findClosestPlayer(world, entityPos)
+    -- Find all players (both local and remote)
+    local allPlayers = {}
+    local entities = world:getEntities()
+    
+    for _, entity in pairs(entities) do
+        if entity and (entity.isPlayer or entity.isRemotePlayer) and entity.components and entity.components.position then
+            table.insert(allPlayers, entity)
+        end
     end
-    return nil
+    
+    if #allPlayers == 0 then
+        return nil
+    elseif #allPlayers == 1 then
+        return allPlayers[1]
+    end
+    
+    -- Find closest player
+    local closestPlayer = nil
+    local closestDistance = math.huge
+    
+    for _, player in ipairs(allPlayers) do
+        local playerPos = player.components.position
+        local dx = playerPos.x - entityPos.x
+        local dy = playerPos.y - entityPos.y
+        local distance = math.sqrt(dx * dx + dy * dy)
+        
+        if distance < closestDistance then
+            closestDistance = distance
+            closestPlayer = player
+        end
+    end
+    
+    return closestPlayer
 end
 
 local function updateAIState(entity, dt, player)
@@ -675,13 +703,19 @@ function AISystem.update(dt, world, spawnProjectile)
     -- Get all entities with AI component
     local aiEntities = world:get_entities_with_components("ai", "position")
 
-    -- Cache player reference - only look it up once per frame
-    local player = findPlayer(world)
-
     for _, entity in ipairs(aiEntities) do
         local ai = entity.components.ai
 
+        -- Skip remote enemies - they are controlled by the host
+        if entity.isRemoteEnemy then
+            goto continue
+        end
+
         updateBossMinions(entity, dt, world)
+        
+        -- Find closest player for this entity
+        local entityPos = entity.components.position
+        local player = findClosestPlayer(world, entityPos)
         
         -- Update AI state (detection, damage response, etc.)
         updateAIState(entity, dt, player)
@@ -703,6 +737,8 @@ function AISystem.update(dt, world, spawnProjectile)
         elseif ai.state == "retreating" then
             handleRetreating(entity, dt, ai.target)
         end
+        
+        ::continue::
     end
 end
 

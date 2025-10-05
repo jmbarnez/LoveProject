@@ -93,6 +93,19 @@ local function spawnEntityFromSnapshot(entry)
         extra = nil
     end
 
+    -- Handle enemy entities specially
+    if entry.kind == "enemy" then
+        local entity = EntityFactory.createEnemy(entry.type or entry.id, entry.x or 0, entry.y or 0)
+        if entity then
+            -- Preserve the ID from the snapshot for matching with remote updates
+            entity.id = entry.id
+            if entry.angle ~= nil then
+                entity.components.position.angle = entry.angle
+            end
+        end
+        return entity
+    end
+
     return EntityFactory.create(entry.kind, entry.id, entry.x or 0, entry.y or 0, extra)
 end
 
@@ -160,11 +173,9 @@ end
 local function applyWorldSnapshot(snapshot)
     local world = state.world
     if not snapshot or not world then
-        Log.warn("applyWorldSnapshot: missing snapshot or world", snapshot ~= nil, world ~= nil)
         return
     end
 
-    Log.info("applyWorldSnapshot: applying snapshot with", #(snapshot.entities or {}), "entities")
     clearSyncedWorldEntities()
 
     world.width = snapshot.width or world.width
@@ -180,7 +191,6 @@ local function applyWorldSnapshot(snapshot)
             end
             table.insert(state.syncedWorldEntities, entity)
         else
-            Log.warn("Failed to spawn world entity from snapshot", tostring(entry.kind), tostring(entry.id))
         end
     end
 end
@@ -234,6 +244,19 @@ local function buildWorldSnapshotFromWorld()
                     x = position.x or 0,
                     y = position.y or 0,
                 }
+            elseif components.ai and not entity.isPlayer and not entity.isRemotePlayer then
+                -- Include enemy entities in world snapshot when host-authoritative enemies is enabled
+                local Settings = require("src.core.settings")
+                local networkingSettings = Settings.getNetworkingSettings()
+                if networkingSettings and networkingSettings.host_authoritative_enemies then
+                    entry = {
+                        kind = "enemy",
+                        id = entity.id or tostring(entity),
+                        type = entity.shipId or "basic_drone",
+                        x = position.x or 0,
+                        y = position.y or 0,
+                    }
+                end
             end
 
             if entry then
@@ -311,7 +334,6 @@ local function handleProjectileRequest(request, playerId)
 
     local player = resolvePlayerEntityForRequest(playerId)
     if not player then
-        Log.warn("Failed to resolve player for weapon fire request", playerId)
         return
     end
 
@@ -325,14 +347,6 @@ local function handleProjectileRequest(request, playerId)
         source = player,
     }
 
-    Log.info(
-        "Creating projectile for player",
-        playerId,
-        "projectileId=" .. projectileId,
-        "at position",
-        request.position and request.position.x,
-        request.position and request.position.y
-    )
 
     local projectile = EntityFactory.create(
         "projectile",
@@ -345,7 +359,6 @@ local function handleProjectileRequest(request, playerId)
     if projectile then
         world:addEntity(projectile)
     else
-        Log.warn("Failed to create projectile from weapon fire request", playerId, projectileId)
     end
 end
 
@@ -357,7 +370,6 @@ local function handleBeamRequest(request, playerId)
 
     local player = resolvePlayerEntityForRequest(playerId)
     if not player then
-        Log.warn("Failed to resolve player for beam weapon fire request", playerId)
         return
     end
 
@@ -385,7 +397,6 @@ local function handleUtilityBeamRequest(request, playerId)
 
     local player = resolvePlayerEntityForRequest(playerId)
     if not player then
-        Log.warn("Failed to resolve player for utility beam weapon fire request", playerId)
         return
     end
 
@@ -515,7 +526,6 @@ local function registerWorldSyncEventHandlers()
 
         local sanitisedState = sanitisePlayerNetworkState(data.data)
         if not sanitisedState then
-            Log.warn("NETWORK_PLAYER_JOINED: Failed to sanitize state")
             return
         end
 
@@ -545,24 +555,18 @@ function Session.load(opts)
     if state.isMultiplayer then
         if state.isHost then
             if not state.networkManager:startHost() then
-                Log.error("Failed to start LAN host")
                 Session.setMode(false, false)
                 return false, "start_failed"
             end
         else
             local connection = opts.pendingConnection
             if not connection then
-                Log.error("No pending connection details found for client mode")
                 Session.setMode(false, false)
                 return false, "No pending connection details found."
             end
 
-            Log.info("Attempting connection to server from start screen parameters")
-            Log.info("Connection details:", connection.address, connection.port, connection.username)
             local ok, err = state.networkManager:joinGame(connection.address, connection.port, connection.username)
-            Log.info("Connection result:", ok, err)
             if not ok then
-                Log.error("Failed to connect to server", err)
                 Session.setMode(false, false)
                 return false, err
             end
@@ -627,29 +631,24 @@ end
 function Session.toggleHosting()
     local manager = state.networkManager
     if not manager then
-        Log.error("toggleLanHosting called without network manager")
         return false, "no_network"
     end
 
     if manager:isMultiplayer() then
         if manager:isHost() then
-            Log.info("Stopping LAN hosting session")
             manager:leaveGame()
             Session.setMode(false, false)
             return true, "lan_closed"
         else
-            Log.info("Leaving multiplayer session before enabling LAN host")
             manager:leaveGame()
             Session.setMode(false, false)
             return true, "client_left"
         end
     end
 
-    Log.info("Starting LAN host from single-player session")
     Session.setMode(true, true)
 
     if not manager:startHost() then
-        Log.error("Failed to start LAN host")
         Session.setMode(false, false)
         return false, "start_failed"
     end
@@ -695,11 +694,6 @@ end
 function Session.setMode(multiplayer, host)
     state.isMultiplayer = multiplayer and true or false
     state.isHost = host and true or false
-    Log.info(
-        "Network session mode set:",
-        "multiplayer=" .. tostring(state.isMultiplayer),
-        "host=" .. tostring(state.isHost)
-    )
 end
 
 function Session.isMultiplayer()

@@ -274,7 +274,6 @@ function NetworkClient:resetConnectionAttempts()
     self.connectionAttempts = 0
     self.lastConnectionAttempt = -1000 -- Set to far in the past to bypass cooldown
     self.lastError = nil
-    Log.info("Connection attempts reset")
 end
 
 function NetworkClient:getPlayers()
@@ -342,14 +341,12 @@ function NetworkClient:connect(address, port)
         local client, err = EnetTransport.createClient()
         if not client then
             lastError = err
-            Log.warn("Failed to create ENet client:", err)
             break
         end
 
         local peer, connectErr = EnetTransport.connect(client, target, portToUse)
         if not peer then
             lastError = connectErr
-            Log.warn("Failed to initiate connection:", connectErr)
             EnetTransport.destroy(client)
         else
             local okConnect, result = waitForConnection(EnetTransport, client, self.connectionTimeout)
@@ -357,11 +354,9 @@ function NetworkClient:connect(address, port)
                 connectedClient = client
                 finalAddress = target
                 lastError = nil
-                Log.info("Successfully connected to", target, portToUse)
                 break
             else
                 lastError = result
-                Log.warn("Connection timeout or failure:", result)
                 EnetTransport.disconnectClient(client)
                 EnetTransport.destroy(client)
             end
@@ -384,7 +379,6 @@ function NetworkClient:connect(address, port)
     self.connectionAttempts = 0 -- Reset on successful connection
     self.lastHeartbeat = now()
 
-    Log.info("Connected to", finalAddress or address or "localhost", portToUse)
 
     -- Send initial HELLO message immediately after connection
     self:_send({
@@ -414,7 +408,6 @@ function NetworkClient:_send(payload)
 
     local ok, err = self.transport.send(self.enetClient, encoded, 0, true)
     if not ok then
-        Log.warn("Failed to send payload:", err)
     end
 end
 
@@ -480,7 +473,6 @@ function NetworkClient:update(dt)
             -- Connection event should only happen during initial connection
             -- Don't send HELLO again or emit NETWORK_CONNECTED again
         elseif event.type == "disconnect" then
-            Log.warn("Disconnected from server")
             self:disconnect()
             return
         elseif event.type == "receive" then

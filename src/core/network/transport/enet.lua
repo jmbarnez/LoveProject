@@ -189,7 +189,6 @@ function EnetTransport.destroy(handle)
 end
 
 if not EnetTransport._available then
-    Log.warn("ENet transport not available; falling back to simulation where possible")
 end
 
 return EnetTransport

@@ -29,7 +29,6 @@ local function sendUtilityBeamWeaponFireRequest(turret, sx, sy, angle, beamLengt
         -- Send via network manager
         if networkManager.sendWeaponFireRequest then
             local json = require("src.libs.json")
-            Log.info("Client -> sendUtilityBeamWeaponFireRequest", json.encode(request))
             networkManager:sendWeaponFireRequest(request)
         end
         return true
@@ -85,7 +84,6 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
         turret.beamTarget = nil
         -- Stop mining laser sound if it was playing
         if turret.miningSoundActive or turret.miningSoundInstance then
-            Log.debug("Stopping mining laser sound - locked:", locked, "inputActive:", isTurretInputActive(turret), "canFire:", turret:canFire())
             TurretEffects.stopMiningSound(turret)
         end
         -- Clear mining flags when beam is not active
@@ -175,7 +173,6 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     else
         -- Debug logging for missing energyPerSecond (only for player)
         if turret.owner.isPlayer then
-            Log.debug("Mining laser energyPerSecond: " .. tostring(turret.energyPerSecond))
         end
     end
 
@@ -226,7 +223,6 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     elseif wasActive and not isTurretInputActive(turret) then
         -- Beam was active but input is no longer active, stop sound
         if turret.miningSoundActive or turret.miningSoundInstance then
-            Log.debug("Stopping mining laser sound - input no longer active")
             TurretEffects.stopMiningSound(turret)
         end
     end
@@ -397,7 +393,6 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
         turret.beamActive = false
         turret.beamTarget = nil
         if turret.salvagingSoundActive or turret.salvagingSoundInstance then
-            Log.debug("Stopping salvaging laser sound - locked:", locked, "inputActive:", isTurretInputActive(turret), "canFire:", turret:canFire())
             TurretEffects.stopSalvagingSound(turret)
         end
         return
@@ -477,7 +472,6 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     else
         -- Debug logging for missing energyPerSecond (only for player)
         if turret.owner.isPlayer then
-            Log.debug("Salvaging laser energyPerSecond: " .. tostring(turret.energyPerSecond))
         end
     end
 
@@ -517,7 +511,6 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     elseif wasActive and not isTurretInputActive(turret) then
         -- Beam was active but input is no longer active, stop sound
         if turret.salvagingSoundActive or turret.salvagingSoundInstance then
-            Log.debug("Stopping salvaging laser sound - input no longer active")
             TurretEffects.stopSalvagingSound(turret)
         end
     end

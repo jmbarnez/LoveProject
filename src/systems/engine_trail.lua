@@ -51,20 +51,28 @@ function EngineTrailSystem.update(dt, world)
 			local pos = entity.components.position
 
 			if phys and phys.body and pos then
-				local speed = math.sqrt(phys.body.vx * phys.body.vx + phys.body.vy * phys.body.vy)
-				-- Only show trails if ship is actually moving at a reasonable speed
-				local isThrusting = speed > 10  -- Threshold to prevent idle trails
-
-				-- Update thruster state based on movement - only if actively moving
-				if isThrusting then
-                                        local intensity = Util.clamp01(speed / 180)
-					trail:updateThrustState(true, intensity)
+				-- Skip remote players - their engine trails are controlled by network sync
+				if entity.isRemotePlayer then
+					-- Just update position and particle system, thruster state is handled by network sync
+					trail:updatePosition(pos.x, pos.y, pos.angle or 0)
+					trail:update(dt)
 				else
-					trail:updateThrustState(false, 0)  -- Explicitly turn off trails when not moving
-				end
+					-- For non-remote entities, use physics-based movement detection
+					local speed = math.sqrt(phys.body.vx * phys.body.vx + phys.body.vy * phys.body.vy)
+					-- Only show trails if ship is actually moving at a reasonable speed
+					local isThrusting = speed > 10  -- Threshold to prevent idle trails
 
-				trail:updatePosition(pos.x, pos.y, pos.angle or 0)
-				trail:update(dt)
+					-- Update thruster state based on movement - only if actively moving
+					if isThrusting then
+						local intensity = Util.clamp01(speed / 180)
+						trail:updateThrustState(true, intensity)
+					else
+						trail:updateThrustState(false, 0)  -- Explicitly turn off trails when not moving
+					end
+
+					trail:updatePosition(pos.x, pos.y, pos.angle or 0)
+					trail:update(dt)
+				end
 			end
 		end
 	end

@@ -24,7 +24,6 @@ end
 
 local function sanitiseSnapshot(snapshot)
     if type(snapshot) ~= "table" then
-        Log.info("sanitiseSnapshot: No snapshot data, using defaults")
         return {
             position = { x = 0, y = 0, angle = 0 },
             velocity = { x = 0, y = 0 },
@@ -59,7 +58,6 @@ local function sanitiseSnapshot(snapshot)
         shieldChannel = shieldChannel == true
     }
 
-    -- Log.info("sanitiseSnapshot: Original health shield:", health.shield, "maxShield:", health.maxShield, "-> Sanitized shield:", sanitized.health.shield, "maxShield:", sanitized.health.maxShield)
     return sanitized
 end
 
@@ -95,9 +93,7 @@ local function ensureRemoteEntity(playerId, playerData, world)
     end
 
     local entity = remoteEntities[playerId]
-    Log.debug("ensureRemoteEntity: checking for player", playerId, "found entity:", tostring(entity ~= nil), "total entities:", table.maxn(remoteEntities) or 0)
     if entity then
-        Log.debug("Returning existing remote entity for player", playerId)
         return entity
     end
 
@@ -105,11 +101,8 @@ local function ensureRemoteEntity(playerId, playerData, world)
     local x = playerData.position and playerData.position.x or 0
     local y = playerData.position and playerData.position.y or 0
 
-    Log.debug("Creating remote entity for player", playerId, "at position", x, y)
-    Log.info("ensureRemoteEntity: playerData health:", playerData.health and (playerData.health.shield or "nil") or "no health data")
     entity = EntityFactory.create("ship", "starter_frigate_basic", x, y)
     if not entity then
-        Log.error("Failed to spawn remote entity for player", playerId)
         return nil
     end
 
@@ -117,11 +110,21 @@ local function ensureRemoteEntity(playerId, playerData, world)
     entity.remotePlayerId = playerId
     entity.playerName = playerData.playerName or string.format("Player %s", tostring(playerId))
 
-    Log.debug("Adding remote entity to world for player", playerId)
+    -- Ensure remote players have engine trail components
+    if not entity.components.engine_trail then
+        local EngineTrail = require("src.components.engine_trail")
+        local engineColors = {
+            color1 = {0.0, 0.0, 1.0, 0.8},  -- Blue primary
+            color2 = {0.0, 0.0, 0.5, 0.4},  -- Blue secondary
+            size = 1.0,
+            offset = 15
+        }
+        entity.components.engine_trail = EngineTrail.new(engineColors)
+    end
+
     world:addEntity(entity)
     remoteEntities[playerId] = entity
 
-    Log.debug("Successfully created remote entity for player", playerId)
     return entity
 end
 
@@ -147,7 +150,6 @@ local function updateEntityFromSnapshot(entity, snapshot)
     local invalidateRadius = false
 
     if entity.components and entity.components.health and data.health then
-        -- Log.info("updateEntityFromSnapshot: Applying health data to entity", entity.id or "unknown", "shield:", data.health.shield, "maxShield:", data.health.maxShield)
         local health = entity.components.health
         local oldShield = health.shield
         local oldMaxShield = health.maxShield
@@ -209,6 +211,31 @@ local function updateEntityFromSnapshot(entity, snapshot)
         end
         body.angle = data.position.angle
     end
+
+    -- Update engine trail if thruster state is provided
+    if data.thrusterState and entity.components and entity.components.engine_trail then
+        local trail = entity.components.engine_trail
+        local thrusterState = data.thrusterState
+        
+        -- Calculate intensity from thruster inputs (same logic as in engine_trail.lua)
+        local intensity = (thrusterState.forward or 0)
+            + (thrusterState.boost or 0)
+            + ((thrusterState.strafeLeft or 0) + (thrusterState.strafeRight or 0)) * 0.5
+            + (thrusterState.reverse or 0) * 0.5
+        
+        local isThrusting = thrusterState.isThrusting or (intensity > 0)
+        local normalizedIntensity = math.max(0, math.min(1, intensity))
+        
+        -- Update trail state
+        if isThrusting and normalizedIntensity > 0.05 then
+            trail:updateThrustState(true, normalizedIntensity)
+        else
+            trail:updateThrustState(false, 0)
+        end
+        
+        -- Update trail position
+        trail:updatePosition(data.position.x, data.position.y, data.position.angle or 0)
+    end
 end
 
 local function removeRemoteEntity(world, playerId)
@@ -252,6 +279,10 @@ function NetworkSync.update(dt, player, world, networkManager)
         local health = player.components.health
 
 
+        -- Get thruster state for engine trail synchronization
+        local playerState = player.components.player_state
+        local thrusterState = (playerState and playerState.thruster_state) or { isThrusting = false }
+        
         local snapshot = {
             position = { x = position.x, y = position.y, angle = position.angle or 0 },
             velocity = velocity and { x = velocity.x or 0, y = velocity.y or 0 } or { x = 0, y = 0 },
@@ -263,7 +294,15 @@ function NetworkSync.update(dt, player, world, networkManager)
                 energy = health.energy or 0,
                 maxEnergy = health.maxEnergy or 0
             } or { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 },
-            shieldChannel = player.shieldChannel or false
+            shieldChannel = player.shieldChannel or false,
+            thrusterState = {
+                isThrusting = thrusterState.isThrusting or false,
+                forward = thrusterState.forward or 0,
+                reverse = thrusterState.reverse or 0,
+                strafeLeft = thrusterState.strafeLeft or 0,
+                strafeRight = thrusterState.strafeRight or 0,
+                boost = thrusterState.boost or 0
+            }
         }
 
         if sendAccumulator >= POSITION_SEND_INTERVAL or snapshotsDiffer(snapshot, lastSentSnapshot) then

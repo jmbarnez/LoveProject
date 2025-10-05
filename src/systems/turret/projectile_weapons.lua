@@ -15,10 +15,6 @@ local function sendWeaponFireRequest(turret, sx, sy, angle, projectileId, damage
     local NetworkSession = require("src.core.network.session")
     local networkManager = NetworkSession.getManager()
     
-    Log.debug("sendWeaponFireRequest check:", "networkManager=" .. tostring(networkManager ~= nil), 
-              "isMultiplayer=" .. tostring(networkManager and networkManager:isMultiplayer()), 
-              "isHost=" .. tostring(networkManager and networkManager:isHost()))
-    
     if networkManager and networkManager:isMultiplayer() and not networkManager:isHost() then
         -- Client: send weapon fire request to host
         local request = {
@@ -35,7 +31,6 @@ local function sendWeaponFireRequest(turret, sx, sy, angle, projectileId, damage
         -- Send via network manager
         if networkManager.sendWeaponFireRequest then
             local json = require("src.libs.json")
-            Log.info("Client -> sendWeaponFireRequest", json.encode(request))
             networkManager:sendWeaponFireRequest(request)
         end
         return true

@@ -28,7 +28,6 @@ function Messages.encode(payload)
     local encoded = json.encode(payload)
     
     if encoded and #encoded > MAX_MESSAGE_SIZE then
-        Log.warn("Message too large:", #encoded, "bytes (max:", MAX_MESSAGE_SIZE, ")")
         return nil
     end
     
@@ -41,7 +40,6 @@ function Messages.decode(data)
     end
 
     if #data > MAX_MESSAGE_SIZE then
-        Log.warn("Received message too large:", #data, "bytes (max:", MAX_MESSAGE_SIZE, ")")
         return nil
     end
 
@@ -50,7 +48,6 @@ function Messages.decode(data)
     if ok and value and type(value) == "table" then
         -- Validate message has required type field
         if not value.type or type(value.type) ~= "string" then
-            Log.warn("Invalid message: missing or invalid type field")
             return nil
         end
         
@@ -61,14 +58,12 @@ function Messages.decode(data)
         end
         
         if not validTypes[value.type] then
-            Log.warn("Unknown message type:", value.type)
             return nil
         end
         
         return value
     end
     
-    Log.warn("Failed to decode message:", data and #data or 0, "bytes")
     return nil
 end
 

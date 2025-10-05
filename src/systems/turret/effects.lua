@@ -37,7 +37,6 @@ function TurretEffects.playFiringSound(turret)
         if turret.miningSoundInstance then
             activeUtilitySounds[turret.miningSoundInstance] = turret
         end
-        Log.debug("Started mining laser sound")
     elseif turret.kind == "salvaging_laser" then
         -- Always stop any existing sound first, then start new one
         if turret.salvagingSoundInstance then
@@ -49,14 +48,12 @@ function TurretEffects.playFiringSound(turret)
         if turret.salvagingSoundInstance then
             activeUtilitySounds[turret.salvagingSoundInstance] = turret
         end
-        Log.debug("Started salvaging laser sound")
     end
 end
 
 -- Stop mining laser sound
 function TurretEffects.stopMiningSound(turret)
     if turret then
-        Log.debug("stopMiningSound called - instance:", turret.miningSoundInstance, "active:", turret.miningSoundActive)
         -- Stop the continuous mining sound
         if turret.miningSoundInstance then
             -- Remove from global tracking
@@ -73,7 +70,6 @@ function TurretEffects.stopMiningSound(turret)
             if turret.miningSoundInstance.setVolume then
                 turret.miningSoundInstance:setVolume(0)
             end
-            Log.debug("Stopped mining laser sound")
         end
         turret.miningSoundInstance = nil
         turret.miningSoundActive = false
@@ -83,7 +79,6 @@ end
 -- Stop salvaging laser sound
 function TurretEffects.stopSalvagingSound(turret)
     if turret then
-        Log.debug("stopSalvagingSound called - instance:", turret.salvagingSoundInstance, "active:", turret.salvagingSoundActive)
         if turret.salvagingSoundInstance then
             -- Remove from global tracking
             activeUtilitySounds[turret.salvagingSoundInstance] = nil
@@ -99,7 +94,6 @@ function TurretEffects.stopSalvagingSound(turret)
             if turret.salvagingSoundInstance.setVolume then
                 turret.salvagingSoundInstance:setVolume(0)
             end
-            Log.debug("Stopped salvaging laser sound")
         end
         turret.salvagingSoundInstance = nil
         turret.salvagingSoundActive = false
@@ -110,7 +104,6 @@ end
 function TurretEffects.stopAllUtilityBeamSounds()
     -- This function can be called to stop any orphaned utility beam sounds
     -- It's a safety net for cleanup
-    Log.debug("Stopping all utility beam sounds, count:", #activeUtilitySounds)
     for soundInstance, turret in pairs(activeUtilitySounds) do
         if soundInstance and soundInstance.stop then
             soundInstance:stop()
@@ -145,7 +138,6 @@ end
 
 -- Force stop all utility beam sounds (emergency cleanup)
 function TurretEffects.forceStopAllUtilityBeamSounds()
-    Log.debug("FORCE stopping all utility beam sounds")
     for soundInstance, turret in pairs(activeUtilitySounds) do
         if soundInstance then
             -- Try all possible stop methods
@@ -179,7 +171,6 @@ function TurretEffects.cleanupOrphanedSounds()
         activeUtilitySounds[soundInstance] = nil
     end
     if #toRemove > 0 then
-        Log.debug("Cleaned up", #toRemove, "orphaned utility beam sounds")
     end
 end
 

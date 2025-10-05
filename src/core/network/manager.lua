@@ -49,11 +49,9 @@ function NetworkManager:setupEventListeners()
     self._eventListenersSetup = true
 
     Events.on("NETWORK_CONNECTED", function()
-        Log.info("Connected to multiplayer server")
     end)
 
     Events.on("NETWORK_DISCONNECTED", function()
-        Log.info("Disconnected from multiplayer server")
         self._players = {}
         self._localPlayerId = nil
         self._worldSnapshot = nil
@@ -75,7 +73,6 @@ function NetworkManager:setupEventListeners()
             self._localPlayerId = id
         end
 
-        Log.info("Player joined:", id, data.playerName or "")
     end)
 
     Events.on("NETWORK_PLAYER_LEFT", function(data)
@@ -83,7 +80,6 @@ function NetworkManager:setupEventListeners()
             return
         end
         self._players[data.playerId] = nil
-        Log.info("Player left:", data.playerId)
     end)
 
     Events.on("NETWORK_PLAYER_UPDATED", function(data)
@@ -164,7 +160,6 @@ function NetworkManager:startHost(port)
         data = self._players[0].state
     })
 
-    Log.info("Started hosting multiplayer game")
     return true
 end
 
@@ -194,7 +189,6 @@ function NetworkManager:joinGame(address, port, username)
     self._players = {}
     self._localPlayerId = nil
 
-    Log.info("Attempting to join host", address or "localhost", port or Constants.NETWORK.DEFAULT_PORT)
     return true
 end
 
@@ -215,7 +209,6 @@ function NetworkManager:leaveGame()
     self._localPlayerId = nil
     self._worldSnapshot = nil
 
-    Log.info("Left multiplayer session")
 end
 
 function NetworkManager:update(dt)
@@ -264,10 +257,8 @@ function NetworkManager:update(dt)
             -- Check connection health and attempt reconnection if needed
             if not self.client:isConnected() and self.client:getConnectionState() == "disconnected" then
                 if self.client:canAttemptConnection() then
-                    Log.info("Attempting to reconnect to server...")
                     local ok, err = self.client:connect()
                     if not ok then
-                        Log.warn("Reconnection failed:", err)
                     end
                 end
             end
