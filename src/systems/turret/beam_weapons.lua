@@ -242,9 +242,6 @@ function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMet
     -- Apply shield damage
     if shieldDamage > 0 then
         health.shield = math.max(0, shieldBefore - shieldDamage)
-        -- Add damage number effect
-        local Effects = require("src.systems.effects")
-        Effects.addDamageNumber(target.components.position.x, target.components.position.y, math.floor(shieldDamage), "shield")
     end
 
     -- Apply hull damage
@@ -252,10 +249,6 @@ function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMet
     if hullDamage > 0 then
         health.hp = math.max(0, (health.hp or 0) - hullDamage)
         hullDamageApplied = true
-        -- Add damage number effect
-        local Effects = require("src.systems.effects")
-        Effects.addDamageNumber(target.components.position.x, target.components.position.y, math.floor(hullDamage), "hull")
-        
         if health.hp <= 0 then
             target.dead = true
             target._killedBy = source

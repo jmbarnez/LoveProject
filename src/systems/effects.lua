@@ -8,7 +8,6 @@ local Effects = {}
 -- Internal containers
 local fx = {}
 local impacts = {}
-local damageNumbers = {}
 
 -- Public accessors (if other systems need to inspect)
 function Effects.getFx()
@@ -17,46 +16,6 @@ end
 
 function Effects.getImpacts()
   return impacts
-end
-
-function Effects.addDamageNumber(x, y, amount, type)
-  -- Add offset to spawn damage numbers above and slightly to the side of the player
-  local offsetX = (math.random() - 0.5) * 20  -- Random horizontal offset between -10 and 10
-  local offsetY = -25  -- Spawn above the player
-  local spawnX = x + offsetX
-  local spawnY = y + offsetY
-  
-  -- Check if there's already a damage number at this position that we can combine with
-  for i, dn in ipairs(damageNumbers) do
-    if math.abs(dn.x - spawnX) < 20 and math.abs(dn.y - spawnY) < 20 and dn.timer < 0.1 then
-      -- Combine with existing damage number
-      if type == "shield" then
-        dn.shieldAmount = amount
-      else
-        dn.hullAmount = amount
-      end
-      return
-    end
-  end
-  
-  -- Create new damage number entry
-  local damageEntry = {
-    x = spawnX,
-    y = spawnY,
-    life = 2.5,  -- Increased lifetime for better visibility
-    timer = 0,
-    scale = 1.0,  -- Starting scale
-    maxScale = 1.3,  -- Maximum scale during animation
-  }
-  
-  -- Set the appropriate damage amount
-  if type == "shield" then
-    damageEntry.shieldAmount = amount
-  else
-    damageEntry.hullAmount = amount
-  end
-  
-  table.insert(damageNumbers, damageEntry)
 end
 
 -- Add a generic FX particle
@@ -269,32 +228,6 @@ function Effects.update(dt)
   -- Update enhanced shield impact effects
   ShieldImpactEffects.update(dt)
   
-  -- Update damage numbers
-  for i = #damageNumbers, 1, -1 do
-    local dn = damageNumbers[i]
-    dn.timer = dn.timer + dt
-    
-    -- Animate scale: grow quickly then shrink slowly
-    local progress = dn.timer / dn.life
-    if progress < 0.3 then
-      -- Quick growth phase
-      local growProgress = progress / 0.3
-      dn.scale = 1.0 + (dn.maxScale - 1.0) * growProgress
-    else
-      -- Slow shrink phase
-      local shrinkProgress = (progress - 0.3) / 0.7
-      dn.scale = dn.maxScale - (dn.maxScale - 0.8) * shrinkProgress
-    end
-    
-    -- Move upward with slight deceleration
-    local moveSpeed = 30 * (1.0 - progress * 0.5)  -- Slower over time
-    dn.y = dn.y - moveSpeed * dt
-    
-    if dn.timer > dn.life then
-      table.remove(damageNumbers, i)
-    end
-  end
-
   -- Update impacts lifetimes
   for i = #impacts, 1, -1 do
     local p = impacts[i]
@@ -321,71 +254,8 @@ function Effects.update(dt)
 end
 
 function Effects.draw()
-  -- Draw damage numbers
-  love.graphics.setFont(Theme.fonts.medium)  -- Use medium font for smaller boxes
-  for i = #damageNumbers, 1, -1 do
-    local dn = damageNumbers[i]
-    local progress = dn.timer / dn.life
-    local alpha = 1.0 - progress
-    
-    -- Apply scale transformation
-    love.graphics.push()
-    love.graphics.translate(dn.x, dn.y)
-    love.graphics.scale(dn.scale, dn.scale)
-    love.graphics.translate(-dn.x, -dn.y)
-    
-    local boxWidth = 28
-    local boxHeight = 18
-    local boxSpacing = 3
-    local totalWidth = 0
-    
-    -- Calculate total width needed
-    if dn.shieldAmount then totalWidth = totalWidth + boxWidth end
-    if dn.hullAmount then totalWidth = totalWidth + boxWidth end
-    if dn.shieldAmount and dn.hullAmount then totalWidth = totalWidth + boxSpacing end
-    
-    local startX = dn.x - totalWidth / 2
-    local currentX = startX
-    
-    -- Draw shield damage box
-    if dn.shieldAmount then
-      -- Shield box background (blue)
-      love.graphics.setColor(0.2, 0.8, 1.0, alpha * 0.8)
-      love.graphics.rectangle("fill", currentX, dn.y - boxHeight/2, boxWidth, boxHeight, 4, 4)
-      
-      -- Shield box border
-      love.graphics.setColor(0.2, 0.8, 1.0, alpha)
-      love.graphics.rectangle("line", currentX, dn.y - boxHeight/2, boxWidth, boxHeight, 4, 4)
-      
-      -- Shield text (white)
-      love.graphics.setColor(1.0, 1.0, 1.0, alpha)
-      local textWidth = love.graphics.getFont():getWidth(tostring(dn.shieldAmount))
-      love.graphics.print(tostring(dn.shieldAmount), currentX + (boxWidth - textWidth) / 2, dn.y - 6)
-      
-      currentX = currentX + boxWidth + boxSpacing
-    end
-    
-    -- Draw hull damage box
-    if dn.hullAmount then
-      -- Hull box background (orange)
-      love.graphics.setColor(1.0, 0.6, 0.2, alpha * 0.8)
-      love.graphics.rectangle("fill", currentX, dn.y - boxHeight/2, boxWidth, boxHeight, 4, 4)
-      
-      -- Hull box border
-      love.graphics.setColor(1.0, 0.6, 0.2, alpha)
-      love.graphics.rectangle("line", currentX, dn.y - boxHeight/2, boxWidth, boxHeight, 4, 4)
-      
-      -- Hull text (white)
-      love.graphics.setColor(1.0, 1.0, 1.0, alpha)
-      local textWidth = love.graphics.getFont():getWidth(tostring(dn.hullAmount))
-      love.graphics.print(tostring(dn.hullAmount), currentX + (boxWidth - textWidth) / 2, dn.y - 6)
-    end
-    
-    love.graphics.pop()
-  end
-
   -- Shield impact effects are now drawn by the render system with proper transforms
-  
+
   -- Draw impacts
   for k = #impacts, 1, -1 do
     local p = impacts[k]
