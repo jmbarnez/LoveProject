@@ -344,10 +344,30 @@ function NetworkClient:_handleMessage(message)
             end
         end
 
+        local selfEntry = self.players and self.players[self.playerId]
+        local selfState = nil
+        if selfEntry and selfEntry.state then
+            selfState = selfEntry.state
+        elseif type(message.players) == "table" then
+            -- Fallback: locate the raw snapshot entry if buildIndex filtered it out
+            for _, entry in ipairs(message.players) do
+                if entry.playerId == self.playerId then
+                    selfState = sanitiseState(entry.state)
+                    break
+                end
+            end
+        end
+
+        selfState = selfState or {
+            position = { x = 0, y = 0, angle = 0 },
+            velocity = { x = 0, y = 0 }
+        }
+
         Events.emit("NETWORK_PLAYER_JOINED", {
             playerId = self.playerId,
             isSelf = true,
-            playerName = self.localName
+            playerName = self.localName,
+            data = selfState
         })
 
         for _, entry in ipairs(message.players or {}) do
@@ -355,7 +375,7 @@ function NetworkClient:_handleMessage(message)
                 Events.emit("NETWORK_PLAYER_JOINED", {
                     playerId = entry.playerId,
                     playerName = entry.name,
-                    data = entry.state
+                    data = sanitiseState(entry.state)
                 })
             end
         end
