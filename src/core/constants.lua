@@ -14,8 +14,8 @@ local Constants = {}
 
 Constants.RESOLUTION = {
     -- Default/base resolution values
-    DEFAULT_WIDTH = 1920,
-    DEFAULT_HEIGHT = 1080,
+    DEFAULT_WIDTH = 1600,
+    DEFAULT_HEIGHT = 900,
 
     -- Minimum window sizes for responsive design
     MIN_WINDOW_WIDTH_800PX = 600,

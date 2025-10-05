@@ -1,7 +1,37 @@
 local CollisionHelpers = require("src.systems.turret.collision_helpers")
 local TurretEffects = require("src.systems.turret.effects")
+local Log = require("src.core.log")
 
 local BeamWeapons = {}
+
+-- Helper function to send beam weapon fire request to host
+local function sendBeamWeaponFireRequest(turret, sx, sy, angle, beamLength, damageConfig)
+    local Game = require("src.game")
+    local networkManager = Game.getNetworkManager()
+    
+    if networkManager and networkManager:isMultiplayer() and not networkManager:isHost() then
+        -- Client: send beam weapon fire request to host
+        local request = {
+            type = "beam_weapon_fire_request",
+            turretId = turret.id or tostring(turret),
+            position = { x = sx, y = sy },
+            angle = angle,
+            beamLength = beamLength,
+            damageConfig = damageConfig,
+            ownerId = turret.owner and turret.owner.id or nil
+        }
+        
+        -- Send via network manager
+        if networkManager.sendWeaponFireRequest then
+            local json = require("src.libs.json")
+            Log.info("Client -> sendBeamWeaponFireRequest", json.encode(request))
+            networkManager:sendWeaponFireRequest(request)
+        end
+        return true
+    end
+    
+    return false
+end
 
 -- Handle laser turret firing (hitscan beam weapons)
 function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
@@ -69,6 +99,25 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     turret.beamEndY = beamEndY
     turret.beamTarget = hitTarget
     turret.has_hit = hitTarget ~= nil
+
+    -- Try to send beam weapon fire request first (for clients)
+    local damageConfig
+    if turret.damage_range then
+        damageConfig = {
+            min = turret.damage_range.min,
+            max = turret.damage_range.max,
+            skill = turret.skillId
+        }
+    else
+        damageConfig = { min = 1, max = 2, skill = turret.skillId }
+    end
+    
+    local requestSent = sendBeamWeaponFireRequest(turret, sx, sy, angle, beamLength, damageConfig)
+    
+    -- If not a client or request failed, process beam locally (for host)
+    if not requestSent then
+        -- Host processes beam locally
+    end
 
     if turret.energyPerSecond and turret.energyPerSecond > 0 and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
         local currentEnergy = turret.owner.components.health.energy or 0
@@ -161,23 +210,20 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
 end
 
 -- Check if target is an enemy (for combat lasers)
+-- Disabled friendly fire - all targets can be damaged
 function BeamWeapons.isEnemyTarget(target, source)
     if not target or not target.components then
         return false
     end
 
-    -- If source is player, enemies are anything marked as enemy
-    if source and (source.isPlayer or source.isFriendly) then
-        return target.isEnemy or (target.components.ai ~= nil)
+    -- Don't damage self
+    if target == source then
+        return false
     end
 
-    -- If source is enemy, targets are player and friendlies
-    if source and source.isEnemy then
-        return target.isPlayer or target.isFriendly
-    end
-
-    -- Default: no damage to unclear relationships
-    return false
+    -- Disable friendly fire - all targets can be damaged
+    -- This allows players to damage each other and creates PvP combat
+    return true
 end
 
 -- Apply damage from laser weapons

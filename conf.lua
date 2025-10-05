@@ -6,11 +6,11 @@ function love.conf(t)
   -- Window configuration
   t.window.title = "Novus"
   -- Default resolution, will be overridden by settings
-  t.window.width = 1920
-  t.window.height = 1080
+  t.window.width = 1600
+  t.window.height = 900
   t.window.resizable = true
-  t.window.fullscreen = true
-  t.window.fullscreentype = "exclusive"  -- Modern fullscreen mode
+  t.window.fullscreen = false
+  t.window.fullscreentype = "desktop"  -- Modern fullscreen mode
   t.window.vsync = true  -- Modern boolean value
   -- Reasonable minimums to keep UI usable when resizing
   t.window.minwidth = 1024

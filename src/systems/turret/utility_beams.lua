@@ -9,6 +9,35 @@ local Log = require("src.core.log")
 
 local UtilityBeams = {}
 
+-- Helper function to send utility beam weapon fire request to host
+local function sendUtilityBeamWeaponFireRequest(turret, sx, sy, angle, beamLength, beamType)
+    local Game = require("src.game")
+    local networkManager = Game.getNetworkManager()
+    
+    if networkManager and networkManager:isMultiplayer() and not networkManager:isHost() then
+        -- Client: send utility beam weapon fire request to host
+        local request = {
+            type = "utility_beam_weapon_fire_request",
+            turretId = turret.id or tostring(turret),
+            position = { x = sx, y = sy },
+            angle = angle,
+            beamLength = beamLength,
+            beamType = beamType, -- "mining" or "salvaging"
+            ownerId = turret.owner and turret.owner.id or nil
+        }
+        
+        -- Send via network manager
+        if networkManager.sendWeaponFireRequest then
+            local json = require("src.libs.json")
+            Log.info("Client -> sendUtilityBeamWeaponFireRequest", json.encode(request))
+            networkManager:sendWeaponFireRequest(request)
+        end
+        return true
+    end
+    
+    return false
+end
+
 local function isTurretInputActive(turret)
     if not turret then
         return false
@@ -118,6 +147,14 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     turret.beamEndX = beamEndX
     turret.beamEndY = beamEndY
     turret.beamTarget = hitTarget
+
+    -- Try to send utility beam weapon fire request first (for clients)
+    local requestSent = sendUtilityBeamWeaponFireRequest(turret, sx, sy, angle, effectiveRange, "mining")
+    
+    -- If not a client or request failed, process beam locally (for host)
+    if not requestSent then
+        -- Host processes beam locally
+    end
 
     -- Consume energy per second while beam is active
     -- Skip energy consumption for enemies - they ignore energy usage
@@ -413,6 +450,14 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     turret.beamEndX = beamEndX
     turret.beamEndY = beamEndY
     turret.beamTarget = hitTarget
+
+    -- Try to send utility beam weapon fire request first (for clients)
+    local requestSent = sendUtilityBeamWeaponFireRequest(turret, sx, sy, angle, effectiveRange, "salvaging")
+    
+    -- If not a client or request failed, process beam locally (for host)
+    if not requestSent then
+        -- Host processes beam locally
+    end
 
     -- Consume energy per second while beam is active
     -- Skip energy consumption for enemies - they ignore energy usage

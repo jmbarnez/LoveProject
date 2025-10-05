@@ -10,8 +10,8 @@ local defaultSettings = {} -- Will be populated with the initial settings
 local settings = {
   graphics = {
         resolution = {
-            width = Constants.RESOLUTION.DEFAULT_WIDTH,
-            height = Constants.RESOLUTION.DEFAULT_HEIGHT,
+            width = 1600,
+            height = 900,
         },
         fullscreen = false,
         fullscreen_type = "desktop",

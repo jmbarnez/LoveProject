@@ -19,6 +19,9 @@ function Projectile.new(x, y, angle, friendly, config)
     local self = setmetatable({}, Projectile)
     self.tag = "bullet" -- Keep tag for compatibility with some legacy checks
 
+    -- Set projectile type for network synchronization
+    self.projectileType = config.id or "gun_bullet"
+
     local speed = config.speedOverride or (config.physics and config.physics.speed) or 700
     local vx = math.cos(angle) * speed
     local vy = math.sin(angle) * speed

@@ -397,6 +397,7 @@ function NetworkClient:_handleMessage(message)
         Events.emit("NETWORK_ENEMY_UPDATE", { enemies = message.enemies })
     elseif message.type == TYPES.PROJECTILE_UPDATE then
         -- Handle projectile updates from host
+        Log.debug("Client received PROJECTILE_UPDATE with", #(message.projectiles or {}), "projectiles")
         Events.emit("NETWORK_PROJECTILE_UPDATE", { projectiles = message.projectiles })
     end
 end
@@ -410,6 +411,18 @@ function NetworkClient:sendPlayerUpdate(state)
         type = TYPES.STATE,
         playerId = self.playerId,
         state = sanitiseState(state)
+    })
+end
+
+function NetworkClient:sendWeaponFireRequest(requestData)
+    if not self:isConnected() then
+        return
+    end
+
+    self:_send({
+        type = TYPES.WEAPON_FIRE_REQUEST,
+        playerId = self.playerId,
+        request = requestData
     })
 end
 

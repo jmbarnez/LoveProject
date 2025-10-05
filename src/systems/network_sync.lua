@@ -82,7 +82,9 @@ local function ensureRemoteEntity(playerId, playerData, world)
     end
 
     local entity = remoteEntities[playerId]
+    Log.debug("ensureRemoteEntity: checking for player", playerId, "found entity:", tostring(entity ~= nil), "total entities:", table.maxn(remoteEntities) or 0)
     if entity then
+        Log.debug("Returning existing remote entity for player", playerId)
         return entity
     end
 
@@ -90,6 +92,7 @@ local function ensureRemoteEntity(playerId, playerData, world)
     local x = playerData.position and playerData.position.x or 0
     local y = playerData.position and playerData.position.y or 0
 
+    Log.debug("Creating remote entity for player", playerId, "at position", x, y)
     entity = EntityFactory.create("ship", "starter_frigate_basic", x, y)
     if not entity then
         Log.error("Failed to spawn remote entity for player", playerId)
@@ -100,9 +103,11 @@ local function ensureRemoteEntity(playerId, playerData, world)
     entity.remotePlayerId = playerId
     entity.playerName = playerData.playerName or string.format("Player %s", tostring(playerId))
 
+    Log.debug("Adding remote entity to world for player", playerId)
     world:addEntity(entity)
     remoteEntities[playerId] = entity
 
+    Log.debug("Successfully created remote entity for player", playerId)
     return entity
 end
 
@@ -239,6 +244,10 @@ end
 function NetworkSync.getRemotePlayerSnapshots()
     -- NOTE: This is a placeholder. The snapshot logic is not yet implemented.
     return {}
+end
+
+function NetworkSync.ensureRemoteEntity(playerId, playerData, world)
+    return ensureRemoteEntity(playerId, playerData, world)
 end
 
 return NetworkSync

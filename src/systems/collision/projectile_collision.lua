@@ -39,7 +39,8 @@ local function shouldIgnoreCollision(bullet, target)
     -- Check friendly fire rules
     local isFriendlyBullet = (bullet.components and bullet.components.collidable and bullet.components.collidable.friendly) or false
     if isFriendlyBullet then
-        local isFriendlyEntity = (target.isPlayer or (target.components and target.components.player)) or target.isFreighter or target.isFriendly
+        local isFriendlyEntity = target.isFreighter or target.isFriendly or (target.isPlayer or (target.components and target.components.player))
+        -- For now, consider players as friendly to prevent self-harm (PvP can be added later by modifying this)
         return isFriendlyEntity
     end
 

@@ -9,6 +9,40 @@ local PLAYER_LOCK_ANGLE_TOLERANCE = math.rad(25)
 local PLAYER_LOCK_HOLD_TOLERANCE_SCALE = 1.5
 local LOCK_PROGRESS_DECAY_MULT = 2.0
 
+-- Helper function to send weapon fire request to host
+local function sendWeaponFireRequest(turret, sx, sy, angle, projectileId, damageConfig, additionalEffects)
+    local Game = require("src.game")
+    local networkManager = Game.getNetworkManager()
+    
+    Log.debug("sendWeaponFireRequest check:", "networkManager=" .. tostring(networkManager ~= nil), 
+              "isMultiplayer=" .. tostring(networkManager and networkManager:isMultiplayer()), 
+              "isHost=" .. tostring(networkManager and networkManager:isHost()))
+    
+    if networkManager and networkManager:isMultiplayer() and not networkManager:isHost() then
+        -- Client: send weapon fire request to host
+        local request = {
+            type = "weapon_fire_request",
+            turretId = turret.id or tostring(turret),
+            position = { x = sx, y = sy },
+            angle = angle,
+            projectileId = projectileId,
+            damageConfig = damageConfig,
+            additionalEffects = additionalEffects,
+            ownerId = turret.owner and turret.owner.id or nil
+        }
+        
+        -- Send via network manager
+        if networkManager.sendWeaponFireRequest then
+            local json = require("src.libs.json")
+            Log.info("Client -> sendWeaponFireRequest", json.encode(request))
+            networkManager:sendWeaponFireRequest(request)
+        end
+        return true
+    end
+    
+    return false
+end
+
 local function isTargetValid(target, owner)
     if not target or target.dead or not target.components or not target.components.position then
         return false
@@ -284,6 +318,7 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
     -- Handle volley firing for turrets that support it
     local volleyCount = turret.volleyCount
     local volleySpreadDeg = turret.volleySpreadDeg
+    local friendly = turret.owner.isPlayer or false
 
     for i = 1, volleyCount do
         -- Calculate spread angle for this projectile in the volley
@@ -302,12 +337,13 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
 
         -- Create projectile using embedded definition or fallback to Content
         local projectileTemplate = nil
+        local projectileId = turret.projectileId or "gun_bullet"  -- Define projectileId here so it's always available
+
         if turret.projectile and type(turret.projectile) == "table" then
             -- Use embedded projectile definition
             projectileTemplate = turret.projectile
         else
             -- Fallback to separate projectile file
-            local projectileId = turret.projectileId or "gun_bullet"
             projectileTemplate = Content.getProjectile(projectileId)
         end
 
@@ -329,9 +365,12 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
                 damageConfig = { min = 1, max = 2, skill = turret.skillId }
             end
 
-            -- Use world's spawn_projectile function to avoid circular dependency
-            if world and world.spawn_projectile then
-                world.spawn_projectile(sx, sy, finalAngle, turret.owner.isPlayer or turret.owner.isFriendly, {
+            -- Try to send weapon fire request first (for clients)
+            local requestSent = sendWeaponFireRequest(turret, sx, sy, finalAngle, projectileId, damageConfig, nil)
+
+            -- If not a client or request failed, spawn projectile directly (for host)
+            if not requestSent and world and world.spawn_projectile then
+                world.spawn_projectile(sx, sy, finalAngle, friendly, {
                     projectile = projectileId,
                     vx = vx,
                     vy = vy,
@@ -456,9 +495,14 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
             }
         }
 
-        -- Use world's spawn_projectile function to avoid circular dependency
-        if world and world.spawn_projectile then
-            world.spawn_projectile(sx, sy, angle, turret.owner.isPlayer or turret.owner.isFriendly, {
+        local friendly = turret.owner.isPlayer or false
+
+        -- Try to send weapon fire request first (for clients)
+        local requestSent = sendWeaponFireRequest(turret, sx, sy, angle, projectileId, damageConfig, additionalEffects)
+
+        -- If not a client or request failed, spawn projectile directly (for host)
+        if not requestSent and world and world.spawn_projectile then
+            world.spawn_projectile(sx, sy, angle, friendly, {
                 projectile = projectileId,
                 vx = vx,
                 vy = vy,
@@ -530,9 +574,14 @@ function ProjectileWeapons.fireSecondaryProjectile(turret, target, primaryAngle,
         dmg = { min = 1, max = 2, skill = turret.skillId }
     end
 
-    -- Use world's spawn_projectile function to avoid circular dependency
-    if world and world.spawn_projectile then
-        world.spawn_projectile(sx, sy, angle, turret.owner.isPlayer or turret.owner.isFriendly, {
+    local friendly = turret.owner.isPlayer or false
+
+    -- Try to send weapon fire request first (for clients)
+    local requestSent = sendWeaponFireRequest(turret, sx, sy, angle, turret.secondaryProjectile.id, dmg, nil)
+
+    -- If not a client or request failed, spawn projectile directly (for host)
+    if not requestSent and world and world.spawn_projectile then
+        world.spawn_projectile(sx, sy, angle, friendly, {
             projectile = turret.secondaryProjectile.id,
             vx = vx,
             vy = vy,

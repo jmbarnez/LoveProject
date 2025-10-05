@@ -81,6 +81,8 @@ local function buildProjectileSnapshotFromWorld(world)
     local snapshot = {}
     -- Get all entities with projectile components (bullets, missiles, etc.)
     local entities = world:get_entities_with_components("bullet", "position")
+    
+    Log.debug("Host scanning for projectiles, found", #entities, "entities with bullet component")
 
     for _, entity in ipairs(entities) do
         -- Only include projectile entities
@@ -271,6 +273,7 @@ function RemoteProjectileSync.updateHost(dt, world, networkManager)
         if shouldSend then
             -- Send projectile update to all clients
             if networkManager.sendProjectileUpdate then
+                Log.debug("Host -> projectile snapshot, count=", #sanitised)
                 networkManager:sendProjectileUpdate(sanitised)
             end
             
@@ -302,6 +305,7 @@ function RemoteProjectileSync.applyProjectileSnapshot(snapshot, world)
         return
     end
 
+    Log.debug("Client <- projectile snapshot, entries=", #snapshot)
     local sanitised = sanitiseProjectileSnapshot(snapshot)
     local currentProjectileIds = {}
 

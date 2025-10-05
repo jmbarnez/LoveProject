@@ -10,7 +10,8 @@ Messages.TYPES = {
     WORLD_SNAPSHOT = "world_snapshot",
     HOST_MIGRATED = "host_migrated",
     ENEMY_UPDATE = "enemy_update",
-    PROJECTILE_UPDATE = "projectile_update"
+    PROJECTILE_UPDATE = "projectile_update",
+    WEAPON_FIRE_REQUEST = "weapon_fire_request"
 }
 
 function Messages.encode(payload)

@@ -396,6 +396,8 @@ function NetworkServer:_handleMessage(peer, message)
         self:_handleDisconnect(peer)
     elseif message.type == TYPES.ENEMY_UPDATE then
         self:_handleEnemyUpdate(peer, message)
+    elseif message.type == TYPES.WEAPON_FIRE_REQUEST then
+        self:_handleWeaponFireRequest(peer, message)
     end
 end
 
@@ -511,6 +513,30 @@ function NetworkServer:_handleEnemyUpdate(peer, message)
     -- In a full implementation, this might be used for client-side prediction
     -- or validation, but for host-authoritative mode, we ignore client enemy updates
     Log.debug("Received enemy update from peer (ignored in host-authoritative mode)")
+end
+
+function NetworkServer:_handleWeaponFireRequest(peer, message)
+    -- Handle weapon fire requests from clients
+    local playerId = self.peerToPlayer[peer]
+    if not playerId then
+        Log.warn("Received weapon fire request from unknown peer")
+        return
+    end
+
+    local request = message.request
+    if not request then
+        Log.warn("Received weapon fire request without request data")
+        return
+    end
+
+    local json = require("src.libs.json")
+    Log.info("Server <- WEAPON_FIRE_REQUEST", "playerId=" .. tostring(playerId), json.encode(request))
+
+    -- Emit event for the game to handle the weapon fire request
+    Events.emit("NETWORK_WEAPON_FIRE_REQUEST", {
+        playerId = playerId,
+        request = request
+    })
 end
 
 function NetworkServer:_broadcastExcept(excludedPeer, data)

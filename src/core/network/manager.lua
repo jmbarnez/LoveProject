@@ -313,6 +313,17 @@ function NetworkManager:sendProjectileUpdate(projectileData)
     end
 end
 
+function NetworkManager:sendWeaponFireRequest(requestData)
+    if not self._isMultiplayer or self._isHost then
+        return
+    end
+
+    if self.client and self.client:isConnected() then
+        -- Send weapon fire request to host
+        self.client:sendWeaponFireRequest(requestData)
+    end
+end
+
 function NetworkManager:getPlayers()
     return self._players
 end

@@ -195,6 +195,46 @@ function EntityRenderers.remote_player(entity, player)
         love.graphics.rectangle("line", -barWidth / 2, barY, barWidth, barHeight)
         love.graphics.setLineWidth(healthLineWidth)
     end
+
+    -- Render remote beam if active
+    if entity.remoteBeamActive and entity.remoteBeamAngle and entity.remoteBeamLength then
+        local TurretEffects = require("src.systems.turret.effects")
+        -- Create a mock turret object for rendering
+        local mockTurret = {
+            kind = "laser",
+            tracer = {
+                color = {0.3, 0.7, 1.0, 0.8},
+                width = 1.5,
+                coreRadius = 0.5
+            }
+        }
+        -- Calculate current beam positions based on player's current position
+        local startX = 0  -- Relative to player center
+        local startY = 0
+        local endX = math.cos(entity.remoteBeamAngle) * entity.remoteBeamLength
+        local endY = math.sin(entity.remoteBeamAngle) * entity.remoteBeamLength
+        TurretEffects.renderBeam(mockTurret, startX, startY, endX, endY, false)
+    end
+
+    -- Render remote utility beam if active
+    if entity.remoteUtilityBeamActive and entity.remoteUtilityBeamAngle and entity.remoteUtilityBeamLength then
+        local TurretEffects = require("src.systems.turret.effects")
+        local beamType = entity.remoteUtilityBeamType
+        local mockTurret = {
+            kind = beamType == "mining" and "mining_laser" or "salvaging_laser",
+            tracer = {
+                color = beamType == "mining" and {1.0, 0.7, 0.2, 0.8} or {0.2, 1.0, 0.3, 0.8},
+                width = 2.0,
+                coreRadius = 1.0
+            }
+        }
+        -- Calculate current beam positions based on player's current position
+        local startX = 0  -- Relative to player center
+        local startY = 0
+        local endX = math.cos(entity.remoteUtilityBeamAngle) * entity.remoteUtilityBeamLength
+        local endY = math.sin(entity.remoteUtilityBeamAngle) * entity.remoteUtilityBeamLength
+        TurretEffects.renderBeam(mockTurret, startX, startY, endX, endY, false)
+    end
 end
 
 -- Massive planet renderer (decorative background body)

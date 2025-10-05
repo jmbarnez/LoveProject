@@ -407,7 +407,260 @@ local function registerWorldSyncEventHandlers()
         RemoteProjectileSync.applyProjectileSnapshot(projectiles, world)
     end)
 
+    Events.on("NETWORK_WEAPON_FIRE_REQUEST", function(data)
+        if not isHost then
+            return
+        end
+
+        local request = data and data.request or nil
+        if not request then
+            return
+        end
+
+        -- Process weapon fire request from client
+        if request.type == "beam_weapon_fire_request" then
+            processBeamWeaponFireRequest(request, data.playerId)
+        elseif request.type == "utility_beam_weapon_fire_request" then
+            processUtilityBeamWeaponFireRequest(request, data.playerId)
+        else
+            processWeaponFireRequest(request, data.playerId)
+        end
+    end)
+
     worldSyncHandlersRegistered = true
+end
+
+-- Process weapon fire requests from clients
+function processWeaponFireRequest(request, playerId)
+    if not world or not request then
+        return
+    end
+
+    local json = require("src.libs.json")
+    Log.info("Host processing weapon fire request from player", playerId, "projectileId=" .. tostring(request.projectileId))
+
+    -- Find the player entity
+    local player = nil
+    if playerId == 0 then
+        -- Host player
+        player = findPlayer(world)
+    else
+        -- Remote player - find by player ID
+        local players = world:get_entities_with_components("player")
+        Log.debug("Looking for remote player", playerId, "among", #players, "player entities")
+        for _, p in ipairs(players) do
+            Log.debug("Player entity:", "id=" .. tostring(p.id), "remotePlayerId=" .. tostring(p.remotePlayerId), "isRemotePlayer=" .. tostring(p.isRemotePlayer))
+            if p.remotePlayerId == playerId then
+                player = p
+                break
+            end
+        end
+    end
+
+    if not player then
+        Log.warn("Could not find player for weapon fire request", playerId, "- attempting to create remote player entity")
+        -- Try to create the remote player entity if it doesn't exist
+        local NetworkSync = require("src.systems.network_sync")
+        local networkManager = Game.getNetworkManager()
+        if networkManager then
+            local players = networkManager:getPlayers()
+            local playerInfo = players[playerId]
+            if playerInfo then
+                Log.info("Creating remote player entity for player", playerId, "with state:", json.encode(playerInfo.state or {}))
+                player = NetworkSync.ensureRemoteEntity(playerId, playerInfo.state or {}, world)
+                if player then
+                    player.playerName = playerInfo.playerName or string.format("Player %d", playerId)
+                    Log.info("Successfully created remote player entity for player", playerId, "entity id:", tostring(player.id))
+                else
+                    Log.warn("Failed to create remote player entity for player", playerId)
+                end
+            else
+                Log.warn("No player info found for player", playerId, "available players:", json.encode(players))
+            end
+        end
+        
+        if not player then
+            Log.warn("Failed to create remote player entity for weapon fire request", playerId)
+            return
+        end
+    end
+
+    Log.info("Found/created player entity for weapon fire request", playerId, "proceeding to create projectile")
+
+    -- Create projectile using the request data
+    local projectile_id = request.projectileId or "gun_bullet"
+    local extra_config = {
+        angle = request.angle or 0,
+        friendly = true, -- Prevent self-hit but allow PvP
+        damage = request.damageConfig,
+        kind = "bullet",
+        additionalEffects = request.additionalEffects,
+        source = player
+    }
+
+    Log.info("Creating projectile for player", playerId, "projectileId=" .. projectile_id, "at position", request.position.x, request.position.y)
+    local projectile = EntityFactory.create("projectile", projectile_id, request.position.x, request.position.y, extra_config)
+    if projectile then
+        world:addEntity(projectile)
+        Log.info("Processed weapon fire request from player", playerId, "spawned projectile", projectile_id)
+    else
+        Log.warn("Failed to create projectile from weapon fire request", playerId, projectile_id)
+    end
+end
+
+-- Process beam weapon fire requests from clients
+function processBeamWeaponFireRequest(request, playerId)
+    if not world or not request then
+        return
+    end
+
+    local json = require("src.libs.json")
+    Log.info("Host processing beam weapon fire request from player", playerId, "beamLength=" .. tostring(request.beamLength))
+
+    -- Find the player entity
+    local player = nil
+    if playerId == 0 then
+        -- Host player
+        player = findPlayer(world)
+    else
+        -- Remote player - find by player ID
+        local players = world:get_entities_with_components("player")
+        for _, p in ipairs(players) do
+            if p.remotePlayerId == playerId then
+                player = p
+                break
+            end
+        end
+    end
+
+    if not player then
+        Log.warn("Could not find player for beam weapon fire request", playerId, "- attempting to create remote player entity")
+        -- Try to create the remote player entity if it doesn't exist
+        local NetworkSync = require("src.systems.network_sync")
+        local networkManager = Game.getNetworkManager()
+        if networkManager then
+            local players = networkManager:getPlayers()
+            local playerInfo = players[playerId]
+            if playerInfo then
+                Log.info("Creating remote player entity for player", playerId, "with state:", json.encode(playerInfo.state or {}))
+                player = NetworkSync.ensureRemoteEntity(playerId, playerInfo.state or {}, world)
+                if player then
+                    player.playerName = playerInfo.playerName or string.format("Player %d", playerId)
+                    Log.info("Successfully created remote player entity for player", playerId, "entity id:", tostring(player.id))
+                else
+                    Log.warn("Failed to create remote player entity for player", playerId)
+                end
+            else
+                Log.warn("No player info found for player", playerId, "available players:", json.encode(players))
+            end
+        end
+        
+        if not player then
+            Log.warn("Failed to create remote player entity for beam weapon fire request", playerId)
+            return
+        end
+    end
+
+    Log.info("Found/created player entity for beam weapon fire request", playerId, "proceeding to create beam")
+
+    -- Instead of creating a projectile entity, let's create a beam state for the remote player
+    -- This avoids collision issues that might cause respawning
+    local beamLength = request.beamLength or 100
+    local endX = request.position.x + math.cos(request.angle) * beamLength
+    local endY = request.position.y + math.sin(request.angle) * beamLength
+    
+    -- Store beam state on the remote player entity for rendering
+    if player then
+        player.remoteBeamActive = true
+        player.remoteBeamStartX = request.position.x
+        player.remoteBeamStartY = request.position.y
+        player.remoteBeamEndX = endX
+        player.remoteBeamEndY = endY
+        player.remoteBeamAngle = request.angle
+        player.remoteBeamLength = beamLength
+        player.remoteBeamStartTime = love.timer and love.timer.getTime() or os.clock()
+        
+        Log.info("Processed beam weapon fire request from player", playerId, "set remote beam state")
+    else
+        Log.warn("Failed to set beam state for player", playerId)
+    end
+end
+
+-- Process utility beam weapon fire requests from clients (mining/salvaging lasers)
+function processUtilityBeamWeaponFireRequest(request, playerId)
+    if not world or not request then
+        return
+    end
+
+    local json = require("src.libs.json")
+    Log.info("Host processing utility beam weapon fire request from player", playerId, "beamType=" .. tostring(request.beamType), "beamLength=" .. tostring(request.beamLength))
+
+    -- Find the player entity
+    local player = nil
+    if playerId == 0 then
+        -- Host player
+        player = findPlayer(world)
+    else
+        -- Remote player - find by player ID
+        local players = world:get_entities_with_components("player")
+        for _, p in ipairs(players) do
+            if p.remotePlayerId == playerId then
+                player = p
+                break
+            end
+        end
+    end
+
+    if not player then
+        Log.warn("Could not find player for utility beam weapon fire request", playerId, "- attempting to create remote player entity")
+        -- Try to create the remote player entity if it doesn't exist
+        local NetworkSync = require("src.systems.network_sync")
+        local networkManager = Game.getNetworkManager()
+        if networkManager then
+            local players = networkManager:getPlayers()
+            local playerInfo = players[playerId]
+            if playerInfo then
+                Log.info("Creating remote player entity for player", playerId, "with state:", json.encode(playerInfo.state or {}))
+                player = NetworkSync.ensureRemoteEntity(playerId, playerInfo.state or {}, world)
+                if player then
+                    player.playerName = playerInfo.playerName or string.format("Player %d", playerId)
+                    Log.info("Successfully created remote player entity for player", playerId, "entity id:", tostring(player.id))
+                else
+                    Log.warn("Failed to create remote player entity for player", playerId)
+                end
+            else
+                Log.warn("No player info found for player", playerId, "available players:", json.encode(players))
+            end
+        end
+        
+        if not player then
+            Log.warn("Failed to create remote player entity for utility beam weapon fire request", playerId)
+            return
+        end
+    end
+
+    Log.info("Found/created player entity for utility beam weapon fire request", playerId, "proceeding to create utility beam")
+
+    -- Store utility beam state on the remote player entity for rendering
+    local beamLength = request.beamLength or 100
+    local endX = request.position.x + math.cos(request.angle) * beamLength
+    local endY = request.position.y + math.sin(request.angle) * beamLength
+    
+    if player then
+        player.remoteUtilityBeamActive = true
+        player.remoteUtilityBeamType = request.beamType -- "mining" or "salvaging"
+        player.remoteUtilityBeamStartX = request.position.x
+        player.remoteUtilityBeamStartY = request.position.y
+        player.remoteUtilityBeamEndX = endX
+        player.remoteUtilityBeamEndY = endY
+        player.remoteUtilityBeamAngle = request.angle
+        player.remoteUtilityBeamLength = beamLength
+        player.remoteUtilityBeamStartTime = love.timer and love.timer.getTime() or os.clock()
+        
+        Log.info("Processed utility beam weapon fire request from player", playerId, "set remote utility beam state", request.beamType)
+    else
+        Log.warn("Failed to set utility beam state for player", playerId)
+    end
 end
 
 registerWorldSyncEventHandlers()
@@ -1221,6 +1474,39 @@ function Game.update(dt)
         m.t = m.t + dt
         if m.t >= m.dur then
             table.remove(clickMarkers, i)
+        end
+    end
+
+    -- Clear expired remote beam data
+    if world then
+        local entities = world:getEntities()
+        local currentTime = love.timer and love.timer.getTime() or os.clock()
+        for _, entity in pairs(entities) do
+            if entity.isRemotePlayer then
+                -- Clear remote beam after 0.5 seconds
+                if entity.remoteBeamActive and entity.remoteBeamStartTime and (currentTime - entity.remoteBeamStartTime) > 0.5 then
+                    entity.remoteBeamActive = false
+                    entity.remoteBeamStartX = nil
+                    entity.remoteBeamStartY = nil
+                    entity.remoteBeamEndX = nil
+                    entity.remoteBeamEndY = nil
+                    entity.remoteBeamAngle = nil
+                    entity.remoteBeamLength = nil
+                    entity.remoteBeamStartTime = nil
+                end
+                -- Clear remote utility beam after 0.5 seconds
+                if entity.remoteUtilityBeamActive and entity.remoteUtilityBeamStartTime and (currentTime - entity.remoteUtilityBeamStartTime) > 0.5 then
+                    entity.remoteUtilityBeamActive = false
+                    entity.remoteUtilityBeamType = nil
+                    entity.remoteUtilityBeamStartX = nil
+                    entity.remoteUtilityBeamStartY = nil
+                    entity.remoteUtilityBeamEndX = nil
+                    entity.remoteUtilityBeamEndY = nil
+                    entity.remoteUtilityBeamAngle = nil
+                    entity.remoteUtilityBeamLength = nil
+                    entity.remoteUtilityBeamStartTime = nil
+                end
+            end
         end
     end
 
