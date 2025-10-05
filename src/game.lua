@@ -524,15 +524,6 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
     end
   end
   
-  -- Listen for when someone joins the host's game
-  Events.on("NETWORK_PLAYER_JOINED", function(data)
-    if not isMultiplayer and networkManager and networkManager:isHost() then
-      Log.info("Someone joined the host game, switching to multiplayer mode")
-      isMultiplayer = true
-      -- The host is already running, just need to enable multiplayer mode
-    end
-  end)
-  
   -- Step 3: Setup input
   updateProgress(0.3, "Setting up input...")
   -- Use custom reticle instead of system cursor in-game
@@ -836,7 +827,23 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   
   -- Clear any existing event listeners to prevent conflicts
   Events.clear()
-  
+  worldSyncHandlersRegistered = false
+
+  -- Re-register network listeners that were cleared above
+  if networkManager and networkManager.setupEventListeners then
+    networkManager:setupEventListeners()
+  end
+  registerWorldSyncEventHandlers()
+
+  -- Listen for when someone joins the host's game
+  Events.on("NETWORK_PLAYER_JOINED", function(data)
+    if not isMultiplayer and networkManager and networkManager:isHost() then
+      Log.info("Someone joined the host game, switching to multiplayer mode")
+      isMultiplayer = true
+      -- The host is already running, just need to enable multiplayer mode
+    end
+  end)
+
   -- Re-subscribe experience notification to events after clearing
   local ExperienceNotification = require("src.ui.hud.experience_notification")
   ExperienceNotification.resubscribe()
@@ -991,6 +998,7 @@ function Game.unload()
   end
 
   Events.clear()
+  worldSyncHandlersRegistered = false
 
   if StateManager and StateManager.reset then
     StateManager.reset()
