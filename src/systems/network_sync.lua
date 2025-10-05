@@ -12,6 +12,7 @@ local NetworkSync = {}
 local storeRemoteSnapshot
 local updateRemotePlayer
 local createRemotePlayer
+local getLocalPlayerCanonicalId
 
 -- Remote players storage
 local remotePlayers = {}
@@ -215,6 +216,22 @@ createRemotePlayer = function(playerId, data, world)
     return remotePlayer
 end
 
+getLocalPlayerCanonicalId = function(networkManager)
+    if not networkManager then
+        return nil
+    end
+
+    if networkManager:isHost() then
+        return canonicalizePlayerId(0)
+    end
+
+    if networkManager.client and networkManager.client.playerId then
+        return canonicalizePlayerId(networkManager.client.playerId)
+    end
+
+    return nil
+end
+
 -- Listen for incoming player updates
 Events.on("NETWORK_PLAYER_UPDATED", function(data)
     Log.info("NETWORK_PLAYER_UPDATED received:", data and data.playerId or "nil")
@@ -282,19 +299,38 @@ function NetworkSync.update(dt, player, world, networkManager)
     local playerCount = 0
     for _ in pairs(players) do playerCount = playerCount + 1 end
     Log.info("NetworkSync: Found", playerCount, "players from network manager")
-    
+
+    local localCanonicalId = getLocalPlayerCanonicalId(networkManager)
+
     for playerId, playerData in pairs(players) do
         local canonicalId = normalizePlayerDataId(playerData, playerId)
-        local snapshot = playerData
-        Log.info("Processing player:", canonicalId, "has position:", snapshot and snapshot.position ~= nil)
-        Log.info("Player data structure:", json.encode(playerData))
-        if snapshot and snapshot.position then
-            updateRemotePlayer(canonicalId, snapshot, world)
-        elseif snapshot and snapshot.data and snapshot.data.position then
-            updateRemotePlayer(canonicalId, snapshot.data, world)
+
+        if canonicalId and localCanonicalId and canonicalId == localCanonicalId then
+            Log.info("Skipping local player from remote sync:", canonicalId)
+
+            -- Ensure we remove any stale remote entity or snapshot that may have been created for the local player
+            if remotePlayers[canonicalId] then
+                Log.info("Removing stale local remote player entity:", canonicalId)
+                if world then
+                    world:removeEntity(remotePlayers[canonicalId])
+                end
+                remotePlayers[canonicalId] = nil
+            end
+            remotePlayerSnapshots[canonicalId] = nil
         else
-            -- Even if we don't yet have full position data, keep the latest identifiers around
-            storeRemoteSnapshot(canonicalId, playerData)
+            if canonicalId then
+                local snapshot = playerData
+                Log.info("Processing player:", canonicalId, "has position:", snapshot and snapshot.position ~= nil)
+                Log.info("Player data structure:", json.encode(playerData))
+                if snapshot and snapshot.position then
+                    updateRemotePlayer(canonicalId, snapshot, world)
+                elseif snapshot and snapshot.data and snapshot.data.position then
+                    updateRemotePlayer(canonicalId, snapshot.data, world)
+                else
+                    -- Even if we don't yet have full position data, keep the latest identifiers around
+                    storeRemoteSnapshot(canonicalId, playerData)
+                end
+            end
         end
     end
 
@@ -307,7 +343,7 @@ function NetworkSync.update(dt, player, world, networkManager)
                 break
             end
         end
-        
+
         if not stillConnected then
             Log.info("Removing disconnected remote player:", playerId)
             if world then
