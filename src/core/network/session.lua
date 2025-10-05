@@ -21,6 +21,7 @@ local state = {
     pendingSelfNetworkState = nil,
     worldSyncHandlersRegistered = false,
     networkManagerListenersRegistered = false,
+    eventHandlers = {}, -- Track event handlers for cleanup
 }
 
 local function sanitisePlayerNetworkState(playerState)
@@ -405,12 +406,25 @@ local function handleUtilityBeamRequest(request, playerId)
     player.remoteUtilityBeamStartTime = love.timer and love.timer.getTime() or os.clock()
 end
 
+local function clearEventHandlers()
+    for eventName, handler in pairs(state.eventHandlers) do
+        if handler and Events.off then
+            Events.off(eventName, handler)
+        end
+    end
+    state.eventHandlers = {}
+end
+
 local function registerWorldSyncEventHandlers()
     if state.worldSyncHandlersRegistered then
         return
     end
 
-    Events.on("NETWORK_WORLD_SNAPSHOT", function(data)
+    -- Clear any existing handlers first
+    clearEventHandlers()
+
+    -- Register new handlers and track them for cleanup
+    state.eventHandlers["NETWORK_WORLD_SNAPSHOT"] = Events.on("NETWORK_WORLD_SNAPSHOT", function(data)
         if state.isHost then
             return
         end
@@ -421,7 +435,7 @@ local function registerWorldSyncEventHandlers()
         end
     end)
 
-    Events.on("NETWORK_DISCONNECTED", function()
+    state.eventHandlers["NETWORK_DISCONNECTED"] = Events.on("NETWORK_DISCONNECTED", function()
         if state.isHost then
             return
         end
@@ -431,7 +445,7 @@ local function registerWorldSyncEventHandlers()
         state.pendingSelfNetworkState = nil
     end)
 
-    Events.on("NETWORK_SERVER_STOPPED", function()
+    state.eventHandlers["NETWORK_SERVER_STOPPED"] = Events.on("NETWORK_SERVER_STOPPED", function()
         if state.isHost then
             return
         end
@@ -441,7 +455,7 @@ local function registerWorldSyncEventHandlers()
         state.pendingSelfNetworkState = nil
     end)
 
-    Events.on("NETWORK_SERVER_STARTED", function()
+    state.eventHandlers["NETWORK_SERVER_STARTED"] = Events.on("NETWORK_SERVER_STARTED", function()
         if not state.isHost or not state.world then
             return
         end
@@ -449,7 +463,7 @@ local function registerWorldSyncEventHandlers()
         broadcastHostWorldSnapshot()
     end)
 
-    Events.on("NETWORK_ENEMY_UPDATE", function(data)
+    state.eventHandlers["NETWORK_ENEMY_UPDATE"] = Events.on("NETWORK_ENEMY_UPDATE", function(data)
         if state.isHost then
             return
         end
@@ -460,7 +474,7 @@ local function registerWorldSyncEventHandlers()
         end
     end)
 
-    Events.on("NETWORK_PROJECTILE_UPDATE", function(data)
+    state.eventHandlers["NETWORK_PROJECTILE_UPDATE"] = Events.on("NETWORK_PROJECTILE_UPDATE", function(data)
         if state.isHost then
             return
         end
@@ -471,7 +485,7 @@ local function registerWorldSyncEventHandlers()
         end
     end)
 
-    Events.on("NETWORK_WEAPON_FIRE_REQUEST", function(data)
+    state.eventHandlers["NETWORK_WEAPON_FIRE_REQUEST"] = Events.on("NETWORK_WEAPON_FIRE_REQUEST", function(data)
         if not state.isHost then
             return
         end
@@ -484,7 +498,7 @@ local function registerWorldSyncEventHandlers()
         Session.handleWeaponRequest(request, data.playerId)
     end)
 
-    Events.on("NETWORK_PLAYER_JOINED", function(data)
+    state.eventHandlers["NETWORK_PLAYER_JOINED"] = Events.on("NETWORK_PLAYER_JOINED", function(data)
         if state.isHost then
             if not state.isMultiplayer and state.networkManager and state.networkManager:isHost() then
                 Session.setMode(true, true)
@@ -660,6 +674,7 @@ end
 
 function Session.teardown()
     clearSyncedWorldEntities()
+    clearEventHandlers()
 
     if state.networkManager then
         state.networkManager:leaveGame()
@@ -674,6 +689,7 @@ function Session.teardown()
     state.pendingWorldSnapshot = nil
     state.pendingSelfNetworkState = nil
     state.worldSyncHandlersRegistered = false
+    state.networkManagerListenersRegistered = false
 end
 
 function Session.setMode(multiplayer, host)

@@ -172,6 +172,11 @@ function NetworkManager:joinGame(address, port)
         return false, "Already in multiplayer"
     end
 
+    -- Reset connection attempts for fresh connection attempt
+    if self.client then
+        self.client:resetConnectionAttempts()
+    end
+
     local Constants = require("src.core.constants")
     local ok, err = self.client:connect(address or "localhost", port or Constants.NETWORK.DEFAULT_PORT)
     if not ok then
@@ -250,6 +255,17 @@ function NetworkManager:update(dt)
         end
     else
         if self.client then
+            -- Check connection health and attempt reconnection if needed
+            if not self.client:isConnected() and self.client:getConnectionState() == "disconnected" then
+                if self.client:canAttemptConnection() then
+                    Log.info("Attempting to reconnect to server...")
+                    local ok, err = self.client:connect()
+                    if not ok then
+                        Log.warn("Reconnection failed:", err)
+                    end
+                end
+            end
+            
             self.client:update(dt)
             self._players = shallowCopy(self.client:getPlayers())
             if self.client.playerId then

@@ -117,20 +117,35 @@ local function waitForConnection(transport, client, timeoutSeconds)
     local timeout = timeoutSeconds or 5
     local start = now()
     local queue = {}
+    local lastEventTime = start
 
+    Log.info("Waiting for connection, timeout:", timeout, "seconds")
+    
     while now() - start < timeout do
         local event = transport.service(client, 10)
         if event then
+            lastEventTime = now()
+            Log.info("Received event during connection:", event.type)
             if event.type == "connect" then
+                Log.info("Connection established!")
                 return true, queue
             elseif event.type == "disconnect" then
+                Log.warn("Connection failed: Disconnected")
                 return false, "Connection failed: Disconnected"
             else
                 queue[#queue + 1] = event
+                Log.info("Queued event:", event.type)
             end
+        end
+        
+        -- Log progress every 2 seconds
+        if now() - lastEventTime > 2.0 then
+            Log.info("Still waiting for connection...", math.floor(now() - start), "seconds elapsed")
+            lastEventTime = now()
         end
     end
 
+    Log.warn("Connection timed out after", timeout, "seconds")
     return false, "Connection timed out"
 end
 
@@ -228,15 +243,51 @@ function NetworkClient.new()
     self.playerId = nil
     self.players = {}
     self.connected = false
+    self.connectionState = "disconnected" -- "disconnected", "connecting", "connected", "disconnecting"
     self.lastError = nil
     self.localName = randomName()
     self.worldSnapshot = nil
+    self.connectionAttempts = 0
+    self.maxConnectionAttempts = 3
+    self.lastHeartbeat = 0
+    self.heartbeatInterval = 5.0 -- seconds
+    self.connectionTimeout = 10.0 -- seconds
+    self.lastConnectionAttempt = 0
 
     return self
 end
 
 function NetworkClient:isConnected()
-    return self.connected and self.enetClient ~= nil
+    if not self.connected or not self.enetClient or self.connectionState ~= "connected" then
+        return false
+    end
+    
+    -- Check if the underlying ENet connection is still alive
+    if self.enetClient.peer then
+        local rtt = self.enetClient.peer:round_trip_time()
+        if rtt and rtt > 0 then
+            return true
+        end
+    end
+    
+    return false
+end
+
+function NetworkClient:getConnectionState()
+    return self.connectionState
+end
+
+function NetworkClient:canAttemptConnection()
+    local currentTime = now()
+    return self.connectionAttempts < self.maxConnectionAttempts and 
+           (currentTime - self.lastConnectionAttempt) >= 2.0 -- 2 second cooldown between attempts
+end
+
+function NetworkClient:resetConnectionAttempts()
+    self.connectionAttempts = 0
+    self.lastConnectionAttempt = -1000 -- Set to far in the past to bypass cooldown
+    self.lastError = nil
+    Log.info("Connection attempts reset")
 end
 
 function NetworkClient:getPlayers()
@@ -263,47 +314,69 @@ function NetworkClient:connect(address, port)
         return true
     end
 
-    -- Reset any stale error state before attempting to connect again
+    -- Reset connection attempts if enough time has passed since last attempt
+    local currentTime = now()
+    if (currentTime - self.lastConnectionAttempt) > 5.0 then -- 5 second reset window
+        self.connectionAttempts = 0
+    end
+
+    -- Check if we can attempt connection (but don't update lastConnectionAttempt yet)
+    if self.connectionAttempts >= self.maxConnectionAttempts then
+        self.lastError = "Maximum connection attempts reached"
+        return false, self.lastError
+    end
+
+    -- Check cooldown period
+    if (currentTime - self.lastConnectionAttempt) < 2.0 then
+        self.lastError = "Connection cooldown active"
+        return false, self.lastError
+    end
+
+    self.connectionState = "connecting"
+    self.connectionAttempts = self.connectionAttempts + 1
+    self.lastConnectionAttempt = currentTime
     self.lastError = nil
 
     local ok, EnetTransport = pcall(require, "src.core.network.transport.enet")
     if not ok or not EnetTransport or not EnetTransport.isAvailable() then
         self.lastError = "ENet transport not available"
+        self.connectionState = "disconnected"
         return false, self.lastError
     end
 
     local Constants = require("src.core.constants")
     local portToUse = tonumber(port) or Constants.NETWORK.DEFAULT_PORT
     local attempts = buildAddressAttempts(address or "localhost")
-    local eventQueue = nil
     local connectedClient = nil
     local lastError = nil
     local finalAddress = nil
 
     for _, target in ipairs(attempts) do
-        Log.info("NetworkClient: attempting connection", target, portToUse)
+        Log.info("NetworkClient: attempting connection", target, portToUse, "attempt", self.connectionAttempts)
         local client, err = EnetTransport.createClient()
         if not client then
-            self.lastError = err
-            return false, err
+            lastError = err
+            Log.warn("Failed to create ENet client:", err)
+            break
         end
 
         local peer, connectErr = EnetTransport.connect(client, target, portToUse)
         if not peer then
-            self.lastError = connectErr
             lastError = connectErr
+            Log.warn("Failed to initiate connection:", connectErr)
             EnetTransport.destroy(client)
         else
-            local okConnect, result = waitForConnection(EnetTransport, client, 5)
+            Log.info("Successfully initiated connection to", target, portToUse)
+            local okConnect, result = waitForConnection(EnetTransport, client, self.connectionTimeout)
             if okConnect then
                 connectedClient = client
-                eventQueue = result
                 finalAddress = target
                 lastError = nil
+                Log.info("Successfully connected to", target, portToUse)
                 break
             else
                 lastError = result
-                self.lastError = result
+                Log.warn("Connection timeout or failure:", result)
                 EnetTransport.disconnectClient(client)
                 EnetTransport.destroy(client)
             end
@@ -311,28 +384,24 @@ function NetworkClient:connect(address, port)
     end
 
     if not connectedClient then
-        self.lastError = lastError or self.lastError or "Connection failed"
+        self.lastError = lastError or "Connection failed"
+        self.connectionState = "disconnected"
         return false, self.lastError
     end
 
+    -- Set up connection state
     self.transport = EnetTransport
     self.enetClient = connectedClient
     self.connected = true
+    self.connectionState = "connected"
     self.players = {}
     self.lastError = nil
+    self.connectionAttempts = 0 -- Reset on successful connection
+    self.lastHeartbeat = now()
 
-    Log.info("Connecting to", finalAddress or address or "localhost", portToUse)
+    Log.info("Connected to", finalAddress or address or "localhost", portToUse)
 
-    -- Process any queued events that arrived during connection
-    for _, event in ipairs(eventQueue or {}) do
-        if event.type == "receive" then
-            local message = Messages.decode(event.data)
-            if message then
-                self:_handleMessage(message)
-            end
-        end
-    end
-
+    -- Send initial HELLO message immediately after connection
     self:_send({
         type = TYPES.HELLO,
         name = self.localName,
@@ -341,6 +410,8 @@ function NetworkClient:connect(address, port)
             velocity = { x = 0, y = 0 }
         }
     })
+
+    -- Emit connected event only once
     Events.emit("NETWORK_CONNECTED")
 
     return true
@@ -363,42 +434,67 @@ function NetworkClient:_send(payload)
 end
 
 function NetworkClient:disconnect()
-    if not self:isConnected() then
+    if not self.connected then
         return
     end
 
-    self:_send({ type = TYPES.GOODBYE, playerId = self.playerId })
+    self.connectionState = "disconnecting"
 
-    self.transport.disconnectClient(self.enetClient)
-    self.transport.destroy(self.enetClient)
+    -- Send goodbye message if we have a valid connection
+    if self.enetClient and self.playerId then
+        self:_send({ type = TYPES.GOODBYE, playerId = self.playerId })
+    end
 
+    -- Clean up transport
+    if self.transport and self.enetClient then
+        self.transport.disconnectClient(self.enetClient)
+        self.transport.destroy(self.enetClient)
+    end
+
+    -- Reset state
     self.transport = nil
     self.enetClient = nil
     self.connected = false
+    self.connectionState = "disconnected"
     self.playerId = nil
     self.players = {}
     self.worldSnapshot = nil
+    self.connectionAttempts = 0
 
     Events.emit("NETWORK_DISCONNECTED")
 end
 
-function NetworkClient:update(dt)
+function NetworkClient:_sendHeartbeat()
     if not self:isConnected() then
         return
+    end
+
+    self:_send({
+        type = TYPES.PING,
+        timestamp = now()
+    })
+end
+
+function NetworkClient:update(dt)
+    if not self.connected or not self.enetClient then
+        return
+    end
+
+    -- Check connection health
+    if self.connectionState == "connected" then
+        local currentTime = now()
+        if (currentTime - self.lastHeartbeat) > self.heartbeatInterval then
+            self:_sendHeartbeat()
+            self.lastHeartbeat = currentTime
+        end
     end
 
     local event = self.transport.service(self.enetClient, 0)
     while event do
         if event.type == "connect" then
-            self:_send({
-                type = TYPES.HELLO,
-                name = self.localName,
-                state = {
-                    position = { x = 0, y = 0, angle = 0 },
-                    velocity = { x = 0, y = 0 }
-                }
-            })
-            Events.emit("NETWORK_CONNECTED")
+            -- Connection event should only happen during initial connection
+            -- Don't send HELLO again or emit NETWORK_CONNECTED again
+            Log.info("Connection event received (already connected)")
         elseif event.type == "disconnect" then
             Log.warn("Disconnected from server")
             self:disconnect()
@@ -507,6 +603,13 @@ function NetworkClient:_handleMessage(message)
         -- Handle projectile updates from host
         Log.debug("Client received PROJECTILE_UPDATE with", #(message.projectiles or {}), "projectiles")
         Events.emit("NETWORK_PROJECTILE_UPDATE", { projectiles = message.projectiles })
+    elseif message.type == TYPES.PONG then
+        -- Handle pong response for heartbeat
+        local currentTime = now()
+        if message.timestamp then
+            local rtt = currentTime - message.timestamp
+            Log.debug("Received PONG, RTT:", rtt)
+        end
     end
 end
 

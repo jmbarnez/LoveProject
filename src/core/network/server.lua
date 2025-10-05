@@ -374,37 +374,72 @@ function NetworkServer:update(dt)
         return
     end
     
+    -- Additional safety checks for ENet server
+    if not self.enetServer.host then
+        Log.error("Network server: ENet host is nil, stopping server")
+        self:stop()
+        return
+    end
+
     -- Debug: Log that server update is being called (but only occasionally to avoid spam)
     if math.random() < 0.01 then -- 1% chance to log
-        Log.info("Server update called, isRunning:", self.isRunning)
+        Log.info("Server update called, isRunning:", self.isRunning, "peers:", self:getPlayerCount())
+    end
+    
+    -- More frequent logging when waiting for connections
+    if self:getPlayerCount() == 1 then -- Only host, waiting for clients
+        if math.random() < 0.1 then -- 10% chance to log
+            Log.info("Server waiting for client connections...")
+        end
     end
 
-    -- Additional safety check for ENet server
-    if not self.enetServer.host then
-        Log.error("Network server: ENet host is nil")
-        return
-    end
-
-    local ok, event = pcall(self.transport.service, self.transport, self.enetServer, 10)
+    local ok, event = pcall(self.transport.service, self.enetServer, 10)
     if not ok then
         Log.error("Network server service error:", event)
+        -- Don't stop the server on service errors, just log and continue
         return
     end
+    
+    -- Log when we receive events
+    if event then
+        Log.info("Server received event:", event.type, "from peer:", event.peer and "yes" or "no")
+    end
+    
     while event do
-        Log.info("Server received event:", event.type)
         if event.type == "connect" then
-            self.peers[event.peer] = true
-            Log.info("Peer connected")
+            if event.peer then
+                self.peers[event.peer] = true
+                Log.info("Peer connected, total peers:", self:getPlayerCount())
+            else
+                Log.warn("Received connect event without peer")
+            end
         elseif event.type == "receive" then
-            local message = Messages.decode(event.data)
-            if message then
-                self:_handleMessage(event.peer, message)
+            if event.peer and event.data then
+                local message = Messages.decode(event.data)
+                if message then
+                    self:_handleMessage(event.peer, message)
+                else
+                    Log.warn("Failed to decode message from peer")
+                end
+            else
+                Log.warn("Received receive event without peer or data")
             end
         elseif event.type == "disconnect" then
-            self:_handleDisconnect(event.peer)
+            if event.peer then
+                self:_handleDisconnect(event.peer)
+            else
+                Log.warn("Received disconnect event without peer")
+            end
         end
 
-        event = self.transport.service(self.enetServer, 10)
+        -- Get next event with error handling
+        local ok2, nextEvent = pcall(self.transport.service, self.enetServer, 10)
+        if ok2 then
+            event = nextEvent
+        else
+            Log.error("Error getting next server event:", nextEvent)
+            break
+        end
     end
 end
 
@@ -419,10 +454,14 @@ function NetworkServer:_handleMessage(peer, message)
         self:_handleState(peer, message)
     elseif message.type == TYPES.GOODBYE then
         self:_handleDisconnect(peer)
+    elseif message.type == TYPES.PING then
+        self:_handlePing(peer, message)
     elseif message.type == TYPES.ENEMY_UPDATE then
         self:_handleEnemyUpdate(peer, message)
     elseif message.type == TYPES.WEAPON_FIRE_REQUEST then
         self:_handleWeaponFireRequest(peer, message)
+    else
+        Log.warn("Received unknown message type:", message.type)
     end
 end
 
@@ -538,6 +577,21 @@ function NetworkServer:_handleDisconnect(peer)
     })
 
     Log.info("Player", playerId, "disconnected")
+end
+
+function NetworkServer:_handlePing(peer, message)
+    -- Respond to ping with pong
+    local pongMessage = Messages.encode({
+        type = TYPES.PONG,
+        timestamp = message.timestamp
+    })
+    
+    if pongMessage then
+        local ok, err = self.transport.send({ peer = peer }, pongMessage, 0, true)
+        if not ok then
+            Log.warn("Failed to send PONG response:", err)
+        end
+    end
 end
 
 function NetworkServer:_handleEnemyUpdate(peer, message)
