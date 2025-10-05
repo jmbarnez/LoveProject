@@ -91,7 +91,7 @@ local function buildEnemySnapshotFromWorld(world)
 
             local enemyData = {
                 id = entity.id or tostring(entity),
-                type = entity.type or "enemy",
+                type = entity.shipId or "basic_drone",
                 position = {
                     x = position.x or 0,
                     y = position.y or 0,
@@ -147,7 +147,7 @@ local function ensureRemoteEnemy(enemyId, enemyData, world)
 
     -- Use the enemy type from the data, fallback to basic_drone
     local enemyType = enemyData.type or "basic_drone"
-    entity = EntityFactory.create("enemy", enemyType, x, y)
+    entity = EntityFactory.createEnemy(enemyType, x, y)
     
     if not entity then
         Log.error("Failed to spawn remote enemy entity", enemyId, "of type", enemyType)
@@ -247,16 +247,19 @@ function RemoteEnemySync.updateHost(dt, world, networkManager)
         local snapshot = buildEnemySnapshotFromWorld(world)
         local sanitised = sanitiseEnemySnapshot(snapshot)
         
-        -- Only send updates if there are enemies and the snapshot has changed
-        if #sanitised > 0 and (not lastEnemySnapshot or #sanitised ~= #lastEnemySnapshot) then
-            -- Send enemy update to all clients
-            if networkManager.sendEnemyUpdate then
-                networkManager:sendEnemyUpdate(sanitised)
-            end
-            
-            lastEnemySnapshot = sanitised
+        -- Always send updates when there are enemies, or when clearing enemies
+        local shouldSend = false
+        
+        if #sanitised > 0 then
+            -- Send if we have enemies (always send for now to ensure sync)
+            shouldSend = true
         elseif #sanitised == 0 and lastEnemySnapshot and #lastEnemySnapshot > 0 then
             -- Send empty snapshot to clear enemies on clients
+            shouldSend = true
+        end
+        
+        if shouldSend then
+            -- Send enemy update to all clients
             if networkManager.sendEnemyUpdate then
                 networkManager:sendEnemyUpdate(sanitised)
             end
@@ -279,9 +282,9 @@ function RemoteEnemySync.updateClient(dt, world, networkManager)
         return
     end
 
-    -- This would be called when enemy updates are received from the network
-    -- For now, this is a placeholder - the actual network message handling
-    -- would be implemented in the network manager
+    -- Client-side processing is handled via the NETWORK_ENEMY_UPDATE event
+    -- in game.lua, which calls RemoteEnemySync.applyEnemySnapshot
+    -- This function is kept for future client-side prediction/interpolation
 end
 
 function RemoteEnemySync.applyEnemySnapshot(snapshot, world)

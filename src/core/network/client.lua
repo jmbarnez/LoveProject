@@ -392,6 +392,9 @@ function NetworkClient:_handleMessage(message)
             self.worldSnapshot = snapshot
             Events.emit("NETWORK_WORLD_SNAPSHOT", { snapshot = snapshot })
         end
+    elseif message.type == TYPES.ENEMY_UPDATE then
+        -- Handle enemy updates from host
+        Events.emit("NETWORK_ENEMY_UPDATE", { enemies = message.enemies })
     end
 end
 

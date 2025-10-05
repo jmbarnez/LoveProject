@@ -61,7 +61,7 @@ local settings = {
         }
     },
     networking = {
-        host_authoritative_enemies = false  -- Feature flag for host-authoritative enemy combat
+        host_authoritative_enemies = true  -- Feature flag for host-authoritative enemy combat
     }
 }
 
