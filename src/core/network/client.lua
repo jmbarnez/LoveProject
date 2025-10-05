@@ -55,8 +55,76 @@ local function buildIndex(snapshot)
     return out
 end
 
+local function now()
+    if love and love.timer and love.timer.getTime then
+        return love.timer.getTime()
+    end
+
+    return os.clock()
+end
+
 local function randomName()
     return string.format("Pilot_%d", love and love.timer and love.timer.getTime and math.floor(love.timer.getTime() * 1000) or os.time())
+end
+
+local function normaliseAddress(address)
+    if type(address) ~= "string" then
+        return "127.0.0.1"
+    end
+
+    local trimmed = address:match("^%s*(.-)%s*$")
+    if trimmed == "" then
+        return "127.0.0.1"
+    end
+
+    return trimmed
+end
+
+local function addAddressCandidate(candidates, value)
+    for _, existing in ipairs(candidates) do
+        if existing == value then
+            return
+        end
+    end
+
+    candidates[#candidates + 1] = value
+end
+
+local function buildAddressAttempts(address)
+    local attempts = {}
+    local normalised = normaliseAddress(address)
+
+    addAddressCandidate(attempts, normalised)
+
+    local lowered = normalised:lower()
+    if lowered == "localhost" then
+        addAddressCandidate(attempts, "127.0.0.1")
+    elseif lowered == "127.0.0.1" then
+        addAddressCandidate(attempts, "localhost")
+    end
+
+    return attempts
+end
+
+local function waitForConnection(transport, client, timeoutSeconds)
+    local timeout = timeoutSeconds or 5
+    local start = now()
+    local queue = {}
+
+    while now() - start < timeout do
+        local event = transport.service(client, 10)
+        if event then
+            if event.type == "connect" then
+                return true, queue
+            elseif event.type == "disconnect" then
+                return false, "Connection failed: Disconnected"
+            else
+                queue[#queue + 1] = event
+            end
+        end
+    end
+
+    return false, "Connection timed out"
 end
 
 local function sanitiseWorldExtras(extra)
@@ -195,53 +263,58 @@ function NetworkClient:connect(address, port)
     end
 
     local Constants = require("src.core.constants")
-    local client, err = EnetTransport.createClient()
-    if not client then
-        self.lastError = err
-        return false, err
-    end
+    local portToUse = tonumber(port) or Constants.NETWORK.DEFAULT_PORT
+    local attempts = buildAddressAttempts(address or "localhost")
+    local eventQueue = nil
+    local connectedClient = nil
+    local lastError = nil
+    local finalAddress = nil
 
-    local peer, connectErr = EnetTransport.connect(client, address or "localhost", port or Constants.NETWORK.DEFAULT_PORT)
-    if not peer then
-        self.lastError = connectErr
-        return false, connectErr
-    end
+    for _, target in ipairs(attempts) do
+        Log.info("NetworkClient: attempting connection", target, portToUse)
+        local client, err = EnetTransport.createClient()
+        if not client then
+            self.lastError = err
+            return false, err
+        end
 
-    -- Block until connected or timeout
-    local startTime = love.timer.getTime()
-    local timeout = 5 -- 5 second timeout
-    local connectedEvent = false
-    local eventQueue = {}
-
-    while love.timer.getTime() - startTime < timeout do
-        local event = EnetTransport.service(client, 10) -- Wait up to 10ms
-        if event then
-            if event.type == "connect" then
-                connectedEvent = true
+        local peer, connectErr = EnetTransport.connect(client, target, portToUse)
+        if not peer then
+            self.lastError = connectErr
+            lastError = connectErr
+            EnetTransport.destroy(client)
+        else
+            local okConnect, result = waitForConnection(EnetTransport, client, 5)
+            if okConnect then
+                connectedClient = client
+                eventQueue = result
+                finalAddress = target
+                lastError = nil
                 break
-            elseif event.type == "disconnect" then
-                self.lastError = "Connection failed: Disconnected"
-                return false, self.lastError
             else
-                table.insert(eventQueue, event)
+                lastError = result
+                self.lastError = result
+                EnetTransport.disconnectClient(client)
+                EnetTransport.destroy(client)
             end
         end
     end
 
-    if not connectedEvent then
-        self.lastError = "Connection timed out"
+    if not connectedClient then
+        self.lastError = lastError or self.lastError or "Connection failed"
         return false, self.lastError
     end
 
     self.transport = EnetTransport
-    self.enetClient = client
+    self.enetClient = connectedClient
     self.connected = true
     self.players = {}
+    self.lastError = nil
 
-    Log.info("Connecting to", address or "localhost", port or Constants.NETWORK.DEFAULT_PORT)
+    Log.info("Connecting to", finalAddress or address or "localhost", portToUse)
 
     -- Process any queued events that arrived during connection
-    for _, event in ipairs(eventQueue) do
+    for _, event in ipairs(eventQueue or {}) do
         if event.type == "receive" then
             local message = Messages.decode(event.data)
             if message then
