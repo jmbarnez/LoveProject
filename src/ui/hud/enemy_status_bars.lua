@@ -12,6 +12,83 @@ local function getCombatValue(key)
 end
 local EnemyStatusBars = {}
 
+local function drawOverheadBar(x, y, w, h, hullPct, shieldPct)
+  hullPct = math.max(0, math.min(1, hullPct or 0))
+  shieldPct = math.max(0, math.min(1, shieldPct or 0))
+
+  local corner = h * 0.5
+  local innerPad = 2
+  local innerX = x + innerPad
+  local innerY = y + innerPad
+  local innerW = w - innerPad * 2
+  local innerH = h - innerPad * 2
+  local innerCorner = math.max(0, corner - 1)
+
+  -- Soft drop shadow
+  love.graphics.setColor(0, 0, 0, 0.45)
+  love.graphics.rectangle("fill", x - 2, y - 2, w + 4, h + 6, corner, corner)
+  love.graphics.setColor(0, 0, 0, 0.35)
+  love.graphics.rectangle("fill", x - 1, y + h, w + 2, 4, corner, corner)
+
+  -- Outer shell
+  Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.85))
+  love.graphics.rectangle("fill", x, y, w, h, corner, corner)
+
+  -- Inner cavity
+  Theme.setColor(Theme.withAlpha(Theme.colors.bg1, 0.9))
+  love.graphics.rectangle("fill", innerX, innerY, innerW, innerH, innerCorner, innerCorner)
+
+  -- Hull fill
+  if hullPct > 0 then
+    local hullWidth = math.max(0, math.min(innerW, innerW * hullPct))
+    if hullWidth > 0 then
+      local r, g
+      if hullPct > 0.5 then
+        local t = (hullPct - 0.5) / 0.5
+        r, g = t, 1
+      else
+        local t = hullPct / 0.5
+        r, g = 1, t
+      end
+      love.graphics.setColor(r, g, 0.12, 0.95)
+      love.graphics.rectangle("fill", innerX, innerY, hullWidth, innerH, innerCorner, innerCorner)
+
+      -- Highlight sheen
+      love.graphics.setColor(1, 1, 1, 0.18)
+      love.graphics.rectangle("fill", innerX, innerY, hullWidth, math.max(2, math.floor(innerH * 0.4)), innerCorner, innerCorner)
+    end
+  end
+
+  -- Shield overlay (LoL-style barrier tint anchored on the right side)
+  if shieldPct > 0 and innerW > 0 then
+    local overlayW = math.max(4, math.min(innerW, innerW * shieldPct))
+    local overlayX = innerX + innerW - overlayW
+    local shieldColor = Theme.semantic.statusShield
+    Theme.setColor({shieldColor[1], shieldColor[2], shieldColor[3], 0.92})
+    love.graphics.rectangle("fill", overlayX, innerY - 1, overlayW, innerH + 2, innerCorner, innerCorner)
+
+    -- Glint accent on shield overlay
+    love.graphics.setColor(1.0, 1.0, 1.0, 0.22)
+    love.graphics.rectangle("fill", overlayX, innerY - 1, overlayW, 2, innerCorner, innerCorner)
+  end
+
+  -- Segment markers for readability
+  if innerW > 0 then
+    love.graphics.setColor(0, 0, 0, 0.35)
+    local segments = math.max(3, math.floor(innerW / 28))
+    for i = 1, segments - 1 do
+      local segX = innerX + innerW * (i / segments)
+      love.graphics.line(segX, innerY + 1, segX, innerY + innerH - 1)
+    end
+  end
+
+  -- Outer border
+  Theme.setColor(Theme.colors.border)
+  love.graphics.setLineWidth(1.5)
+  love.graphics.rectangle("line", x, y, w, h, corner, corner)
+  love.graphics.setLineWidth(1)
+end
+
 -- Draw small screen-aligned shield/health bars above an enemy entity.
 function EnemyStatusBars.drawMiniBars(entity)
   if not entity or not entity.components then return end
@@ -51,48 +128,22 @@ function EnemyStatusBars.drawMiniBars(entity)
   local maxShield = h.maxShield or 0
 
   local radius = col.radius or 12
-  local barW = math.max(36, math.min(100, radius * 2.0))
-  local barH = 4
-  local gap = 2
+  local barW = math.max(60, math.min(140, radius * 2.4))
+  local barH = 12
 
   -- Position above the ship: undo rotation so bars are screen-aligned
   local angle = (entity.components.position and entity.components.position.angle) or 0
   love.graphics.push()
   love.graphics.rotate(-angle)
 
-  local baseY = -(radius + 12)
+  local baseY = -(radius + 22)
   local x0 = -barW/2
 
   -- Combined hull + shield bar (like player) - shield overlays hull
   local hpPct = math.max(0, math.min(1, hp / math.max(1, maxHP)))
   local shieldPct = maxShield > 0 and math.max(0, math.min(1, shield / math.max(1, maxShield))) or 0
 
-  -- Bar background
-  Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.6))
-  love.graphics.rectangle('fill', x0, baseY, barW, barH, 2, 2)
-  
-  -- Draw hull bar as base (red, actual hull percentage)
-  local r, g
-  if hpPct > 0.5 then
-    local t = (hpPct - 0.5) / 0.5
-    r, g = t, 1
-  else
-    local t = hpPct / 0.5
-    r, g = 1, t
-  end
-  love.graphics.setColor(r, g, 0.1, 0.95)
-  love.graphics.rectangle('fill', x0, baseY, barW * hpPct, barH, 2, 2)
-  
-  -- Draw shield bar overlaying hull (blue overlay, only shield portion)
-  if shield > 0 then
-    local shieldWidth = shieldPct * barW
-    Theme.setColor(Theme.semantic.statusShield[1], Theme.semantic.statusShield[2], Theme.semantic.statusShield[3], 0.95)
-    love.graphics.rectangle('fill', x0, baseY, shieldWidth, barH, 2, 2)
-  end
-  
-  -- Bar border
-  love.graphics.setColor(0.9, 0.9, 0.9, 0.6)
-  love.graphics.rectangle('line', x0, baseY, barW, barH, 2, 2)
+  drawOverheadBar(x0, baseY, barW, barH, hpPct, shieldPct)
 
   love.graphics.pop()
 end

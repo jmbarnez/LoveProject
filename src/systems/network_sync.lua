@@ -192,19 +192,12 @@ local function updateEntityFromSnapshot(entity, snapshot)
         health.energy = data.health.energy
         health.maxEnergy = data.health.maxEnergy
 
-        -- Detect health changes and create damage numbers for remote players
-        if entity.isRemotePlayer and entity.components.position then
-            local shieldDamage = math.max(0, (oldShield or 0) - (health.shield or 0))
-            local hullDamage = math.max(0, (oldHP or 0) - (health.hp or 0))
-            
-            if shieldDamage > 0 or hullDamage > 0 then
-                local Effects = require("src.systems.effects")
-                if shieldDamage > 0 then
-                    Effects.addDamageNumber(entity.components.position.x, entity.components.position.y, math.floor(shieldDamage), "shield")
-                end
-                if hullDamage > 0 then
-                    Effects.addDamageNumber(entity.components.position.x, entity.components.position.y, math.floor(hullDamage), "hull")
-                end
+        -- Detect health changes for remote players and show overhead bars
+        if entity.isRemotePlayer and (health.shield ~= oldShield or health.hp ~= oldHP) then
+            if love and love.timer and love.timer.getTime then
+                entity._hudDamageTime = love.timer.getTime()
+            else
+                entity._hudDamageTime = os.clock()
             end
         end
 

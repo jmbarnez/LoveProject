@@ -179,10 +179,6 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         remainingDamage = incoming - shieldDamage
     end
 
-    if shieldDamage > 0 then
-        Effects.addDamageNumber(entity.components.position.x, entity.components.position.y, math.floor(shieldDamage), "shield")
-    end
-
     local newShield = math.max(0, shieldBefore - shieldDamage)
     if newShield ~= shieldBefore then
         health.shield = newShield
@@ -192,7 +188,6 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
     end
 
     if remainingDamage > 0 then
-        Effects.addDamageNumber(entity.components.position.x, entity.components.position.y, math.floor(remainingDamage), "hull")
         health.hp = math.max(0, (health.hp or 0) - remainingDamage)
     end
 
@@ -205,9 +200,13 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         hadShield = hadShield or (shieldDamage > 0),
         source = source
     }
-    -- Mark recently damaged by player for enemy HUD bars
-    if source and (source.isPlayer or (source.components and source.components.player ~= nil)) then
-        entity._hudDamageTime = love.timer.getTime()
+    -- Mark recently damaged for overhead bars
+    if shieldDamage > 0 or remainingDamage > 0 then
+        if love and love.timer and love.timer.getTime then
+            entity._hudDamageTime = love.timer.getTime()
+        else
+            entity._hudDamageTime = os.clock()
+        end
     end
 
     if entity.isPlayer then
