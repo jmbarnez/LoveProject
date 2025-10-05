@@ -629,7 +629,7 @@ function Start:mousepressed(x, y, button)
         connected = false, -- Will be set to true when connection is confirmed
         connecting = true
       }
-      
+
       -- Close UI and trigger game transition immediately
       -- Let the global network manager handle the actual connection
       self.showJoinUI = false
@@ -747,6 +747,12 @@ function Start:wheelmoved(x, y, dx, dy)
 end
 
 function Start:onJoinFailed(message)
+  if self.networkManager then
+    self.networkManager:leaveGame()
+  end
+  if type(message) ~= "string" then
+    message = message and tostring(message) or nil
+  end
   self.joinErrorMessage = message or "Failed to connect to server."
   self.showJoinUI = true
 end

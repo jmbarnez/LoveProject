@@ -149,7 +149,7 @@ local function transitionToGame(opts)
         return Game.load(false, nil, loadingScreen, multiplayer, isHost)
     end
 
-    local success, result = pcall(performLoad)
+    local success, result, detail = pcall(performLoad)
 
     if loadingScreen then
         loadingScreen:hide()
@@ -161,14 +161,23 @@ local function transitionToGame(opts)
         local errorMessage = "Failed to load game: " .. tostring(result)
         Notifications.add(errorMessage, "error")
         if multiplayer and not isHost then
-            handleMultiplayerJoinFailure("Failed to connect to server. Please check the address and try again.")
+            handleMultiplayerJoinFailure(result or "Failed to connect to server. Please check the address and try again.")
         end
         return false
     elseif result == false then
-        Log.error("Game.load() returned false - connection failed")
-        Notifications.add("Failed to connect to server", "error")
+        local failureMessage = detail
+        if not failureMessage then
+            if multiplayer and not isHost then
+                failureMessage = "Failed to connect to server"
+            else
+                failureMessage = "Failed to load game"
+            end
+        end
+
+        Log.error("Game.load() returned false", failureMessage)
+        Notifications.add(failureMessage, "error")
         if multiplayer and not isHost then
-            handleMultiplayerJoinFailure("No server available at the provided address.")
+            handleMultiplayerJoinFailure(failureMessage)
         end
         return false
     end
