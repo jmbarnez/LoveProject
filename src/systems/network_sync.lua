@@ -106,12 +106,29 @@ local function ensureRemoteEntity(playerId, playerData, world)
     return entity
 end
 
+local function updateExactPosition(entity, position)
+    if not entity or not position then
+        return
+    end
+
+    entity.exactPosition = entity.exactPosition or { x = 0, y = 0, angle = 0 }
+    entity.exactPosition.x = position.x
+    entity.exactPosition.y = position.y
+    entity.exactPosition.angle = position.angle
+
+    entity.x = position.x
+    entity.y = position.y
+    entity.angle = position.angle
+end
+
 local function updateEntityFromSnapshot(entity, snapshot)
     if not entity or not snapshot then
         return
     end
 
     local data = sanitiseSnapshot(snapshot)
+
+    updateExactPosition(entity, data.position)
 
     if entity.components and entity.components.position then
         entity.components.position.x = data.position.x
@@ -149,6 +166,12 @@ local function updateEntityFromSnapshot(entity, snapshot)
             body.vy = data.velocity.y
         end
         body.angle = data.position.angle
+    end
+
+    if entity.components and entity.components.physics then
+        entity.components.physics.x = data.position.x
+        entity.components.physics.y = data.position.y
+        entity.components.physics.rotation = data.position.angle
     end
 end
 

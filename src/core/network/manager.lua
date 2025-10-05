@@ -33,6 +33,7 @@ function NetworkManager.new()
     self._localPlayerId = nil
     self._worldSnapshot = nil
     self._pendingWorldSnapshot = nil
+    self._enemySnapshots = {}
 
     self:setupEventListeners()
 
@@ -49,6 +50,7 @@ function NetworkManager:setupEventListeners()
         self._players = {}
         self._localPlayerId = nil
         self._worldSnapshot = nil
+        self._enemySnapshots = {}
     end)
 
     Events.on("NETWORK_PLAYER_JOINED", function(data)
@@ -109,6 +111,15 @@ function NetworkManager:setupEventListeners()
         else
             self._worldSnapshot = nil
         end
+    end)
+
+    Events.on("NETWORK_ENEMY_UPDATE", function(data)
+        if not data or not data.enemies then
+            self._enemySnapshots = {}
+            return
+        end
+
+        self._enemySnapshots = Util.deepCopy(data.enemies)
     end)
 end
 
@@ -192,6 +203,7 @@ function NetworkManager:leaveGame()
     self._players = {}
     self._localPlayerId = nil
     self._worldSnapshot = nil
+    self._enemySnapshots = {}
 
     Log.info("Left multiplayer session")
 end
@@ -268,6 +280,10 @@ function NetworkManager:getWorldSnapshot()
     end
 
     return Util.deepCopy(self._worldSnapshot)
+end
+
+function NetworkManager:getEnemySnapshots()
+    return Util.deepCopy(self._enemySnapshots)
 end
 
 function NetworkManager:sendPlayerUpdate(playerData)

@@ -164,6 +164,21 @@ local function ensureRemoteEnemy(enemyId, enemyData, world)
     return entity
 end
 
+local function updateExactPosition(entity, position)
+    if not entity or not position then
+        return
+    end
+
+    entity.exactPosition = entity.exactPosition or { x = 0, y = 0, angle = 0 }
+    entity.exactPosition.x = position.x
+    entity.exactPosition.y = position.y
+    entity.exactPosition.angle = position.angle
+
+    entity.x = position.x
+    entity.y = position.y
+    entity.angle = position.angle
+end
+
 local function updateEnemyFromSnapshot(entity, enemyData)
     if not entity or not enemyData then
         return
@@ -175,6 +190,8 @@ local function updateEnemyFromSnapshot(entity, enemyData)
         entity.components.position.y = enemyData.position.y
         entity.components.position.angle = enemyData.position.angle
     end
+
+    updateExactPosition(entity, enemyData.position)
 
     -- Update velocity
     if entity.components and entity.components.velocity and enemyData.velocity then
@@ -214,6 +231,12 @@ local function updateEnemyFromSnapshot(entity, enemyData)
             body.vy = enemyData.velocity.y
         end
         body.angle = enemyData.position.angle
+    end
+
+    if entity.components and entity.components.physics then
+        entity.components.physics.x = enemyData.position.x
+        entity.components.physics.y = enemyData.position.y
+        entity.components.physics.rotation = enemyData.position.angle
     end
 end
 
@@ -279,9 +302,10 @@ function RemoteEnemySync.updateClient(dt, world, networkManager)
         return
     end
 
-    -- This would be called when enemy updates are received from the network
-    -- For now, this is a placeholder - the actual network message handling
-    -- would be implemented in the network manager
+    local enemies = networkManager.getEnemySnapshots and networkManager:getEnemySnapshots() or nil
+    if world and enemies then
+        RemoteEnemySync.applyEnemySnapshot(enemies, world)
+    end
 end
 
 function RemoteEnemySync.applyEnemySnapshot(snapshot, world)

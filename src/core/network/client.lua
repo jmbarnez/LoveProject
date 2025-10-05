@@ -145,6 +145,57 @@ local function sanitiseWorldSnapshot(snapshot)
     return sanitised
 end
 
+local function sanitiseEnemySnapshot(snapshot)
+    if type(snapshot) ~= "table" then
+        return {}
+    end
+
+    local sanitised = {}
+    for _, enemy in ipairs(snapshot) do
+        if type(enemy) == "table" and enemy.id and enemy.type then
+            local position = enemy.position or {}
+            local velocity = enemy.velocity or {}
+
+            local sanitisedEnemy = {
+                id = tostring(enemy.id),
+                type = tostring(enemy.type),
+                position = {
+                    x = tonumber(position.x) or 0,
+                    y = tonumber(position.y) or 0,
+                    angle = tonumber(position.angle) or 0
+                },
+                velocity = {
+                    x = tonumber(velocity.x) or 0,
+                    y = tonumber(velocity.y) or 0
+                }
+            }
+
+            if enemy.health then
+                local health = enemy.health
+                sanitisedEnemy.health = {
+                    hp = tonumber(health.hp) or 100,
+                    maxHP = tonumber(health.maxHP) or 100,
+                    shield = tonumber(health.shield) or 0,
+                    maxShield = tonumber(health.maxShield) or 0,
+                    energy = tonumber(health.energy) or 0,
+                    maxEnergy = tonumber(health.maxEnergy) or 0
+                }
+            end
+
+            if enemy.ai then
+                sanitisedEnemy.ai = {
+                    state = tostring(enemy.ai.state or "patrolling"),
+                    target = enemy.ai.target
+                }
+            end
+
+            sanitised[#sanitised + 1] = sanitisedEnemy
+        end
+    end
+
+    return sanitised
+end
+
 function NetworkClient.new()
     local self = setmetatable({}, NetworkClient)
 
@@ -156,6 +207,7 @@ function NetworkClient.new()
     self.lastError = nil
     self.localName = randomName()
     self.worldSnapshot = nil
+    self.enemySnapshot = {}
 
     return self
 end
@@ -294,6 +346,7 @@ function NetworkClient:disconnect()
     self.playerId = nil
     self.players = {}
     self.worldSnapshot = nil
+    self.enemySnapshot = {}
 
     Events.emit("NETWORK_DISCONNECTED")
 end
@@ -392,6 +445,10 @@ function NetworkClient:_handleMessage(message)
             self.worldSnapshot = snapshot
             Events.emit("NETWORK_WORLD_SNAPSHOT", { snapshot = snapshot })
         end
+    elseif message.type == TYPES.ENEMY_UPDATE then
+        local enemies = sanitiseEnemySnapshot(message.enemies)
+        self.enemySnapshot = enemies
+        Events.emit("NETWORK_ENEMY_UPDATE", { enemies = enemies })
     end
 end
 
@@ -405,6 +462,10 @@ function NetworkClient:sendPlayerUpdate(state)
         playerId = self.playerId,
         state = sanitiseState(state)
     })
+end
+
+function NetworkClient:getEnemies()
+    return self.enemySnapshot
 end
 
 return NetworkClient

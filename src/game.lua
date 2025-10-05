@@ -83,6 +83,7 @@ local isMultiplayer = false
 local isHost = false
 local syncedWorldEntities = {}
 local pendingWorldSnapshot = nil
+local pendingEnemySnapshot = nil
 local worldSyncHandlersRegistered = false
 
 -- Expose network manager for external access
@@ -349,6 +350,7 @@ local function registerWorldSyncEventHandlers()
 
         clearSyncedWorldEntities()
         pendingWorldSnapshot = nil
+        pendingEnemySnapshot = nil
     end)
 
     Events.on("NETWORK_SERVER_STOPPED", function()
@@ -358,6 +360,7 @@ local function registerWorldSyncEventHandlers()
 
         clearSyncedWorldEntities()
         pendingWorldSnapshot = nil
+        pendingEnemySnapshot = nil
     end)
 
     Events.on("NETWORK_SERVER_STARTED", function()
@@ -375,6 +378,11 @@ local function registerWorldSyncEventHandlers()
 
         local enemies = data and data.enemies or nil
         if not enemies then
+            enemies = {}
+        end
+
+        if not world then
+            pendingEnemySnapshot = Util.deepCopy(enemies)
             return
         end
 
@@ -733,6 +741,11 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
 
   if isMultiplayer and not isHost and pendingWorldSnapshot then
     queueWorldSnapshot(pendingWorldSnapshot)
+  end
+
+  if isMultiplayer and not isHost and pendingEnemySnapshot then
+    RemoteEnemySync.applyEnemySnapshot(pendingEnemySnapshot, world)
+    pendingEnemySnapshot = nil
   end
 
   -- Step 8: Create warp gate (DISABLED)
