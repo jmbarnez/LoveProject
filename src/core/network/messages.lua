@@ -9,7 +9,8 @@ Messages.TYPES = {
     PONG = "pong",
     WORLD_SNAPSHOT = "world_snapshot",
     HOST_MIGRATED = "host_migrated",
-    ENEMY_UPDATE = "enemy_update"
+    ENEMY_UPDATE = "enemy_update",
+    PROJECTILE_UPDATE = "projectile_update"
 }
 
 function Messages.encode(payload)

@@ -61,6 +61,7 @@ local Constants = require("src.core.constants")
 local NetworkManager = require("src.core.network.manager")
 local NetworkSync = require("src.systems.network_sync")
 local RemoteEnemySync = require("src.systems.remote_enemy_sync")
+local RemoteProjectileSync = require("src.systems.remote_projectile_sync")
 
 local Game = {}
 
@@ -121,6 +122,16 @@ Game.windfield = nil
     projectile templates flexible while avoiding duplicated glue code.
 ]]
 local function spawn_projectile(x, y, angle, friendly, opts)
+    -- Check if host-authoritative projectiles is enabled and we're a client
+    local Settings = require("src.core.settings")
+    local networkingSettings = Settings.getNetworkingSettings()
+    if networkingSettings and networkingSettings.host_authoritative_projectiles then
+        if networkManager and networkManager:isMultiplayer() and not networkManager:isHost() then
+            -- Client with host authority enabled - don't spawn projectiles locally
+            return
+        end
+    end
+
     local projectile_id = (opts and opts.projectile) or "gun_bullet"
     opts = opts or {}
     -- Pass through extended projectile options to the factory/template
@@ -382,6 +393,20 @@ local function registerWorldSyncEventHandlers()
         RemoteEnemySync.applyEnemySnapshot(enemies, world)
     end)
 
+    Events.on("NETWORK_PROJECTILE_UPDATE", function(data)
+        if isHost then
+            return
+        end
+
+        local projectiles = data and data.projectiles or nil
+        if not projectiles then
+            return
+        end
+
+        -- Apply projectile snapshot (RemoteProjectileSync.applyProjectileSnapshot already sanitizes internally)
+        RemoteProjectileSync.applyProjectileSnapshot(projectiles, world)
+    end)
+
     worldSyncHandlersRegistered = true
 end
 
@@ -520,6 +545,13 @@ local function createSystemPipeline()
           RemoteEnemySync.updateHost(ctx.dt, ctx.world, networkManager)
         else
           RemoteEnemySync.updateClient(ctx.dt, ctx.world, networkManager)
+        end
+        
+        -- Update remote projectile synchronization
+        if networkManager:isHost() then
+          RemoteProjectileSync.updateHost(ctx.dt, ctx.world, networkManager)
+        else
+          RemoteProjectileSync.updateClient(ctx.dt, ctx.world, networkManager)
         end
       end
     end,

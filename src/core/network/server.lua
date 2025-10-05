@@ -215,6 +215,57 @@ local function sanitiseEnemySnapshot(snapshot)
     return sanitised
 end
 
+local function sanitiseProjectileSnapshot(snapshot)
+    if type(snapshot) ~= "table" then
+        return {}
+    end
+
+    local sanitised = {}
+    for _, projectile in ipairs(snapshot) do
+        if type(projectile) == "table" and projectile.id and projectile.type then
+            local sanitisedProjectile = {
+                id = tostring(projectile.id),
+                type = tostring(projectile.type),
+                position = {
+                    x = tonumber(projectile.position and projectile.position.x) or 0,
+                    y = tonumber(projectile.position and projectile.position.y) or 0,
+                    angle = tonumber(projectile.position and projectile.position.angle) or 0
+                },
+                velocity = {
+                    x = tonumber(projectile.velocity and projectile.velocity.x) or 0,
+                    y = tonumber(projectile.velocity and projectile.velocity.y) or 0
+                },
+                friendly = projectile.friendly or false,
+                source = projectile.source or nil,
+                damage = projectile.damage or nil,
+                kind = projectile.kind or "bullet",
+                timed_life = projectile.timed_life or nil
+            }
+
+            -- Include damage data if available
+            if projectile.damage then
+                sanitisedProjectile.damage = {
+                    min = tonumber(projectile.damage.min) or 1,
+                    max = tonumber(projectile.damage.max) or 2,
+                    skill = projectile.damage.skill or nil
+                }
+            end
+
+            -- Include timed life data if available
+            if projectile.timed_life then
+                sanitisedProjectile.timed_life = {
+                    duration = tonumber(projectile.timed_life.duration) or 2.0,
+                    elapsed = tonumber(projectile.timed_life.elapsed) or 0
+                }
+            end
+
+            table.insert(sanitised, sanitisedProjectile)
+        end
+    end
+
+    return sanitised
+end
+
 function NetworkServer.new(port)
     local self = setmetatable({}, NetworkServer)
 
@@ -594,6 +645,30 @@ function NetworkServer:broadcastEnemyUpdate(enemyData)
 
     -- Don't emit event to host - host already has the enemy data in its world
     -- Events.emit("NETWORK_ENEMY_UPDATE", { enemies = sanitizedEnemyData })
+end
+
+function NetworkServer:broadcastProjectileUpdate(projectileData)
+    if not self.transport or not projectileData then
+        return
+    end
+
+    -- Sanitize projectile data before broadcasting
+    local sanitizedProjectileData = sanitiseProjectileSnapshot(projectileData)
+    if not sanitizedProjectileData or #sanitizedProjectileData == 0 then
+        return
+    end
+
+    local encoded = Messages.encode({
+        type = TYPES.PROJECTILE_UPDATE,
+        projectiles = sanitizedProjectileData
+    })
+
+    if encoded then
+        self:_broadcastExcept(nil, encoded)
+    end
+
+    -- Don't emit event to host - host already has the projectile data in its world
+    -- Events.emit("NETWORK_PROJECTILE_UPDATE", { projectiles = sanitizedProjectileData })
 end
 
 return NetworkServer

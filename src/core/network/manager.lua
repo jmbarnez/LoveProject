@@ -302,6 +302,17 @@ function NetworkManager:sendEnemyUpdate(enemyData)
     end
 end
 
+function NetworkManager:sendProjectileUpdate(projectileData)
+    if not self._isMultiplayer or not self._isHost then
+        return
+    end
+
+    if self.server then
+        -- Send projectile updates to all connected clients
+        self.server:broadcastProjectileUpdate(projectileData)
+    end
+end
+
 function NetworkManager:getPlayers()
     return self._players
 end

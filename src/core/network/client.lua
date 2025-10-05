@@ -395,6 +395,9 @@ function NetworkClient:_handleMessage(message)
     elseif message.type == TYPES.ENEMY_UPDATE then
         -- Handle enemy updates from host
         Events.emit("NETWORK_ENEMY_UPDATE", { enemies = message.enemies })
+    elseif message.type == TYPES.PROJECTILE_UPDATE then
+        -- Handle projectile updates from host
+        Events.emit("NETWORK_PROJECTILE_UPDATE", { projectiles = message.projectiles })
     end
 end
 
