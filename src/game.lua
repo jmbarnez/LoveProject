@@ -559,6 +559,13 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
         end
       end
 
+      if not assignedPosition then
+        local pendingState = NetworkSession.getPendingSelfNetworkState and NetworkSession.getPendingSelfNetworkState()
+        if pendingState and pendingState.position then
+          assignedPosition = pendingState.position
+        end
+      end
+
       if assignedPosition then
         -- Use the position assigned by the server
         px = assignedPosition.x or Constants.SPAWNING.MARGIN

@@ -175,22 +175,25 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
                 return
             end
 
-            -- Determine impact type *before* applying damage for correct FX
-            local has_shields = StationShields.hasActiveShield(target) or CollisionEffects.isPlayerShieldActive(target)
-            local impact_type = has_shields and 'shield' or 'hull'
+            -- Track shield state before applying damage so multiplayer replicas stay consistent
+            local had_shield = CollisionEffects.hasShield(target)
 
             -- Apply damage and create impact effect
+            local shield_hit = false
             if target.components.health then
                 local source = bullet.components and bullet.components.bullet and bullet.components.bullet.source
                 local dmg_val = (damage and (damage.value or damage)) or 1
-                CollisionEffects.applyDamage(target, dmg_val, source)
+                shield_hit = CollisionEffects.applyDamage(target, dmg_val, source)
             end
+
+            -- Determine impact type using actual damage results
+            local impact_type = (shield_hit or had_shield) and 'shield' or 'hull'
 
             -- Calculate impact radius for visual effect
             local impact_radius = target_radius
             if target.components.mineable then
                 impact_radius = target.components.collidable.radius
-            elseif has_shields then
+            elseif impact_type == 'shield' then
                 -- Use proper shield radius for impact effects
                 impact_radius = target_radius - ((Config.BULLET and Config.BULLET.HIT_BUFFER) or 1.5)
             else
@@ -343,22 +346,25 @@ function ProjectileCollision.handle_beam_collision(collision_system, beam, world
                 return
             end
 
-            -- Determine impact type *before* applying damage for correct FX
-            local has_shields = StationShields.hasActiveShield(target) or CollisionEffects.isPlayerShieldActive(target)
-            local impact_type = has_shields and 'shield' or 'hull'
+            -- Track shield state before applying damage so multiplayer replicas stay consistent
+            local had_shield = CollisionEffects.hasShield(target)
 
             -- Apply damage
+            local shield_hit = false
             if target.components.health then
                 local source = beam.components and beam.components.bullet and beam.components.bullet.source
                 local dmg_val = (damage and (damage.value or damage)) or 1
-                CollisionEffects.applyDamage(target, dmg_val, source)
+                shield_hit = CollisionEffects.applyDamage(target, dmg_val, source)
             end
+
+            -- Determine impact type from damage results
+            local impact_type = (shield_hit or had_shield) and 'shield' or 'hull'
 
             -- Calculate proper impact radius based on shield status
             local impact_radius = er
             if target.components.mineable then
                 impact_radius = target.components.collidable.radius
-            elseif has_shields then
+            elseif impact_type == 'shield' then
                 -- Use shield radius for shield impacts
                 impact_radius = er
             else

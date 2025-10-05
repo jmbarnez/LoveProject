@@ -702,4 +702,8 @@ function Session.getHub()
     return state.hub
 end
 
+function Session.getPendingSelfNetworkState()
+    return state.pendingSelfNetworkState
+end
+
 return Session

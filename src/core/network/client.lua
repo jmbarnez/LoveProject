@@ -277,6 +277,9 @@ function NetworkClient:connect(address, port)
         return true
     end
 
+    -- Reset any stale error state before attempting to connect again
+    self.lastError = nil
+
     local ok, EnetTransport = pcall(require, "src.core.network.transport.enet")
     if not ok or not EnetTransport or not EnetTransport.isAvailable() then
         self.lastError = "ENet transport not available"
