@@ -189,7 +189,8 @@ function Start.new()
   -- Multiplayer UI state
   self.showJoinUI = false
   self.joinAddress = "localhost"
-  self.joinPort = "7777"
+  local Constants = require("src.core.constants")
+  self.joinPort = tostring(Constants.NETWORK.DEFAULT_PORT)
   self.joinErrorMessage = nil
   self.activeInput = nil -- 'address', 'port', or nil
   self.addressInputRect = {}
@@ -646,7 +647,8 @@ function Start:mousepressed(x, y, button)
       
       -- Join button clicked
       print("Join button clicked at", x, y)
-      local port = tonumber(self.joinPort) or 7777
+      local Constants = require("src.core.constants")
+      local port = tonumber(self.joinPort) or Constants.NETWORK.DEFAULT_PORT
       print("Attempting to join game at", self.joinAddress, port)
 
       self.joinErrorMessage = nil
@@ -853,7 +855,8 @@ function Start:keypressed(key)
       elseif key == 'return' or key == 'kpenter' then
         -- Simulate join button click
         if not (_G.PENDING_MULTIPLAYER_CONNECTION and _G.PENDING_MULTIPLAYER_CONNECTION.connecting) then
-          local port = tonumber(self.joinPort) or 7777
+          local Constants = require("src.core.constants")
+      local port = tonumber(self.joinPort) or Constants.NETWORK.DEFAULT_PORT
           _G.PENDING_MULTIPLAYER_CONNECTION = {
             address = self.joinAddress,
             port = port,

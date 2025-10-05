@@ -194,13 +194,14 @@ function NetworkClient:connect(address, port)
         return false, self.lastError
     end
 
+    local Constants = require("src.core.constants")
     local client, err = EnetTransport.createClient()
     if not client then
         self.lastError = err
         return false, err
     end
 
-    local peer, connectErr = EnetTransport.connect(client, address or "localhost", port or 7777)
+    local peer, connectErr = EnetTransport.connect(client, address or "localhost", port or Constants.NETWORK.DEFAULT_PORT)
     if not peer then
         self.lastError = connectErr
         return false, connectErr
@@ -237,7 +238,7 @@ function NetworkClient:connect(address, port)
     self.connected = true
     self.players = {}
 
-    Log.info("Connecting to", address or "localhost", port or 7777)
+    Log.info("Connecting to", address or "localhost", port or Constants.NETWORK.DEFAULT_PORT)
 
     -- Process any queued events that arrived during connection
     for _, event in ipairs(eventQueue) do
@@ -347,12 +348,14 @@ function NetworkClient:_handleMessage(message)
         local selfEntry = self.players and self.players[self.playerId]
         local selfState = nil
         if selfEntry and selfEntry.state then
-            selfState = selfEntry.state
+            selfState = sanitiseState(selfEntry.state)
+            Log.info("Client: Got self state from selfEntry at", selfState.position.x, selfState.position.y)
         elseif type(message.players) == "table" then
             -- Fallback: locate the raw snapshot entry if buildIndex filtered it out
             for _, entry in ipairs(message.players) do
                 if entry.playerId == self.playerId then
                     selfState = sanitiseState(entry.state)
+                    Log.info("Client: Got self state from fallback at", selfState.position.x, selfState.position.y)
                     break
                 end
             end
@@ -362,6 +365,8 @@ function NetworkClient:_handleMessage(message)
             position = { x = 0, y = 0, angle = 0 },
             velocity = { x = 0, y = 0 }
         }
+        
+        Log.info("Client: Final selfState position:", selfState.position.x, selfState.position.y)
 
         Events.emit("NETWORK_PLAYER_JOINED", {
             playerId = self.playerId,

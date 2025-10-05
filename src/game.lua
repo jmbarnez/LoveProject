@@ -237,11 +237,13 @@ end
 
 local function applySelfNetworkStateIfAvailable()
     if not player or not pendingSelfNetworkState then
+        Log.debug("applySelfNetworkStateIfAvailable: No player or pendingSelfNetworkState")
         return
     end
 
     local state = pendingSelfNetworkState
     local applied = false
+    Log.info("applySelfNetworkStateIfAvailable: Applying state with position", state.position.x, state.position.y)
 
     local newPos = state.position
     if newPos and player.components and player.components.position then
@@ -545,11 +547,14 @@ local function registerWorldSyncEventHandlers()
             return
         end
 
+        Log.info("NETWORK_PLAYER_JOINED: Received self data with position", data.data.position.x, data.data.position.y)
         local sanitisedState = sanitisePlayerNetworkState(data.data)
         if not sanitisedState then
+            Log.warn("NETWORK_PLAYER_JOINED: Failed to sanitize state")
             return
         end
 
+        Log.info("NETWORK_PLAYER_JOINED: Setting pendingSelfNetworkState with position", sanitisedState.position.x, sanitisedState.position.y)
         pendingSelfNetworkState = sanitisedState
         applySelfNetworkStateIfAvailable()
     end)

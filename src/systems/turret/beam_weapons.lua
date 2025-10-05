@@ -35,6 +35,7 @@ end
 
 -- Handle laser turret firing (hitscan beam weapons)
 function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
+    Log.info("updateLaserTurret: Called for turret", turret.id or "unknown", "locked:", locked, "canFire:", turret:canFire())
     if locked or not turret:canFire() then
         turret.beamActive = false
         turret.beamTarget = nil
@@ -87,6 +88,7 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     local hitTarget, hitX, hitY = BeamWeapons.performLaserHitscan(
         sx, sy, endX, endY, turret, world
     )
+    Log.info("updateLaserTurret: Hitscan result - hitTarget:", hitTarget and (hitTarget.id or "unknown") or "nil", "hitX:", hitX, "hitY:", hitY)
 
     local wasActive = turret.beamActive
 
@@ -148,6 +150,7 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
             if damagePerSecond and damagePerSecond > 0 then
                 local damageAmount = damagePerSecond * dt
                 if damageAmount > 0 then
+                    Log.info("Laser hitting target:", hitTarget.id or "unknown", "damage:", damageAmount, "dt:", dt)
                     local damageMeta
                     if turret.damage_range then
                         damageMeta = {
@@ -159,7 +162,11 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
                     end
 
                     BeamWeapons.applyLaserDamage(hitTarget, damageAmount, turret.owner, turret.skillId, damageMeta)
+                else
+                    Log.debug("Laser damage amount is 0 or negative:", damageAmount)
                 end
+            else
+                Log.debug("Laser damagePerSecond is 0 or nil:", damagePerSecond)
             end
 
             TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
@@ -178,7 +185,10 @@ end
 
 -- Perform hitscan collision detection for laser weapons (collides with ALL objects)
 function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, world)
-    if not world then return nil end
+    if not world then 
+        Log.debug("performLaserHitscan: No world provided")
+        return nil 
+    end
 
     local bestTarget = nil
     local bestDistance = math.huge
@@ -186,6 +196,7 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
 
     -- Get ALL collidable entities from world (beam stops at first object hit)
     local entities = world:get_entities_with_components("collidable", "position")
+    Log.info("performLaserHitscan: Checking", #entities, "entities for collision")
 
     for _, entity in ipairs(entities) do
         if entity ~= turret.owner and not entity.dead then
@@ -197,10 +208,12 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
 
             if hit then
                 local distance = math.sqrt((hx - startX)^2 + (hy - startY)^2)
+                Log.info("performLaserHitscan: Hit entity", entity.id or "unknown", "at distance", distance)
                 if distance < bestDistance then
                     bestDistance = distance
                     bestTarget = entity
                     bestHitX, bestHitY = hx, hy
+                    Log.info("performLaserHitscan: New best target", entity.id or "unknown")
                 end
             end
         end
@@ -229,25 +242,31 @@ end
 -- Apply damage from laser weapons
 function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMeta)
     if not target.components or not target.components.health then
+        Log.debug("applyLaserDamage: Target has no health component")
         return
     end
 
     local health = target.components.health
+    Log.info("applyLaserDamage: Applying", damage, "damage to target", target.id or "unknown", "shield:", health.shield, "hp:", health.hp)
 
     -- Apply global enemy damage multiplier (x2)
     local baseDamage = damage
     if source and (source.isEnemy or (source.components and source.components.ai)) then
         baseDamage = damage * 2
+        Log.debug("applyLaserDamage: Enemy source, damage multiplied to", baseDamage)
     end
 
     -- Laser weapons: 15% more damage to shields, half damage to hulls
     local shieldDamage = math.min(health.shield, baseDamage * 1.15) -- 15% more damage to shields
     health.shield = health.shield - shieldDamage
+    Log.info("applyLaserDamage: Shield damage:", shieldDamage, "new shield:", health.shield)
 
     local hullDamageApplied = false
     local remainingDamage = baseDamage - (shieldDamage / 1.15) -- Convert back to original damage for hull calculation
+    Log.info("applyLaserDamage: Remaining damage after shield:", remainingDamage)
     if remainingDamage > 0 then
         local hullDamage = remainingDamage * 0.5 -- Half damage to hull
+        Log.info("applyLaserDamage: Hull damage:", hullDamage, "new hp:", health.hp - hullDamage)
         if hullDamage > 0 then
             health.hp = health.hp - hullDamage
             hullDamageApplied = true

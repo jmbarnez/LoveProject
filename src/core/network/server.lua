@@ -276,8 +276,9 @@ end
 
 function NetworkServer.new(port)
     local self = setmetatable({}, NetworkServer)
+    local Constants = require("src.core.constants")
 
-    self.port = port or 7777
+    self.port = port or Constants.NETWORK.DEFAULT_PORT
     self.isRunning = false
     self.transport = nil
     self.enetServer = nil
@@ -417,6 +418,7 @@ function NetworkServer:_handleHello(peer, message)
 
     -- Generate a proper spawn position for the new client
     local spawnPosition = self:_generateSpawnPosition()
+    Log.info("Server: Generated spawn position for player", playerId, "at", spawnPosition.x, spawnPosition.y)
 
     self.players[playerId] = {
         playerId = playerId,
@@ -585,9 +587,9 @@ function NetworkServer:_generateSpawnPosition()
     -- This should match the logic used in game.lua for player spawning
     local Constants = require("src.core.constants")
     
-    -- Default spawn position if no hub is available
-    local hubX = Constants.SPAWNING.MARGIN or 1000
-    local hubY = Constants.SPAWNING.MARGIN or 1000
+    -- Default hub position (matches game.lua hub creation at 5000, 5000)
+    local hubX = 5000
+    local hubY = 5000
     
     -- Try to get hub position from world snapshot if available
     if self.worldSnapshot and self.worldSnapshot.entities then
@@ -612,7 +614,22 @@ function NetworkServer:_generateSpawnPosition()
     end
     
     -- Spawn outside the station weapons-disable zone
-    local weapon_disable_radius = 200 -- Default radius
+    -- Use the same logic as game.lua: get weapon disable radius from station or use default
+    local weapon_disable_radius = 200 -- Default radius (matches game.lua fallback)
+    
+    -- Try to get the actual weapon disable radius from the hub station in world snapshot
+    if self.worldSnapshot and self.worldSnapshot.entities then
+        for _, entity in ipairs(self.worldSnapshot.entities) do
+            local kind = entity.kind or entity.type
+            if kind == "hub_station" then
+                -- Hub stations typically have a weapon disable radius of around 200-300
+                -- This matches the single-player logic that uses hub:getWeaponDisableRadius()
+                weapon_disable_radius = 240 -- Reasonable default for hub station
+                break
+            end
+        end
+    end
+    
     local spawn_dist = weapon_disable_radius * 1.2 -- Spawn 20% outside the weapon disable zone
     local angle = math.random() * math.pi * 2
     

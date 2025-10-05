@@ -169,6 +169,10 @@ Constants.COMBAT = {
     ENEMY_BAR_VIS_TIME = 2.5,
 }
 
+Constants.NETWORK = {
+    DEFAULT_PORT = 25565,
+}
+
 Constants.SPAWNING = {
     MARGIN = 75,
     STATION_BUFFER = 2500,

@@ -23,6 +23,7 @@ end
 
 local function sanitiseSnapshot(snapshot)
     if type(snapshot) ~= "table" then
+        Log.info("sanitiseSnapshot: No snapshot data, using defaults")
         return {
             position = { x = 0, y = 0, angle = 0 },
             velocity = { x = 0, y = 0 },
@@ -34,7 +35,7 @@ local function sanitiseSnapshot(snapshot)
     local velocity = snapshot.velocity or {}
     local health = snapshot.health or {}
 
-    return {
+    local sanitized = {
         position = {
             x = tonumber(position.x) or 0,
             y = tonumber(position.y) or 0,
@@ -53,6 +54,9 @@ local function sanitiseSnapshot(snapshot)
             maxEnergy = tonumber(health.maxEnergy) or 0
         }
     }
+    
+    Log.info("sanitiseSnapshot: Original health shield:", health.shield, "maxShield:", health.maxShield, "-> Sanitized shield:", sanitized.health.shield, "maxShield:", sanitized.health.maxShield)
+    return sanitized
 end
 
 local function snapshotsDiffer(a, b)
@@ -93,6 +97,7 @@ local function ensureRemoteEntity(playerId, playerData, world)
     local y = playerData.position and playerData.position.y or 0
 
     Log.debug("Creating remote entity for player", playerId, "at position", x, y)
+    Log.info("ensureRemoteEntity: playerData health:", playerData.health and (playerData.health.shield or "nil") or "no health data")
     entity = EntityFactory.create("ship", "starter_frigate_basic", x, y)
     if not entity then
         Log.error("Failed to spawn remote entity for player", playerId)
@@ -131,6 +136,7 @@ local function updateEntityFromSnapshot(entity, snapshot)
 
     -- Apply health data to remote player entities
     if entity.components and entity.components.health and data.health then
+        Log.info("updateEntityFromSnapshot: Applying health data to entity", entity.id or "unknown", "shield:", data.health.shield, "maxShield:", data.health.maxShield)
         entity.components.health.hp = data.health.hp
         entity.components.health.maxHP = data.health.maxHP
         entity.components.health.shield = data.health.shield

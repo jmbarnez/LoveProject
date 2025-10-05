@@ -117,7 +117,8 @@ function NetworkManager:startHost(port)
         return false
     end
 
-    self.server = NetworkServer.new(port or 7777)
+    local Constants = require("src.core.constants")
+    self.server = NetworkServer.new(port or Constants.NETWORK.DEFAULT_PORT)
     if not self.server:start() then
         return false
     end
@@ -127,8 +128,10 @@ function NetworkManager:startHost(port)
     self._localPlayerId = 0
 
     local hostName = string.format("Host_%d", os.time())
+    -- Generate a proper spawn position for the host (around the hub station)
+    local spawnPosition = self.server:_generateSpawnPosition()
     self.server:addHostPlayer(hostName, {
-        position = { x = 0, y = 0, angle = 0 },
+        position = spawnPosition,
         velocity = { x = 0, y = 0 }
     })
 
@@ -137,7 +140,7 @@ function NetworkManager:startHost(port)
         playerId = 0,
         playerName = hostName,
         state = {
-            position = { x = 0, y = 0, angle = 0 },
+            position = spawnPosition,
             velocity = { x = 0, y = 0 }
         }
     }
@@ -162,7 +165,8 @@ function NetworkManager:joinGame(address, port)
         return false, "Already in multiplayer"
     end
 
-    local ok, err = self.client:connect(address or "localhost", port or 7777)
+    local Constants = require("src.core.constants")
+    local ok, err = self.client:connect(address or "localhost", port or Constants.NETWORK.DEFAULT_PORT)
     if not ok then
         return false, err
     end
@@ -172,7 +176,7 @@ function NetworkManager:joinGame(address, port)
     self._players = {}
     self._localPlayerId = nil
 
-    Log.info("Attempting to join host", address or "localhost", port or 7777)
+    Log.info("Attempting to join host", address or "localhost", port or Constants.NETWORK.DEFAULT_PORT)
     return true
 end
 
