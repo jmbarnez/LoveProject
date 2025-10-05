@@ -324,22 +324,22 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
       Log.info("Attempting connection to server from start screen parameters")
       Log.info("Connection details:", _G.PENDING_MULTIPLAYER_CONNECTION.address, _G.PENDING_MULTIPLAYER_CONNECTION.port)
       -- Attempt the connection to the server
-      local connectionResult = networkManager:joinGame(_G.PENDING_MULTIPLAYER_CONNECTION.address, _G.PENDING_MULTIPLAYER_CONNECTION.port)
-      Log.info("Connection result:", connectionResult)
+      local connectionResult, connectionError = networkManager:joinGame(_G.PENDING_MULTIPLAYER_CONNECTION.address, _G.PENDING_MULTIPLAYER_CONNECTION.port)
+      Log.info("Connection result:", connectionResult, connectionError)
       if connectionResult then
         Log.info("Successfully connected to server")
         -- Ensure the game knows it's in client mode
         Game.setMultiplayerMode(true, false)
         _G.PENDING_MULTIPLAYER_CONNECTION = nil -- Clear the pending connection
       else
-        Log.error("Failed to connect to server - aborting game load")
+        Log.error("Failed to connect to server - aborting game load", connectionError)
         -- Connection failed, don't load the game
-        return false
+        return false, connectionError
       end
     else
       Log.error("No pending connection found for client mode - aborting game load")
       -- No connection to attempt, don't load the game
-      return false
+      return false, "No pending connection details found."
     end
   end
   

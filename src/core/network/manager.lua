@@ -94,10 +94,10 @@ function NetworkManager:startHost(port)
     return false
 end
 
-function NetworkManager:joinGame(address, port)
+function NetworkManager:joinGame(address, port, options)
     if self._isMultiplayer then
         Log.warn("Already in multiplayer mode")
-        return false
+        return false, "Already connected to a multiplayer session."
     end
 
     address = address or "localhost"
@@ -105,15 +105,19 @@ function NetworkManager:joinGame(address, port)
 
     Log.info("Attempting to join game at", string.format("%s:%d", address, port))
 
-    if self.client:connect(address, port) then
+    local connected, err = self.client:connect(address, port, options)
+    if connected then
         self._isHost = false
         self._isMultiplayer = true
         Log.info("Successfully joined multiplayer game as CLIENT - isHost:", self._isHost, "isMultiplayer:", self._isMultiplayer)
         return true
     end
 
-    Log.error("Failed to join multiplayer game")
-    return false
+    local message = err or self.client:getLastError() or "Failed to join multiplayer game."
+    Log.error("Failed to join multiplayer game:", message)
+    self._isHost = false
+    self._isMultiplayer = false
+    return false, message
 end
 
 function NetworkManager:leaveGame()

@@ -79,18 +79,90 @@ function NetworkClient.new()
     self.fileNetwork = nil
     self.pendingJoinPayload = nil
     self.localPlayerName = nil
+    self.pendingEnetEvents = nil
+    self.lastError = nil
 
     return self
+end
+
+function NetworkClient:_cleanupTransport(emitEvents)
+    if self.transport == "enet" and self.enetClient then
+        local EnetTransport = require("src.core.network.transport.enet")
+        EnetTransport.disconnectClient(self.enetClient)
+        EnetTransport.destroy(self.enetClient)
+        self.enetClient = nil
+    end
+
+    self.transport = "none"
+    self.state = CONNECTION_STATES.DISCONNECTED
+    self.playerId = nil
+    self.players = {}
+    self.pendingJoinPayload = nil
+    self.localPlayerName = nil
+    self.pendingEnetEvents = nil
+    self.lastPingTime = 0
+    self.ping = 0
+
+    if emitEvents then
+        Log.info("Disconnected from server")
+        Events.emit("NETWORK_DISCONNECTED")
+    end
 end
 
 local function formatEndpoint(address, port)
     return string.format("%s:%d", address, port)
 end
 
-function NetworkClient:connect(address, port)
+local function pollTimeoutSeconds(options)
+    local defaultTimeout = 5
+
+    if not options then
+        return defaultTimeout
+    end
+
+    if options.handshakeTimeout == 0 or options.timeout == 0 then
+        return 0
+    end
+
+    local timeout = options.handshakeTimeout or options.timeout or defaultTimeout
+    if type(timeout) ~= "number" then
+        return defaultTimeout
+    end
+
+    if timeout < 0 then
+        return defaultTimeout
+    end
+
+    return timeout == 0 and 0 or timeout
+end
+
+local function clampTimeout(timeout)
+    if not timeout or timeout <= 0 then
+        return 0
+    end
+    -- Prevent excessively long blocking periods; ENet has its own internal timeout
+    return math.min(timeout, 10)
+end
+
+local function milliseconds(value)
+    if not value or value <= 0 then
+        return 0
+    end
+    return math.floor(value * 1000)
+end
+
+local function captureTime()
+    if love and love.timer and love.timer.getTime then
+        return love.timer.getTime()
+    end
+    return os.clock()
+end
+
+function NetworkClient:connect(address, port, options)
     if self.state == CONNECTION_STATES.CONNECTED or self.state == CONNECTION_STATES.CONNECTING then
         Log.warn("Client already attempting or holding a connection")
-        return false
+        self.lastError = "Client already attempting or holding a connection."
+        return false, self.lastError
     end
 
     self.serverAddress = address or self.serverAddress
@@ -100,6 +172,8 @@ function NetworkClient:connect(address, port)
     self.players = {}
     self.lastPingTime = 0
     self.ping = 0
+    self.pendingEnetEvents = nil
+    self.lastError = nil
 
     self.pendingJoinPayload = {
         type = MESSAGE_TYPES.PLAYER_JOIN,
@@ -130,57 +204,102 @@ function NetworkClient:connect(address, port)
             if peer then
                 self.enetClient = client
                 self.transport = "enet"
-                self.state = CONNECTION_STATES.CONNECTED
-                Log.info("Connected using ENet transport")
-                Events.emit("NETWORK_CONNECTED")
-                if self.pendingJoinPayload then
-                    self:sendMessage(self.pendingJoinPayload)
-                    self.pendingJoinPayload = nil
+
+                local handshakeTimeout = clampTimeout(pollTimeoutSeconds(options))
+                local deadline = handshakeTimeout > 0 and (captureTime() + handshakeTimeout) or nil
+                local connected = false
+                self.pendingEnetEvents = {}
+
+                while true do
+                    local waitMs = 100
+                    if deadline then
+                        local remaining = deadline - captureTime()
+                        if remaining <= 0 then
+                            break
+                        end
+                        waitMs = math.max(10, math.min(milliseconds(remaining), 250))
+                    end
+
+                    local event = EnetTransport.service(self.enetClient, waitMs)
+                    if event then
+                        if event.type == "connect" then
+                            connected = true
+                            break
+                        elseif event.type == "disconnect" then
+                            self.lastError = "Server rejected connection request."
+                            break
+                        else
+                            table.insert(self.pendingEnetEvents, event)
+                        end
+                    elseif not deadline then
+                        -- No events and no deadline specified; treat as immediate failure
+                        break
+                    end
                 end
-                return true
+
+                if connected then
+                    self.state = CONNECTION_STATES.CONNECTED
+                    self.lastError = nil
+                    Log.info("Connected using ENet transport")
+                    Events.emit("NETWORK_CONNECTED")
+                    if self.pendingJoinPayload then
+                        self:sendMessage(self.pendingJoinPayload)
+                        self.pendingJoinPayload = nil
+                    end
+
+                    if self.pendingEnetEvents and #self.pendingEnetEvents > 0 then
+                        for _, pendingEvent in ipairs(self.pendingEnetEvents) do
+                            self:_processEnetEvent(pendingEvent)
+                        end
+                    end
+                    self.pendingEnetEvents = nil
+
+                    return true
+                end
+
+                if not self.lastError then
+                    local timeoutMessage = string.format("Connection attempt to %s:%d timed out.", self.serverAddress, self.serverPort)
+                    if deadline then
+                        timeoutMessage = timeoutMessage .. string.format(" (%.1fs)", handshakeTimeout)
+                    end
+                    self.lastError = timeoutMessage
+                end
+
+                self:_cleanupTransport(false)
+                return false, self.lastError
             else
                 Log.error("Failed to connect with ENet:", peerErr)
+                self.lastError = peerErr and tostring(peerErr) or "Failed to initiate connection."
+                self:_cleanupTransport(false)
+                return false, self.lastError
             end
         else
             Log.error("Failed to create ENet client:", err)
+            self.lastError = err and tostring(err) or "Unable to create network client."
+            return false, self.lastError
         end
     else
         Log.error("ENet transport not available - ok:", ok, "EnetTransport:", EnetTransport and "loaded" or "nil")
         if EnetTransport then
             Log.error("ENet isAvailable:", EnetTransport.isAvailable())
         end
+        self.lastError = "Network transport unavailable."
     end
 
     Log.error("No networking transport available for", self.serverAddress)
-    return false
+    return false, self.lastError
 end
 
 function NetworkClient:disconnect()
-    if self.transport == "enet" and self.enetClient then
-        if self.state == CONNECTION_STATES.CONNECTED then
-            self:sendMessage({
-                type = MESSAGE_TYPES.PLAYER_LEAVE,
-                playerId = self.playerId,
-                timestamp = currentTime()
-            })
-        end
-        local EnetTransport = require("src.core.network.transport.enet")
-        EnetTransport.disconnectClient(self.enetClient)
-        EnetTransport.destroy(self.enetClient)
-        self.enetClient = nil
+    if self.transport == "enet" and self.enetClient and self.state == CONNECTION_STATES.CONNECTED then
+        self:sendMessage({
+            type = MESSAGE_TYPES.PLAYER_LEAVE,
+            playerId = self.playerId,
+            timestamp = currentTime()
+        })
     end
 
-    self.transport = "none"
-    self.state = CONNECTION_STATES.DISCONNECTED
-    self.playerId = nil
-    self.players = {}
-    self.pendingJoinPayload = nil
-    self.localPlayerName = nil
-    self.lastPingTime = 0
-    self.ping = 0
-
-    Log.info("Disconnected from server")
-    Events.emit("NETWORK_DISCONNECTED")
+    self:_cleanupTransport(true)
 end
 
 function NetworkClient:sendMessage(message)
@@ -203,6 +322,41 @@ function NetworkClient:sendMessage(message)
     return false
 end
 
+function NetworkClient:_processEnetEvent(event)
+    if not event then
+        return
+    end
+
+    if event.type == "connect" then
+        Log.info("Received ENet connect event")
+        if self.state ~= CONNECTION_STATES.CONNECTED then
+            self.state = CONNECTION_STATES.CONNECTED
+            self.lastError = nil
+            Events.emit("NETWORK_CONNECTED")
+            if self.pendingJoinPayload then
+                self:sendMessage(self.pendingJoinPayload)
+                self.pendingJoinPayload = nil
+            end
+        end
+        return
+    end
+
+    if event.type == "disconnect" then
+        Log.info("Disconnected from server")
+        self.state = CONNECTION_STATES.DISCONNECTED
+        self.lastError = "Disconnected from server"
+        Events.emit("NETWORK_DISCONNECTED")
+        return
+    end
+
+    if event.type == "receive" then
+        local success, message = pcall(json.decode, event.data)
+        if success and message then
+            self:handleMessage(message)
+        end
+    end
+end
+
 function NetworkClient:update(dt)
     if self.state == CONNECTION_STATES.DISCONNECTED then
         return
@@ -210,22 +364,17 @@ function NetworkClient:update(dt)
 
     if self.transport == "enet" and self.enetClient then
         local EnetTransport = require("src.core.network.transport.enet")
-        local json = require("src.libs.json")
-        
+        if self.pendingEnetEvents and #self.pendingEnetEvents > 0 then
+            for _, pendingEvent in ipairs(self.pendingEnetEvents) do
+                self:_processEnetEvent(pendingEvent)
+            end
+            self.pendingEnetEvents = nil
+        end
+
         -- Poll for ENet events
         local event = EnetTransport.service(self.enetClient, 0)
         while event do
-            if event.type == "receive" then
-                local success, message = pcall(json.decode, event.data)
-                if success and message then
-                    self:handleMessage(message)
-                end
-            elseif event.type == "disconnect" then
-                Log.info("Disconnected from server")
-                self.state = CONNECTION_STATES.DISCONNECTED
-                Events.emit("NETWORK_DISCONNECTED")
-                return
-            end
+            self:_processEnetEvent(event)
             event = EnetTransport.service(self.enetClient, 0)
         end
     end
@@ -329,6 +478,10 @@ end
 
 function NetworkClient:isConnected()
     return self.state == CONNECTION_STATES.CONNECTED
+end
+
+function NetworkClient:getLastError()
+    return self.lastError
 end
 
 return NetworkClient

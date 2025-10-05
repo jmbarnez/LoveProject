@@ -77,6 +77,7 @@ local startScreenHandler = function(self, x, y, button)
   if Theme.handleButtonClick(self.multiplayerButton, x, y, function()
     print("Join Game button clicked, opening UI")
     self.showJoinUI = true
+    self.joinErrorMessage = nil
   end) then
     return false
   end
@@ -187,6 +188,7 @@ function Start.new()
   self.showJoinUI = false
   self.joinAddress = "localhost"
   self.joinPort = "7777"
+  self.joinErrorMessage = nil
   -- Create a temporary network manager for the start screen
   self.networkManager = NetworkManager.new()
   self.versionWindow = Window.new({
@@ -557,11 +559,18 @@ function Start:drawJoinUI()
   -- Port text
   Theme.setColor(Theme.colors.text)
   love.graphics.print(self.joinPort, portX + 5 * s, portY + 5 * s)
-  
+
+  if self.joinErrorMessage then
+    Theme.setColor(Theme.colors.danger)
+    local messageY = portY + portH + 10 * s
+    love.graphics.printf(self.joinErrorMessage, windowX + 20 * s, messageY, windowW - 40 * s, "center")
+  end
+
   -- Buttons
   local buttonW = 80 * s
   local buttonH = 30 * s
-  local buttonY = portY + 50 * s
+  local buttonYOffset = self.joinErrorMessage and 80 * s or 50 * s
+  local buttonY = portY + buttonYOffset
   local joinX = windowX + (windowW - buttonW * 2 - 20 * s) / 2
   local cancelX = joinX + buttonW + 20 * s
   
@@ -610,7 +619,9 @@ function Start:mousepressed(x, y, button)
       print("Join button bounds:", self.joinButton.x, self.joinButton.y, self.joinButton.w, self.joinButton.h)
       local port = tonumber(self.joinPort) or 7777
       print("Attempting to join game at", self.joinAddress, port)
-      
+
+      self.joinErrorMessage = nil
+
       -- Store connection info globally for Game.load to use
       _G.PENDING_MULTIPLAYER_CONNECTION = {
         address = self.joinAddress,
@@ -618,7 +629,7 @@ function Start:mousepressed(x, y, button)
         connected = false, -- Will be set to true when connection is confirmed
         connecting = true
       }
-      
+
       -- Close UI and trigger game transition immediately
       -- Let the global network manager handle the actual connection
       self.showJoinUI = false
@@ -629,6 +640,8 @@ function Start:mousepressed(x, y, button)
       -- Cancel button clicked
       print("Cancel button clicked")
       self.showJoinUI = false
+      self.joinErrorMessage = nil
+      _G.PENDING_MULTIPLAYER_CONNECTION = nil
       return false
     end
     print("No button clicked in multiplayer UI")
@@ -731,6 +744,17 @@ function Start:wheelmoved(x, y, dx, dy)
   end
 
   return false
+end
+
+function Start:onJoinFailed(message)
+  if self.networkManager then
+    self.networkManager:leaveGame()
+  end
+  if type(message) ~= "string" then
+    message = message and tostring(message) or nil
+  end
+  self.joinErrorMessage = message or "Failed to connect to server."
+  self.showJoinUI = true
 end
 
 function Start:keypressed(key)
