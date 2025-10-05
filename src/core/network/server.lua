@@ -176,6 +176,46 @@ local function sanitiseWorldSnapshot(snapshot)
     return sanitised
 end
 
+local function sanitiseAiTarget(target)
+    if target == nil then
+        return nil
+    end
+
+    local targetId = nil
+    local targetType = nil
+
+    if type(target) == "table" then
+        if target.isPlayer and target.id then
+            targetId = tostring(target.id)
+            targetType = "player"
+        elseif target.isRemotePlayer and target.remotePlayerId then
+            targetId = tostring(target.remotePlayerId)
+            targetType = "remote_player"
+        elseif target.remoteEnemyId then
+            targetId = tostring(target.remoteEnemyId)
+            targetType = "enemy"
+        elseif target.id then
+            targetId = tostring(target.id)
+            if type(target.type) == "string" then
+                targetType = target.type
+            end
+        end
+    elseif type(target) == "number" or type(target) == "string" then
+        targetId = tostring(target)
+    end
+
+    if not targetId then
+        return nil
+    end
+
+    local sanitised = { id = targetId }
+    if targetType then
+        sanitised.type = targetType
+    end
+
+    return sanitised
+end
+
 local function sanitiseEnemySnapshot(snapshot)
     if type(snapshot) ~= "table" then
         return {}
@@ -212,10 +252,16 @@ local function sanitiseEnemySnapshot(snapshot)
 
             -- Include AI state if available
             if enemy.ai then
-                sanitisedEnemy.ai = {
-                    state = tostring(enemy.ai.state) or "patrolling",
-                    target = enemy.ai.target or nil
+                local aiState = {
+                    state = tostring(enemy.ai.state) or "patrolling"
                 }
+
+                local target = sanitiseAiTarget(enemy.ai.target)
+                if target then
+                    aiState.target = target
+                end
+
+                sanitisedEnemy.ai = aiState
             end
 
             table.insert(sanitised, sanitisedEnemy)
@@ -823,7 +869,7 @@ function NetworkServer:broadcastEnemyUpdate(enemyData)
 
     -- Sanitize enemy data before broadcasting
     local sanitizedEnemyData = sanitiseEnemySnapshot(enemyData)
-    if not sanitizedEnemyData or #sanitizedEnemyData == 0 then
+    if not sanitizedEnemyData then
         return
     end
 

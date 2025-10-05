@@ -7,19 +7,85 @@
 local Events = require("src.core.events")
 local Log = require("src.core.log")
 local Settings = require("src.core.settings")
-local NetworkManager = require("src.core.network.manager")
 
 local RemoteEnemySync = {}
 
 local remoteEnemies = {}
+local currentWorld = nil
 local lastEnemySnapshot = nil
 local enemySendAccumulator = 0
 local ENEMY_SEND_INTERVAL = 1 / 20  -- 20 Hz for enemy updates
 
+local function removeRemoteEnemy(world, enemyId)
+    local entity = remoteEnemies[enemyId]
+    if not entity then
+        return
+    end
+
+    if world then
+        world:removeEntity(entity)
+    end
+
+    remoteEnemies[enemyId] = nil
+end
+
 function RemoteEnemySync.reset()
+    local world = currentWorld
+    if world then
+        local ids = {}
+        for enemyId in pairs(remoteEnemies) do
+            ids[#ids + 1] = enemyId
+        end
+
+        for _, enemyId in ipairs(ids) do
+            removeRemoteEnemy(world, enemyId)
+        end
+    end
+
     remoteEnemies = {}
+    currentWorld = nil
     lastEnemySnapshot = nil
     enemySendAccumulator = 0
+end
+
+local function sanitiseAiTarget(target)
+    if target == nil then
+        return nil
+    end
+
+    local targetId = nil
+    local targetType = nil
+
+    if type(target) == "table" then
+        if target.isPlayer and target.id then
+            targetId = tostring(target.id)
+            targetType = "player"
+        elseif target.isRemotePlayer and target.remotePlayerId then
+            targetId = tostring(target.remotePlayerId)
+            targetType = "remote_player"
+        elseif target.remoteEnemyId then
+            targetId = tostring(target.remoteEnemyId)
+            targetType = "enemy"
+        elseif target.id then
+            targetId = tostring(target.id)
+            if type(target.type) == "string" then
+                targetType = target.type
+            end
+        end
+    elseif type(target) == "number" or type(target) == "string" then
+        targetId = tostring(target)
+    end
+
+    if not targetId then
+        return nil
+    end
+
+    local sanitised = { id = targetId }
+    if targetType then
+        sanitised.type = targetType
+    end
+
+    return sanitised
 end
 
 local function sanitiseEnemySnapshot(snapshot)
@@ -58,10 +124,16 @@ local function sanitiseEnemySnapshot(snapshot)
 
             -- Include AI state if available
             if enemy.ai then
-                sanitisedEnemy.ai = {
-                    state = tostring(enemy.ai.state) or "patrolling",
-                    target = enemy.ai.target or nil
+                local aiState = {
+                    state = tostring(enemy.ai.state) or "patrolling"
                 }
+
+                local target = sanitiseAiTarget(enemy.ai.target)
+                if target then
+                    aiState.target = target
+                end
+
+                sanitisedEnemy.ai = aiState
             end
 
             table.insert(sanitised, sanitisedEnemy)
@@ -117,10 +189,16 @@ local function buildEnemySnapshotFromWorld(world)
 
             -- Include AI state
             if ai then
-                enemyData.ai = {
-                    state = ai.state or "patrolling",
-                    target = ai.target or nil
+                local aiState = {
+                    state = ai.state or "patrolling"
                 }
+
+                local target = sanitiseAiTarget(ai.target)
+                if target then
+                    aiState.target = target
+                end
+
+                enemyData.ai = aiState
             end
 
             table.insert(snapshot, enemyData)
@@ -139,6 +217,8 @@ local function ensureRemoteEnemy(enemyId, enemyData, world)
     if entity then
         return entity
     end
+
+    currentWorld = world
 
     -- Create a new remote enemy entity
     local EntityFactory = require("src.templates.entity_factory")
@@ -194,8 +274,12 @@ local function updateEnemyFromSnapshot(entity, enemyData)
 
     -- Update AI state (but don't let it run - it's just for display)
     if entity.components and entity.components.ai and enemyData.ai then
-        entity.components.ai.state = enemyData.ai.state
-        entity.components.ai.target = enemyData.ai.target
+        local ai = entity.components.ai
+        ai.state = enemyData.ai.state
+        ai.isHunting = enemyData.ai.state == "hunting"
+        ai.targetId = enemyData.ai.target and enemyData.ai.target.id or nil
+        ai.targetType = enemyData.ai.target and enemyData.ai.target.type or nil
+        ai.target = nil
     end
 
     -- Update physics body
@@ -215,19 +299,6 @@ local function updateEnemyFromSnapshot(entity, enemyData)
         end
         body.angle = enemyData.position.angle
     end
-end
-
-local function removeRemoteEnemy(world, enemyId)
-    local entity = remoteEnemies[enemyId]
-    if not entity then
-        return
-    end
-
-    if world then
-        world:removeEntity(entity)
-    end
-
-    remoteEnemies[enemyId] = nil
 end
 
 -- Host-side: Send enemy updates to clients
@@ -291,6 +362,8 @@ function RemoteEnemySync.applyEnemySnapshot(snapshot, world)
     if not snapshot or not world then
         return
     end
+
+    currentWorld = world
 
     local sanitised = sanitiseEnemySnapshot(snapshot)
     local currentEnemyIds = {}
