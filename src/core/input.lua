@@ -14,6 +14,7 @@ local Util = require("src.core.util")
 local Hotbar = require("src.systems.hotbar")
 local RepairSystem = require("src.systems.repair_system")
 local UI = require("src.core.ui")
+local NetworkSession = require("src.core.network.session")
 
 local Input = {}
 
@@ -128,16 +129,14 @@ local function transitionToGame(opts)
             _G.PENDING_MULTIPLAYER_CONNECTION = nil
         end
 
-        if Game and Game.getNetworkManager then
-            local existingManager = Game.getNetworkManager()
+        if NetworkSession.getManager then
+            local existingManager = NetworkSession.getManager()
             if existingManager and existingManager:isMultiplayer() then
                 existingManager:leaveGame()
             end
         end
 
-        if Game and Game.setMultiplayerMode then
-            Game.setMultiplayerMode(false, false)
-        end
+        NetworkSession.setMode(false, false)
     end
 
     local function handleMultiplayerJoinFailure(message)

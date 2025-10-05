@@ -661,11 +661,11 @@ end
 function AISystem.update(dt, world, spawnProjectile)
     -- Check if host-authoritative enemies is enabled and we're a client
     local Settings = require("src.core.settings")
-    local Game = require("src.game")
+    local NetworkSession = require("src.core.network.session")
     
     local networkingSettings = Settings.getNetworkingSettings()
     if networkingSettings and networkingSettings.host_authoritative_enemies then
-        local networkManager = Game.getNetworkManager()
+        local networkManager = NetworkSession.getManager()
         if networkManager and networkManager:isMultiplayer() and not networkManager:isHost() then
             -- Client with host authority enabled - don't run AI locally
             return

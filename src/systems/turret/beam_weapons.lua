@@ -1,13 +1,13 @@
 local CollisionHelpers = require("src.systems.turret.collision_helpers")
 local TurretEffects = require("src.systems.turret.effects")
 local Log = require("src.core.log")
+local NetworkSession = require("src.core.network.session")
 
 local BeamWeapons = {}
 
 -- Helper function to send beam weapon fire request to host
 local function sendBeamWeaponFireRequest(turret, sx, sy, angle, beamLength, damageConfig)
-    local Game = require("src.game")
-    local networkManager = Game.getNetworkManager()
+    local networkManager = NetworkSession.getManager()
     
     if networkManager and networkManager:isMultiplayer() and not networkManager:isHost() then
         -- Client: send beam weapon fire request to host
