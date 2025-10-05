@@ -581,7 +581,7 @@ local function handleBeamRequest(request, playerId)
         end
 
         -- Apply damage using the same system as local beams
-        local beamDuration = request.deltaTime or 0.016
+        local beamDuration = request.deltaTime or 0.16
         if beamDuration < 0 then
             beamDuration = 0
         elseif beamDuration > 0.25 then

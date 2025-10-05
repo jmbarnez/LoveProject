@@ -160,6 +160,11 @@ local function ensureRemoteEntity(playerId, playerData, world)
     entity.isRemotePlayer = true
     entity.remotePlayerId = playerId
     entity.playerName = playerData.playerName or string.format("Player %s", tostring(playerId))
+    
+    -- Ensure remote players have the player component for proper collision detection
+    if not entity.components.player then
+        entity.components.player = {}
+    end
 
     -- Ensure remote players have engine trail components
     if not entity.components.engine_trail then

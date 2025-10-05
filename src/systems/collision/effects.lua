@@ -17,7 +17,7 @@ end
 function CollisionEffects.isPlayerShieldActive(entity)
     if not entity then return false end
 
-    local isPlayer = entity.isPlayer or (entity.components and entity.components.player ~= nil)
+    local isPlayer = entity.isPlayer or entity.isRemotePlayer or (entity.components and entity.components.player ~= nil)
     if not isPlayer then
         return false
     end
@@ -119,7 +119,7 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
 
     local health = entity.components.health
     -- Player invulnerability during dash
-    if entity.isPlayer and (entity.iFrames or 0) > 0 then
+    if (entity.isPlayer or entity.isRemotePlayer) and (entity.iFrames or 0) > 0 then
         return (health.shield or 0) > 0
     end
 
@@ -209,7 +209,7 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         end
     end
 
-    if entity.isPlayer then
+    if entity.isPlayer or entity.isRemotePlayer then
         Events.emit(Events.GAME_EVENTS.PLAYER_DAMAGED, eventData)
     else
         Events.emit(Events.GAME_EVENTS.ENTITY_DAMAGED, eventData)

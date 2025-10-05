@@ -50,7 +50,7 @@ local function shouldIgnoreCollision(bullet, target)
     local isFriendlyBullet = (bullet.components and bullet.components.collidable and bullet.components.collidable.friendly) or false
     if isFriendlyBullet then
         local isFriendlyEntity = target.isFreighter or target.isFriendly
-        local isPlayerEntity = target.isPlayer or (target.components and target.components.player)
+        local isPlayerEntity = target.isPlayer or target.isRemotePlayer or (target.components and target.components.player)
         
         -- Allow PvP combat: friendly projectiles can hit other players
         -- Only prevent hitting non-player friendly entities (like freighters)
