@@ -80,6 +80,8 @@ local ecsManager
 local networkManager
 local isMultiplayer = false
 local isHost = false
+local syncedWorldEntities = {}
+local pendingWorldSnapshot = nil
 
 -- Expose network manager for external access
 function Game.getNetworkManager()
@@ -148,6 +150,181 @@ local function spawn_projectile(x, y, angle, friendly, opts)
     end
 end
 
+local function clearSyncedWorldEntities()
+    if world then
+        for _, entity in ipairs(syncedWorldEntities) do
+            if entity then
+                world:removeEntity(entity)
+            end
+        end
+    end
+
+    syncedWorldEntities = {}
+    hub = nil
+end
+
+local function spawnEntityFromSnapshot(entry)
+    if not entry or not entry.kind or not entry.id then
+        return nil
+    end
+
+    local extra = {}
+    if entry.extra then
+        for key, value in pairs(entry.extra) do
+            extra[key] = value
+        end
+    end
+
+    if entry.angle ~= nil then
+        extra.angle = entry.angle
+    end
+
+    if next(extra) == nil then
+        extra = nil
+    end
+
+    return EntityFactory.create(entry.kind, entry.id, entry.x or 0, entry.y or 0, extra)
+end
+
+local function applyWorldSnapshot(snapshot)
+    if not snapshot or not world then
+        return
+    end
+
+    clearSyncedWorldEntities()
+
+    world.width = snapshot.width or world.width
+    world.height = snapshot.height or world.height
+
+    for _, entry in ipairs(snapshot.entities or {}) do
+        local entity = spawnEntityFromSnapshot(entry)
+        if entity then
+            world:addEntity(entity)
+            if entry.kind == "station" and entry.id == "hub_station" then
+                hub = entity
+            end
+            table.insert(syncedWorldEntities, entity)
+        else
+            Log.warn("Failed to spawn world entity from snapshot", tostring(entry.kind), tostring(entry.id))
+        end
+    end
+end
+
+local function queueWorldSnapshot(snapshot)
+    if not snapshot then
+        return
+    end
+
+    if not world then
+        pendingWorldSnapshot = Util.deepCopy(snapshot)
+        return
+    end
+
+    applyWorldSnapshot(snapshot)
+    pendingWorldSnapshot = nil
+end
+
+local function buildWorldSnapshotFromWorld()
+    if not world then
+        return nil
+    end
+
+    local snapshot = {
+        width = world.width or 0,
+        height = world.height or 0,
+        entities = {}
+    }
+
+    for _, entity in pairs(world:getEntities()) do
+        local components = entity.components or {}
+        local position = components.position
+
+        if position and not entity.isPlayer and not entity.isRemotePlayer then
+            local entry = nil
+
+            if entity.isStation or components.station then
+                local station = components.station or {}
+                entry = {
+                    kind = "station",
+                    id = station.type or "station",
+                    x = position.x or 0,
+                    y = position.y or 0
+                }
+            elseif entity.type == "world_object" or components.mineable or components.interactable then
+                local subtype = entity.subtype or (components.renderable and components.renderable.type) or "world_object"
+                entry = {
+                    kind = "world_object",
+                    id = subtype,
+                    x = position.x or 0,
+                    y = position.y or 0
+                }
+            end
+
+            if entry then
+                if position.angle ~= nil then
+                    entry.angle = position.angle
+                end
+
+                snapshot.entities[#snapshot.entities + 1] = entry
+            end
+        end
+    end
+
+    return snapshot
+end
+
+local function broadcastHostWorldSnapshot()
+    if not networkManager or not networkManager:isHost() then
+        return
+    end
+
+    local snapshot = buildWorldSnapshotFromWorld()
+    if not snapshot then
+        return
+    end
+
+    networkManager:updateWorldSnapshot(snapshot)
+end
+
+Events.on("NETWORK_WORLD_SNAPSHOT", function(data)
+    if isHost then
+        return
+    end
+
+    local snapshot = data and data.snapshot or nil
+    if not snapshot then
+        return
+    end
+
+    queueWorldSnapshot(snapshot)
+end)
+
+Events.on("NETWORK_DISCONNECTED", function()
+    if isHost then
+        return
+    end
+
+    clearSyncedWorldEntities()
+    pendingWorldSnapshot = nil
+end)
+
+Events.on("NETWORK_SERVER_STOPPED", function()
+    if isHost then
+        return
+    end
+
+    clearSyncedWorldEntities()
+    pendingWorldSnapshot = nil
+end)
+
+Events.on("NETWORK_SERVER_STARTED", function()
+    if not isHost or not world then
+        return
+    end
+
+    broadcastHostWorldSnapshot()
+end)
+
 local function tryCollectNearbyRewardCrate(playerEntity, activeWorld)
   if not playerEntity or not activeWorld then return false end
   if playerEntity.docked then return false end
@@ -202,7 +379,9 @@ local function createSystemPipeline()
       DestructionSystem.update(ctx.world, ctx.gameState, ctx.hub)
     end,
     function(ctx)
-      SpawningSystem.update(ctx.dt, ctx.player, ctx.hub, ctx.world)
+      if not isMultiplayer or isHost then
+        SpawningSystem.update(ctx.dt, ctx.player, ctx.hub, ctx.world)
+      end
     end,
     function(ctx)
       RepairSystem.update(ctx.dt, ctx.player, ctx.world)
@@ -294,7 +473,9 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   -- Set multiplayer state
   isMultiplayer = multiplayer or false
   isHost = isHost or false
-  
+  syncedWorldEntities = {}
+  pendingWorldSnapshot = nil
+
   -- updateProgress provides a tiny abstraction so future steps can remain
   -- focused on logic rather than remembering to null-check the loading screen.
   local function updateProgress(step, description)
@@ -383,104 +564,113 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
 
   -- Step 6: Create stations
   updateProgress(0.6, "Creating stations...")
-  hub = EntityFactory.create("station", "hub_station", 5000, 5000)
-  if hub then
-    world:addEntity(hub)
-  else
-    Debug.error("game", "Failed to create hub station")
-    return false
-  end
+  if not isMultiplayer or isHost then
+    hub = EntityFactory.create("station", "hub_station", 5000, 5000)
+    if hub then
+      world:addEntity(hub)
+    else
+      Debug.error("game", "Failed to create hub station")
+      return false
+    end
 
-  -- Create an industrial furnace station northeast of the hub for ore processing logistics
-  local furnace_station = EntityFactory.create("station", "ore_furnace_station", 9500, 9500)
-  if furnace_station then
-    world:addEntity(furnace_station)
-  else
-    Debug.error("game", "Failed to create ore furnace station")
-    return false
-  end
+    -- Create an industrial furnace station northeast of the hub for ore processing logistics
+    local furnace_station = EntityFactory.create("station", "ore_furnace_station", 9500, 9500)
+    if furnace_station then
+      world:addEntity(furnace_station)
+    else
+      Debug.error("game", "Failed to create ore furnace station")
+      return false
+    end
 
-  -- Create a beacon station to protect the top-left quadrant from enemy spawning
-  -- Position it far enough from other stations to avoid weapon disable zone overlap
-  local beacon_station = EntityFactory.create("station", "beacon_station", 2000, 2000)
-  if beacon_station then
-    world:addEntity(beacon_station)
+    -- Create a beacon station to protect the top-left quadrant from enemy spawning
+    -- Position it far enough from other stations to avoid weapon disable zone overlap
+    local beacon_station = EntityFactory.create("station", "beacon_station", 2000, 2000)
+    if beacon_station then
+      world:addEntity(beacon_station)
+    else
+      Debug.error("game", "Failed to create beacon station")
+      return false
+    end
   else
-    Debug.error("game", "Failed to create beacon station")
-    return false
+    hub = nil
   end
 
   -- Step 7: Create world objects
   updateProgress(0.7, "Creating world objects...")
-  -- Add a massive background planet at the world center
-  do
-    -- Place the planet at the center of the world (15000, 15000)
-    local px = 15000
-    local py = 15000
-    local planet = EntityFactory.create("world_object", "planet_massive", px, py)
-    if planet then
-      world:addEntity(planet)
-    else
-      Debug.warn("game", "Failed to create planet")
+  if not isMultiplayer or isHost then
+    -- Add a massive background planet at the world center
+    do
+      -- Place the planet at the center of the world (15000, 15000)
+      local px = 15000
+      local py = 15000
+      local planet = EntityFactory.create("world_object", "planet_massive", px, py)
+      if planet then
+        world:addEntity(planet)
+      else
+        Debug.warn("game", "Failed to create planet")
+      end
+    end
+
+    -- Create 8 reward crates at random locations in the sector
+    do
+      local worldSize = 30000 -- Approximate world size
+      local margin = 2000 -- Keep crates away from edges
+      local minDistance = 1000 -- Minimum distance between crates
+
+      local cratePositions = {}
+      local maxAttempts = 1000 -- Prevent infinite loops
+
+      -- Generate 8 random positions with minimum distance between them
+      for i = 1, 8 do
+        local validPosition = false
+        local attempts = 0
+
+        while not validPosition and attempts < maxAttempts do
+          local x = math.random(margin, worldSize - margin)
+          local y = math.random(margin, worldSize - margin)
+
+          -- Check if this position is far enough from existing crates
+          validPosition = true
+          for _, existingPos in ipairs(cratePositions) do
+            local dx = x - existingPos.x
+            local dy = y - existingPos.y
+            local distance = math.sqrt(dx * dx + dy * dy)
+            if distance < minDistance then
+              validPosition = false
+              break
+            end
+          end
+
+          if validPosition then
+            table.insert(cratePositions, {x = x, y = y})
+          end
+
+          attempts = attempts + 1
+        end
+
+        -- If we couldn't find a valid position after max attempts, use a random one anyway
+        if not validPosition then
+          local x = math.random(margin, worldSize - margin)
+          local y = math.random(margin, worldSize - margin)
+          table.insert(cratePositions, {x = x, y = y})
+          Debug.warn("game", "Could not find valid position for crate %d, using random position", i)
+        end
+      end
+
+      for i, pos in ipairs(cratePositions) do
+        local crate = EntityFactory.create("world_object", "reward_crate", pos.x, pos.y)
+        if crate then
+          world:addEntity(crate)
+          Debug.info("game", "Created reward crate %d at (%d, %d)", i, pos.x, pos.y)
+        else
+          Debug.warn("game", "Failed to create reward crate %d", i)
+        end
+      end
     end
   end
-  
-  -- Create 8 reward crates at random locations in the sector
-  do
-    local worldSize = 30000 -- Approximate world size
-    local margin = 2000 -- Keep crates away from edges
-    local minDistance = 1000 -- Minimum distance between crates
-    
-    local cratePositions = {}
-    local attempts = 0
-    local maxAttempts = 1000 -- Prevent infinite loops
-    
-    -- Generate 8 random positions with minimum distance between them
-    for i = 1, 8 do
-      local validPosition = false
-      local attempts = 0
-      
-      while not validPosition and attempts < maxAttempts do
-        local x = math.random(margin, worldSize - margin)
-        local y = math.random(margin, worldSize - margin)
-        
-        -- Check if this position is far enough from existing crates
-        validPosition = true
-        for _, existingPos in ipairs(cratePositions) do
-          local dx = x - existingPos.x
-          local dy = y - existingPos.y
-          local distance = math.sqrt(dx * dx + dy * dy)
-          if distance < minDistance then
-            validPosition = false
-            break
-          end
-        end
-        
-        if validPosition then
-          table.insert(cratePositions, {x = x, y = y})
-        end
-        
-        attempts = attempts + 1
-      end
-      
-      -- If we couldn't find a valid position after max attempts, use a random one anyway
-      if not validPosition then
-        local x = math.random(margin, worldSize - margin)
-        local y = math.random(margin, worldSize - margin)
-        table.insert(cratePositions, {x = x, y = y})
-        Debug.warn("game", "Could not find valid position for crate %d, using random position", i)
-      end
-    end
-    
-    for i, pos in ipairs(cratePositions) do
-      local crate = EntityFactory.create("world_object", "reward_crate", pos.x, pos.y)
-      if crate then
-        world:addEntity(crate)
-        Debug.info("game", "Created reward crate %d at (%d, %d)", i, pos.x, pos.y)
-      else
-        Debug.warn("game", "Failed to create reward crate %d", i)
-      end
-    end
+
+  if isMultiplayer and not isHost and pendingWorldSnapshot then
+    queueWorldSnapshot(pendingWorldSnapshot)
   end
 
   -- Step 8: Create warp gate (DISABLED)
@@ -592,7 +782,12 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   end
 
   camera:setTarget(player)
-  SpawningSystem.init(player, hub, world)
+  if not isMultiplayer or isHost then
+    SpawningSystem.init(player, hub, world)
+    if isMultiplayer and isHost then
+      broadcastHostWorldSnapshot()
+    end
+  end
   collisionSystem = CollisionSystem:new({x = 0, y = 0, width = world.width, height = world.height})
   windfieldManager = collisionSystem and collisionSystem:getWindfield()
   Game.windfield = windfieldManager
