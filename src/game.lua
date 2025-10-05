@@ -82,6 +82,7 @@ local isMultiplayer = false
 local isHost = false
 local syncedWorldEntities = {}
 local pendingWorldSnapshot = nil
+local worldSyncHandlersRegistered = false
 
 -- Expose network manager for external access
 function Game.getNetworkManager()
@@ -286,44 +287,54 @@ local function broadcastHostWorldSnapshot()
     networkManager:updateWorldSnapshot(snapshot)
 end
 
-Events.on("NETWORK_WORLD_SNAPSHOT", function(data)
-    if isHost then
+local function registerWorldSyncEventHandlers()
+    if worldSyncHandlersRegistered then
         return
     end
 
-    local snapshot = data and data.snapshot or nil
-    if not snapshot then
-        return
-    end
+    Events.on("NETWORK_WORLD_SNAPSHOT", function(data)
+        if isHost then
+            return
+        end
 
-    queueWorldSnapshot(snapshot)
-end)
+        local snapshot = data and data.snapshot or nil
+        if not snapshot then
+            return
+        end
 
-Events.on("NETWORK_DISCONNECTED", function()
-    if isHost then
-        return
-    end
+        queueWorldSnapshot(snapshot)
+    end)
 
-    clearSyncedWorldEntities()
-    pendingWorldSnapshot = nil
-end)
+    Events.on("NETWORK_DISCONNECTED", function()
+        if isHost then
+            return
+        end
 
-Events.on("NETWORK_SERVER_STOPPED", function()
-    if isHost then
-        return
-    end
+        clearSyncedWorldEntities()
+        pendingWorldSnapshot = nil
+    end)
 
-    clearSyncedWorldEntities()
-    pendingWorldSnapshot = nil
-end)
+    Events.on("NETWORK_SERVER_STOPPED", function()
+        if isHost then
+            return
+        end
 
-Events.on("NETWORK_SERVER_STARTED", function()
-    if not isHost or not world then
-        return
-    end
+        clearSyncedWorldEntities()
+        pendingWorldSnapshot = nil
+    end)
 
-    broadcastHostWorldSnapshot()
-end)
+    Events.on("NETWORK_SERVER_STARTED", function()
+        if not isHost or not world then
+            return
+        end
+
+        broadcastHostWorldSnapshot()
+    end)
+
+    worldSyncHandlersRegistered = true
+end
+
+registerWorldSyncEventHandlers()
 
 local function tryCollectNearbyRewardCrate(playerEntity, activeWorld)
   if not playerEntity or not activeWorld then return false end
