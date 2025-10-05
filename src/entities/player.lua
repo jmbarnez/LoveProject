@@ -22,6 +22,7 @@ function Player.new(x, y, shipId)
   -- Set the metatable to this Player object to add player-specific methods.
   local self = setmetatable(ship, Player)
   self.ship = shipConfig -- Store the ship's definition data
+  self.shipId = shipId or "starter_frigate_basic"
   self.isPlayer = true -- Ensure this flag is set.
     if not self.components.physics then
         self.components.physics = require("src.components.physics").new({

@@ -512,14 +512,41 @@ local function handleProjectileRequest(request, playerId)
     end
 
     local projectileId = request.projectileId or "gun_bullet"
+    local turretSlot = request.turretSlot
+    local turretId = request.turretId
+    local turretType = request.turretType
+    local sourcePlayerId = request.playerId or player.remotePlayerId or playerId
+    local sourceShipId = request.shipId or player.shipId or (player.ship and player.ship.id) or nil
+
+    local turretInstance = nil
+    if player.getTurretInSlot and turretSlot then
+        turretInstance = player:getTurretInSlot(turretSlot)
+    end
+
+    local projectileKind = "bullet"
+    if request.kind then
+        projectileKind = request.kind
+    elseif turretInstance and turretInstance.kind then
+        projectileKind = turretInstance.kind
+    end
+
     local extraConfig = {
         angle = request.angle or 0,
         friendly = true,
         damage = request.damageConfig,
-        kind = "bullet",
+        kind = projectileKind,
         additionalEffects = request.additionalEffects,
         source = player,
+        sourcePlayerId = sourcePlayerId,
+        sourceShipId = sourceShipId,
+        sourceTurretSlot = turretSlot,
+        sourceTurretId = turretId,
+        sourceTurretType = turretType,
     }
+
+    if turretInstance and turretInstance.impact and extraConfig.additionalEffects == nil then
+        extraConfig.impact = turretInstance.impact
+    end
 
 
     local projectile = EntityFactory.create(

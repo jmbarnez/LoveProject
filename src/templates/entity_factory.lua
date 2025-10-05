@@ -112,6 +112,7 @@ function EntityFactory.createPlayer(shipId, x, y)
   local config = {
     isPlayer = true,
     energyRegen = 20, -- units per second
+    shipId = shipId,
   }
   return EntityFactory.create("ship", shipId, x, y, config)
 end

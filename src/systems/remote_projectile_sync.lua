@@ -60,6 +60,62 @@ local function sanitiseRenderableProps(props)
     return nil
 end
 
+local function sanitiseDamageData(damage)
+    if not damage then
+        return nil
+    end
+
+    local function toNumber(value)
+        if value == nil then
+            return nil
+        end
+        local number = tonumber(value)
+        return number or value
+    end
+
+    -- Allow callers to pass either the raw damage table or the damage component
+    local raw = damage
+    if type(damage) == "table" and damage.value ~= nil and (damage.min == nil and damage.max == nil and damage.value ~= damage) then
+        raw = damage.value
+    end
+
+    if type(raw) ~= "table" then
+        local numeric = tonumber(raw)
+        if numeric then
+            return {
+                min = numeric,
+                max = numeric,
+                value = numeric,
+            }
+        end
+        return nil
+    end
+
+    local sanitised = {}
+
+    sanitised.min = toNumber(raw.min or raw[1])
+    sanitised.max = toNumber(raw.max or raw[2])
+    sanitised.value = toNumber(raw.value)
+    sanitised.damagePerSecond = toNumber(raw.damagePerSecond or raw.dps)
+    sanitised.skill = raw.skill
+
+    if sanitised.min == nil and sanitised.value ~= nil then
+        sanitised.min = sanitised.value
+    end
+    if sanitised.max == nil and sanitised.value ~= nil then
+        sanitised.max = sanitised.value
+    end
+    if sanitised.value == nil and sanitised.min ~= nil and sanitised.max ~= nil and sanitised.min == sanitised.max then
+        sanitised.value = sanitised.min
+    end
+
+    if sanitised.min == nil and sanitised.max == nil and sanitised.value == nil and sanitised.damagePerSecond == nil and sanitised.skill == nil then
+        return nil
+    end
+
+    return sanitised
+end
+
 local function sanitiseProjectileSnapshot(snapshot)
     if type(snapshot) ~= "table" then
         return {}
@@ -84,16 +140,25 @@ local function sanitiseProjectileSnapshot(snapshot)
                 sourceId = projectile.sourceId or nil,
                 damage = projectile.damage or nil,
                 kind = (projectile.kind and tostring(projectile.kind)) or ((projectile.renderableProps and projectile.renderableProps.kind) and tostring(projectile.renderableProps.kind)) or "bullet",
-                timed_life = projectile.timed_life or nil
+                timed_life = projectile.timed_life or nil,
+                sourcePlayerId = projectile.sourcePlayerId or projectile.source_player_id or nil,
+                sourceShipId = projectile.sourceShipId or projectile.source_ship_id or nil,
+                sourceTurretSlot = tonumber(projectile.sourceTurretSlot or projectile.source_turret_slot) or nil,
+                sourceTurretId = projectile.sourceTurretId or projectile.source_turret_id or nil,
+                sourceTurretType = projectile.sourceTurretType or projectile.source_turret_type or nil,
             }
 
             -- Include damage data if available
-            if projectile.damage then
-                sanitisedProjectile.damage = {
-                    min = tonumber(projectile.damage.min) or 1,
-                    max = tonumber(projectile.damage.max) or 2,
-                    skill = projectile.damage.skill or nil
-                }
+            local damageData = sanitiseDamageData(projectile.damage)
+            if damageData then
+                -- Normalise numeric fields where possible while preserving metadata
+                if damageData.min ~= nil then damageData.min = tonumber(damageData.min) or damageData.min end
+                if damageData.max ~= nil then damageData.max = tonumber(damageData.max) or damageData.max end
+                if damageData.value ~= nil then damageData.value = tonumber(damageData.value) or damageData.value end
+                if damageData.damagePerSecond ~= nil then
+                    damageData.damagePerSecond = tonumber(damageData.damagePerSecond) or damageData.damagePerSecond
+                end
+                sanitisedProjectile.damage = damageData
             end
 
             -- Include timed life data if available
@@ -184,6 +249,14 @@ local function buildProjectileSnapshotFromWorld(world)
             end
 
             local impact = entity.components.bullet and entity.components.bullet.impact
+            local bulletMeta = entity.components.bullet or {}
+
+            local sourcePlayerId = bulletMeta.sourcePlayerId
+            if not sourcePlayerId and source then
+                sourcePlayerId = source.remotePlayerId or source.playerId or source.id
+            end
+
+            local sourceShipId = bulletMeta.sourceShipId or (source and (source.shipId or (source.ship and source.ship.id)))
 
             local projectileData = {
                 id = entity.id or tostring(entity),
@@ -201,16 +274,18 @@ local function buildProjectileSnapshotFromWorld(world)
                 sourceId = sourceId,
                 kind = projectileKind,
                 renderableProps = renderableSnapshot,
-                impact = impact and Util.deepCopy(impact) or nil
+                impact = impact and Util.deepCopy(impact) or nil,
+                sourcePlayerId = sourcePlayerId,
+                sourceShipId = sourceShipId,
+                sourceTurretSlot = bulletMeta.slot,
+                sourceTurretId = bulletMeta.turretId,
+                sourceTurretType = bulletMeta.turretType,
             }
 
             -- Include damage data
-            if damage then
-                projectileData.damage = {
-                    min = damage.min or 1,
-                    max = damage.max or 2,
-                    skill = damage.skill or nil
-                }
+            local damageData = sanitiseDamageData(damage)
+            if damageData then
+                projectileData.damage = damageData
             end
 
             -- Include timed life data
@@ -281,11 +356,16 @@ local function ensureRemoteProjectile(projectileId, projectileData, world)
     local extra_config = {
         angle = angle,
         friendly = projectileData.friendly or false,
-        damage = projectileData.damage,
+        damage = projectileData.damage and Util.deepCopy(projectileData.damage) or nil,
         kind = projectileData.kind,
         timed_life = projectileData.timed_life,
         source = source,
-        impact = projectileData.impact and Util.deepCopy(projectileData.impact) or nil
+        impact = projectileData.impact and Util.deepCopy(projectileData.impact) or nil,
+        sourcePlayerId = projectileData.sourcePlayerId,
+        sourceShipId = projectileData.sourceShipId,
+        sourceTurretSlot = projectileData.sourceTurretSlot,
+        sourceTurretId = projectileData.sourceTurretId,
+        sourceTurretType = projectileData.sourceTurretType,
     }
 
     if projectileData.renderableProps then
@@ -337,9 +417,15 @@ local function updateProjectileFromSnapshot(entity, projectileData)
 
     -- Update damage
     if entity.components and entity.components.damage and projectileData.damage then
-        entity.components.damage.min = projectileData.damage.min
-        entity.components.damage.max = projectileData.damage.max
-        entity.components.damage.skill = projectileData.damage.skill
+        local damageComponent = entity.components.damage
+        damageComponent.value = Util.deepCopy(projectileData.damage)
+        damageComponent.min = projectileData.damage.min
+        damageComponent.max = projectileData.damage.max
+        damageComponent.skill = projectileData.damage.skill
+        damageComponent.damagePerSecond = projectileData.damage.damagePerSecond
+        if projectileData.damage.value ~= nil and type(damageComponent.value) == "table" then
+            damageComponent.value.value = projectileData.damage.value
+        end
     end
 
     -- Update timed life
@@ -351,6 +437,25 @@ local function updateProjectileFromSnapshot(entity, projectileData)
     -- Update impact configuration for consistent collision FX
     if entity.components and entity.components.bullet and projectileData.impact then
         entity.components.bullet.impact = Util.deepCopy(projectileData.impact)
+    end
+
+    if entity.components and entity.components.bullet then
+        local bullet = entity.components.bullet
+        if projectileData.sourceTurretSlot ~= nil then
+            bullet.slot = projectileData.sourceTurretSlot
+        end
+        if projectileData.sourceTurretId ~= nil then
+            bullet.turretId = projectileData.sourceTurretId
+        end
+        if projectileData.sourceTurretType ~= nil then
+            bullet.turretType = projectileData.sourceTurretType
+        end
+        if projectileData.sourcePlayerId ~= nil then
+            bullet.sourcePlayerId = projectileData.sourcePlayerId
+        end
+        if projectileData.sourceShipId ~= nil then
+            bullet.sourceShipId = projectileData.sourceShipId
+        end
     end
 
     -- Update renderable properties (beam length, colors, etc.)
