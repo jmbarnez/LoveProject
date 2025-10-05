@@ -702,10 +702,6 @@ function Game.load(fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   NetworkSession.resetEventHandlers()
 
   -- Re-register network listeners that were cleared above
-  if networkManager and networkManager.setupEventListeners then
-    networkManager:setupEventListeners()
-  end
-
   NetworkSession.setupEventHandlers()
 
   -- Re-subscribe experience notification to events after clearing

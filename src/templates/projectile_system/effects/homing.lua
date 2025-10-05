@@ -1,6 +1,6 @@
 local EffectRegistry = require("src.templates.projectile_system.effect_registry")
 local Events = require("src.templates.projectile_system.event_dispatcher").EVENTS
-local BeamWeapons = require("src.systems.turret.beam_weapons")
+local TargetUtils = require("src.core.target_utils")
 
 local function clamp(value, minValue, maxValue)
     if value < minValue then return minValue end
@@ -15,7 +15,7 @@ local function isTargetValid(target, projectile)
 
     local bulletComponent = projectile.components and projectile.components.bullet
     local source = bulletComponent and bulletComponent.source
-    return BeamWeapons.isEnemyTarget(target, source)
+    return TargetUtils.isEnemyTarget(target, source)
 end
 
 local function findNearestTarget(projectile, world, maxRangeSq)
@@ -37,7 +37,7 @@ local function findNearestTarget(projectile, world, maxRangeSq)
 
     for _, entity in ipairs(entities) do
         if entity ~= source and not entity.dead and entity.components and entity.components.position then
-            if BeamWeapons.isEnemyTarget(entity, source) then
+            if TargetUtils.isEnemyTarget(entity, source) then
                 local epos = entity.components.position
                 local dx = epos.x - pos.x
                 local dy = epos.y - pos.y

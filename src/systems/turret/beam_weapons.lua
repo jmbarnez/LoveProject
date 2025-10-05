@@ -1,12 +1,13 @@
 local CollisionHelpers = require("src.systems.turret.collision_helpers")
 local TurretEffects = require("src.systems.turret.effects")
 local Log = require("src.core.log")
-local NetworkSession = require("src.core.network.session")
+local TargetUtils = require("src.core.target_utils")
 
 local BeamWeapons = {}
 
 -- Helper function to send beam weapon fire request to host
 local function sendBeamWeaponFireRequest(turret, sx, sy, angle, beamLength, damageConfig)
+    local NetworkSession = require("src.core.network.session")
     local networkManager = NetworkSession.getManager()
     
     if networkManager and networkManager:isMultiplayer() and not networkManager:isHost() then
@@ -141,7 +142,7 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     end
 
     if hitTarget then
-        if BeamWeapons.isEnemyTarget(hitTarget, turret.owner) then
+        if TargetUtils.isEnemyTarget(hitTarget, turret.owner) then
             local damagePerSecond = turret.damagePerSecond
             if not damagePerSecond and turret.damage_range then
                 damagePerSecond = (turret.damage_range.min + turret.damage_range.max) * 0.5
@@ -222,22 +223,6 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
     return bestTarget, bestHitX, bestHitY
 end
 
--- Check if target is an enemy (for combat lasers)
--- Disabled friendly fire - all targets can be damaged
-function BeamWeapons.isEnemyTarget(target, source)
-    if not target or not target.components then
-        return false
-    end
-
-    -- Don't damage self
-    if target == source then
-        return false
-    end
-
-    -- Disable friendly fire - all targets can be damaged
-    -- This allows players to damage each other and creates PvP combat
-    return true
-end
 
 -- Apply damage from laser weapons
 function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMeta)

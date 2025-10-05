@@ -33,6 +33,7 @@ function NetworkManager.new()
     self._localPlayerId = nil
     self._worldSnapshot = nil
     self._pendingWorldSnapshot = nil
+    self._eventListenersSetup = false
 
     self:setupEventListeners()
 
@@ -40,6 +41,12 @@ function NetworkManager.new()
 end
 
 function NetworkManager:setupEventListeners()
+    -- Prevent duplicate event listener registration
+    if self._eventListenersSetup then
+        return
+    end
+    self._eventListenersSetup = true
+
     Events.on("NETWORK_CONNECTED", function()
         Log.info("Connected to multiplayer server")
     end)

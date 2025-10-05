@@ -3,7 +3,7 @@ local TurretEffects = require("src.systems.turret.effects")
 local Skills = require("src.core.skills")
 local Log = require("src.core.log")
 local BeamWeapons = require("src.systems.turret.beam_weapons")
-local NetworkSession = require("src.core.network.session")
+local TargetUtils = require("src.core.target_utils")
 
 local ProjectileWeapons = {}
 local PLAYER_LOCK_ANGLE_TOLERANCE = math.rad(25)
@@ -12,6 +12,7 @@ local LOCK_PROGRESS_DECAY_MULT = 2.0
 
 -- Helper function to send weapon fire request to host
 local function sendWeaponFireRequest(turret, sx, sy, angle, projectileId, damageConfig, additionalEffects)
+    local NetworkSession = require("src.core.network.session")
     local networkManager = NetworkSession.getManager()
     
     Log.debug("sendWeaponFireRequest check:", "networkManager=" .. tostring(networkManager ~= nil), 
@@ -52,7 +53,7 @@ local function isTargetValid(target, owner)
         return true
     end
 
-    return BeamWeapons.isEnemyTarget(target, owner)
+    return TargetUtils.isEnemyTarget(target, owner)
 end
 
 local function angleDiff(a, b)

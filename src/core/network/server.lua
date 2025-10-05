@@ -374,7 +374,17 @@ function NetworkServer:update(dt)
         return
     end
 
-    local event = self.transport.service(self.enetServer, 0)
+    -- Additional safety check for ENet server
+    if not self.enetServer.host then
+        Log.error("Network server: ENet host is nil")
+        return
+    end
+
+    local ok, event = pcall(self.transport.service, self.transport, self.enetServer, 0)
+    if not ok then
+        Log.error("Network server service error:", event)
+        return
+    end
     while event do
         if event.type == "connect" then
             self.peers[event.peer] = true

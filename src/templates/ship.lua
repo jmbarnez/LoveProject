@@ -1,5 +1,4 @@
 local Util = require("src.core.util")
-local Turret = require("src.systems.turret.core")
 local Content = require("src.content.content")
 local Log = require("src.core.log")
 local Renderable = require("src.components.renderable")

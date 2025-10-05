@@ -20,6 +20,7 @@ local state = {
     pendingWorldSnapshot = nil,
     pendingSelfNetworkState = nil,
     worldSyncHandlersRegistered = false,
+    networkManagerListenersRegistered = false,
 }
 
 local function sanitisePlayerNetworkState(playerState)
@@ -644,14 +645,17 @@ function Session.toggleHosting()
 end
 
 function Session.setupEventHandlers()
-    if state.networkManager and state.networkManager.setupEventListeners then
+    -- Only setup network manager listeners if not already registered
+    if state.networkManager and state.networkManager.setupEventListeners and not state.networkManagerListenersRegistered then
         state.networkManager:setupEventListeners()
+        state.networkManagerListenersRegistered = true
     end
     registerWorldSyncEventHandlers()
 end
 
 function Session.resetEventHandlers()
     state.worldSyncHandlersRegistered = false
+    state.networkManagerListenersRegistered = false
 end
 
 function Session.teardown()
