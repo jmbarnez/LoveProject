@@ -14,6 +14,8 @@ local updateRemotePlayer
 local createRemotePlayer
 local getLocalPlayerCanonicalId
 
+local resolvePlayerSnapshot
+
 -- Remote players storage
 local remotePlayers = {}
 local remotePlayerSnapshots = {}
@@ -227,6 +229,22 @@ getLocalPlayerCanonicalId = function(networkManager)
 
     if networkManager.client and networkManager.client.playerId then
         return canonicalizePlayerId(networkManager.client.playerId)
+    end
+
+    return nil
+end
+
+resolvePlayerSnapshot = function(playerData)
+    if not playerData then
+        return nil
+    end
+
+    if playerData.position then
+        return playerData
+    end
+
+    if playerData.data and playerData.data.position then
+        return playerData.data
     end
 
     return nil
