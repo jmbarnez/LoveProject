@@ -5,19 +5,20 @@
 ]]
 
 local Events = require("src.core.events")
-local Log = require("src.core.log")
 local Settings = require("src.core.settings")
 
 local RemoteEnemySync = {}
 
 local remoteEnemies = {}
+local pendingEnemySnapshots = {}
 local currentWorld = nil
 local lastEnemySnapshot = nil
 local enemySendAccumulator = 0
 local ENEMY_SEND_INTERVAL = 1 / 30  -- 30 Hz for enemy updates
 
 local function removeRemoteEnemy(world, enemyId)
-    local entity = remoteEnemies[enemyId]
+    local id = enemyId and tostring(enemyId) or nil
+    local entity = id and remoteEnemies[id] or nil
     if not entity then
         return
     end
@@ -26,7 +27,10 @@ local function removeRemoteEnemy(world, enemyId)
         world:removeEntity(entity)
     end
 
-    remoteEnemies[enemyId] = nil
+    if id then
+        remoteEnemies[id] = nil
+        pendingEnemySnapshots[id] = nil
+    end
 end
 
 function RemoteEnemySync.reset()
@@ -43,6 +47,7 @@ function RemoteEnemySync.reset()
     end
 
     remoteEnemies = {}
+    pendingEnemySnapshots = {}
     currentWorld = nil
     lastEnemySnapshot = nil
     enemySendAccumulator = 0
@@ -208,50 +213,67 @@ local function buildEnemySnapshotFromWorld(world)
     return snapshot
 end
 
-local function ensureRemoteEnemy(enemyId, enemyData, world)
-    if not world then
+local function ensureRemoteEnemy(enemyId, world)
+    if not world or not enemyId then
         return nil
     end
 
-    local entity = remoteEnemies[enemyId]
-    if entity then
-        return entity
+    local id = tostring(enemyId)
+    if id == "" then
+        return nil
     end
 
-    -- Try to find existing synced enemy entity with matching ID
-    local syncedEntities = world:get_entities_with_components("ai", "position")
-    for _, existingEntity in ipairs(syncedEntities) do
-        if existingEntity.isSyncedEntity and (existingEntity.id == enemyId or tostring(existingEntity) == enemyId) then
-            -- Found existing synced enemy entity, use it instead of creating a new one
-            entity = existingEntity
-            entity.isRemoteEnemy = true
-            entity.remoteEnemyId = enemyId
-            remoteEnemies[enemyId] = entity
+    local entity = remoteEnemies[id]
+    if entity then
+        if not entity.id or world:getEntity(entity.id) ~= entity then
+            remoteEnemies[id] = nil
+        else
             return entity
         end
     end
 
-    -- If no existing entity found, create a new one (fallback for backwards compatibility)
-    local EntityFactory = require("src.templates.entity_factory")
-    local x = enemyData.position and enemyData.position.x or 0
-    local y = enemyData.position and enemyData.position.y or 0
+    local function matchesHostId(candidate)
+        if not candidate then
+            return false
+        end
 
-    -- Use the enemy type from the data, fallback to basic_drone
-    local enemyType = enemyData.type or "basic_drone"
-    entity = EntityFactory.createEnemy(enemyType, x, y)
-    
-    if not entity then
-        return nil
+        local hostId = candidate.syncedHostId
+        if hostId == nil and candidate.remoteEnemyId then
+            hostId = candidate.remoteEnemyId
+        end
+        if hostId == nil and candidate.isSyncedEntity and candidate.id then
+            hostId = candidate.id
+        end
+
+        if hostId == nil then
+            return false
+        end
+
+        return tostring(hostId) == id
     end
 
-    entity.isRemoteEnemy = true
-    entity.remoteEnemyId = enemyId
-    entity.enemyType = enemyType
+    local syncedEntities = world:get_entities_with_components("ai", "position")
+    for _, existingEntity in ipairs(syncedEntities) do
+        if matchesHostId(existingEntity) then
+            existingEntity.syncedHostId = id
+            existingEntity.isRemoteEnemy = true
+            existingEntity.remoteEnemyId = id
+            remoteEnemies[id] = existingEntity
+            return existingEntity
+        end
+    end
 
-    world:addEntity(entity)
-    remoteEnemies[enemyId] = entity
+    for _, existingEntity in pairs(world:getEntities()) do
+        if matchesHostId(existingEntity) then
+            existingEntity.syncedHostId = id
+            existingEntity.isRemoteEnemy = true
+            existingEntity.remoteEnemyId = id
+            remoteEnemies[id] = existingEntity
+            return existingEntity
+        end
+    end
 
-    return entity
+    return nil
 end
 
 local function updateEnemyFromSnapshot(entity, enemyData)
@@ -259,24 +281,45 @@ local function updateEnemyFromSnapshot(entity, enemyData)
         return
     end
 
-    -- Store previous position for interpolation
-    if entity.components and entity.components.position then
-        entity._prevPosition = entity._prevPosition or {}
-        entity._prevPosition.x = entity.components.position.x
-        entity._prevPosition.y = entity.components.position.y
-        entity._prevPosition.angle = entity.components.position.angle
-        entity._prevPositionTime = entity._prevPositionTime or 0
-    end
+    local now = love.timer and love.timer.getTime() or os.clock()
 
-    -- Update position with interpolation
     if entity.components and entity.components.position and enemyData.position then
-        entity.components.position.x = enemyData.position.x
-        entity.components.position.y = enemyData.position.y
-        entity.components.position.angle = enemyData.position.angle
-        entity._lastUpdateTime = love.timer and love.timer.getTime() or os.clock()
+        local pos = entity.components.position
+
+        entity._interpStartPos = entity._interpStartPos or { x = pos.x or 0, y = pos.y or 0, angle = pos.angle or 0 }
+        entity._interpTargetPos = entity._interpTargetPos or { x = pos.x or 0, y = pos.y or 0, angle = pos.angle or 0 }
+
+        if not entity._interpInitialized then
+            pos.x = enemyData.position.x
+            pos.y = enemyData.position.y
+            pos.angle = enemyData.position.angle
+
+            entity._interpStartPos.x = pos.x
+            entity._interpStartPos.y = pos.y
+            entity._interpStartPos.angle = pos.angle or 0
+            entity._interpTargetPos.x = pos.x
+            entity._interpTargetPos.y = pos.y
+            entity._interpTargetPos.angle = pos.angle or 0
+            entity._interpInitialized = true
+        else
+            entity._interpStartPos.x = pos.x or enemyData.position.x
+            entity._interpStartPos.y = pos.y or enemyData.position.y
+            entity._interpStartPos.angle = pos.angle or 0
+            entity._interpTargetPos.x = enemyData.position.x
+            entity._interpTargetPos.y = enemyData.position.y
+            entity._interpTargetPos.angle = enemyData.position.angle or 0
+        end
+
+        entity._interpStartTime = now
+        local interval = enemyData.updateInterval or ENEMY_SEND_INTERVAL
+        entity._interpDuration = math.max(interval, 1 / 120)
     end
 
-    -- Update velocity
+    -- Update velocity target for smoothing
+    entity._targetVelocity = entity._targetVelocity or { x = 0, y = 0 }
+    entity._targetVelocity.x = enemyData.velocity and enemyData.velocity.x or 0
+    entity._targetVelocity.y = enemyData.velocity and enemyData.velocity.y or 0
+
     if entity.components and entity.components.velocity and enemyData.velocity then
         entity.components.velocity.x = enemyData.velocity.x
         entity.components.velocity.y = enemyData.velocity.y
@@ -299,14 +342,14 @@ local function updateEnemyFromSnapshot(entity, enemyData)
         ai.isHunting = enemyData.ai.state == "hunting"
         ai.targetId = enemyData.ai.target and enemyData.ai.target.id or nil
         ai.targetType = enemyData.ai.target and enemyData.ai.target.type or nil
-        
+
         -- Try to find the actual target entity in the world
         if enemyData.ai.target and enemyData.ai.target.id then
             local world = currentWorld
             if world then
                 local entities = world:getEntities()
                 for _, targetEntity in pairs(entities) do
-                    if (targetEntity.isPlayer or targetEntity.isRemotePlayer) and 
+                    if (targetEntity.isPlayer or targetEntity.isRemotePlayer) and
                        (targetEntity.id == enemyData.ai.target.id or tostring(targetEntity) == enemyData.ai.target.id) then
                         ai.target = targetEntity
                         break
@@ -318,8 +361,8 @@ local function updateEnemyFromSnapshot(entity, enemyData)
         end
     end
 
-    -- Update physics body
-    if entity.components and entity.components.physics and entity.components.physics.body then
+    -- Ensure the physics body matches the initial snapshot immediately
+    if entity.components and entity.components.physics and entity.components.physics.body and not entity._physicsInitialised and enemyData.position then
         local body = entity.components.physics.body
         if body.setPosition then
             body:setPosition(enemyData.position.x, enemyData.position.y)
@@ -327,13 +370,16 @@ local function updateEnemyFromSnapshot(entity, enemyData)
             body.x = enemyData.position.x
             body.y = enemyData.position.y
         end
-        if body.setVelocity then
-            body:setVelocity(enemyData.velocity.x, enemyData.velocity.y)
-        else
-            body.vx = enemyData.velocity.x
-            body.vy = enemyData.velocity.y
+        if enemyData.velocity then
+            if body.setVelocity then
+                body:setVelocity(enemyData.velocity.x, enemyData.velocity.y)
+            else
+                body.vx = enemyData.velocity.x
+                body.vy = enemyData.velocity.y
+            end
         end
-        body.angle = enemyData.position.angle
+        body.angle = enemyData.position.angle or 0
+        entity._physicsInitialised = true
     end
 end
 
@@ -391,31 +437,55 @@ function RemoteEnemySync.updateClient(dt, world, networkManager)
 
     -- Apply interpolation to smooth enemy movements
     local currentTime = love.timer and love.timer.getTime() or os.clock()
-    for enemyId, entity in pairs(remoteEnemies) do
-        if entity and entity._prevPosition and entity._lastUpdateTime then
-            local timeSinceUpdate = currentTime - entity._lastUpdateTime
-            local interpolationFactor = math.min(timeSinceUpdate / (1/30), 1.0) -- Interpolate over one update period
-            
-            if interpolationFactor < 1.0 and entity.components and entity.components.position then
-                -- Smooth interpolation between previous and current position
-                local pos = entity.components.position
-                local prevPos = entity._prevPosition
-                
-                pos.x = prevPos.x + (pos.x - prevPos.x) * interpolationFactor
-                pos.y = prevPos.y + (pos.y - prevPos.y) * interpolationFactor
-                pos.angle = prevPos.angle + (pos.angle - prevPos.angle) * interpolationFactor
-                
-                -- Update physics body with interpolated position
+    for _, entity in pairs(remoteEnemies) do
+        if entity and entity.components then
+            local pos = entity.components.position
+            local startPos = entity._interpStartPos
+            local targetPos = entity._interpTargetPos
+            local startTime = entity._interpStartTime
+            if pos and startPos and targetPos and startTime then
+                local duration = entity._interpDuration or ENEMY_SEND_INTERVAL
+                if duration <= 0 then
+                    duration = ENEMY_SEND_INTERVAL
+                end
+
+                local elapsed = currentTime - startTime
+                local t = math.max(0, math.min(1, elapsed / duration))
+                local smoothT = t * t * (3 - 2 * t) -- Smoothstep for gentle easing
+
+                local newX = startPos.x + (targetPos.x - startPos.x) * smoothT
+                local newY = startPos.y + (targetPos.y - startPos.y) * smoothT
+                local newAngle = startPos.angle + (targetPos.angle - startPos.angle) * smoothT
+
+                pos.x = newX
+                pos.y = newY
+                pos.angle = newAngle
+
                 if entity.components.physics and entity.components.physics.body then
                     local body = entity.components.physics.body
                     if body.setPosition then
-                        body:setPosition(pos.x, pos.y)
+                        body:setPosition(newX, newY)
                     else
-                        body.x = pos.x
-                        body.y = pos.y
+                        body.x = newX
+                        body.y = newY
                     end
-                    body.angle = pos.angle
+                    body.angle = newAngle
+
+                    local targetVelocity = entity._targetVelocity
+                    if targetVelocity then
+                        if body.setVelocity then
+                            body:setVelocity(targetVelocity.x, targetVelocity.y)
+                        else
+                            body.vx = targetVelocity.x
+                            body.vy = targetVelocity.y
+                        end
+                    end
                 end
+            end
+
+            if entity.components.velocity and entity._targetVelocity then
+                entity.components.velocity.x = entity._targetVelocity.x
+                entity.components.velocity.y = entity._targetVelocity.y
             end
         end
     end
@@ -433,11 +503,26 @@ function RemoteEnemySync.applyEnemySnapshot(snapshot, world)
 
     -- Update existing enemies and track which ones we've seen
     for _, enemyData in ipairs(sanitised) do
-        currentEnemyIds[enemyData.id] = true
-        
-        local entity = ensureRemoteEnemy(enemyData.id, enemyData, world)
+        local enemyId = enemyData.id
+        currentEnemyIds[enemyId] = true
+
+        local entity = ensureRemoteEnemy(enemyId, world)
         if entity then
             updateEnemyFromSnapshot(entity, enemyData)
+            pendingEnemySnapshots[enemyId] = nil
+        else
+            pendingEnemySnapshots[enemyId] = enemyData
+        end
+    end
+
+    if next(pendingEnemySnapshots) then
+        for enemyId, enemyData in pairs(pendingEnemySnapshots) do
+            local entity = ensureRemoteEnemy(enemyId, world)
+            if entity then
+                updateEnemyFromSnapshot(entity, enemyData)
+                pendingEnemySnapshots[enemyId] = nil
+                currentEnemyIds[enemyId] = true
+            end
         end
     end
 

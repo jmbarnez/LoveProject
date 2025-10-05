@@ -185,6 +185,9 @@ local function applyWorldSnapshot(snapshot)
         local entity = spawnEntityFromSnapshot(entry)
         if entity then
             entity.isSyncedEntity = true
+            if entry.id ~= nil then
+                entity.syncedHostId = tostring(entry.id)
+            end
             world:addEntity(entity)
             if entry.kind == "station" and entry.id == "hub_station" then
                 state.hub = entity

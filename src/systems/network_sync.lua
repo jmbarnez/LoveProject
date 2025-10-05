@@ -36,6 +36,19 @@ local function sanitiseSnapshot(snapshot)
     local velocity = snapshot.velocity or {}
     local health = snapshot.health or {}
     local shieldChannel = snapshot.shieldChannel
+    local thrusterState = snapshot.thrusterState or {}
+
+    local forward = math.max(0, math.min(1, tonumber(thrusterState.forward) or 0))
+    local reverse = math.max(0, math.min(1, tonumber(thrusterState.reverse) or 0))
+    local strafeLeft = math.max(0, math.min(1, tonumber(thrusterState.strafeLeft) or 0))
+    local strafeRight = math.max(0, math.min(1, tonumber(thrusterState.strafeRight) or 0))
+    local boost = math.max(0, math.min(1, tonumber(thrusterState.boost) or 0))
+
+    local thrusting = thrusterState.isThrusting == true
+    if not thrusting then
+        local total = forward + boost + (strafeLeft + strafeRight) * 0.5 + reverse * 0.5
+        thrusting = total > 0.01
+    end
 
     local sanitized = {
         position = {
@@ -55,7 +68,15 @@ local function sanitiseSnapshot(snapshot)
             energy = tonumber(health.energy) or 0,
             maxEnergy = tonumber(health.maxEnergy) or 0
         },
-        shieldChannel = shieldChannel == true
+        shieldChannel = shieldChannel == true,
+        thrusterState = {
+            isThrusting = thrusting,
+            forward = forward,
+            reverse = reverse,
+            strafeLeft = strafeLeft,
+            strafeRight = strafeRight,
+            boost = boost
+        }
     }
 
     return sanitized
@@ -69,6 +90,7 @@ local function snapshotsDiffer(a, b)
     local posA, posB = a.position or {}, b.position or {}
     local velA, velB = a.velocity or {}, b.velocity or {}
     local healthA, healthB = a.health or {}, b.health or {}
+    local thrusterA, thrusterB = a.thrusterState or {}, b.thrusterState or {}
 
     local posDelta = math.abs((posA.x or 0) - (posB.x or 0)) + math.abs((posA.y or 0) - (posB.y or 0))
     local angleDelta = math.abs((posA.angle or 0) - (posB.angle or 0))
@@ -84,7 +106,15 @@ local function snapshotsDiffer(a, b)
 
     local shieldChannelChanged = (a.shieldChannel or false) ~= (b.shieldChannel or false)
 
-    return posDelta > 1 or angleDelta > 0.01 or velDelta > 0.5 or healthChanged or shieldChannelChanged
+    local thrusterThreshold = 0.02
+    local thrusterChanged = (thrusterA.isThrusting or false) ~= (thrusterB.isThrusting or false)
+        or math.abs((thrusterA.forward or 0) - (thrusterB.forward or 0)) > thrusterThreshold
+        or math.abs((thrusterA.reverse or 0) - (thrusterB.reverse or 0)) > thrusterThreshold
+        or math.abs((thrusterA.strafeLeft or 0) - (thrusterB.strafeLeft or 0)) > thrusterThreshold
+        or math.abs((thrusterA.strafeRight or 0) - (thrusterB.strafeRight or 0)) > thrusterThreshold
+        or math.abs((thrusterA.boost or 0) - (thrusterB.boost or 0)) > thrusterThreshold
+
+    return posDelta > 1 or angleDelta > 0.01 or velDelta > 0.5 or healthChanged or shieldChannelChanged or thrusterChanged
 end
 
 local function ensureRemoteEntity(playerId, playerData, world)
