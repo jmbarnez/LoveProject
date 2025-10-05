@@ -6,6 +6,7 @@
 
 local Events = require("src.core.events")
 local Log = require("src.core.log")
+local Radius = require("src.systems.collision.radius")
 
 local NetworkSync = {}
 
@@ -27,13 +28,15 @@ local function sanitiseSnapshot(snapshot)
         return {
             position = { x = 0, y = 0, angle = 0 },
             velocity = { x = 0, y = 0 },
-            health = { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 }
+            health = { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 },
+            shieldChannel = false,
         }
     end
 
     local position = snapshot.position or {}
     local velocity = snapshot.velocity or {}
     local health = snapshot.health or {}
+    local shieldChannel = snapshot.shieldChannel
 
     local sanitized = {
         position = {
@@ -52,9 +55,10 @@ local function sanitiseSnapshot(snapshot)
             maxShield = tonumber(health.maxShield) or 0,
             energy = tonumber(health.energy) or 0,
             maxEnergy = tonumber(health.maxEnergy) or 0
-        }
+        },
+        shieldChannel = shieldChannel == true
     }
-    
+
     Log.info("sanitiseSnapshot: Original health shield:", health.shield, "maxShield:", health.maxShield, "-> Sanitized shield:", sanitized.health.shield, "maxShield:", sanitized.health.maxShield)
     return sanitized
 end
@@ -71,13 +75,15 @@ local function snapshotsDiffer(a, b)
     local posDelta = math.abs((posA.x or 0) - (posB.x or 0)) + math.abs((posA.y or 0) - (posB.y or 0))
     local angleDelta = math.abs((posA.angle or 0) - (posB.angle or 0))
     local velDelta = math.abs((velA.x or 0) - (velB.x or 0)) + math.abs((velA.y or 0) - (velB.y or 0))
-    
+
     -- Health changes are significant enough to always send
     local healthChanged = (healthA.hp or 100) ~= (healthB.hp or 100) or
                          (healthA.shield or 0) ~= (healthB.shield or 0) or
                          (healthA.energy or 0) ~= (healthB.energy or 0)
 
-    return posDelta > 1 or angleDelta > 0.01 or velDelta > 0.5 or healthChanged
+    local shieldChannelChanged = (a.shieldChannel or false) ~= (b.shieldChannel or false)
+
+    return posDelta > 1 or angleDelta > 0.01 or velDelta > 0.5 or healthChanged or shieldChannelChanged
 end
 
 local function ensureRemoteEntity(playerId, playerData, world)
@@ -135,14 +141,36 @@ local function updateEntityFromSnapshot(entity, snapshot)
     end
 
     -- Apply health data to remote player entities
+    local invalidateRadius = false
+
     if entity.components and entity.components.health and data.health then
         Log.info("updateEntityFromSnapshot: Applying health data to entity", entity.id or "unknown", "shield:", data.health.shield, "maxShield:", data.health.maxShield)
-        entity.components.health.hp = data.health.hp
-        entity.components.health.maxHP = data.health.maxHP
-        entity.components.health.shield = data.health.shield
-        entity.components.health.maxShield = data.health.maxShield
-        entity.components.health.energy = data.health.energy
-        entity.components.health.maxEnergy = data.health.maxEnergy
+        local health = entity.components.health
+        local oldShield = health.shield
+        local oldMaxShield = health.maxShield
+
+        health.hp = data.health.hp
+        health.maxHP = data.health.maxHP
+        health.shield = data.health.shield
+        health.maxShield = data.health.maxShield
+        health.energy = data.health.energy
+        health.maxEnergy = data.health.maxEnergy
+
+        if (oldShield or 0) ~= (health.shield or 0) or (oldMaxShield or 0) ~= (health.maxShield or 0) then
+            invalidateRadius = true
+        end
+    end
+
+    if data.shieldChannel ~= nil then
+        local previousChannel = entity.shieldChannel
+        entity.shieldChannel = data.shieldChannel
+        if previousChannel ~= entity.shieldChannel then
+            invalidateRadius = true
+        end
+    end
+
+    if invalidateRadius then
+        Radius.invalidateCache(entity)
     end
 
     if entity.components and entity.components.physics and entity.components.physics.body then
@@ -213,7 +241,8 @@ function NetworkSync.update(dt, player, world, networkManager)
                 maxShield = health.maxShield or 0,
                 energy = health.energy or 0,
                 maxEnergy = health.maxEnergy or 0
-            } or { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 }
+            } or { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 },
+            shieldChannel = player.shieldChannel or false
         }
 
         if sendAccumulator >= POSITION_SEND_INTERVAL or snapshotsDiffer(snapshot, lastSentSnapshot) then
