@@ -77,6 +77,9 @@ local function normaliseAddress(address)
         return "127.0.0.1"
     end
 
+    -- Allow IPv6 style [::1] inputs by trimming square brackets.
+    trimmed = trimmed:gsub("^%[(.-)%]$", "%1")
+
     return trimmed
 end
 
@@ -93,14 +96,32 @@ end
 local function buildAddressAttempts(address)
     local attempts = {}
     local normalised = normaliseAddress(address)
-
-    addAddressCandidate(attempts, normalised)
-
     local lowered = normalised:lower()
+
+    local function prefer(value)
+        if value then
+            addAddressCandidate(attempts, value)
+        end
+    end
+
     if lowered == "localhost" then
-        addAddressCandidate(attempts, "127.0.0.1")
+        -- Prioritise IPv4 first as ENet commonly runs IPv4-only on Windows.
+        prefer("127.0.0.1")
+        prefer("::1")
+        prefer(normalised)
     elseif lowered == "127.0.0.1" then
-        addAddressCandidate(attempts, "localhost")
+        prefer(normalised)
+        prefer("localhost")
+        prefer("::1")
+    elseif lowered == "::1" then
+        prefer(normalised)
+        prefer("localhost")
+        prefer("127.0.0.1")
+    else
+        prefer(normalised)
+        if lowered == "0.0.0.0" then
+            prefer("127.0.0.1")
+        end
     end
 
     return attempts
@@ -297,15 +318,15 @@ function NetworkClient:connect(address, port)
             else
                 lastError = result
                 self.lastError = result
+                EnetTransport.disconnectClient(client)
                 EnetTransport.destroy(client)
             end
         end
     end
 
     if not connectedClient then
-        local finalError = lastError or "Connection failed"
-        self.lastError = finalError
-        return false, finalError
+        self.lastError = lastError or self.lastError or "Connection failed"
+        return false, self.lastError
     end
 
     self.transport = EnetTransport
