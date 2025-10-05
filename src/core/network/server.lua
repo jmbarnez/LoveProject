@@ -474,6 +474,40 @@ function NetworkServer:_handleHello(peer, message)
 
     self.peerToPlayer[peer] = playerId
 
+    -- Force update host player state to ensure new client gets current health data
+    -- Get current host player state from the game
+    local Game = require("src.game")
+    local world = Game.world
+    local hostPlayer = world and world:getPlayer()
+    if hostPlayer and hostPlayer.components then
+        local position = hostPlayer.components.position
+        local velocity = hostPlayer.components.velocity
+        local health = hostPlayer.components.health
+        
+        -- Debug logging for host player shield data
+        if health then
+            Log.info("Server._handleHello: Host player health data - hp:", health.hp, "maxHP:", health.maxHP, "shield:", health.shield, "maxShield:", health.maxShield)
+        else
+            Log.warn("Server._handleHello: Host player has no health component!")
+        end
+        
+        local currentState = {
+            position = position and { x = position.x, y = position.y, angle = position.angle or 0 } or { x = 0, y = 0, angle = 0 },
+            velocity = velocity and { x = velocity.x or 0, y = velocity.y or 0 } or { x = 0, y = 0 },
+            health = health and {
+                hp = health.hp or 100,
+                maxHP = health.maxHP or 100,
+                shield = health.shield or 0,
+                maxShield = health.maxShield or 0,
+                energy = health.energy or 0,
+                maxEnergy = health.maxEnergy or 0
+            } or { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 },
+            shieldChannel = hostPlayer.shieldChannel or false
+        }
+        
+        self:updateHostState(currentState)
+    end
+
     local welcomePayload = {
         type = TYPES.WELCOME,
         playerId = playerId,

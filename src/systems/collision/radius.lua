@@ -202,7 +202,9 @@ end
 function Radius.calculateEffectiveRadius(entity)
     local effective = Radius.getHullRadius(entity)
     local health = entity.components and entity.components.health
-    if health and (health.shield or 0) > 0 then
+    -- For players, always use shield radius if they have shield capacity
+    -- This ensures consistent collision detection for remote projectiles
+    if health and (health.maxShield or 0) > 0 then
         effective = math.max(effective, Radius.getShieldRadius(entity))
     end
     return effective + HIT_BUFFER

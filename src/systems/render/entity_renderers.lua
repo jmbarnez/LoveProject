@@ -176,24 +176,10 @@ function EntityRenderers.remote_player(entity, player)
         love.graphics.print(entity.playerName, -textWidth / 2, -S(20) - textHeight)
     end
 
+    -- Use the same health/shield bar system as enemies for consistent display
     if entity.components and entity.components.health then
-        local health = entity.components.health
-        local hpPercent = math.max(0, math.min(1, health.hp / math.max(health.maxHP or 1, 1)))
-        local barWidth = S(22)
-        local barHeight = S(3)
-        local barY = -S(15)
-
-        RenderUtils.setColor({0.1, 0.18, 0.28, 0.85})
-        love.graphics.rectangle("fill", -barWidth / 2, barY, barWidth, barHeight)
-
-        RenderUtils.setColor({0.45, 0.75, 1.0, 1.0})
-        love.graphics.rectangle("fill", -barWidth / 2, barY, barWidth * hpPercent, barHeight)
-
-        local healthLineWidth = love.graphics.getLineWidth and love.graphics.getLineWidth() or 1
-        RenderUtils.setColor({0.8, 0.9, 1.0, 0.75})
-        love.graphics.setLineWidth(1)
-        love.graphics.rectangle("line", -barWidth / 2, barY, barWidth, barHeight)
-        love.graphics.setLineWidth(healthLineWidth)
+        local EnemyStatusBars = require("src.ui.hud.enemy_status_bars")
+        EnemyStatusBars.drawMiniBars(entity)
     end
 
     -- Render remote beam if active

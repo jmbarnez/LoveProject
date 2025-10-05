@@ -137,6 +137,12 @@ function PlayerRenderer.render(entity, playerRef)
     -- Restore graphics state
     love.graphics.pop()
 
+    -- Draw health/shield bars above player (same as remote players)
+    if entity.components and entity.components.health then
+        local EnemyStatusBars = require("src.ui.hud.enemy_status_bars")
+        EnemyStatusBars.drawMiniBars(entity)
+    end
+
     -- Draw laser beams for player turrets from grid
     local TurretEffects = require("src.systems.turret.effects")
     if entity.components and entity.components.equipment and entity.components.equipment.grid then

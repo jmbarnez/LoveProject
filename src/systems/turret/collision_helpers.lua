@@ -33,7 +33,9 @@ function CollisionHelpers.performCollisionCheck(x1, y1, x2, y2, target, targetRa
     targetRadius = targetRadius or CollisionHelpers.calculateEffectiveRadius(target)
 
     local health = components.health
-    if health and (health.shield or 0) > 0 then
+    -- For players, always check shield collision first if they have any shield capacity
+    -- This ensures remote projectiles properly detect shield hits even with stale shield data
+    if health and (health.maxShield or 0) > 0 then
         local shieldRadius = Radius.getShieldRadius(target)
         return CollisionHelpers.calculateShieldHitPoint(x1, y1, x2, y2, ex, ey, shieldRadius)
     end

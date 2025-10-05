@@ -78,8 +78,11 @@ local function snapshotsDiffer(a, b)
 
     -- Health changes are significant enough to always send
     local healthChanged = (healthA.hp or 100) ~= (healthB.hp or 100) or
+                         (healthA.maxHP or 100) ~= (healthB.maxHP or 100) or
                          (healthA.shield or 0) ~= (healthB.shield or 0) or
-                         (healthA.energy or 0) ~= (healthB.energy or 0)
+                         (healthA.maxShield or 0) ~= (healthB.maxShield or 0) or
+                         (healthA.energy or 0) ~= (healthB.energy or 0) or
+                         (healthA.maxEnergy or 0) ~= (healthB.maxEnergy or 0)
 
     local shieldChannelChanged = (a.shieldChannel or false) ~= (b.shieldChannel or false)
 
@@ -230,6 +233,7 @@ function NetworkSync.update(dt, player, world, networkManager)
         local position = player.components.position
         local velocity = player.components.velocity
         local health = player.components.health
+
 
         local snapshot = {
             position = { x = position.x, y = position.y, angle = position.angle or 0 },

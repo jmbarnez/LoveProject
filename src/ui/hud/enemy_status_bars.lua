@@ -19,22 +19,30 @@ function EnemyStatusBars.drawMiniBars(entity)
   local col = entity.components.collidable
   if not (h and col) then return end
 
-  -- Show bars if recently damaged OR if enemy is low on health/shield
-  local showTime = getCombatValue("ENEMY_BAR_VIS_TIME") or 2.5
-  local last = entity._hudDamageTime or -1e9
-  local timeSinceDamage = love.timer.getTime() - last
+  -- Check if this is a player entity
+  local isPlayer = entity.isPlayer or (entity.components and entity.components.player ~= nil) or entity.isRemotePlayer
   
-  -- Always show if recently damaged
-  local recentlyDamaged = timeSinceDamage <= showTime
-  
-  -- Also show if enemy is low on health or has shields (for better visibility)
-  local hpPct = (h.hp or 0) / math.max(1, h.maxHP or 100)
-  local shieldPct = (h.shield or 0) / math.max(1, h.maxShield or 1)
-  local isLowHealth = hpPct < 0.8  -- Show if below 80% health
-  local hasShields = (h.maxShield or 0) > 0 and (h.shield or 0) > 0  -- Show if has shields
-  
-  if not recentlyDamaged and not isLowHealth and not hasShields then
-    return
+  -- For players, always show health bars
+  if isPlayer then
+    -- Always show for players
+  else
+    -- For enemies, show bars if recently damaged OR if enemy is low on health/shield
+    local showTime = getCombatValue("ENEMY_BAR_VIS_TIME") or 2.5
+    local last = entity._hudDamageTime or -1e9
+    local timeSinceDamage = love.timer.getTime() - last
+    
+    -- Always show if recently damaged
+    local recentlyDamaged = timeSinceDamage <= showTime
+    
+    -- Also show if enemy is low on health or has shields (for better visibility)
+    local hpPct = (h.hp or 0) / math.max(1, h.maxHP or 100)
+    local shieldPct = (h.shield or 0) / math.max(1, h.maxShield or 1)
+    local isLowHealth = hpPct < 0.8  -- Show if below 80% health
+    local hasShields = (h.maxShield or 0) > 0 and (h.shield or 0) > 0  -- Show if has shields
+    
+    if not recentlyDamaged and not isLowHealth and not hasShields then
+      return
+    end
   end
 
   local hp = h.hp or h.current or 0

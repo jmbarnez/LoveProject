@@ -157,6 +157,11 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
     local hadShield = (health.shield or 0) > 0
     local shieldBefore = health.shield or 0
     
+    -- Debug logging for shield collision detection
+    if entity.isPlayer or entity.isRemotePlayer then
+        Log.info("CollisionEffects.applyDamage: Player shield data - shield:", shieldBefore, "maxShield:", health.maxShield, "hadShield:", hadShield)
+    end
+    
     -- Apply weapon-specific damage modifiers
     local shieldDamage, remainingDamage
     if isLaserWeapon then

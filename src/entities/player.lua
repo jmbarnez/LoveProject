@@ -39,9 +39,6 @@ function Player.new(x, y, shipId)
     self.components.physics.body.dragCoefficient = CorePhysics.constants.SPACE_DRAG_COEFFICIENT
   end
 
-  -- Initialize shield HP based on equipped modules
-  self:updateShieldHP()
-
   -- Player-specific defaults now live in dedicated components
   self.components.player_state = self.components.player_state or PlayerStateComponent.new({
     move_target = nil,
@@ -118,6 +115,9 @@ function Player.new(x, y, shipId)
           self:addItem("salvaging_laser", 1)
       end
   end
+
+  -- Initialize shield HP based on equipped modules (after modules are equipped)
+  self:updateShieldHP()
 
   PlayerHotbar.populate(self)
 
@@ -410,11 +410,16 @@ function Player:updateShieldHP()
 
     -- Update the health component
     if self.components.health then
+        local oldMaxShield = self.components.health.maxShield
+        local oldShield = self.components.health.shield
         self.components.health.maxShield = totalShieldHP
-        -- Ensure current shield doesn't exceed max
-        if self.components.health.shield > totalShieldHP then
+        -- Initialize current shield to max if it's 0 (new player) or ensure it doesn't exceed max
+        if self.components.health.shield == 0 and totalShieldHP > 0 then
+            self.components.health.shield = totalShieldHP
+        elseif self.components.health.shield > totalShieldHP then
             self.components.health.shield = totalShieldHP
         end
+        
     end
 end
 
