@@ -47,14 +47,14 @@ return {
             }
         },
         damage = {
-            value = 1.5,
+            value = 15.0,
         },
         timed_life = {
             duration = 5.0,
         },
         explosion = {
             radius = 60,
-            damage = 2
+            damage = 20
         }
     },
     
@@ -67,7 +67,7 @@ return {
     
     -- Weapon stats
     optimal = 1500, falloff = 2500,
-    damage_range = { min = 1, max = 2 },
+    damage_range = { min = 10, max = 20 },
     cycle = 6.0, capCost = 8,
     maxRange = 3000,
     spread = { minDeg = 1.2, maxDeg = 3.5, decay = 300 },

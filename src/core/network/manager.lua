@@ -168,7 +168,7 @@ function NetworkManager:startHost(port)
     return true
 end
 
-function NetworkManager:joinGame(address, port)
+function NetworkManager:joinGame(address, port, username)
     if self._isMultiplayer then
         return false, "Already in multiplayer"
     end
@@ -176,6 +176,11 @@ function NetworkManager:joinGame(address, port)
     -- Reset connection attempts for fresh connection attempt
     if self.client then
         self.client:resetConnectionAttempts()
+    end
+
+    -- Set the username on the client before connecting
+    if username and self.client then
+        self.client.localName = username
     end
 
     local Constants = require("src.core.constants")

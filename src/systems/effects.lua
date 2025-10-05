@@ -20,17 +20,43 @@ function Effects.getImpacts()
 end
 
 function Effects.addDamageNumber(x, y, amount, type)
-  local color = type == "shield" and {0.2, 0.8, 1.0, 1.0} or {1.0, 0.6, 0.2, 1.0}
-  table.insert(damageNumbers, {
-    x = x,
-    y = y,
-    text = tostring(amount),
-    color = color,
+  -- Add offset to spawn damage numbers above and slightly to the side of the player
+  local offsetX = (math.random() - 0.5) * 20  -- Random horizontal offset between -10 and 10
+  local offsetY = -25  -- Spawn above the player
+  local spawnX = x + offsetX
+  local spawnY = y + offsetY
+  
+  -- Check if there's already a damage number at this position that we can combine with
+  for i, dn in ipairs(damageNumbers) do
+    if math.abs(dn.x - spawnX) < 20 and math.abs(dn.y - spawnY) < 20 and dn.timer < 0.1 then
+      -- Combine with existing damage number
+      if type == "shield" then
+        dn.shieldAmount = amount
+      else
+        dn.hullAmount = amount
+      end
+      return
+    end
+  end
+  
+  -- Create new damage number entry
+  local damageEntry = {
+    x = spawnX,
+    y = spawnY,
     life = 2.5,  -- Increased lifetime for better visibility
     timer = 0,
     scale = 1.0,  -- Starting scale
     maxScale = 1.3,  -- Maximum scale during animation
-  })
+  }
+  
+  -- Set the appropriate damage amount
+  if type == "shield" then
+    damageEntry.shieldAmount = amount
+  else
+    damageEntry.hullAmount = amount
+  end
+  
+  table.insert(damageNumbers, damageEntry)
 end
 
 -- Add a generic FX particle
@@ -296,7 +322,7 @@ end
 
 function Effects.draw()
   -- Draw damage numbers
-  love.graphics.setFont(Theme.fonts.large)  -- Use larger font for better visibility
+  love.graphics.setFont(Theme.fonts.medium)  -- Use medium font for smaller boxes
   for i = #damageNumbers, 1, -1 do
     local dn = damageNumbers[i]
     local progress = dn.timer / dn.life
@@ -308,13 +334,52 @@ function Effects.draw()
     love.graphics.scale(dn.scale, dn.scale)
     love.graphics.translate(-dn.x, -dn.y)
     
-    -- Draw text shadow for better visibility
-    love.graphics.setColor(0, 0, 0, alpha * 0.8)
-    love.graphics.print(dn.text, dn.x + 2, dn.y + 2)
+    local boxWidth = 28
+    local boxHeight = 18
+    local boxSpacing = 3
+    local totalWidth = 0
     
-    -- Draw main text
-    love.graphics.setColor(dn.color[1], dn.color[2], dn.color[3], alpha)
-    love.graphics.print(dn.text, dn.x, dn.y)
+    -- Calculate total width needed
+    if dn.shieldAmount then totalWidth = totalWidth + boxWidth end
+    if dn.hullAmount then totalWidth = totalWidth + boxWidth end
+    if dn.shieldAmount and dn.hullAmount then totalWidth = totalWidth + boxSpacing end
+    
+    local startX = dn.x - totalWidth / 2
+    local currentX = startX
+    
+    -- Draw shield damage box
+    if dn.shieldAmount then
+      -- Shield box background (blue)
+      love.graphics.setColor(0.2, 0.8, 1.0, alpha * 0.8)
+      love.graphics.rectangle("fill", currentX, dn.y - boxHeight/2, boxWidth, boxHeight, 4, 4)
+      
+      -- Shield box border
+      love.graphics.setColor(0.2, 0.8, 1.0, alpha)
+      love.graphics.rectangle("line", currentX, dn.y - boxHeight/2, boxWidth, boxHeight, 4, 4)
+      
+      -- Shield text (white)
+      love.graphics.setColor(1.0, 1.0, 1.0, alpha)
+      local textWidth = love.graphics.getFont():getWidth(tostring(dn.shieldAmount))
+      love.graphics.print(tostring(dn.shieldAmount), currentX + (boxWidth - textWidth) / 2, dn.y - 6)
+      
+      currentX = currentX + boxWidth + boxSpacing
+    end
+    
+    -- Draw hull damage box
+    if dn.hullAmount then
+      -- Hull box background (orange)
+      love.graphics.setColor(1.0, 0.6, 0.2, alpha * 0.8)
+      love.graphics.rectangle("fill", currentX, dn.y - boxHeight/2, boxWidth, boxHeight, 4, 4)
+      
+      -- Hull box border
+      love.graphics.setColor(1.0, 0.6, 0.2, alpha)
+      love.graphics.rectangle("line", currentX, dn.y - boxHeight/2, boxWidth, boxHeight, 4, 4)
+      
+      -- Hull text (white)
+      love.graphics.setColor(1.0, 1.0, 1.0, alpha)
+      local textWidth = love.graphics.getFont():getWidth(tostring(dn.hullAmount))
+      love.graphics.print(tostring(dn.hullAmount), currentX + (boxWidth - textWidth) / 2, dn.y - 6)
+    end
     
     love.graphics.pop()
   end

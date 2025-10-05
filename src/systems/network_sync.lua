@@ -59,7 +59,7 @@ local function sanitiseSnapshot(snapshot)
         shieldChannel = shieldChannel == true
     }
 
-    Log.info("sanitiseSnapshot: Original health shield:", health.shield, "maxShield:", health.maxShield, "-> Sanitized shield:", sanitized.health.shield, "maxShield:", sanitized.health.maxShield)
+    -- Log.info("sanitiseSnapshot: Original health shield:", health.shield, "maxShield:", health.maxShield, "-> Sanitized shield:", sanitized.health.shield, "maxShield:", sanitized.health.maxShield)
     return sanitized
 end
 
@@ -147,10 +147,11 @@ local function updateEntityFromSnapshot(entity, snapshot)
     local invalidateRadius = false
 
     if entity.components and entity.components.health and data.health then
-        Log.info("updateEntityFromSnapshot: Applying health data to entity", entity.id or "unknown", "shield:", data.health.shield, "maxShield:", data.health.maxShield)
+        -- Log.info("updateEntityFromSnapshot: Applying health data to entity", entity.id or "unknown", "shield:", data.health.shield, "maxShield:", data.health.maxShield)
         local health = entity.components.health
         local oldShield = health.shield
         local oldMaxShield = health.maxShield
+        local oldHP = health.hp
 
         health.hp = data.health.hp
         health.maxHP = data.health.maxHP
@@ -158,6 +159,22 @@ local function updateEntityFromSnapshot(entity, snapshot)
         health.maxShield = data.health.maxShield
         health.energy = data.health.energy
         health.maxEnergy = data.health.maxEnergy
+
+        -- Detect health changes and create damage numbers for remote players
+        if entity.isRemotePlayer and entity.components.position then
+            local shieldDamage = math.max(0, (oldShield or 0) - (health.shield or 0))
+            local hullDamage = math.max(0, (oldHP or 0) - (health.hp or 0))
+            
+            if shieldDamage > 0 or hullDamage > 0 then
+                local Effects = require("src.systems.effects")
+                if shieldDamage > 0 then
+                    Effects.addDamageNumber(entity.components.position.x, entity.components.position.y, math.floor(shieldDamage), "shield")
+                end
+                if hullDamage > 0 then
+                    Effects.addDamageNumber(entity.components.position.x, entity.components.position.y, math.floor(hullDamage), "hull")
+                end
+            end
+        end
 
         if (oldShield or 0) ~= (health.shield or 0) or (oldMaxShield or 0) ~= (health.maxShield or 0) then
             invalidateRadius = true

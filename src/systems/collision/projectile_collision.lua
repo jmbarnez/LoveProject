@@ -100,14 +100,7 @@ local function perform_collision_check(x1, y1, x2, y2, target, target_radius)
     -- This ensures remote projectiles properly detect shield hits even with stale shield data
     if health and (health.maxShield or 0) > 0 then
         local shield_radius = Radius.getShieldRadius(target)
-        local hit = Geometry.calculateShieldHitPoint(x1, y1, x2, y2, ex, ey, shield_radius)
-        
-        -- Debug logging for shield collision detection
-        if target.isPlayer or target.isRemotePlayer then
-            Log.info("ProjectileCollision.perform_collision_check: Player shield collision - shield:", health.shield, "maxShield:", health.maxShield, "shield_radius:", shield_radius, "hit:", hit)
-        end
-        
-        return hit
+        return Geometry.calculateShieldHitPoint(x1, y1, x2, y2, ex, ey, shield_radius)
     end
 
     local hasPolygon = collidable and collidable.vertices
@@ -197,11 +190,6 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
 
             -- Determine impact type using actual damage results
             local impact_type = (shield_hit or had_shield) and 'shield' or 'hull'
-            
-            -- Debug logging for impact type determination
-            if target.isPlayer or target.isRemotePlayer then
-                Log.info("ProjectileCollision.handle_projectile_collision: Impact type determination - shield_hit:", shield_hit, "had_shield:", had_shield, "impact_type:", impact_type)
-            end
 
             -- Calculate impact radius for visual effect
             local impact_radius = target_radius

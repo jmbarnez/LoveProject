@@ -38,7 +38,8 @@ local function sanitiseState(state)
         return {
             position = { x = 0, y = 0, angle = 0 },
             velocity = { x = 0, y = 0 },
-            health = { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 }
+            health = { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 },
+            shieldChannel = false
         }
     end
 
@@ -64,7 +65,8 @@ local function sanitiseState(state)
             maxShield = tonumber(health.maxShield) or 0,
             energy = tonumber(health.energy) or 0,
             maxEnergy = tonumber(health.maxEnergy) or 0
-        }
+        },
+        shieldChannel = state.shieldChannel == true
     }
 end
 
@@ -484,12 +486,6 @@ function NetworkServer:_handleHello(peer, message)
         local velocity = hostPlayer.components.velocity
         local health = hostPlayer.components.health
         
-        -- Debug logging for host player shield data
-        if health then
-            Log.info("Server._handleHello: Host player health data - hp:", health.hp, "maxHP:", health.maxHP, "shield:", health.shield, "maxShield:", health.maxShield)
-        else
-            Log.warn("Server._handleHello: Host player has no health component!")
-        end
         
         local currentState = {
             position = position and { x = position.x, y = position.y, angle = position.angle or 0 } or { x = 0, y = 0, angle = 0 },

@@ -285,16 +285,26 @@ function DestructionSystem.update(world, gameState, hub)
             
             -- Check for collision with all stations to ensure we don't respawn inside one
             local attempts = 0
-            local maxAttempts = 50
+            local maxAttempts = 20 -- Reduced from 50 to prevent long delays
             local spawnValid = false
             
             while not spawnValid and attempts < maxAttempts do
               attempts = attempts + 1
               spawnValid = true
               
-              -- Check collision with all stations
+              -- Check collision with all stations (with timeout protection)
               local all_stations = world:get_entities_with_components("station")
-              for _, station in ipairs(all_stations) do
+              local stationCheckStart = love.timer.getTime()
+              local maxStationCheckTime = 0.005 -- 5ms max for station checking
+              
+              for i, station in ipairs(all_stations) do
+                -- Timeout protection for station checking
+                if love.timer.getTime() - stationCheckStart > maxStationCheckTime then
+                  Log.warn("DestructionSystem - Station collision check timed out, using current position")
+                  spawnValid = true
+                  break
+                end
+                
                 if station and station.components and station.components.position and station.components.collidable then
                   local sx, sy = station.components.position.x, station.components.position.y
                   local dx = px - sx
@@ -320,6 +330,14 @@ function DestructionSystem.update(world, gameState, hub)
                     py = stationPos.y + math.sin(angle) * spawn_dist
                     break
                   end
+                end
+              end
+              
+              -- Add small delay between attempts to prevent tight loop
+              if not spawnValid and attempts < maxAttempts then
+                local delayStart = love.timer.getTime()
+                while love.timer.getTime() - delayStart < 0.001 do
+                  -- 1ms delay
                 end
               end
             end
@@ -366,62 +384,62 @@ function DestructionSystem.update(world, gameState, hub)
             local Physics = require("src.components.physics")
             local mass = (e.ship and e.ship.engine and e.ship.engine.mass) or 500
 
-            local created = false
-            local attempts = 0
-            while not created and attempts < 3 do
-              attempts = attempts + 1
+            -- Create physics body with timeout protection to prevent freeze
+            local maxAttempts = 3
+            local attemptDelay = 0.001 -- 1ms delay between attempts
+            
+            for attempts = 1, maxAttempts do
               phys = Physics.new({ mass = mass, x = px, y = py })
-              if not phys then
-                Log.error("DestructionSystem - Failed to create physics component on attempt " .. attempts)
-              else
+              if phys and phys.body then
                 e.components.physics = phys
-                if phys.body then
-
-                  -- Try to set initial properties; if this fails, try recreating the body instead
-                  local ok = true
-                  local success, err = pcall(function()
-                    phys.body.skipThrusterForce = true
-                    phys.body.x = px
-                    phys.body.y = py
-                    phys.body.vx = 0
-                    phys.body.vy = 0
-                    phys.body.ax = 0
-                    phys.body.ay = 0
-                    phys.body.torque = 0
-                    phys.body.angle = 0
-                    phys.body.angularVel = 0
+                
+                -- Try to set initial properties with error handling
+                local success, err = pcall(function()
+                  phys.body.skipThrusterForce = true
+                  phys.body.x = px
+                  phys.body.y = py
+                  phys.body.vx = 0
+                  phys.body.vy = 0
+                  phys.body.ax = 0
+                  phys.body.ay = 0
+                  phys.body.torque = 0
+                  phys.body.angle = 0
+                  phys.body.angularVel = 0
+                end)
+                
+                if success then
+                  -- Ensure the body is active and awake
+                  local awakeSuccess, awakeErr = pcall(function()
+                    if phys.body.setAwake then phys.body:setAwake(true) end
+                    if phys.body.setActive then phys.body:setActive(true) end
                   end)
-                  if not success then
-                    ok = false
-                    Log.warn("DestructionSystem - Failed to initialize physics body properties on attempt " .. attempts .. ": " .. tostring(err))
+                  if not awakeSuccess then
+                    Log.warn("DestructionSystem - Failed to activate physics body on attempt " .. attempts .. ": " .. tostring(awakeErr))
                   end
-
-                  if ok then
-                    -- Ensure the body is active and awake, but don't destroy the body on failure
-                    local awakeSuccess, awakeErr = pcall(function()
-                      if phys.body.setAwake then phys.body:setAwake(true) end
-                      if phys.body.setActive then phys.body:setActive(true) end
-                    end)
-                    if not awakeSuccess then
-                      Log.warn("DestructionSystem - Failed to activate physics body on attempt " .. attempts .. ": " .. tostring(awakeErr))
-                    end
-
-                    created = true
-                    break
-                  else
-                    -- Attempt to retry creation
-                    -- clear the reference and loop to retry
-                    phys = nil
-                    e.components.physics = nil
-                  end
+                  break -- Success, exit the loop
                 else
-                  Log.error("DestructionSystem - Physics component created but body is nil on attempt " .. attempts)
-                  e.components.physics = nil
+                  Log.warn("DestructionSystem - Failed to initialize physics body properties on attempt " .. attempts .. ": " .. tostring(err))
+                  if attempts < maxAttempts then
+                    -- Small delay before retry to prevent tight loop
+                    local startTime = love.timer.getTime()
+                    while love.timer.getTime() - startTime < attemptDelay do
+                      -- Busy wait with timeout
+                    end
+                  end
+                end
+              else
+                Log.error("DestructionSystem - Failed to create physics component on attempt " .. attempts)
+                if attempts < maxAttempts then
+                  -- Small delay before retry
+                  local startTime = love.timer.getTime()
+                  while love.timer.getTime() - startTime < attemptDelay do
+                    -- Busy wait with timeout
+                  end
                 end
               end
             end
 
-            if not created then
+            if not phys or not phys.body then
               Log.error("DestructionSystem - Unable to create a valid physics body after " .. attempts .. " attempts for entity " .. (e.id or "unknown") .. ". Player may be non-responsive.")
               -- Create a minimal fallback physics component to prevent complete failure
               local Physics = require("src.components.physics")

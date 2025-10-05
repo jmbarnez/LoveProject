@@ -558,8 +558,8 @@ function Session.load(opts)
             end
 
             Log.info("Attempting connection to server from start screen parameters")
-            Log.info("Connection details:", connection.address, connection.port)
-            local ok, err = state.networkManager:joinGame(connection.address, connection.port)
+            Log.info("Connection details:", connection.address, connection.port, connection.username)
+            local ok, err = state.networkManager:joinGame(connection.address, connection.port, connection.username)
             Log.info("Connection result:", ok, err)
             if not ok then
                 Log.error("Failed to connect to server", err)
