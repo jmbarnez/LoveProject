@@ -30,6 +30,8 @@ local function sanitiseState(state)
             x = tonumber(velocity.x) or 0,
             y = tonumber(velocity.y) or 0
         },
+        health = state.health,
+        shieldChannel = state.shieldChannel == true,
         name = state.name
     }
 end

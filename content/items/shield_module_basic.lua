@@ -41,7 +41,7 @@ return {
     -- Module properties
     module = {
         type = "shield",
-        shield_hp = 5,
+        shield_hp = 50,
         shield_regen = 0.8, -- HP per second (much slower)
         slot_type = "shield"
     }
