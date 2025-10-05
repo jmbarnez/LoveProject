@@ -12,13 +12,11 @@ local NetworkSync = {}
 local POSITION_SEND_INTERVAL = 1 / 15
 
 local remoteEntities = {}
-local remoteSnapshots = {}
 local lastSentSnapshot = nil
 local sendAccumulator = 0
 
 function NetworkSync.reset()
     remoteEntities = {}
-    remoteSnapshots = {}
     lastSentSnapshot = nil
     sendAccumulator = 0
 end
@@ -139,7 +137,6 @@ local function removeRemoteEntity(world, playerId)
     end
 
     remoteEntities[playerId] = nil
-    remoteSnapshots[playerId] = nil
 end
 
 Events.on("NETWORK_PLAYER_LEFT", function(payload)
@@ -185,13 +182,10 @@ function NetworkSync.update(dt, player, world, networkManager)
 
     for id, playerInfo in pairs(players) do
         if id ~= localId then
-            local snapshot = sanitiseSnapshot(playerInfo.state or {})
-            remoteSnapshots[id] = snapshot
-
-            local entity = ensureRemoteEntity(id, snapshot, world)
+            local entity = ensureRemoteEntity(id, playerInfo.state or {}, world)
             if entity then
                 entity.playerName = playerInfo.playerName or entity.playerName
-                updateEntityFromSnapshot(entity, snapshot)
+                updateEntityFromSnapshot(entity, playerInfo.state)
             end
         end
     end
@@ -201,14 +195,6 @@ function NetworkSync.update(dt, player, world, networkManager)
             removeRemoteEntity(world, id)
         end
     end
-end
-
-function NetworkSync.getRemotePlayers()
-    return remoteEntities
-end
-
-function NetworkSync.getRemotePlayerSnapshots()
-    return remoteSnapshots
 end
 
 return NetworkSync
