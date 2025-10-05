@@ -335,6 +335,15 @@ function NetworkClient:_handleMessage(message)
         self.playerId = message.playerId
         self.players = buildIndex(message.players)
 
+        -- Handle world snapshot from welcome message
+        if message.worldSnapshot then
+            local snapshot = sanitiseWorldSnapshot(message.worldSnapshot)
+            if snapshot then
+                self.worldSnapshot = snapshot
+                Events.emit("NETWORK_WORLD_SNAPSHOT", { snapshot = snapshot })
+            end
+        end
+
         Events.emit("NETWORK_PLAYER_JOINED", {
             playerId = self.playerId,
             isSelf = true,

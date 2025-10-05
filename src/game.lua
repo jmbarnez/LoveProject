@@ -292,21 +292,6 @@ local function broadcastHostWorldSnapshot(peer)
     networkManager:updateWorldSnapshot(snapshot, peer)
 end
 
-function Game.captureWorldSnapshotForLan()
-    if not networkManager then
-        Log.warn("captureWorldSnapshotForLan called without network manager")
-        return nil
-    end
-
-    local snapshot = buildWorldSnapshotFromWorld()
-    if not snapshot then
-        return nil
-    end
-
-    networkManager:updateWorldSnapshot(snapshot)
-    return snapshot
-end
-
 function Game.toggleLanHosting()
     if not networkManager then
         Log.error("toggleLanHosting called without network manager")
@@ -327,20 +312,13 @@ function Game.toggleLanHosting()
         end
     end
 
-    local snapshot = Game.captureWorldSnapshotForLan()
     Log.info("Starting LAN host from single-player session")
+    Game.setMultiplayerMode(true, true)
 
     if not networkManager:startHost() then
         Log.error("Failed to start LAN host")
+        Game.setMultiplayerMode(false, false)
         return false, "start_failed"
-    end
-
-    Game.setMultiplayerMode(true, true)
-
-    if snapshot then
-        networkManager:updateWorldSnapshot(snapshot)
-    else
-        broadcastHostWorldSnapshot()
     end
 
     return true, "lan_opened"

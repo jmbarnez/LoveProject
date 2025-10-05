@@ -366,7 +366,8 @@ function NetworkServer:_handleHello(peer, message)
     local welcomePayload = {
         type = TYPES.WELCOME,
         playerId = playerId,
-        players = buildSnapshot(self.players)
+        players = buildSnapshot(self.players),
+        worldSnapshot = self.worldSnapshot
     }
 
     local welcome = Messages.encode(welcomePayload)
