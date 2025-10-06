@@ -1,50 +1,7 @@
 local BehaviorRegistry = require("src.templates.projectile_system.behavior_registry")
 local ProjectileEvents = require("src.templates.projectile_system.event_dispatcher").EVENTS
+local Projectiles = require("src.game.projectiles")
 local State = require("src.game.state")
-
--- Local function to create projectiles without circular dependency
-local function createProjectile(x, y, angle, friendly, config)
-    local speed = config.speedOverride or 700
-    local vx = math.cos(angle) * speed
-    local vy = math.sin(angle) * speed
-    
-    return {
-        tag = "bullet",
-        projectileType = config.projectile or config.projectileId or "gun_bullet",
-        components = {
-            bullet = {
-                source = config.source,
-                impact = config.impact,
-                slot = config.sourceTurretSlot,
-                turretId = config.sourceTurretId,
-                turretType = config.sourceTurretType,
-                sourcePlayerId = config.sourcePlayerId,
-                sourceShipId = config.sourceShipId,
-            },
-            position = { x = x, y = y, angle = angle },
-            velocity = { x = vx, y = vy },
-            collidable = {
-                radius = 2,
-                friendly = friendly,
-            },
-            damage = { value = config.damage or 1 },
-            renderable = {
-                visible = true,
-                layer = "projectiles",
-                renderer = "kinetic", -- Use the kinetic renderer for fragments
-                props = {
-                    kind = config.kind or "bullet",
-                    radius = 2,
-                    color = {0.8, 0.4, 0.2, 1.0}, -- Orange fragments
-                    tracerWidth = 2,
-                }
-            },
-            timed_life = {
-                duration = 3.0
-            }
-        }
-    }
-end
 
 local function spawnFragments(projectile, payload, config)
     local world = (payload and payload.world) or State.world
@@ -84,12 +41,7 @@ local function spawnFragments(projectile, payload, config)
         local angle = baseAngle + spread * frac
         local opts = {}
         for k, v in pairs(optsTemplate) do opts[k] = v end
-        
-        -- Create projectile directly to avoid circular dependency
-        local fragment = createProjectile(position.x, position.y, angle, projectile.components.collidable and projectile.components.collidable.friendly, opts)
-        if fragment and world then
-            world:addEntity(fragment)
-        end
+        Projectiles.spawn(position.x, position.y, angle, projectile.components.collidable and projectile.components.collidable.friendly, opts)
     end
 end
 

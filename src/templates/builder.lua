@@ -26,7 +26,9 @@ function Builder.buildProjectile(def, x, y, angle, friendly, opts)
   -- Merge runtime options into the base definition to ensure all properties are passed
   if opts then
     for k, v in pairs(opts) do
-      def[k] = v
+      if k ~= "definition" then
+        def[k] = v
+      end
     end
   end
   return ProjectileTemplate.new(x, y, angle, friendly, def)
