@@ -80,7 +80,6 @@ function Normalizer.normalizeShip(def)
   if def.variants then
     out.variants = deepCopy(def.variants)
   end
-  if def.bounty ~= nil then out.bounty = def.bounty end
   if def.xpReward ~= nil then out.xpReward = def.xpReward end
   if def.energyRegen ~= nil or def.energy_regen ~= nil then
     out.energyRegen = def.energyRegen or def.energy_regen

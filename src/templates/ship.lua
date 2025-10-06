@@ -220,7 +220,6 @@ function Ship.new(x, y, angle, friendly, shipConfig)
   self.target = nil
   self.moveTarget = nil
   self.dead = false
-  self.bounty = extraConfig.bounty or 0
   self.xpReward = extraConfig.xpReward or 0
   
   -- Apply extra config properties (like shipId, isEnemy flags, etc.)

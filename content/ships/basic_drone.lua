@@ -66,7 +66,6 @@ return {
         }
     },
 
-    bounty = 8,
     xpReward = 10,
     cargo = { capacity = 20, volumeLimit = 8.0 }, -- 8 m^3 cargo hold for basic drone
 
@@ -102,20 +101,17 @@ return {
         basic = {
             name = "Basic Patrol Drone",
             ai = { intelligenceLevel = "BASIC", aggressiveType = "neutral" },
-            bounty = 6,
             xpReward = 8
         },
         guard = {
-            name = "Guard Drone", 
+            name = "Guard Drone",
             ai = { intelligenceLevel = "STANDARD", aggressiveType = "aggressive" },
-            bounty = 12,
             xpReward = 15,
             hull = { hp = 80, shield = 50, cap = 0 } -- No energy system
         },
         elite = {
             name = "Elite Hunter Drone",
             ai = { intelligenceLevel = "ELITE", aggressiveType = "hostile" },
-            bounty = 20,
             xpReward = 25,
             hull = { hp = 120, shield = 80, cap = 0 }, -- No energy system
             engine = { maxSpeed = 400, accel = 650 }
@@ -123,7 +119,6 @@ return {
         ace = {
             name = "Ace Combat Drone",
             ai = { intelligenceLevel = "ACE", aggressiveType = "hostile" },
-            bounty = 35,
             xpReward = 40,
             hull = { hp = 180, shield = 120, cap = 0 }, -- No energy system
             engine = { maxSpeed = 420, accel = 700 },

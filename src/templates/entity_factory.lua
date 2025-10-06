@@ -135,9 +135,6 @@ function EntityFactory.createEnemy(shipId, x, y)
     config.isEnemy = true
     config.shipId = shipId -- Store ship ID for quest tracking
 
-    if config.bounty == nil then
-        config.bounty = enemySettings.bounty or (shipConfig and shipConfig.bounty) or 25
-    end
     if config.xpReward == nil then
         config.xpReward = enemySettings.xpReward or (shipConfig and shipConfig.xpReward) or 50
     end
@@ -264,7 +261,6 @@ function EntityFactory.createFreighter(shipId, x, y)
     local shipConfig = Content.getShip(shipId)
     local config = {
         isFreighter = true,
-        bounty = (shipConfig and shipConfig.bounty) or 100, -- Higher bounty for valuable cargo
         xpReward = (shipConfig and shipConfig.xpReward) or 200,
     }
     return EntityFactory.create("ship", shipId, x, y, config)

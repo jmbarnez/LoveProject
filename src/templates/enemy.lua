@@ -10,7 +10,6 @@ function Enemy.new(x, y, options)
     self.sig = 80
     self.aggro = false
     self.name = "Scout Drone"
-    self.bounty = 8
     self.xpReward = 10
     self.dead = false
 
