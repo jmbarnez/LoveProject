@@ -23,7 +23,7 @@ local settings = {
         -- Crosshair customization
         crosshair_style = 1,            -- 1..50 preset styles
         crosshair_color = "cyan",       -- bright blue crosshair by default
-        crosshair_color_rgb = nil,      -- custom color {r,g,b,a}
+        crosshair_color_rgb = {0.0, 1.0, 1.0, 1.0}, -- cyan {r,g,b,a}
   },
     audio = {
         master_volume = 0.25,

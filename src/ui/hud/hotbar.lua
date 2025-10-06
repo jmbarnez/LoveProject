@@ -178,8 +178,10 @@ function Hotbar.draw(player)
         local gridData = player.components.equipment.grid[idx]
         if gridData and gridData.module then
           local t = gridData.module
-          -- Only show ammo bar for gun turrets that have clip system
-          if t and t.kind == "gun" and t.clipSize and t.clipSize > 0 then
+          -- Only show ammo bar for turrets that require clips
+          local handler = t and t.getHandler and t:getHandler()
+          local config = handler and handler.config or {}
+          if t and config.requiresClip and t.clipSize and t.clipSize > 0 then
             local clipStatus = t:getClipStatus()
             if clipStatus then
               -- Only show ammo bar if:

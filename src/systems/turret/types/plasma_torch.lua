@@ -5,7 +5,6 @@ local handler = {
     kind = "plasma_torch",
     config = {
         requiresClip = false,
-        skipEnergyCheck = true,
     },
 }
 

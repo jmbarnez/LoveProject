@@ -805,6 +805,42 @@ function UtilityBeams.updatePlasmaTorch(turret, dt, target, locked, world)
     -- Perform beam collision detection
     local hitTarget, hitX, hitY = UtilityBeams.performBeamCollision(sx, sy, beamEndX, beamEndY, world, turret.owner)
 
+    local energyStarved = false
+    if turret.energyPerSecond and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
+        local currentEnergy = turret.owner.components.health.energy or 0
+        local energyCost = turret.energyPerSecond * dt
+        local resumeMultiplier = turret.resumeEnergyMultiplier or 2
+        local resumeThreshold = turret.minResumeEnergy or (resumeMultiplier * energyCost)
+        resumeThreshold = math.max(resumeThreshold, energyCost)
+
+        if turret._energyStarved then
+            if currentEnergy >= resumeThreshold then
+                turret._energyStarved = false
+            else
+                energyStarved = true
+            end
+        end
+
+        if not energyStarved then
+            if currentEnergy >= energyCost then
+                turret.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
+            else
+                turret._energyStarved = true
+                energyStarved = true
+            end
+        end
+    end
+
+    if energyStarved then
+        turret.beamActive = false
+        turret.beamTarget = nil
+        turret.beamStartX = nil
+        turret.beamStartY = nil
+        turret.beamEndX = nil
+        turret.beamEndY = nil
+        return
+    end
+
     -- Update beam state
     local wasActive = turret.beamActive
     turret.beamActive = true

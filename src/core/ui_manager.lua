@@ -422,6 +422,10 @@ function UIManager.update(dt, player)
   if DockedUI.update then DockedUI.update(dt) end
   if EscapeMenu.update then EscapeMenu.update(dt) end
   if Map.update then Map.update(dt, player) end
+
+  -- Update cursor animations
+  local UICursor = require("src.ui.hud.cursor")
+  if UICursor.update then UICursor.update(dt) end
   if warpInstance.update then warpInstance:update(dt) end
   if RewardWheelPanel.update then RewardWheelPanel.update(dt) end
   if RepairPopup.update then RepairPopup.update(dt) end
@@ -580,15 +584,11 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops)
   local TooltipManager = require("src.ui.tooltip_manager")
   TooltipManager.draw()
 
-  -- Draw UI cursor when any UI is open
+  -- Draw UI cursor when in game mode (always visible over gameplay UI)
   local UICursor = require("src.ui.hud.cursor")
-  if UIManager.modalActive then
-    UICursor.setVisible(true)
-    UICursor.applySettings()
-    UICursor.draw()
-  else
-    UICursor.setVisible(false)
-  end
+  UICursor.setVisible(true)
+  UICursor.applySettings()
+  UICursor.draw()
 
   -- Restore prior font to prevent persistent size changes across frames
   if oldFont then love.graphics.setFont(oldFont) end

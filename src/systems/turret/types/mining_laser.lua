@@ -6,7 +6,6 @@ local handler = {
     kind = "mining_laser",
     config = {
         requiresClip = false,
-        skipEnergyCheck = true,
     },
 }
 

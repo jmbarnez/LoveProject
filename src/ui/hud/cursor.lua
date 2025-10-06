@@ -5,6 +5,8 @@ local UICursor = {}
 
 -- Current cursor state
 local visible = false
+local animationTime = 0
+local pulsePhase = 0
 
 function UICursor.setVisible(isVisible)
   visible = isVisible
@@ -14,41 +16,83 @@ function UICursor.isVisible()
   return visible
 end
 
+function UICursor.update(dt)
+  animationTime = animationTime + dt
+  pulsePhase = pulsePhase + dt * 3 -- Pulse every ~2 seconds
+end
+
 function UICursor.draw()
   if not visible then return end
-  
+
   local mx, my = Viewport.getMousePosition()
-  
+  local time = love.timer.getTime()
+
   love.graphics.push()
   love.graphics.translate(mx, my)
-  
-  -- Basic pointer triangle (wider, shorter)
-  local s = 24
-  local angle = -0.18
-  local ca, sa = math.cos(angle), math.sin(angle)
-  local function rot(x, y)
-    return x * ca - y * sa, x * sa + y * ca
+
+  -- Pulsing glow effect
+  local pulse = (math.sin(pulsePhase) + 1) * 0.5 -- 0 to 1
+  local glowAlpha = 0.1 + pulse * 0.2
+
+  -- Outer glow ring
+  Theme.setColor(Theme.colors.glowStrong)
+  love.graphics.setLineWidth(1.5)
+  love.graphics.circle('line', 0, 0, 9)
+
+  -- Inner glow ring
+  Theme.setColor(Theme.withAlpha(Theme.colors.glow, glowAlpha))
+  love.graphics.setLineWidth(1)
+  love.graphics.circle('line', 0, 0, 6)
+
+  -- Main targeting reticle (4 corners)
+  Theme.setColor(Theme.colors.accent)
+  love.graphics.setLineWidth(1)
+
+  local reticleSize = 4
+  local reticleGap = 2
+
+  -- Top-left corner
+  love.graphics.line(-reticleGap, -reticleGap, -reticleGap - reticleSize, -reticleGap)
+  love.graphics.line(-reticleGap, -reticleGap, -reticleGap, -reticleGap - reticleSize)
+
+  -- Top-right corner
+  love.graphics.line(reticleGap, -reticleGap, reticleGap + reticleSize, -reticleGap)
+  love.graphics.line(reticleGap, -reticleGap, reticleGap, -reticleGap - reticleSize)
+
+  -- Bottom-left corner
+  love.graphics.line(-reticleGap, reticleGap, -reticleGap - reticleSize, reticleGap)
+  love.graphics.line(-reticleGap, reticleGap, -reticleGap, reticleGap + reticleSize)
+
+  -- Bottom-right corner
+  love.graphics.line(reticleGap, reticleGap, reticleGap + reticleSize, reticleGap)
+  love.graphics.line(reticleGap, reticleGap, reticleGap, reticleGap + reticleSize)
+
+  -- Center cross with subtle animation
+  local crossScale = 1.0 + math.sin(time * 4) * 0.1 -- Gentle breathing effect
+  local crossSize = 2 * crossScale
+
+  love.graphics.setLineWidth(0.75)
+  Theme.setColor(Theme.colors.info) -- Cyan accent
+
+  -- Horizontal line
+  love.graphics.line(-crossSize, 0, crossSize, 0)
+  -- Vertical line
+  love.graphics.line(0, -crossSize, 0, crossSize)
+
+  -- Center dot with glow
+  Theme.setColor(Theme.withAlpha(Theme.colors.glowStrong, 0.8))
+  love.graphics.circle('fill', 0, 0, 0.75)
+
+  Theme.setColor(Theme.colors.info)
+  love.graphics.circle('fill', 0, 0, 0.4)
+
+  -- Subtle trailing effect (optional)
+  if pulse > 0.7 then
+    Theme.setColor(Theme.withAlpha(Theme.colors.accent, (pulse - 0.7) * 3))
+    love.graphics.setLineWidth(0.5)
+    love.graphics.circle('line', 0, 0, 3 + pulse * 2)
   end
 
-  -- Wider, shorter pointer with blunted tip
-  local tipx, tipy = rot(0, 0)
-  local e1x, e1y = rot(s * 1.05, s * 1.10)  -- Wider span, reduced height
-  local e2x, e2y = rot(s * 0.58, s * 0.85)  -- Fatter tail, shorter
-  -- Flat tip edge (avoid needle look)
-  local tipWidth = s * 0.18
-  local tipDepth = s * 0.10
-  local tLx, tLy = rot(-tipWidth * 0.5, tipDepth)
-  local tRx, tRy = rot(tipWidth * 0.5, tipDepth)
-
-  -- Fill with theme accent
-  Theme.setColor({ Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 1.0 })
-  love.graphics.polygon('fill', tLx, tLy, e1x, e1y, e2x, e2y, tRx, tRy)
-
-  -- White border
-  Theme.setColor({ 1.0, 1.0, 1.0, 1.0 })
-  love.graphics.setLineWidth(2)
-  love.graphics.polygon('line', tLx, tLy, e1x, e1y, e2x, e2y, tRx, tRy)
-  
   love.graphics.pop()
 end
 

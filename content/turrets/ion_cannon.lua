@@ -1,6 +1,6 @@
 return {
     id = "ion_cannon",
-    type = "gun",
+    type = "projectile",
     name = "Ion Cannon",
     description = "Precision energy weapon that disables systems and leaves an ionized field.",
     price = 2200,

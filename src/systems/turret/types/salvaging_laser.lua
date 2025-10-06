@@ -6,7 +6,6 @@ local handler = {
     kind = "salvaging_laser",
     config = {
         requiresClip = false,
-        skipEnergyCheck = true,
     },
 }
 

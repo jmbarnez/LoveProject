@@ -1,6 +1,6 @@
 return {
     id = "gauss_cannon",
-    type = "gun",
+    type = "projectile",
     name = "Gauss Cannon",
     description = "Magnetically accelerated rounds with high penetration.",
     price = 2400,

@@ -1,6 +1,6 @@
 return {
     id = "railgun",
-    type = "gun",
+    type = "projectile",
     name = "Railgun",
     description = "High-velocity electromagnetic weapon that fires hypervelocity projectiles. Devastating damage at extreme range with massive energy consumption.",
     price = 2500,

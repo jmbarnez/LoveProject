@@ -425,8 +425,10 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
         end
     end
 
-    -- Consume ammo and check for reload (only for gun turrets)
-    if turret.kind == "gun" and turret.clipSize and turret.clipSize > 0 then
+    -- Consume ammo and check for reload (only for turrets that require clips)
+    local handler = turret:getHandler()
+    local config = handler and handler.config or {}
+    if config.requiresClip and turret.clipSize and turret.clipSize > 0 then
         turret.currentClip = math.max(0, turret.currentClip - 1)
         if turret.currentClip <= 0 then
             turret:startReload()
@@ -558,8 +560,10 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
             ProjectileWeapons.fireSecondaryProjectile(turret, target, angle, world)
         end
 
-        -- Consume ammo and check for reload (only for gun turrets)
-        if turret.kind == "gun" and turret.clipSize and turret.clipSize > 0 then
+        -- Consume ammo and check for reload (only for turrets that require clips)
+        local handler = turret:getHandler()
+        local config = handler and handler.config or {}
+        if config.requiresClip and turret.clipSize and turret.clipSize > 0 then
             turret.currentClip = math.max(0, turret.currentClip - 1)
             if turret.currentClip <= 0 then
                 turret:startReload()
