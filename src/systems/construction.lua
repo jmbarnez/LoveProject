@@ -305,71 +305,88 @@ end
 
 function ConstructionSystem.draw()
     if not constructionState.mode or not constructionState.ghostEntity then return end
-    
+
     local Theme = require("src.core.theme")
     local x = constructionState.placementX
     local y = constructionState.placementY
-    
-    -- Draw ghost entity
-    local color = constructionState.validPlacement and 
-        {0.0, 1.0, 0.0, 0.5} or {1.0, 0.0, 0.0, 0.5}
-    
-    Theme.setColor(color)
+
+    love.graphics.push()
+    love.graphics.translate(math.floor(x + 0.5), math.floor(y + 0.5))
+
+    local accent = constructionState.validPlacement and Theme.colors.success or Theme.colors.danger
+    local softFill = Theme.withAlpha(accent, 0.18)
+
+    -- Soft placement disk
+    Theme.setColor(softFill)
+    love.graphics.circle("fill", 0, 0, 38)
+
+    -- Blueprint crosshair and frame
+    Theme.setColor(Theme.withAlpha(accent, 0.65))
     love.graphics.setLineWidth(2)
-    
-    -- Draw simple turret ghost
-    local size = 32
-    love.graphics.rectangle('line', x - size/2, y - size/2, size, size)
-    love.graphics.circle('line', x, y, size/2)
-    
-    -- Draw barrel
-    love.graphics.rectangle('line', x - 2, y - size/2 - 8, 4, 16)
-    
+    love.graphics.circle("line", 0, 0, 38)
+    love.graphics.rectangle("line", -30, -30, 60, 60)
+    love.graphics.line(-46, 0, 46, 0)
+    love.graphics.line(0, -46, 0, 46)
+
+    Theme.setColor(Theme.withAlpha(Theme.colors.accent, 0.35))
     love.graphics.setLineWidth(1)
-    
+    love.graphics.circle("line", 0, 0, 20)
+    love.graphics.circle("line", 0, 0, 28)
+
+    love.graphics.pop()
+    love.graphics.setLineWidth(1)
+
     -- Draw building progress if currently building
     if constructionState.building then
-        ConstructionSystem.drawBuildingProgress(x, y)
+        ConstructionSystem.drawBuildingProgress(x, y, accent)
     end
 end
 
-function ConstructionSystem.drawBuildingProgress(x, y)
+function ConstructionSystem.drawBuildingProgress(x, y, accentColor)
     local Theme = require("src.core.theme")
     local progress = constructionState.buildProgress or 0
-    
-    -- Draw progress bar background
-    local barWidth = 60
-    local barHeight = 8
-    local barX = x - barWidth / 2
-    local barY = y - 40
-    
-    Theme.setColor({0.1, 0.1, 0.1, 0.8})
-    love.graphics.rectangle('fill', barX, barY, barWidth, barHeight)
-    
-    -- Draw progress bar fill
-    local fillWidth = barWidth * progress
-    Theme.setColor({0.0, 1.0, 0.0, 0.8})
-    love.graphics.rectangle('fill', barX, barY, fillWidth, barHeight)
-    
-    -- Draw progress bar border
-    Theme.setColor({1.0, 1.0, 1.0, 0.9})
-    love.graphics.setLineWidth(1)
-    love.graphics.rectangle('line', barX, barY, barWidth, barHeight)
-    
-    -- Draw progress text
-    local progressText = string.format("%.0f%%", progress * 100)
-    local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
-    local oldFont = love.graphics.getFont()
+
+    local barWidth = 140
+    local barHeight = 12
+    local barX = x - barWidth * 0.5
+    local barY = y - 70
+    local accent = accentColor or Theme.colors.accent
+
+    Theme.drawGradientGlowRect(
+        barX,
+        barY,
+        barWidth,
+        barHeight,
+        6,
+        Theme.colors.bg2,
+        Theme.colors.bg0,
+        accent,
+        Theme.effects.glowWeak * 1.6,
+        false
+    )
+
+    local fillWidth = (barWidth - 6) * progress
+    Theme.setColor(Theme.withAlpha(accent, 0.85))
+    love.graphics.rectangle("fill", barX + 3, barY + 3, fillWidth, barHeight - 6)
+
+    Theme.drawEVEBorder(barX, barY, barWidth, barHeight, 6, Theme.colors.border, 1)
+
+    local previousFont = love.graphics.getFont()
+    local font = (Theme.fonts and Theme.fonts.small) or love.graphics.getFont()
     love.graphics.setFont(font)
-    
-    local textWidth = font:getWidth(progressText)
-    local textX = x - textWidth / 2
-    local textY = barY - 20
-    
-    Theme.setColor({1.0, 1.0, 1.0, 1.0})
-    love.graphics.print(progressText, textX, textY)
-    
-    if oldFont then love.graphics.setFont(oldFont) end
+
+    local progressText = string.format("%d%%", math.floor(progress * 100 + 0.5))
+    Theme.setColor(Theme.colors.textHighlight)
+    love.graphics.printf(progressText, barX, barY - font:getHeight() - 6, barWidth, "center")
+
+    Theme.setColor(Theme.colors.textSecondary)
+    love.graphics.printf("Constructing...", barX, barY + barHeight + 4, barWidth, "center")
+
+    if previousFont then love.graphics.setFont(previousFont) end
+end
+
+function ConstructionSystem.getSelectedItem()
+    return constructionState.selectedItem
 end
 
 return ConstructionSystem
