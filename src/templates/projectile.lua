@@ -6,10 +6,15 @@ local Damage = require("src.components.damage")
 local TimedLife = require("src.components.timed_life")
 local EventDispatcher = require("src.templates.projectile_system.event_dispatcher")
 local EffectManager = require("src.templates.projectile_system.effect_manager")
+local BehaviorManager = require("src.templates.projectile_system.behavior_manager")
+local RendererFactory = require("src.templates.projectile_system.renderer_factory")
 local PluginRegistry = require("src.templates.projectile_system.plugin_registry")
+local State = require("src.game.state")
 
 require("src.templates.projectile_system.effects.init")
 require("src.templates.projectile_system.plugins.init")
+require("src.templates.projectile_system.behaviors.init")
+require("src.templates.projectile_system.renderers.init")
 
 local Projectile = {}
 Projectile.__index = Projectile
@@ -42,35 +47,28 @@ function Projectile.new(x, y, angle, friendly, config)
             radius = (config.collidable and config.collidable.radius) or (config.renderable and config.renderable.props and config.renderable.props.radius) or 2,
             friendly = friendly,
         }),
-        renderable = Renderable.new(
-            (config.renderable and config.renderable.type) or "bullet",
-            (function()
-                local props = (config.renderable and config.renderable.props) or {}
-                -- Allow callers to override the visual kind (e.g., 'salvaging_laser')
-                if config.kind then props.kind = config.kind end
-                -- Override visuals if provided
-                if config.tracerWidth then props.tracerWidth = config.tracerWidth end
-                if config.coreRadius then props.coreRadius = config.coreRadius end
-                if config.color then props.color = config.color end
-                -- Default bullet color to blue if no color specified and not a laser
-                local kind = props.kind or config.kind or 'bullet'
-                if not props.color and kind ~= 'laser' and kind ~= 'salvaging_laser' then
-                    props.color = {0.35, 0.7, 1.0, 1.0}
-                end
-                -- Override length/maxLength for all projectile types
-                if config.length then props.length = config.length end
-                if config.maxLength then props.maxLength = config.maxLength end
-                -- Keep a copy of the intended max beam length for lasers (combat), mining, and salvaging beams
-                if props.kind == "laser" or props.kind == "salvaging_laser" or props.kind == "mining_laser" then
-                    props.maxLength = props.maxLength or props.length
-                end
-                -- For beam types (laser/mining/salvaging), ensure angle is set in props for collision system/rendering
-                if props.kind == "laser" or props.kind == "salvaging_laser" or props.kind == "mining_laser" then
-                    props.angle = angle
-                end
-                return props
-            end)()
-        ),
+        renderable = (function()
+            local renderableDef = config.renderable or { type = "bullet", props = {} }
+            local overrides = { kind = config.kind, props = {} }
+            if config.tracerWidth then overrides.props.tracerWidth = config.tracerWidth end
+            if config.coreRadius then overrides.props.coreRadius = config.coreRadius end
+            if config.color then overrides.props.color = config.color end
+            if config.length then overrides.props.length = config.length end
+            if config.maxLength then overrides.props.maxLength = config.maxLength end
+
+            local created = RendererFactory.extend(renderableDef, overrides)
+            local props = created.props or {}
+            local kind = props.kind or config.kind or 'bullet'
+            if not props.color and kind ~= 'laser' and kind ~= 'salvaging_laser' and kind ~= 'mining_laser' then
+                props.color = {0.35, 0.7, 1.0, 1.0}
+            end
+            if kind == "laser" or kind == "salvaging_laser" or kind == "mining_laser" then
+                props.angle = angle
+                props.maxLength = props.maxLength or props.length
+            end
+            created.props = props
+            return Renderable.new(created.type or "bullet", created.props)
+        end)(),
         -- Create Damage component for projectiles. Allow lasers to have damage if provided in config.
         damage = (function()
             local hasDamage = config.damage ~= nil
@@ -97,6 +95,31 @@ function Projectile.new(x, y, angle, friendly, config)
             return nil
         end)(),
     }
+
+
+    local function attach_custom_components(definitions)
+        if type(definitions) ~= "table" then return end
+
+        if #definitions > 0 then
+            for _, descriptor in ipairs(definitions) do
+                if type(descriptor) == "table" then
+                    local name = descriptor.name
+                    local component = descriptor.component or descriptor.instance or descriptor.value
+                    if type(name) == "string" and component ~= nil then
+                        self.components[name] = component
+                    end
+                end
+            end
+        else
+            for name, component in pairs(definitions) do
+                if type(name) == "string" then
+                    self.components[name] = component
+                end
+            end
+        end
+    end
+
+    attach_custom_components(config.components)
 
 
     local dispatcher = EventDispatcher.new()
@@ -135,9 +158,16 @@ function Projectile.new(x, y, angle, friendly, config)
     effectManager:loadConfig(config.effects or {})
     effectManager:loadConfig(config.additionalEffects or {})
 
+    local behaviorManager = BehaviorManager.new(self, dispatcher)
+    self.behavior_manager = behaviorManager
+    self.components.projectile_behavior = behaviorManager:asComponent()
+
+    behaviorManager:loadConfig(config.behaviors or config.behavior or {})
+
     dispatcher:emit(ProjectileEvents.SPAWN, {
         projectile = self,
         config = config,
+        world = State.world,
     })
 
     return self

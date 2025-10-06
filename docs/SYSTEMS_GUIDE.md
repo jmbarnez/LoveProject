@@ -66,6 +66,14 @@ UI elements (`StatusBars`, `SkillXpPopup`, `Theme` animations) are updated befor
 * Uses quadtree-assisted broad-phase queries when available.
 * Resolves entity/entity, projectile/entity, and radius-based interactions.
 * Applies damage, shields, and triggers collision callbacks (loot spawning, death events).
+* Emits projectile lifecycle events enriched with world context so behaviors can react (bounces, splits, homing updates).
+
+### Projectile Framework (`src/templates/projectile.lua`)
+* Projectiles are assembled from modular components, effects, and behaviors.
+* `BehaviorManager` consumes the `behaviors` list on a projectile definition and wires handlers for spawn/update/hit/expire events (e.g., homing, bouncing, splitting, area denial fields).
+* `RendererFactory` maps high-level `renderer` keys to specialized visual styles (energy, kinetic, missile, beam, area field) while keeping legacy `renderable` data compatible.
+* Event payloads now include the owning `world` and `keepAlive` flags so behaviors can modify collision results (prevent destruction on bounce, defer removal until area effects resolve).
+* `dynamic_light` and `particle_emitter` projectile effects attach light halos and bespoke particle bursts without bespoke systems.
 
 ### Boundary System (`src/systems/boundary_system.lua`)
 * Keeps entities inside the configured world rectangle.
@@ -86,6 +94,11 @@ UI elements (`StatusBars`, `SkillXpPopup`, `Theme` animations) are updated befor
 * Implements behavior states (idle, hunting, retreating) with configurable aggression.
 * Uses world queries for target acquisition and pathing.
 * Fires projectiles via `world.spawn_projectile` when in range.
+
+### Turret Progression (`src/systems/turret/`)
+* `modifier_system.lua` applies design-time modifiers (overcharged coils, precision barrels, capacitor banks) when a turret is instantiated, changing damage, spread, cycle time, and energy usage.
+* `upgrade_system.lua` tracks per-turret experience via projectile hits and applies level-based bonuses (damage, rate of fire, improved homing) according to thresholds defined in turret content.
+* Turret instances expose `modifiers` for UI display and `upgradeEntry` for progression state.
 
 ### Spawning System (`src/systems/spawning.lua`)
 * Controls enemy wave timers, hub safe zones, and spawn radii.

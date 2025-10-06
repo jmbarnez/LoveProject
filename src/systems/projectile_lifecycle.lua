@@ -32,7 +32,8 @@ function ProjectileLifecycle.update(dt, world)
                     if eventsComp and eventsComp.dispatcher then
                         eventsComp.dispatcher:emit(ProjectileEvents.EXPIRE, {
                             projectile = entity,
-                            reason = "timed_out"
+                            reason = "timed_out",
+                            world = world,
                         })
                     end
                     entity.dead = true
@@ -53,7 +54,8 @@ function ProjectileLifecycle.update(dt, world)
                         if eventsComp and eventsComp.dispatcher then
                             eventsComp.dispatcher:emit(ProjectileEvents.EXPIRE, {
                                 projectile = entity,
-                                reason = "max_range"
+                                reason = "max_range",
+                                world = world,
                             })
                         end
                         entity.dead = true

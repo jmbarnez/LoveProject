@@ -48,18 +48,20 @@ Ships are player and AI-controlled vessels.
 
 ### 2. Turrets (`content/turrets/`)
 
-**Streamlined Turret System**: The game now uses only **5 core turrets** with embedded projectiles:
+**Expanded Turret System**: Turret definitions embed their projectile and optional behaviors/modifiers. Categories now include:
 
-- **Combat Laser** - Hitscan beam weapon for close-mid range
-- **Gun Turret** - Projectile weapon firing kinetic slugs  
-- **Missile Launcher** - Heavy rocket launcher with explosion damage
-- **Mining Laser** - Utility weapon for mining asteroids
-- **Salvaging Laser** - Utility weapon for salvaging wreckage
+- **Energy Weapons** – Ion cannons, Tesla coils, and gravity wells that leverage homing, bouncing, or area-denial behaviors (`ion_cannon`, `tesla_coil`, `gravity_well`).
+- **Kinetic Weapons** – High-velocity gauss cannons, fragmentation launchers, and kinetic bombardment platforms using splitting or area effects (`gauss_cannon`, `fragmentation_launcher`, `kinetic_bombardment`).
+- **Missile Systems** – Specialized launchers for torpedoes, cluster missiles, and agile homing munitions (`torpedo_launcher`, `cluster_missile`, `homing_missile`).
+- **Beam Weapons** – Advanced particle and disruptor beams with piercing and shield-breaking profiles (`particle_beam`, `disruptor_beam`).
+- **Utility Lasers** – Mining and salvaging lasers remain for resource interaction scenarios.
 
 **Key Properties:**
 - `id`: Unique identifier
 - `type`: Weapon type (gun, laser, missile, mining_laser, salvaging_laser)
-- `projectile`: Embedded projectile definition
+- `projectile`: Embedded projectile definition (with optional `behaviors`, `effects`, and custom `renderer`)
+- `modifiers`: Optional list of weapon modifiers applied at instantiation (see `src/systems/turret/modifier_system.lua`)
+- `upgrades`: Optional progression table defining thresholds and bonuses (`src/systems/turret/upgrade_system.lua`)
 - `damage_range`: Min/max damage values
 - `cycle`: Firing rate
 - `energyPerSecond`: Continuous energy draw for beam weapons

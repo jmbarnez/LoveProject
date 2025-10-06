@@ -180,10 +180,25 @@ function Normalizer.normalizeProjectile(def)
   out.renderable.type = out.renderable.type or "bullet"
   out.renderable.props = out.renderable.props or {}
   if def.kind and not out.renderable.props.kind then out.renderable.props.kind = def.kind end
+  if def.renderable and def.renderable.renderer then
+    out.renderable.renderer = def.renderable.renderer
+  end
+  if def.renderable and def.renderable.effects then
+    out.renderable.effects = deepCopy(def.renderable.effects)
+  end
   -- Normalize physics
   -- Increase default bullet speed for snappier feel (2x baseline)
   out.physics = out.physics or { speed = def.speed or 2400 }
   if not out.physics.speed then out.physics.speed = def.speed or 2400 end
+  if def.behaviors then
+    out.behaviors = deepCopy(def.behaviors)
+  end
+  if def.behavior and not out.behaviors then
+    out.behaviors = deepCopy(def.behavior)
+  end
+  if def.components then
+    out.components = deepCopy(def.components)
+  end
   return out
 end
 

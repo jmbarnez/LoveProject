@@ -41,10 +41,15 @@ function EntityFactory.create(entityType, entityId, x, y, extraConfig)
     end
 
     local config
+    local overrideDefinition = (extraConfig and extraConfig.definition) or nil
+
     if entityType == "ship" then
         config = Content.getShip(entityId)
     elseif entityType == "projectile" then
         config = Content.getProjectile(entityId)
+        if not config and overrideDefinition then
+            config = overrideDefinition
+        end
     elseif entityType == "world_object" or entityType == "station" then
         config = Content.getWorldObject(entityId)
     elseif entityType == "warp_gate" then
@@ -83,7 +88,9 @@ function EntityFactory.create(entityType, entityId, x, y, extraConfig)
     -- Merge extraConfig into normalized config (flags like isEnemy)
     if extraConfig then
         for k, v in pairs(extraConfig) do
-            config[k] = v
+            if k ~= "definition" then
+                config[k] = v
+            end
         end
     end
     local entity
