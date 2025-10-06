@@ -205,6 +205,45 @@ local function transitionToGame(opts)
     return true
 end
 
+local function handleStartScreenResult(result)
+    if result == nil or result == false then
+        return false
+    end
+
+    if result == true then
+        if mainState.startScreen then
+            if mainState.startScreen.networkManager and mainState.startScreen.networkManager.leaveGame then
+                mainState.startScreen.networkManager:leaveGame()
+            end
+            mainState.startScreen.showJoinUI = false
+            mainState.startScreen.joinErrorMessage = nil
+        end
+        _G.PENDING_MULTIPLAYER_CONNECTION = nil
+        transitionToGame({ fromSave = false, multiplayer = false, isHost = false })
+        return true
+    elseif result == "loadGame" then
+        local loadedSlot = mainState.startScreen and mainState.startScreen.loadedSlot
+        if loadedSlot then
+            transitionToGame({ fromSave = true, slot = loadedSlot })
+        else
+            Log.error("No loaded slot information available")
+            Notifications.add("No save slot selected", "warning")
+        end
+        return true
+    elseif result == "hostGame" then
+        transitionToGame({ fromSave = false, multiplayer = true, isHost = true })
+        return true
+    elseif result == "joinGame" then
+        if not transitionToGame({ fromSave = false, multiplayer = true, isHost = false }) then
+            Notifications.add("Connection failed", "error")
+            if mainState.setScreen then mainState.setScreen("start") end
+        end
+        return true
+    end
+
+    return true
+end
+
 function Input.update(dt)
     if Map and Map.update then
         Map.update(dt, gameState.player)
@@ -251,8 +290,11 @@ end
 function Input.love_keypressed(key)
   if SettingsPanel.keypressed(key) then return true end
   if mainState.screen == "start" then
-    if mainState.startScreen and mainState.startScreen.keypressed and mainState.startScreen:keypressed(key) then
-      return
+    if mainState.startScreen and mainState.startScreen.keypressed then
+      local startResult = mainState.startScreen:keypressed(key)
+      if handleStartScreenResult(startResult) then
+        return
+      end
     end
   elseif mainState.screen == "game" then
     if key == "escape" then
@@ -360,36 +402,7 @@ function Input.love_mousepressed(x, y, button)
   if mainState.screen == "start" then
     local vx, vy = Viewport.toVirtual(x, y)
     local start = mainState.startScreen:mousepressed(vx, vy, button)
-    
-    if start == true then
-        if mainState.startScreen then
-          if mainState.startScreen.networkManager and mainState.startScreen.networkManager.leaveGame then
-            mainState.startScreen.networkManager:leaveGame()
-          end
-          mainState.startScreen.showJoinUI = false
-          mainState.startScreen.joinErrorMessage = nil
-        end
-        _G.PENDING_MULTIPLAYER_CONNECTION = nil
-        transitionToGame({ fromSave = false, multiplayer = false, isHost = false })
-      return
-    elseif start == "loadGame" then
-      local loadedSlot = mainState.startScreen.loadedSlot
-      if loadedSlot then
-        transitionToGame({ fromSave = true, slot = loadedSlot })
-        return
-      else
-        Log.error("No loaded slot information available")
-        Notifications.add("No save slot selected", "warning")
-        return
-      end
-    elseif start == "hostGame" then
-      transitionToGame({ fromSave = false, multiplayer = true, isHost = true })
-      return
-    elseif start == "joinGame" then
-      if not transitionToGame({ fromSave = false, multiplayer = true, isHost = false }) then
-        Notifications.add("Connection failed", "error")
-        if mainState.setScreen then mainState.setScreen("start") end
-      end
+    if handleStartScreenResult(start) then
       return
     end
   else

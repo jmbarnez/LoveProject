@@ -76,6 +76,20 @@ local soundPaths = {
 -- Supported sound formats
 local supportedFormats = {".ogg", ".wav", ".mp3"}
 
+local SOUND_ALIAS_MAP = {
+    ui_click = "button_click",
+    ui_hover = "button_click",
+    button_hover = "button_click",
+    window_open = "button_click",
+    window_close = "button_click",
+    ui_error = "button_click",
+    ore_collected = "item_pickup",
+    dock = "loot_pickup",
+    undock = "loot_pickup",
+    engine_thrust = "shield_static",
+    asteroid_shatter = "asteroid_pop",
+}
+
 -- Helper function to check if file exists
 local function fileExists(path)
     local file = love.filesystem.getInfo(path)
@@ -93,54 +107,87 @@ local function findSoundFile(basePath, name)
     return nil
 end
 
+local function resolveSoundName(name)
+    local visited = {}
+    local current = name
+    while SOUND_ALIAS_MAP[current] do
+        if visited[current] then
+            break
+        end
+        visited[current] = true
+        current = SOUND_ALIAS_MAP[current]
+    end
+    return current, current ~= name
+end
+
 -- Load a sound effect
 function Sound.loadSFX(name, path)
     if sfx[name] then return sfx[name] end
-    
-    local soundPath = path or findSoundFile(soundPaths.sfx, name)
+
+    local resolvedName, aliased = name, false
+    if not path then
+        resolvedName, aliased = resolveSoundName(name)
+        if aliased and sfx[resolvedName] then
+            sfx[name] = sfx[resolvedName]
+            return sfx[name]
+        end
+    end
+
+    local soundPath = path or findSoundFile(soundPaths.sfx, resolvedName)
     if soundPath then
         local success, source = pcall(love.audio.newSource, soundPath, "static")
         if success then
+            sfx[resolvedName] = source
             sfx[name] = source
-            Log.debug("Loaded SFX:", name, "from", soundPath)
+            if aliased then
+                Log.debug("Loaded SFX alias:", name, "->", resolvedName, "from", soundPath)
+            else
+                Log.debug("Loaded SFX:", name, "from", soundPath)
+            end
             return source
         else
             Log.error("Error loading sound effect", name, ":", source)
         end
     end
-    
+
     -- Try procedural generation as fallback
     local proceduralSound = nil
-    if name == "laser_fire" then
+    local targetName = resolvedName
+    if targetName == "laser_fire" then
         proceduralSound = SoundGenerator.getCachedSound("laser", 0.55, 200) -- Combat laser: deep, bass-heavy blast
-    elseif name == "mining_laser" then
+    elseif targetName == "mining_laser" then
         proceduralSound = SoundGenerator.getCachedSound("mining_laser", 0.55, 90) -- Mining laser: looping sub-bass rumble
-    elseif name == "salvaging_laser" then
+    elseif targetName == "salvaging_laser" then
         proceduralSound = SoundGenerator.getCachedSound("salvaging_laser", 0.5, 260) -- Salvaging laser: warm low-mid sweep
-    elseif name == "shield_hit" then
+    elseif targetName == "shield_hit" then
         proceduralSound = SoundGenerator.getCachedSound("shield_hit", 0.15)
-    elseif name == "hull_hit" then
+    elseif targetName == "hull_hit" then
         proceduralSound = SoundGenerator.getCachedSound("hull_hit", 0.3)
-    elseif name == "explosion" then
+    elseif targetName == "explosion" then
         proceduralSound = SoundGenerator.getCachedSound("explosion", 1.2)
-    elseif name == "missile_launch" then
+    elseif targetName == "missile_launch" then
         proceduralSound = SoundGenerator.getCachedSound("missile", 0.8)
-    elseif name == "gun_fire" then
+    elseif targetName == "gun_fire" then
         proceduralSound = SoundGenerator.getCachedSound("gun_fire", 0.15, 400) -- Dedicated gun fire sound
-    elseif name == "shield_static" then
+    elseif targetName == "shield_static" then
         proceduralSound = SoundGenerator.getCachedSound("shield_static", 0.14)
-    elseif name == "asteroid_pop" then
+    elseif targetName == "asteroid_pop" then
         proceduralSound = SoundGenerator.getCachedSound("asteroid_pop", 0.65)
-    elseif name == "ship_destroyed" then
+    elseif targetName == "ship_destroyed" then
         proceduralSound = SoundGenerator.getCachedSound("ship_destruction", 2.0)
     end
-    
+
     if proceduralSound then
+        sfx[targetName] = proceduralSound
         sfx[name] = proceduralSound
-        Log.debug("Generated procedural SFX:", name)
+        if aliased then
+            Log.debug("Generated procedural SFX alias:", name, "->", targetName)
+        else
+            Log.debug("Generated procedural SFX:", name)
+        end
         return proceduralSound
     end
-    
+
     Log.warn("Sound effect not found and no procedural fallback:", name)
     return nil
 end
