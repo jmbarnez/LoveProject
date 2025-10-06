@@ -102,29 +102,41 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     -- Determine aim angle first relative to ship, then compute muzzle and precise distance from muzzle to cursor
     local Turret = require("src.systems.turret.core")
-    local angle = 0
-    if turret.owner.cursorWorldPos then
-        local shipPos = turret.owner.components and turret.owner.components.position
-        local shipX = shipPos and shipPos.x or 0
-        local shipY = shipPos and shipPos.y or 0
-        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
-        angle = math.atan2(cursorY - shipY, cursorX - shipX)
+    local shipPos = turret.owner.components and turret.owner.components.position
+    local cursorPos = turret.owner.cursorWorldPos
+    local initialAngle
+
+    if cursorPos and shipPos then
+        initialAngle = math.atan2(cursorPos.y - shipPos.y, cursorPos.x - shipPos.x)
+    elseif shipPos then
+        initialAngle = shipPos.angle
     else
-        -- Fallback to ship facing if cursor position not available
-        angle = turret.owner.components.position.angle
+        initialAngle = 0
     end
 
-    turret.currentAimAngle = angle
+    turret.currentAimAngle = initialAngle
 
-    -- Now compute turret muzzle position using the updated aim
+    -- Now compute turret muzzle position using the provisional aim
     local sx, sy = Turret.getTurretWorldPosition(turret)
+
+    -- Refine aim so the beam originates at the muzzle and points directly at the cursor
+    local angle = initialAngle
+    if cursorPos then
+        angle = math.atan2(cursorPos.y - sy, cursorPos.x - sx)
+    end
+
+    if angle ~= turret.currentAimAngle then
+        turret.currentAimAngle = angle
+        sx, sy = Turret.getTurretWorldPosition(turret)
+    else
+        turret.currentAimAngle = angle
+    end
 
     -- Compute distance from muzzle to cursor for accurate clamping
     local cursorDistance = math.huge
-    if turret.owner.cursorWorldPos then
-        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
-        local dx = cursorX - sx
-        local dy = cursorY - sy
+    if cursorPos then
+        local dx = cursorPos.x - sx
+        local dy = cursorPos.y - sy
         cursorDistance = math.sqrt(dx * dx + dy * dy)
     end
 
@@ -427,29 +439,41 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     -- Determine aim angle first relative to ship, then compute muzzle and precise distance from muzzle to cursor
     local Turret = require("src.systems.turret.core")
-    local angle = 0
-    if turret.owner.cursorWorldPos then
-        local shipPos = turret.owner.components and turret.owner.components.position
-        local shipX = shipPos and shipPos.x or 0
-        local shipY = shipPos and shipPos.y or 0
-        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
-        angle = math.atan2(cursorY - shipY, cursorX - shipX)
+    local shipPos = turret.owner.components and turret.owner.components.position
+    local cursorPos = turret.owner.cursorWorldPos
+    local initialAngle
+
+    if cursorPos and shipPos then
+        initialAngle = math.atan2(cursorPos.y - shipPos.y, cursorPos.x - shipPos.x)
+    elseif shipPos then
+        initialAngle = shipPos.angle
     else
-        -- Fallback to ship facing if cursor position not available
-        angle = turret.owner.components.position.angle
+        initialAngle = 0
     end
 
-    turret.currentAimAngle = angle
+    turret.currentAimAngle = initialAngle
 
-    -- Now compute turret muzzle position using the updated aim
+    -- Now compute turret muzzle position using the provisional aim
     local sx, sy = Turret.getTurretWorldPosition(turret)
+
+    -- Refine aim so the beam originates at the muzzle and points directly at the cursor
+    local angle = initialAngle
+    if cursorPos then
+        angle = math.atan2(cursorPos.y - sy, cursorPos.x - sx)
+    end
+
+    if angle ~= turret.currentAimAngle then
+        turret.currentAimAngle = angle
+        sx, sy = Turret.getTurretWorldPosition(turret)
+    else
+        turret.currentAimAngle = angle
+    end
 
     -- Compute distance from muzzle to cursor for accurate clamping
     local cursorDistance = math.huge
-    if turret.owner.cursorWorldPos then
-        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
-        local dx = cursorX - sx
-        local dy = cursorY - sy
+    if cursorPos then
+        local dx = cursorPos.x - sx
+        local dy = cursorPos.y - sy
         cursorDistance = math.sqrt(dx * dx + dy * dy)
     end
 

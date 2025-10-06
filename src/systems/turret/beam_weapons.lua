@@ -52,37 +52,52 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     local Turret = require("src.systems.turret.core")
     local shipPos = turret.owner.components and turret.owner.components.position
 
-    -- Determine aim angle first relative to ship, then compute muzzle and precise distance from muzzle to cursor
+    -- Determine aim angle first, then compute muzzle and precise distance from muzzle to cursor
+    local cursorPos = turret.owner.cursorWorldPos
+    local initialAngle
     local angle
     local desiredDistance
-    local cursorPos = turret.owner.cursorWorldPos
 
-    if cursorPos then
-        if shipPos then
-            angle = math.atan2(cursorPos.y - shipPos.y, cursorPos.x - shipPos.x)
-        else
-            angle = 0
-        end
+    if cursorPos and shipPos then
+        initialAngle = math.atan2(cursorPos.y - shipPos.y, cursorPos.x - shipPos.x)
     elseif target and target.components and target.components.position then
         local tx = target.components.position.x
         local ty = target.components.position.y
         if shipPos then
-            angle = math.atan2(ty - shipPos.y, tx - shipPos.x)
+            initialAngle = math.atan2(ty - shipPos.y, tx - shipPos.x)
         else
-            angle = math.atan2(ty, tx)
+            initialAngle = math.atan2(ty, tx)
         end
     elseif shipPos then
-        angle = shipPos.angle
+        initialAngle = shipPos.angle
         desiredDistance = turret.maxRange or 0
     else
-        angle = 0
+        initialAngle = 0
         desiredDistance = turret.maxRange or 0
     end
 
-    turret.currentAimAngle = angle
+    turret.currentAimAngle = initialAngle
 
-    -- Recompute muzzle world position using updated aim
+    -- Compute muzzle world position using the provisional aim
     local sx, sy = Turret.getTurretWorldPosition(turret)
+
+    -- Refine aim using the muzzle as the origin so the beam terminates at the cursor/target
+    if cursorPos then
+        angle = math.atan2(cursorPos.y - sy, cursorPos.x - sx)
+    elseif target and target.components and target.components.position then
+        local tx = target.components.position.x
+        local ty = target.components.position.y
+        angle = math.atan2(ty - sy, tx - sx)
+    else
+        angle = initialAngle
+    end
+
+    if angle ~= turret.currentAimAngle then
+        turret.currentAimAngle = angle
+        sx, sy = Turret.getTurretWorldPosition(turret)
+    else
+        turret.currentAimAngle = angle
+    end
 
     -- Compute desired distance from muzzle to cursor or target
     if cursorPos then
