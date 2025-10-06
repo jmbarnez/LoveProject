@@ -528,9 +528,15 @@ local function handleHunting(entity, dt, player, spawnProjectile, world)
                     turret.fireMode = "automatic"
                     turret.autoFire = true
 
+                    -- For turrets with AI, use turret state information
+                    local locked = not canShoot
+                    if entity.aiType == "turret" and ai.turretState then
+                        -- Use TurretAI state for more precise control
+                        locked = not (ai.turretState.hasTarget and ai.turretState.isAimed and ai.turretState.inRange)
+                    end
+
                     -- Update turret - pass 'locked' as opposite of 'canShoot'
                     -- When locked=true, turret stops firing; locked=false allows firing
-                    local locked = not canShoot
                     turret:update(dt, player, locked, world)
 
                 end
@@ -737,7 +743,13 @@ function AISystem.update(dt, world, spawnProjectile)
         elseif ai.state == "retreating" then
             handleRetreating(entity, dt, ai.target)
         end
-        
+
+        -- Handle turret AI separately
+        if entity.aiType == "turret" and ai.update then
+            -- This is a turret with TurretAI component
+            ai:update(dt, entity, world, player)
+        end
+
         ::continue::
     end
 end

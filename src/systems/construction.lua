@@ -3,6 +3,14 @@ local Content = require("src.content.content")
 local EntityFactory = require("src.templates.entity_factory")
 local Events = require("src.core.events")
 local Log = require("src.core.log")
+local AI, TurretAI = require("src.components.ai")
+
+-- Debug: Check what we got
+Log.info("AI module loaded:")
+Log.info("AI type:", type(AI))
+Log.info("TurretAI type:", type(TurretAI))
+Log.info("AI has new method:", AI and type(AI.new))
+Log.info("TurretAI has new method:", TurretAI and type(TurretAI.new))
 
 local constructionState = {
     mode = false, -- true when in construction mode
@@ -188,14 +196,29 @@ function ConstructionSystem.createConstructionEntity(itemType, x, y)
         local entity = EntityFactory.create("station", "holographic_turret", x, y)
         if entity and entity.components and entity.components.position then
             entity.id = "holographic_turret_" .. os.time() .. "_" .. math.random(1000, 9999)
-            
+
+            -- Set up dedicated turret AI component
+            if TurretAI and TurretAI.new then
+                entity.components.ai = TurretAI.new({
+                    scanRange = 800,    -- Detection range
+                    fireRange = 600,    -- Shooting range
+                    targetTypes = {"enemy", "hostile"},
+                    position = entity.components.position
+                })
+            else
+                Log.error("TurretAI not available for turret construction")
+            end
+
             -- Equip the combat laser turret
             ConstructionSystem.equipTurret(entity, "combat_laser")
-            
+
+            -- Mark entity as a turret for AI identification
+            entity.aiType = "turret"
+
             return entity
         end
     end
-    
+
     return nil
 end
 
@@ -246,15 +269,6 @@ function ConstructionSystem.equipTurret(entity, turretType)
         module = turretModule,
         id = turretType
     })
-    
-    -- Set up turret behavior for AI
-    if entity.components.ai then
-        entity.components.ai.turretBehavior = {
-            fireMode = "automatic",
-            autoFire = true,
-            targetTypes = {"enemy", "hostile"}
-        }
-    end
     
     -- Set turret to automatic fire mode
     turretModule.fireMode = "automatic"
