@@ -105,9 +105,9 @@ local startScreenHandler = function(self, x, y, button)
 
   -- Start button click
   if Theme.handleButtonClick(self.button, x, y, function()
-    -- The actual start action is handled by returning true
+    -- The actual start action is handled by returning "newGame"
   end) then
-    return true -- signal start
+    return "newGame" -- signal start new game
   end
 
   return false

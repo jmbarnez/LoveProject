@@ -206,20 +206,13 @@ local function transitionToGame(opts)
 end
 
 local function handleStartScreenResult(result)
+    -- nil/false: not handled by start screen
     if result == nil or result == false then
         return false
     end
 
+    -- true: handled by start screen, but DO NOT transition (used for generic handling)
     if result == true then
-        if mainState.startScreen then
-            if mainState.startScreen.networkManager and mainState.startScreen.networkManager.leaveGame then
-                mainState.startScreen.networkManager:leaveGame()
-            end
-            mainState.startScreen.showJoinUI = false
-            mainState.startScreen.joinErrorMessage = nil
-        end
-        _G.PENDING_MULTIPLAYER_CONNECTION = nil
-        transitionToGame({ fromSave = false, multiplayer = false, isHost = false })
         return true
     elseif result == "loadGame" then
         local loadedSlot = mainState.startScreen and mainState.startScreen.loadedSlot
@@ -239,8 +232,12 @@ local function handleStartScreenResult(result)
             if mainState.setScreen then mainState.setScreen("start") end
         end
         return true
+    elseif result == "newGame" then
+        transitionToGame({ fromSave = false, multiplayer = false, isHost = false })
+        return true
     end
 
+    -- Any other non-false value: treat as handled, but do not transition
     return true
 end
 

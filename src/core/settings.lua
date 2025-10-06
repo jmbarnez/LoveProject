@@ -293,7 +293,8 @@ function Settings.load()
     end
 
     -- Deep merge loaded settings over defaults to ensure new defaults are applied
-    -- while preserving user's existing settings.
+    -- while preserving user's existing settings for known keys only. Unknown/deprecated
+    -- keys from the saved settings are intentionally dropped.
     local function deepMerge(defaults, custom)
         if type(defaults) ~= "table" then
             if custom ~= nil then
@@ -304,14 +305,6 @@ function Settings.load()
 
         local result = {}
         local customTable = type(custom) == "table" and custom or nil
-
-        if customTable then
-            for key, value in pairs(customTable) do
-                if defaults[key] == nil then
-                    result[key] = Util.deepCopy(value)
-                end
-            end
-        end
 
         for key, value in pairs(defaults) do
             local override = customTable and customTable[key] or nil

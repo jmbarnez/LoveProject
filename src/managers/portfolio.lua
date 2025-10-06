@@ -1,5 +1,6 @@
-  Portfolio Manager
-  Manages the player's assets, funds, and transaction history for the crypto market.
+--[[
+Portfolio Manager
+Manages the player's assets, funds, and transaction history for the crypto market.
 ]]
 
 local PortfolioManager = {}
