@@ -93,6 +93,46 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
 
     local beamEndX = hitX or endX
     local beamEndY = hitY or endY
+
+    local energyStarved = false
+    if turret.energyPerSecond and turret.energyPerSecond > 0 and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
+        local currentEnergy = turret.owner.components.health.energy or 0
+        local energyCost = turret.energyPerSecond * dt
+        local resumeMultiplier = turret.resumeEnergyMultiplier or 2
+        local resumeThreshold = turret.minResumeEnergy or (resumeMultiplier * energyCost)
+        resumeThreshold = math.max(resumeThreshold, energyCost)
+
+        if turret._energyStarved then
+            if currentEnergy >= resumeThreshold then
+                turret._energyStarved = false
+            else
+                energyStarved = true
+            end
+        end
+
+        if not energyStarved then
+            if currentEnergy >= energyCost then
+                turret.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
+            else
+                turret._energyStarved = true
+                energyStarved = true
+            end
+        end
+    end
+
+    if energyStarved then
+        turret.beamActive = false
+        turret.beamTarget = nil
+        turret.beamStartX = nil
+        turret.beamStartY = nil
+        turret.beamEndX = nil
+        turret.beamEndY = nil
+        turret.has_hit = false
+        turret.cooldown = 0
+        turret.cooldownOverride = 0
+        return
+    end
+
     turret.beamActive = true
     turret.beamStartX = sx
     turret.beamStartY = sy
@@ -121,29 +161,10 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     end
     
     local requestSent = sendBeamWeaponFireRequest(turret, sx, sy, angle, beamLength, damageConfig, dt)
-    
+
     -- If not a client or request failed, process beam locally (for host)
     if not requestSent then
         -- Host processes beam locally
-    end
-
-    if turret.energyPerSecond and turret.energyPerSecond > 0 and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
-        local currentEnergy = turret.owner.components.health.energy or 0
-        local energyCost = turret.energyPerSecond * dt
-        if currentEnergy >= energyCost then
-            turret.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
-        else
-            turret.beamActive = false
-            turret.beamTarget = nil
-            turret.beamStartX = nil
-            turret.beamStartY = nil
-            turret.beamEndX = nil
-            turret.beamEndY = nil
-            turret.has_hit = false
-            turret.cooldown = 0
-            turret.cooldownOverride = 0
-            return
-        end
     end
 
     if hitTarget then

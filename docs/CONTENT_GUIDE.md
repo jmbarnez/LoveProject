@@ -62,6 +62,8 @@ Ships are player and AI-controlled vessels.
 - `projectile`: Embedded projectile definition
 - `damage_range`: Min/max damage values
 - `cycle`: Firing rate
+- `energyPerSecond`: Continuous energy draw for beam weapons
+- `minResumeEnergy` / `resumeEnergyMultiplier`: Optional reserve threshold that beams must reach before reactivating after an energy stall
 - `optimal`/`falloff`: Range parameters
 - `maxHeat`/`heatPerShot`: Overheating system
 
