@@ -66,6 +66,13 @@ function Game.resize(w, h)
     if State.world then
         State.world:resize(w, h)
     end
+
+    if Game.blurCanvas then
+        if Game.blurCanvas.release then
+            Game.blurCanvas:release()
+        end
+        Game.blurCanvas = nil
+    end
 end
 
 function Game.draw()
