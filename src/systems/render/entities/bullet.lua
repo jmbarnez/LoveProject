@@ -1,9 +1,17 @@
 local RenderUtils = require("src.systems.render.utils")
 local util = require("src.core.util")
+local ProjectileRendererRegistry = require("src.systems.render.entities.projectile_renderers.registry")
+
+require("src.systems.render.entities.projectile_renderers.init")
 
 local function render(entity, player)
     local props = entity.components.renderable.props or {}
     local kind = props.kind
+
+    if props.renderer and ProjectileRendererRegistry.draw(props.renderer, entity, props) then
+        -- Custom renderer handled drawing
+        return
+    end
 
     if kind == 'laser' or kind == 'salvaging_laser' or kind == 'mining_laser' then
         -- Draw along +X in local space; outer renderer applies rotation.
@@ -73,12 +81,27 @@ local function render(entity, player)
 
         love.graphics.setLineWidth(1)
         if love.graphics.setLineStyle then love.graphics.setLineStyle('rough') end
+    elseif kind == 'area_field' then
+        local radius = props.coreRadius or props.radius or 40
+        RenderUtils.setColor(props.color or {0.4, 0.8, 1.0, 0.35})
+        love.graphics.circle("fill", 0, 0, radius)
+        love.graphics.setLineWidth(2)
+        RenderUtils.setColor({1, 1, 1, 0.35})
+        love.graphics.circle("line", 0, 0, radius)
+        love.graphics.setLineWidth(1)
     else
         local color = props.color or {0.35, 0.70, 1.00, 1.0}
         local radius = props.radius or 1
 
         RenderUtils.setColor(color)
         love.graphics.circle("fill", 0, 0, radius)
+    end
+
+    local dynamicLight = entity.components.dynamic_light
+    if dynamicLight then
+        local color = dynamicLight.color or {1, 1, 1, 0.8}
+        RenderUtils.setColor({color[1], color[2], color[3], (color[4] or 0.8) * (dynamicLight.intensity or 1)})
+        love.graphics.circle("fill", dynamicLight.offset and dynamicLight.offset.x or 0, dynamicLight.offset and dynamicLight.offset.y or 0, dynamicLight.radius or 18)
     end
 end
 

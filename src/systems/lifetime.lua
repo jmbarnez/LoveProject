@@ -10,6 +10,7 @@
 local tiny = require("src.libs.tiny")
 local ProjectileEvents = require("src.templates.projectile_system.event_dispatcher").EVENTS
 local Effects = require("src.systems.effects")
+local State = require("src.game.state")
 
 local LifetimeSystem = {}
 
@@ -35,6 +36,7 @@ local function update_timed_life(entity, timed_life, dt)
         emit_projectile_event(entity, ProjectileEvents.EXPIRE, {
             projectile = entity,
             reason = "timed_out",
+            world = State.world,
         })
         entity.dead = true
     end
@@ -73,6 +75,7 @@ local function update_max_range(entity, max_range)
         reason = "max_range",
         distance = distance,
         maxDistance = max_range.maxDistance,
+        world = State.world,
     })
 
     max_range.expired = true

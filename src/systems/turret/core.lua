@@ -4,6 +4,8 @@ local ProjectileWeapons = require("src.systems.turret.projectile_weapons")
 local BeamWeapons = require("src.systems.turret.beam_weapons")
 local UtilityBeams = require("src.systems.turret.utility_beams")
 local TurretEffects = require("src.systems.turret.effects")
+local ModifierSystem = require("src.systems.turret.modifier_system")
+local UpgradeSystem = require("src.systems.turret.upgrade_system")
 
 local Events = require("src.core.events")
 local Log = require("src.core.log")
@@ -11,11 +13,18 @@ local Notifications = require("src.ui.notifications")
 local Turret = {}
 Turret.__index = Turret
 
+local turretInstanceCounter = 0
+
 function Turret.new(owner, params)
     local self = setmetatable({}, Turret)
 
     self.owner = owner
     self.kind = params.type
+    turretInstanceCounter = turretInstanceCounter + 1
+    self.templateId = params.id or params.turretId or (params.module and params.module.id)
+    local uniqueBase = self.templateId or "turret"
+    self.id = params.instanceId or string.format("%s_%d", uniqueBase, turretInstanceCounter)
+    self.instanceId = self.id
 
     -- Skill progression tag used when this turret deals the killing blow
     self.skillId = params.skillId
@@ -107,6 +116,14 @@ function Turret.new(owner, params)
     -- Track the turret's current aiming direction in world space so visuals,
     -- beams, and projectiles share the same muzzle origin.
     self.currentAimAngle = nil
+
+    self.modifierSystem = ModifierSystem.new(self, params.modifiers or {})
+    self.modifiers = self.modifierSystem:getSummaries()
+    if params.upgrades then
+        self.upgradeEntry = UpgradeSystem.attach(self, params.upgrades)
+    else
+        self.upgradeEntry = nil
+    end
 
     -- Set default tracer colors if not specified
     if (self.kind == 'gun' or self.kind == 'projectile' or not self.kind) and not self.tracer.color then
