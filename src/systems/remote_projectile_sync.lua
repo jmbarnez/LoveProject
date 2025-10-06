@@ -9,6 +9,7 @@ local Log = require("src.core.log")
 local Settings = require("src.core.settings")
 local NetworkManager = require("src.core.network.manager")
 local Util = require("src.core.util")
+local DynamicLight = require("src.components.dynamic_light")
 
 local RemoteProjectileSync = {}
 
@@ -179,6 +180,20 @@ local function sanitiseProjectileSnapshot(snapshot)
                 sanitisedProjectile.impact = Util.deepCopy(projectile.impact)
             end
 
+            if projectile.dynamicLight then
+                local dyn = projectile.dynamicLight
+                sanitisedProjectile.dynamicLight = {
+                    color = copyColor(dyn.color) or dyn.color,
+                    radius = tonumber(dyn.radius) or dyn.radius,
+                    intensity = tonumber(dyn.intensity) or dyn.intensity,
+                    offset = dyn.offset and {
+                        x = tonumber(dyn.offset.x) or dyn.offset.x or 0,
+                        y = tonumber(dyn.offset.y) or dyn.offset.y or 0,
+                    } or nil,
+                    pulse = dyn.pulse and Util.deepCopy(dyn.pulse) or nil,
+                }
+            end
+
             table.insert(sanitised, sanitisedProjectile)
         end
     end
@@ -297,6 +312,20 @@ local function buildProjectileSnapshotFromWorld(world)
                 }
             end
 
+            local dynamicLight = entity.components.dynamic_light
+            if dynamicLight then
+                projectileData.dynamicLight = {
+                    color = copyColor(dynamicLight.color),
+                    radius = tonumber(dynamicLight.radius) or dynamicLight.radius,
+                    intensity = tonumber(dynamicLight.intensity) or dynamicLight.intensity,
+                    offset = dynamicLight.offset and {
+                        x = tonumber(dynamicLight.offset.x) or dynamicLight.offset.x or 0,
+                        y = tonumber(dynamicLight.offset.y) or dynamicLight.offset.y or 0,
+                    } or nil,
+                    pulse = dynamicLight.pulse and Util.deepCopy(dynamicLight.pulse) or nil,
+                }
+            end
+
             table.insert(snapshot, projectileData)
         end
     end
@@ -388,6 +417,11 @@ local function ensureRemoteProjectile(projectileId, projectileData, world)
         return nil
     end
 
+    if projectileData.dynamicLight then
+        entity.components = entity.components or {}
+        entity.components.dynamic_light = DynamicLight.new(projectileData.dynamicLight)
+    end
+
     entity.isRemoteProjectile = true
     entity.remoteProjectileId = projectileId
     entity.projectileType = projectileType
@@ -435,6 +469,23 @@ local function updateProjectileFromSnapshot(entity, projectileData)
     if entity.components and entity.components.timed_life and projectileData.timed_life then
         entity.components.timed_life.duration = projectileData.timed_life.duration
         entity.components.timed_life.elapsed = projectileData.timed_life.elapsed
+    end
+
+    if entity.components then
+        if projectileData.dynamicLight then
+            local existing = entity.components.dynamic_light
+            if existing then
+                existing.color = projectileData.dynamicLight.color or existing.color
+                existing.radius = projectileData.dynamicLight.radius or existing.radius
+                existing.intensity = projectileData.dynamicLight.intensity or existing.intensity
+                existing.offset = projectileData.dynamicLight.offset or existing.offset
+                existing.pulse = projectileData.dynamicLight.pulse or existing.pulse
+            else
+                entity.components.dynamic_light = DynamicLight.new(projectileData.dynamicLight)
+            end
+        elseif entity.components.dynamic_light then
+            entity.components.dynamic_light = nil
+        end
     end
 
     -- Update impact configuration for consistent collision FX

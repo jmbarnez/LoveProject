@@ -11,7 +11,7 @@ local ProjectileEvents = require("src.templates.projectile_system.event_dispatch
 
 local PhysicsSystem = {}
 
-function PhysicsSystem.update(dt, entities)
+function PhysicsSystem.update(dt, entities, world)
     for id, entity in pairs(entities) do
         -- Skip anything that does not follow the component schema; legacy
         -- objects occasionally sneak in during development tools.
@@ -65,6 +65,7 @@ function PhysicsSystem.update(dt, entities)
                 projectileEvents.dispatcher:emit(ProjectileEvents.UPDATE, {
                     projectile = entity,
                     dt = dt,
+                    world = world,
                 })
             end
         end

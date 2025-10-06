@@ -87,7 +87,7 @@ function Pipeline.build()
             AISystem.update(ctx.dt, ctx.world, Projectiles.spawn)
         end,
         function(ctx)
-            PhysicsSystem.update(ctx.dt, ctx.world:getEntities())
+            PhysicsSystem.update(ctx.dt, ctx.world:getEntities(), ctx.world)
         end,
         function(ctx)
             update_ecs(ctx.dt, ctx)

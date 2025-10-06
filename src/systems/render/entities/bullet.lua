@@ -1,11 +1,19 @@
 local RenderUtils = require("src.systems.render.utils")
 local util = require("src.core.util")
+local ProjectileRendererRegistry = require("src.systems.render.entities.projectile_renderers.registry")
+
+require("src.systems.render.entities.projectile_renderers.init")
 
 local function render(entity, player)
     local props = entity.components.renderable.props or {}
     local kind = props.kind
 
-    if kind == 'laser' or kind == 'salvaging_laser' or kind == 'mining_laser' or kind == 'plasma_torch' then
+    if props.renderer and ProjectileRendererRegistry.draw(props.renderer, entity, props) then
+        -- Custom renderer handled drawing
+        return
+    end
+
+    if kind == 'laser' or kind == 'salvaging_laser' or kind == 'mining_laser' then
         -- Draw along +X in local space; outer renderer applies rotation.
         local len = props.length or props.maxLength or 800
         local baseColor, baseWidth
@@ -76,90 +84,14 @@ local function render(entity, player)
 
         love.graphics.setLineWidth(1)
         if love.graphics.setLineStyle then love.graphics.setLineStyle('rough') end
-    elseif kind == 'plasma' then
-        -- Plasma projectile with electric effects
-        local color = props.color or {0.8, 0.3, 1.0, 1.0}
-        local radius = props.radius or 4
-        local glowRadius = props.glowRadius or (radius * 2)
-        
-        -- Electric crackling effect
-        local time = love.timer.getTime() or 0
-        local crackleIntensity = 0.3 + 0.2 * math.sin(time * 20)
-        
-        -- Outer electric glow
-        RenderUtils.setColor({color[1], color[2], color[3], color[4] * 0.3 * crackleIntensity})
-        love.graphics.circle("fill", 0, 0, glowRadius)
-        
-        -- Inner plasma core
-        RenderUtils.setColor(color)
+    elseif kind == 'area_field' then
+        local radius = props.coreRadius or props.radius or 40
+        RenderUtils.setColor(props.color or {0.4, 0.8, 1.0, 0.35})
         love.graphics.circle("fill", 0, 0, radius)
-        
-        -- Bright center
-        local brightColor = {math.min(1, color[1] + 0.3), math.min(1, color[2] + 0.3), math.min(1, color[3] + 0.3), color[4]}
-        RenderUtils.setColor(brightColor)
-        love.graphics.circle("fill", 0, 0, radius * 0.6)
-        
-    elseif kind == 'railgun' then
-        -- Railgun projectile with electromagnetic trail
-        local color = props.color or {0.6, 0.8, 1.0, 1.0}
-        local radius = props.radius or 2
-        local trailLength = props.trailLength or 20
-        
-        -- Electromagnetic trail
-        if trailLength > 0 then
-            local vel = entity.components.velocity
-            if vel then
-                local speed = math.sqrt(vel.x * vel.x + vel.y * vel.y)
-                if speed > 0 then
-                    local trailX = -vel.x / speed * trailLength
-                    local trailY = -vel.y / speed * trailLength
-                    
-                    -- Trail glow
-                    love.graphics.setLineWidth(radius * 2)
-                    RenderUtils.setColor({color[1], color[2], color[3], color[4] * 0.4})
-                    love.graphics.line(trailX, trailY, 0, 0)
-                end
-            end
-        end
-        
-        -- Projectile core
-        RenderUtils.setColor(color)
-        love.graphics.circle("fill", 0, 0, radius)
-        
-        -- Bright center
-        local brightColor = {math.min(1, color[1] + 0.4), math.min(1, color[2] + 0.4), math.min(1, color[3] + 0.4), color[4]}
-        RenderUtils.setColor(brightColor)
-        love.graphics.circle("fill", 0, 0, radius * 0.5)
-        
-    elseif kind == 'flame' then
-        -- Plasma Torch projectile with superheated plasma effects
-        local color = props.color or {1.0, 0.4, 0.1, 1.0}
-        local radius = props.radius or 6
-        local time = love.timer.getTime() or 0
-        
-        -- Plasma instability effect (like superheated gas)
-        local instability = 0.8 + 0.4 * math.sin(time * 15 + entity.id or 0)
-        local plasmaRadius = radius * instability
-        
-        -- Outer plasma glow (superheated gas)
-        local glowColor = {color[1], color[2] * 0.8, color[3] * 0.3, color[4] * 0.6}
-        RenderUtils.setColor(glowColor)
-        love.graphics.circle("fill", 0, 0, plasmaRadius * 1.5)
-        
-        -- Middle plasma layer
-        local midColor = {color[1], color[2] * 0.9, color[3] * 0.5, color[4] * 0.8}
-        RenderUtils.setColor(midColor)
-        love.graphics.circle("fill", 0, 0, plasmaRadius * 1.2)
-        
-        -- Inner plasma core
-        RenderUtils.setColor(color)
-        love.graphics.circle("fill", 0, 0, plasmaRadius)
-        
-        -- Bright center (superheated core)
-        local brightColor = {1.0, math.min(1, color[2] + 0.3), math.min(1, color[3] + 0.2), color[4]}
-        RenderUtils.setColor(brightColor)
-        love.graphics.circle("fill", 0, 0, plasmaRadius * 0.6)
-        
+        love.graphics.setLineWidth(2)
+        RenderUtils.setColor({1, 1, 1, 0.35})
+        love.graphics.circle("line", 0, 0, radius)
+        love.graphics.setLineWidth(1)
     else
         -- Default bullet rendering
         local color = props.color or {0.35, 0.70, 1.00, 1.0}
@@ -167,6 +99,13 @@ local function render(entity, player)
 
         RenderUtils.setColor(color)
         love.graphics.circle("fill", 0, 0, radius)
+    end
+
+    local dynamicLight = entity.components.dynamic_light
+    if dynamicLight then
+        local color = dynamicLight.color or {1, 1, 1, 0.8}
+        RenderUtils.setColor({color[1], color[2], color[3], (color[4] or 0.8) * (dynamicLight.intensity or 1)})
+        love.graphics.circle("fill", dynamicLight.offset and dynamicLight.offset.x or 0, dynamicLight.offset and dynamicLight.offset.y or 0, dynamicLight.radius or 18)
     end
 end
 

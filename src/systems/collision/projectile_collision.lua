@@ -141,11 +141,13 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
     }
 
     local potential_colliders = collision_system.quadtree:query(bullet_bbox)
+    bullet._behaviorIgnoreTargets = bullet._behaviorIgnoreTargets or {}
 
     for _, obj in ipairs(potential_colliders) do
         local target = obj.entity
         if not target or not target.components or not target.components.collidable then goto skip_target end
         if shouldIgnoreCollision(bullet, target) then goto skip_target end
+        if bullet._behaviorIgnoreTargets[target] then goto skip_target end
 
         local target_radius = Radius.calculateEffectiveRadius(target)
         local ex, ey = target.components.position.x, target.components.position.y
@@ -156,13 +158,22 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
 
             if StationShields.isStation(target) and not bullet.friendly and StationShields.hasActiveShield(target) then
                 Effects.spawnImpact('shield', ex, ey, target_radius, hx, hy, impact_angle, (bullet.components and bullet.components.bullet and bullet.components.bullet.impact), renderable.props.kind, target)
-                emit_projectile_event(bullet, ProjectileEvents.HIT, {
+                local eventPayload = {
                     projectile = bullet,
                     target = target,
                     hitPosition = { x = hx, y = hy },
                     impactAngle = impact_angle,
                     hitKind = 'shield',
-                })
+                    world = world,
+                    separation = target_radius,
+                }
+                emit_projectile_event(bullet, ProjectileEvents.HIT, eventPayload)
+                if eventPayload.keepAlive then
+                    if eventPayload.skipTarget then
+                        bullet._behaviorIgnoreTargets[eventPayload.skipTarget] = true
+                    end
+                    goto skip_target
+                end
                 bullet.dead = true
                 return
             end
@@ -170,13 +181,22 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
             -- Handle station safe zone
             if StationShields.checkStationSafeZone(bullet, target) then
                 Effects.spawnImpact('shield', ex, ey, target_radius, hx, hy, impact_angle, (bullet.components and bullet.components.bullet and bullet.components.bullet.impact), renderable.props.kind, target)
-                emit_projectile_event(bullet, ProjectileEvents.HIT, {
+                local eventPayload = {
                     projectile = bullet,
                     target = target,
                     hitPosition = { x = hx, y = hy },
                     impactAngle = impact_angle,
                     hitKind = 'shield',
-                })
+                    world = world,
+                    separation = target_radius,
+                }
+                emit_projectile_event(bullet, ProjectileEvents.HIT, eventPayload)
+                if eventPayload.keepAlive then
+                    if eventPayload.skipTarget then
+                        bullet._behaviorIgnoreTargets[eventPayload.skipTarget] = true
+                    end
+                    goto skip_target
+                end
                 bullet.dead = true
                 return
             end
@@ -186,14 +206,18 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
 
             -- Apply damage and create impact effect
             local shield_hit = false
+            local dmg_val = (damage and (damage.value or damage)) or 1
             if target.components.health then
                 local source = bullet.components and bullet.components.bullet and bullet.components.bullet.source
-                local dmg_val = (damage and (damage.value or damage)) or 1
                 shield_hit = CollisionEffects.applyDamage(target, dmg_val, source)
             end
 
             -- Determine impact type using actual damage results
             local impact_type = (shield_hit or had_shield) and 'shield' or 'hull'
+            if bullet.components and bullet.components.bullet then
+                bullet.components.bullet.hitKind = impact_type
+            end
+            UpgradeSystem.onProjectileHit(bullet, dmg_val)
 
             -- Calculate impact radius for visual effect
             local impact_radius = target_radius
@@ -208,13 +232,24 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
 
             Effects.spawnImpact(impact_type, ex, ey, impact_radius, hx, hy, impact_angle, (bullet.components and bullet.components.bullet and bullet.components.bullet.impact), renderable.props.kind, target)
 
-            emit_projectile_event(bullet, ProjectileEvents.HIT, {
+            local eventPayload = {
                 projectile = bullet,
                 target = target,
                 hitPosition = { x = hx, y = hy },
                 impactAngle = impact_angle,
                 hitKind = impact_type,
-            })
+                world = world,
+                separation = target_radius,
+            }
+
+            emit_projectile_event(bullet, ProjectileEvents.HIT, eventPayload)
+
+            if eventPayload.keepAlive then
+                if eventPayload.skipTarget then
+                    bullet._behaviorIgnoreTargets[eventPayload.skipTarget] = true
+                end
+                goto skip_target
+            end
 
             -- Handle chain lightning
             local source = bullet.components and bullet.components.bullet and bullet.components.bullet.source
@@ -395,3 +430,4 @@ function ProjectileCollision.handle_beam_collision(collision_system, beam, world
 end
 
 return ProjectileCollision
+local UpgradeSystem = require("src.systems.turret.upgrade_system")
