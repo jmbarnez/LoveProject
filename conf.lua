@@ -1,5 +1,5 @@
 function love.conf(t)
-  t.identity = "dark_orbit_clone"
+  t.identity = "Novus"
   t.version = "11.4"
   t.console = true
 

@@ -2,16 +2,16 @@ local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local Settings = require("src.core.settings")
 
-local Reticle = {}
+local Crosshair = {}
 
-function Reticle.draw(player, world, camera)
+function Crosshair.draw(player, world, camera)
   local mx, my = Viewport.getMousePosition()
   local t = love.timer.getTime()
 
   local g = Settings.getGraphicsSettings()
   local userColor
-  if g and g.reticle_color_rgb and type(g.reticle_color_rgb) == 'table' then
-    userColor = { g.reticle_color_rgb[1] or 1, g.reticle_color_rgb[2] or 1, g.reticle_color_rgb[3] or 1, g.reticle_color_rgb[4] or 1 }
+  if g and g.crosshair_color_rgb and type(g.crosshair_color_rgb) == 'table' then
+    userColor = { g.crosshair_color_rgb[1] or 1, g.crosshair_color_rgb[2] or 1, g.crosshair_color_rgb[3] or 1, g.crosshair_color_rgb[4] or 1 }
   else
     userColor = Theme.colors.accent
   end
@@ -40,4 +40,4 @@ function Reticle.draw(player, world, camera)
   love.graphics.pop()
 end
 
-return Reticle
+return Crosshair

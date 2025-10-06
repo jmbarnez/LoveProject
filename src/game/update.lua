@@ -78,6 +78,9 @@ function Update.update(dt)
     Theme.updateAnimations(dt)
     Theme.updateParticles(dt)
     Theme.updateScreenEffects(dt)
+    
+    -- Update post-processing systems
+    local PostProcessing = require("src.systems.post_processing")
 
     if not world or not player then
         return

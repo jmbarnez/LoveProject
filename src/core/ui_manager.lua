@@ -580,7 +580,15 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops)
   local TooltipManager = require("src.ui.tooltip_manager")
   TooltipManager.draw()
 
-  -- UI cursor removed - using simple reticle system
+  -- Draw UI cursor when any UI is open
+  local UICursor = require("src.ui.hud.cursor")
+  if UIManager.modalActive then
+    UICursor.setVisible(true)
+    UICursor.applySettings()
+    UICursor.draw()
+  else
+    UICursor.setVisible(false)
+  end
 
   -- Restore prior font to prevent persistent size changes across frames
   if oldFont then love.graphics.setFont(oldFont) end

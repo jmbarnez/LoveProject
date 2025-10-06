@@ -12,7 +12,7 @@ local RepairSystem = require("src.systems.repair_system")
 local StatusBars = require("src.ui.hud.status_bars")
 local Minimap = require("src.ui.hud.minimap")
 local Hotbar = require("src.ui.hud.hotbar")
-local Reticle = require("src.ui.hud.reticle")
+local Crosshair = require("src.ui.hud.crosshair")
 local ExperienceNotification = require("src.ui.hud.experience_notification")
 
 local UI = {}
@@ -254,7 +254,7 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
   local overUI = UIManager.isMouseOverUI and UIManager.isMouseOverUI() or false
 
   if not overUI then
-    Reticle.draw(player, world, camera)
+    Crosshair.draw(player, world, camera)
   end
   Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, world:get_entities_with_components("mineable"), remotePlayerSnapshots)
   Hotbar.draw(player)

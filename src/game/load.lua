@@ -78,6 +78,18 @@ function Load.load(Game, fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   HotbarSystem.load()
   NodeMarket.init()
   PortfolioManager.init(nil, { force = true })
+  
+  -- Initialize post-processing systems
+  local PostProcessing = require("src.systems.post_processing")
+  PostProcessing.init()
+  
+  -- Enable post-processing effects by default
+  PostProcessing.setBloomEnabled(true)
+  PostProcessing.updateBloomSettings(0.8, 0.5, 2.0)
+  PostProcessing.setColorGradingEnabled(true)
+  PostProcessing.updateColorGradingSettings(1.1, 0.05, 1.2, {1.0, 0.95, 1.0}, 1.0)
+  PostProcessing.setVignetteEnabled(true)
+  PostProcessing.updateVignetteSettings(0.3, 0.8)
 
   updateProgress(0.25, "Initializing network...")
   networkManager = NetworkSession.getManager()

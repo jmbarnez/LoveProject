@@ -16,7 +16,16 @@ local keybindOrder = {
 }
 
 function ControlsPanel.setKeymap(map, onChanged)
-    keymap = map or {}
+    keymap = {}
+    if type(map) == "table" then
+        for action, binding in pairs(map) do
+            if type(binding) == "table" then
+                keymap[action] = binding.primary or ""
+            else
+                keymap[action] = binding
+            end
+        end
+    end
     keymapChangedCallback = onChanged
 end
 

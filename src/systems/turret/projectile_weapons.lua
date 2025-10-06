@@ -402,6 +402,7 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
                     sourceTurretType = metadata.turretType,
                 })
             end
+            
         end
     end
 

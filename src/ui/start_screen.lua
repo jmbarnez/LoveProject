@@ -13,6 +13,7 @@ local Strings = require("src.core.strings")
 local VersionLog = require("src.ui.version_log")
 local NetworkManager = require("src.core.network.manager")
 local Notifications = require("src.ui.notifications")
+local UICursor = require("src.ui.hud.cursor")
 
 local Start = {}
 Start.__index = Start
@@ -516,6 +517,11 @@ function Start:draw()
   
   -- Draw notifications on top of everything else
   Notifications.draw()
+  
+  -- Draw UI cursor
+  UICursor.setVisible(true)
+  UICursor.applySettings()
+  UICursor.draw()
   
   -- Version number in bottom right
 end

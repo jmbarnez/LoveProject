@@ -20,13 +20,10 @@ local settings = {
         max_fps = Constants.TIMING.FPS_60,
         font_scale = 1.0,
         show_fps = false,
-        -- Reticle customization
-        reticle_style = 1,            -- 1..50 preset styles
-        reticle_color = "cyan",       -- bright blue reticle by default
-        reticle_color_rgb = nil,      -- custom color {r,g,b,a}
-        -- UI cursor customization
-        ui_cursor_color = "accent",   -- legacy string (kept for fallback)
-        ui_cursor_color_rgb = nil,    -- custom color {r,g,b,a}
+        -- Crosshair customization
+        crosshair_style = 1,            -- 1..50 preset styles
+        crosshair_color = "cyan",       -- bright blue crosshair by default
+        crosshair_color_rgb = nil,      -- custom color {r,g,b,a}
   },
     audio = {
         master_volume = 0.25,

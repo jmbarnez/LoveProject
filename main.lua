@@ -61,7 +61,7 @@ function love.setScreen(newScreen)
             Game.unload()
         end
         startScreen = Start.new()
-        love.mouse.setVisible(true)
+        love.mouse.setVisible(false)
         if love.mouse and love.mouse.setRelativeMode then
             love.mouse.setRelativeMode(false)
         end
@@ -202,6 +202,7 @@ function love.load()
     love.applyGraphicsSettings()
 
     love.mouse.setRelativeMode(false)
+    love.mouse.setVisible(false)  -- Hide cursor on start screen
     local Theme = require("src.core.theme")
     Theme.init()
     Theme.loadFonts()

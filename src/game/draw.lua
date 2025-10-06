@@ -10,6 +10,7 @@ local InteractionSystem = require("src.systems.interaction")
 local QuestLogHUD = require("src.ui.hud.quest_log")
 local Viewport = require("src.core.viewport")
 local Indicators = require("src.systems.render.indicators")
+local PostProcessing = require("src.systems.post_processing")
 
 local Draw = {}
 
@@ -32,9 +33,25 @@ function Draw.draw(Game)
     world:drawBackground(camera)
     if DEBUG_DRAW_BOUNDS then world:drawBounds() end
 
+    -- Render to main canvas for post-processing
+    local mainCanvas = PostProcessing.mainCanvas
+    if mainCanvas then
+        local currentCanvas = love.graphics.getCanvas()
+        love.graphics.setCanvas(mainCanvas)
+        love.graphics.clear()
+    end
+
     RenderSystem.draw(world, camera, player, State.clickMarkers, State.hoveredEntity, State.hoveredEntityType)
     Effects.draw()
+    
+    
     camera:reset()
+    
+    -- Apply post-processing if we have a main canvas
+    if mainCanvas then
+        love.graphics.setCanvas(currentCanvas)
+        PostProcessing.apply(mainCanvas)
+    end
 
     UI.drawHelpers(player, world, hub, camera)
 

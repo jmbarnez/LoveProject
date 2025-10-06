@@ -42,8 +42,8 @@ local strings = {
             keybindings = "Keybindings",
             keybindings_instruction = "(Click to change)",
             apply_button = "Apply",
-            select_reticle = "Select Reticle",
-            choose_reticle = "Choose Reticle",
+            select_crosshair = "Select Crosshair",
+            choose_crosshair = "Choose Crosshair",
             done_button = "Done",
             back_button = "← Back",
 
@@ -55,7 +55,7 @@ local strings = {
             -- Graphics options
             vsync = "VSync:",
             max_fps = "Max FPS:",
-            reticle = "Reticle:",
+            crosshair = "Crosshair:",
             accent_color = "Accent Color:",
             show_helpers = "Show Helpers:",
 

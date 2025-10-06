@@ -29,24 +29,15 @@ local function render(entity, player)
         local elapsed = totalLife - timeLeft
 
         -- Phase timing
-        local buildupTime = 0.1
-        local flashTime = 0.05
+        local flashTime = 0.02
 
         local phase, phaseProgress, alpha, coreW, glowW
         local r, g, b, baseAlpha = util.unpack_color(baseColor)
 
-        if elapsed <= buildupTime then
-            -- BUILDUP PHASE: Energy charging
-            phase = "buildup"
-            phaseProgress = elapsed / buildupTime
-            local intensity = phaseProgress * phaseProgress -- Quadratic buildup
-            alpha = baseAlpha * (0.3 + 0.7 * intensity)
-            coreW = baseWidth * (0.1 + 0.4 * intensity) -- Thinner beam
-            glowW = coreW + 3 * intensity -- Less glow
-        elseif elapsed <= buildupTime + flashTime then
+        if elapsed <= flashTime then
             -- FLASH PHASE: Intense beam release
             phase = "flash"
-            phaseProgress = (elapsed - buildupTime) / flashTime
+            phaseProgress = elapsed / flashTime
             alpha = baseAlpha * (2.0 + 0.5 * math.sin(phaseProgress * math.pi * 8)) -- Flickering intensity
             coreW = baseWidth * (0.8 + 0.3 * math.sin(phaseProgress * math.pi * 12)) -- Thinner core
             glowW = coreW + 4 + 2 * math.sin(phaseProgress * math.pi * 6) -- Less glow
@@ -65,29 +56,9 @@ local function render(entity, player)
             return
         end
 
-        -- Charged pulse rendering: buildup + intense flash
-        local time = love.timer.getTime()
-
-        if phase == "buildup" then
-            -- BUILDUP: Growing energy effect with particles
-            love.graphics.setLineWidth(glowW)
-            RenderUtils.setColor(baseColor, alpha * 0.3)
-            love.graphics.line(0, 0, len * phaseProgress, 0)
-
-            -- Energy particles building up along beam path
-            for i = 1, math.floor(8 * phaseProgress) do
-                local px = (len * phaseProgress) * (i / 8) + math.sin(time * 12 + i) * 3
-                local py = math.cos(time * 10 + i * 2) * (3 * phaseProgress)
-                RenderUtils.setColor(baseColor, alpha * 0.9)
-                love.graphics.circle("fill", px, py, 1.5 + phaseProgress * 0.5)
-            end
-
-            -- Charging glow at muzzle
-            RenderUtils.setColor(baseColor, alpha * 0.6)
-            love.graphics.circle("fill", 0, 0, 2 + 4 * phaseProgress)
-
-        else
-            -- FLASH: Massive intense beam discharge
+        -- Beam rendering
+        if phase == "flash" then
+            -- Beam discharge
             -- Outer glow
             love.graphics.setLineWidth(glowW)
             RenderUtils.setColor(baseColor, alpha * 0.5)
@@ -98,19 +69,6 @@ local function render(entity, player)
             RenderUtils.setColor({math.min(1, r + 0.4), math.min(1, g + 0.4), math.min(1, b + 0.4), alpha})
             love.graphics.line(0, 0, len, 0)
 
-            -- Intense muzzle flash
-            RenderUtils.setColor({math.min(1, r + 0.5), math.min(1, g + 0.5), math.min(1, b + 0.5), alpha * 0.8})
-            love.graphics.circle("fill", 0, 0, 6 + math.sin(phaseProgress * math.pi * 20) * 2)
-
-            -- Energy burst particles
-            for i = 1, 6 do
-                local burstAngle = (i / 6) * math.pi * 2 + phaseProgress * math.pi
-                local burstDist = 8 + math.sin(phaseProgress * math.pi * 15 + i) * 3
-                local bx = math.cos(burstAngle) * burstDist
-                local by = math.sin(burstAngle) * burstDist
-                RenderUtils.setColor(baseColor, alpha * 0.7)
-                love.graphics.circle("fill", bx, by, 1 + math.sin(phaseProgress * math.pi * 10 + i) * 0.5)
-            end
         end
 
         love.graphics.setLineWidth(1)

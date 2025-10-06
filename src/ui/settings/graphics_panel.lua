@@ -13,7 +13,6 @@ local fpsLimitTypes = {Strings.getUI("unlimited"), "30", "60", "120", "144", "24
 local vsyncDropdown
 local fpsLimitDropdown
 
-local reticleGalleryOpen = false
 local accentGalleryOpen = false
 
 local accentColorSliders = {
@@ -24,10 +23,6 @@ local accentColorSliders = {
 
 local accentThemeLastChanged = 0
 local accentThemeChangeDuration = 0.5
-
-local reticlePopup
-local reticleSpectrum
-local reticleDone
 
 local accentPopup
 local accentSpectrum
@@ -249,160 +244,6 @@ local function refreshDropdowns()
     fpsLimitDropdown:setSelectedIndex(idx)
 end
 
-local function drawReticlePreview(previewSize)
-    love.graphics.push()
-    love.graphics.translate(previewSize * 0.5, previewSize * 0.5)
-    local styleIndex = math.max(1, math.min(50, currentSettings and currentSettings.reticle_style or 1))
-    local pointerScale = 0.9 + (styleIndex - 1) / 49 * 0.6
-    local baseScale = (previewSize / 32) * 0.95
-    love.graphics.scale(baseScale * pointerScale, baseScale * pointerScale)
-    Theme.setColor(Theme.colors.textHighlight)
-    love.graphics.setLineWidth(1)
-    love.graphics.line(-8, 0, 8, 0)
-    love.graphics.line(0, -8, 0, 8)
-    love.graphics.circle('fill', 0, 0, 1)
-    love.graphics.pop()
-end
-
-local function drawReticleGallery()
-    if not reticleGalleryOpen then
-        reticlePopup = nil
-        reticleSpectrum = nil
-        reticleDone = nil
-        return
-    end
-
-    local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
-    local gw, gh = 700, 600
-    local gx, gy = (sw - gw) / 2, (sh - gh) / 2
-    Theme.drawGradientGlowRect(gx, gy, gw, gh, 6, Theme.colors.bg1, Theme.colors.bg0, Theme.colors.accent, Theme.effects.glowWeak)
-    Theme.drawEVEBorder(gx, gy, gw, gh, 6, Theme.colors.border, 8)
-    Theme.setColor(Theme.colors.textHighlight)
-    love.graphics.print(Strings.getUI("choose_reticle"), gx + 16, gy + 12)
-
-    local pickerY = gy + 50
-    local pickerX = gx + 20
-    local pickerSize = 200
-    local previewSize = 80
-
-    local function getCurrentRGB()
-        if not currentSettings then return 1, 1, 1 end
-        local c = currentSettings.reticle_color_rgb
-        if c and type(c) == 'table' then
-            return c[1] or 1, c[2] or 1, c[3] or 1
-        end
-        local ThemeMod = require('src.core.theme')
-        local name = currentSettings.reticle_color or 'accent'
-        local map = {
-            accent = ThemeMod.colors.accent,
-            white = {1,1,1,1},
-            cyan = ThemeMod.colors.info,
-            green = ThemeMod.colors.success,
-            red = ThemeMod.colors.danger,
-            yellow = ThemeMod.colors.warning,
-            magenta = ThemeMod.colors.accentPink,
-            teal = ThemeMod.colors.accentTeal,
-            gold = ThemeMod.colors.accentGold,
-        }
-        local cc = map[(name or 'accent'):lower()] or ThemeMod.colors.accent
-        return cc[1], cc[2], cc[3]
-    end
-
-    local cr, cg, cb = getCurrentRGB()
-
-    local spectrumX = pickerX
-    local spectrumY = pickerY
-    local spectrumW = pickerSize
-    local spectrumH = pickerSize
-
-    for x = 0, spectrumW - 1 do
-        for y = 0, spectrumH - 1 do
-            local h = (x / spectrumW) * 360
-            local s = 1.0
-            local v = 1.0 - (y / spectrumH)
-            local r, g, b = hsvToRgb(h, s, v)
-            Theme.setColor({r, g, b, 1})
-            love.graphics.rectangle("fill", spectrumX + x, spectrumY + y, 1, 1)
-        end
-    end
-
-    Theme.setColor(Theme.colors.border)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", spectrumX, spectrumY, spectrumW, spectrumH)
-
-    local currentH = rgbToHsv(cr, cg, cb)
-    local indicatorX = spectrumX + (currentH.h / 360) * spectrumW
-    local indicatorY = spectrumY + (1 - currentH.v) * spectrumH
-
-    Theme.setColor({1, 1, 1, 1})
-    love.graphics.setLineWidth(2)
-    love.graphics.line(indicatorX - 8, indicatorY, indicatorX + 8, indicatorY)
-    love.graphics.line(indicatorX, indicatorY - 8, indicatorX, indicatorY + 8)
-    Theme.setColor({0, 0, 0, 1})
-    love.graphics.setLineWidth(1)
-    love.graphics.line(indicatorX - 9, indicatorY, indicatorX + 9, indicatorY)
-    love.graphics.line(indicatorX, indicatorY - 9, indicatorX, indicatorY + 9)
-
-    reticleSpectrum = { x = spectrumX, y = spectrumY, w = spectrumW, h = spectrumH }
-
-    local previewX = pickerX + pickerSize + 20
-    local previewY = pickerY
-    Theme.setColor({cr, cg, cb, 1})
-    love.graphics.rectangle("fill", previewX, previewY, previewSize, previewSize)
-    Theme.setColor(Theme.colors.border)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", previewX, previewY, previewSize, previewSize)
-
-    Theme.setColor(Theme.colors.text)
-    local labelText = "Cursor Color"
-    local labelW = Theme.fonts.small:getWidth(labelText)
-    love.graphics.print(labelText, previewX + (previewSize - labelW) / 2, previewY - 20)
-
-    local rgbY = previewY + previewSize + 10
-    local rgbText = string.format("R: %d  G: %d  B: %d",
-        math.floor(cr * 255),
-        math.floor(cg * 255),
-        math.floor(cb * 255))
-    love.graphics.print(rgbText, previewX, rgbY)
-
-    local hsvY = rgbY + 15
-    local hsvText = string.format("H: %d°  S: %d%%  V: %d%%",
-        math.floor(currentH.h),
-        math.floor(currentH.s * 100),
-        math.floor(currentH.v * 100))
-    love.graphics.print(hsvText, previewX, hsvY)
-
-    local px, py = gx + 16, pickerY + pickerSize + 20
-    local cols, cell, gap = 10, 44, 8
-    local total, rows = 50, math.ceil(50/cols)
-    reticlePopup = { x = px, y = py, cols = cols, rows = rows, cell = cell, gap = gap }
-    local curStyle = currentSettings and currentSettings.reticle_style or 1
-    for i = 1, total do
-        local r = math.floor((i-1)/cols)
-        local c = (i-1) % cols
-        local cx = px + c * (cell + gap)
-        local cy = py + r * (cell + gap)
-        local isSel = (i == curStyle)
-        Theme.drawGradientGlowRect(cx, cy, cell, cell, 3, isSel and Theme.colors.bg3 or Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak * 0.1)
-        love.graphics.push()
-        love.graphics.translate(cx + cell / 2, cy + cell / 2)
-        local pointerScale = 0.9 + (i - 1) / 49 * 0.6
-        local baseScale = (cell / 32) * 0.95
-        love.graphics.scale(baseScale * pointerScale, baseScale * pointerScale)
-        Theme.setColor(Theme.colors.textHighlight)
-        love.graphics.setLineWidth(1)
-        love.graphics.line(-8, 0, 8, 0)
-        love.graphics.line(0, -8, 0, 8)
-        love.graphics.circle('fill', 0, 0, 1)
-        love.graphics.pop()
-    end
-
-    local doneW, doneH = 120, 32
-    local doneX = gx + gw - doneW - 20
-    local doneY = gy + gh - doneH - 20
-    Theme.drawStyledButton(doneX, doneY, doneW, doneH, Strings.getUI("done"), false, love.timer.getTime())
-    reticleDone = { _rect = { x = doneX, y = doneY, w = doneW, h = doneH } }
-end
 
 local function drawAccentGallery()
     if not accentGalleryOpen then
@@ -515,53 +356,7 @@ local function drawAccentGallery()
     end
 end
 
-local function handleReticleGalleryClick(screenX, screenY)
-    if not reticleGalleryOpen then
-        return false
-    end
-
-    if reticleDone and screenX >= reticleDone._rect.x and screenX <= reticleDone._rect.x + reticleDone._rect.w and screenY >= reticleDone._rect.y and screenY <= reticleDone._rect.y + reticleDone._rect.h then
-        local Sound = require("src.core.sound")
-        Sound.playSFX("button_click")
-        reticleGalleryOpen = false
-        return true
-    end
-
-    if reticlePopup and screenX >= reticlePopup.x and screenY >= reticlePopup.y then
-        local col = math.floor((screenX - reticlePopup.x) / (reticlePopup.cell + reticlePopup.gap))
-        local row = math.floor((screenY - reticlePopup.y) / (reticlePopup.cell + reticlePopup.gap))
-        if col >= 0 and col < reticlePopup.cols and row >= 0 and row < reticlePopup.rows then
-            local index = row * reticlePopup.cols + col + 1
-            if index >= 1 and index <= 50 and currentSettings then
-                currentSettings.reticle_style = index
-                return true
-            end
-        end
-    end
-
-    if reticleSpectrum and screenX >= reticleSpectrum.x and screenX <= reticleSpectrum.x + reticleSpectrum.w and screenY >= reticleSpectrum.y and screenY <= reticleSpectrum.y + reticleSpectrum.h then
-        local h = ((screenX - reticleSpectrum.x) / reticleSpectrum.w) * 360
-        local v = 1.0 - ((screenY - reticleSpectrum.y) / reticleSpectrum.h)
-        local s = 1.0
-
-        local r, g, b = hsvToRgb(h, s, v)
-
-        if currentSettings then
-            currentSettings.reticle_color_rgb = {r, g, b, 1.0}
-            currentSettings.reticle_color = nil
-        end
-        return true
-    end
-
-    local sw, sh = love.graphics.getWidth(), love.graphics.getHeight()
-    local gw, gh = 700, 600
-    local gx, gy = (sw - gw) / 2, (sh - gh) / 2
-    if screenX >= gx and screenX <= gx + gw and screenY >= gy and screenY <= gy + gh then
-        return true
-    end
-
-    return false
-end
+-- (reticle gallery removed)
 
 local function handleAccentGalleryClick(screenX, screenY)
     if not accentGalleryOpen then
@@ -670,20 +465,7 @@ function GraphicsPanel.draw(layout)
     GraphicsPanel._showFpsToggleRect = { x = showFpsToggleX, y = showFpsToggleY - layout.scrollY, w = showFpsToggleW, h = showFpsToggleH }
     yOffset = yOffset + itemHeight
 
-    Theme.setColor(Theme.colors.text)
-    love.graphics.print("Cursor:", labelX, yOffset)
-    local cursorBtnX, cursorBtnY, cursorBtnW, cursorBtnH = valueX, yOffset - 4, 140, 26
-    local cursorBtnHover = mx >= cursorBtnX and mx <= cursorBtnX + cursorBtnW and scrolledMouseY >= cursorBtnY and scrolledMouseY <= cursorBtnY + cursorBtnH
-    Theme.drawStyledButton(cursorBtnX, cursorBtnY, cursorBtnW, cursorBtnH, "Select Cursor", cursorBtnHover, love.timer.getTime())
-    GraphicsPanel._reticleButtonRect = { x = cursorBtnX, y = cursorBtnY - layout.scrollY, w = cursorBtnW, h = cursorBtnH }
-    local previewSize = cursorBtnH
-    local pvX, pvY = cursorBtnX + cursorBtnW + 10, cursorBtnY
-    Theme.drawGradientGlowRect(pvX, pvY, previewSize, previewSize, 3, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak * 0.1)
-    love.graphics.push()
-    love.graphics.translate(pvX, pvY)
-    drawReticlePreview(previewSize)
-    love.graphics.pop()
-    yOffset = yOffset + itemHeight
+    
 
     Theme.setColor(Theme.colors.text)
     love.graphics.print("Accent Color:", labelX, yOffset)
@@ -714,7 +496,6 @@ function GraphicsPanel.draw(layout)
 end
 
 function GraphicsPanel.drawOverlays()
-    drawReticleGallery()
     drawAccentGallery()
 end
 
@@ -731,15 +512,7 @@ function GraphicsPanel.mousepressed(raw_x, raw_y, button)
     if button ~= 1 then return false end
 
     local screenX, screenY = Viewport.toScreen(raw_x, raw_y)
-    if handleReticleGalleryClick(screenX, screenY) then return true end
     if handleAccentGalleryClick(screenX, screenY) then return true end
-
-    if GraphicsPanel._reticleButtonRect and raw_x >= GraphicsPanel._reticleButtonRect.x and raw_x <= GraphicsPanel._reticleButtonRect.x + GraphicsPanel._reticleButtonRect.w and raw_y >= GraphicsPanel._reticleButtonRect.y and raw_y <= GraphicsPanel._reticleButtonRect.y + GraphicsPanel._reticleButtonRect.h then
-        local Sound = require("src.core.sound")
-        Sound.playSFX("button_click")
-        reticleGalleryOpen = true
-        return true
-    end
 
     if GraphicsPanel._accentButtonRect and raw_x >= GraphicsPanel._accentButtonRect.x and raw_x <= GraphicsPanel._accentButtonRect.x + GraphicsPanel._accentButtonRect.w and raw_y >= GraphicsPanel._accentButtonRect.y and raw_y <= GraphicsPanel._accentButtonRect.y + GraphicsPanel._accentButtonRect.h then
         local Sound = require("src.core.sound")
@@ -800,7 +573,6 @@ function GraphicsPanel.getContentHeight(baseY, itemHeight)
     yOffset = yOffset + itemHeight -- vsync
     yOffset = yOffset + itemHeight -- fps
     yOffset = yOffset + itemHeight -- show fps
-    yOffset = yOffset + itemHeight -- cursor
     yOffset = yOffset + itemHeight -- accent
     return yOffset
 end
@@ -808,7 +580,6 @@ end
 GraphicsPanel.refreshDropdowns = refreshDropdowns
 GraphicsPanel.applyAccentTheme = applyAccentTheme
 GraphicsPanel.applyCustomAccentColor = applyCustomAccentColor
-GraphicsPanel.handleReticleGalleryClick = handleReticleGalleryClick
 GraphicsPanel.handleAccentGalleryClick = handleAccentGalleryClick
 
 return GraphicsPanel
