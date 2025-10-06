@@ -1,25 +1,29 @@
 local Util = require("src.core.util")
-local Content = require("src.content.content")
-local ProjectileWeapons = require("src.systems.turret.projectile_weapons")
-local BeamWeapons = require("src.systems.turret.beam_weapons")
-local UtilityBeams = require("src.systems.turret.utility_beams")
-local TurretEffects = require("src.systems.turret.effects")
 local ModifierSystem = require("src.systems.turret.modifier_system")
 local UpgradeSystem = require("src.systems.turret.upgrade_system")
-
-local Events = require("src.core.events")
-local Log = require("src.core.log")
 local Notifications = require("src.ui.notifications")
+local Log = require("src.core.log")
+local TurretRegistry = require("src.systems.turret.registry")
+
+-- Ensure all built-in turret handlers are registered before instances are created.
+require("src.systems.turret.types.projectile")
+require("src.systems.turret.types.gun")
+require("src.systems.turret.types.missile")
+require("src.systems.turret.types.laser")
+require("src.systems.turret.types.mining_laser")
+require("src.systems.turret.types.salvaging_laser")
+require("src.systems.turret.types.plasma_torch")
 local Turret = {}
 Turret.__index = Turret
 
 local turretInstanceCounter = 0
+local EMPTY_TABLE = {}
 
 function Turret.new(owner, params)
     local self = setmetatable({}, Turret)
 
     self.owner = owner
-    self.kind = params.type
+    self.kind = params.type or params.kind
     turretInstanceCounter = turretInstanceCounter + 1
     self.templateId = params.id or params.turretId or (params.module and params.module.id)
     local uniqueBase = self.templateId or "turret"
@@ -170,16 +174,32 @@ function Turret.new(owner, params)
         self.tracer.color = self.tracer.color
     end
 
+    self:getHandler() -- Resolve the handler once so missing registrations surface early.
+
     return self
 end
 
-function Turret:update(dt, target, locked, world)
+function Turret:getHandler()
+    local currentKind = self.kind
+    if self._handlerKind ~= currentKind then
+        self._handler = TurretRegistry.get(currentKind)
+        self._handlerKind = currentKind
 
+        if not self._handler and not self._missingHandlerLogged then
+            Log.warn("Turret: No handler registered for kind", tostring(currentKind or "default"))
+            self._missingHandlerLogged = true
+        end
+    end
+
+    return self._handler
+end
+
+function Turret:update(dt, target, locked, world)
     -- Update cooldown timer
     if self.cooldown > 0 then
         self.cooldown = math.max(0, self.cooldown - dt)
     end
-    
+
     -- Update reload timer
     if self.isReloading then
         self.reloadTimer = math.max(0, self.reloadTimer - dt)
@@ -189,80 +209,62 @@ function Turret:update(dt, target, locked, world)
         end
     end
 
-
-    if self.kind == "missile" then
-        ProjectileWeapons.updateMissileLockState(self, dt, target, world)
+    local handler = self:getHandler()
+    if handler and handler.preUpdate then
+        handler.preUpdate(self, dt, target, locked, world)
     end
 
-    -- Check if we can fire
     if locked then
         self.firing = false
         self.currentTarget = nil
         self.beamActive = false
+        if handler and handler.onLocked then
+            handler.onLocked(self, dt, target, locked, world)
+        end
         return
     end
 
-    -- Check firing timing (cooldown takes priority over old timing system)
     if self.cooldown > 0 then
         return
     end
 
-    local effectiveCycle = self.cycle
+    if not handler then
+        return
+    end
 
-    -- No facing direction restrictions - enemies can shoot in any direction
+    local config = handler.config or EMPTY_TABLE
 
-    -- For manual mode, only fire if we're actively firing (button held)
-    -- For automatic mode, fire if autoFire is enabled and cooldown allows
-    if self.fireMode == "manual" or (self.fireMode == "automatic" and self.autoFire) then
-        -- Prevent triggering cooldown while a weapon is still reloading
-        if self.kind == "gun" and not self:canFire() then
-            return
-        end
-        
-        -- Check if we have enough energy to fire (skip for utility beams as they handle their own energy)
-        -- Skip energy checks for enemies - they ignore energy usage
-        if self.capCost and self.capCost > 0 and self.owner and self.owner.components and self.owner.components.health and self.owner.isPlayer then
-            local currentEnergy = self.owner.components.health.energy or 0
-            if currentEnergy < self.capCost then
-                -- Show notification for insufficient energy (only for player) with spam protection
-                local currentTime = love.timer.getTime()
-                local lastEnergyNotification = self._lastEnergyNotification or 0
-                local energyNotificationCooldown = 2.0 -- 2 seconds between notifications
-                
-                if currentTime - lastEnergyNotification > energyNotificationCooldown then
-                    Notifications.add("Insufficient energy to fire weapon!", "warning")
-                    self._lastEnergyNotification = currentTime
-                end
-                return -- Not enough energy to fire
+    if config.requiresClip and not self:canFire() then
+        return
+    end
+
+    if not config.skipEnergyCheck
+        and self.capCost and self.capCost > 0
+        and self.owner and self.owner.components and self.owner.components.health
+        and self.owner.isPlayer then
+        local currentEnergy = self.owner.components.health.energy or 0
+        if currentEnergy < self.capCost then
+            -- Show notification for insufficient energy (only for player) with spam protection
+            local currentTime = love.timer.getTime()
+            local lastEnergyNotification = self._lastEnergyNotification or 0
+            local energyNotificationCooldown = 2.0 -- 2 seconds between notifications
+
+            if currentTime - lastEnergyNotification > energyNotificationCooldown then
+                Notifications.add("Insufficient energy to fire weapon!", "warning")
+                self._lastEnergyNotification = currentTime
             end
+            return -- Not enough energy to fire
         end
-        
-        -- Route to appropriate weapon handler
-        if self.kind == "gun" or self.kind == "projectile" or not self.kind then
-            ProjectileWeapons.updateGunTurret(self, dt, target, locked, world)
-        elseif self.kind == "missile" then
-            ProjectileWeapons.updateMissileTurret(self, dt, target, locked, world)
-        elseif self.kind == "laser" then
-            BeamWeapons.updateLaserTurret(self, dt, target, locked, world)
-        elseif self.kind == "mining_laser" then
-            UtilityBeams.updateMiningLaser(self, dt, target, locked, world)
-        elseif self.kind == "salvaging_laser" then
-            UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
-        elseif self.kind == "plasma_torch" then
-            UtilityBeams.updatePlasmaTorch(self, dt, target, locked, world)
-        end
-    else
-        -- Handle weapons that need to be updated even when not firing (for sound management)
-        if self.kind == "mining_laser" then
-            UtilityBeams.updateMiningLaser(self, dt, target, locked, world)
-        elseif self.kind == "salvaging_laser" then
-            UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
-        elseif self.kind == "plasma_torch" then
-            UtilityBeams.updatePlasmaTorch(self, dt, target, locked, world)
-        end
+    end
 
-        -- Don't set cooldown when not firing - cooldown should only be set when actually firing
-        -- The cooldown will be set by the weapon handlers when they actually fire
+    local wantsToFire = (self.fireMode == "manual") or (self.fireMode == "automatic" and self.autoFire)
+
+    if wantsToFire then
+        if handler.update then
+            handler.update(self, dt, target, locked, world)
+        end
+    elseif handler.updateIdle then
+        handler.updateIdle(self, dt, target, locked, world)
     end
 
     -- Update last fire time (legacy compatibility)
@@ -272,20 +274,12 @@ end
 function Turret:cancelFiring()
     self.firing = false
     self.beamActive = false
-    
-    -- Stop utility beam sounds when firing is cancelled
-    if self.kind == "mining_laser" then
-        if self.miningSoundActive or self.miningSoundInstance then
-            local TurretEffects = require("src.systems.turret.effects")
-            TurretEffects.stopMiningSound(self)
-        end
-    elseif self.kind == "salvaging_laser" then
-        if self.salvagingSoundActive or self.salvagingSoundInstance then
-            local TurretEffects = require("src.systems.turret.effects")
-            TurretEffects.stopSalvagingSound(self)
-        end
+
+    local handler = self:getHandler()
+    if handler and handler.cancelFiring then
+        handler.cancelFiring(self)
     end
-    
+
     -- Don't reset cooldown here; let it finish its cycle
 end
 
@@ -296,6 +290,7 @@ end
 
 
 function Turret:updateMiningLaser(dt, target, locked, world)
+    local UtilityBeams = require("src.systems.turret.utility_beams")
     return UtilityBeams.updateMiningLaser(self, dt, target, locked, world)
 end
 
@@ -305,6 +300,7 @@ function Turret:drawMiningBeam()
         local sy = self.owner.components.position.y
         local ex = self.miningTarget.components.position.x
         local ey = self.miningTarget.components.position.y
+        local UtilityBeams = require("src.systems.turret.utility_beams")
         UtilityBeams.drawMiningBeam(self, sx, sy, ex, ey)
     end
 end
@@ -317,6 +313,7 @@ function Turret:drawLaserBeam()
 end
 
 function Turret:updateSalvagingLaser(dt, target, locked, world)
+    local UtilityBeams = require("src.systems.turret.utility_beams")
     return UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
 end
 
