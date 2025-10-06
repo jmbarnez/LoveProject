@@ -234,32 +234,34 @@ function Turret:update(dt, target, locked, world)
 
     local config = handler.config or EMPTY_TABLE
 
-    if config.requiresClip and not self:canFire() then
-        return
-    end
-
-    if not config.skipEnergyCheck
-        and self.capCost and self.capCost > 0
-        and self.owner and self.owner.components and self.owner.components.health
-        and self.owner.isPlayer then
-        local currentEnergy = self.owner.components.health.energy or 0
-        if currentEnergy < self.capCost then
-            -- Show notification for insufficient energy (only for player) with spam protection
-            local currentTime = love.timer.getTime()
-            local lastEnergyNotification = self._lastEnergyNotification or 0
-            local energyNotificationCooldown = 2.0 -- 2 seconds between notifications
-
-            if currentTime - lastEnergyNotification > energyNotificationCooldown then
-                Notifications.add("Insufficient energy to fire weapon!", "warning")
-                self._lastEnergyNotification = currentTime
-            end
-            return -- Not enough energy to fire
-        end
-    end
-
     local wantsToFire = (self.fireMode == "manual") or (self.fireMode == "automatic" and self.autoFire)
 
     if wantsToFire then
+        -- Check clip requirements only when actually trying to fire
+        if config.requiresClip and not self:canFire() then
+            return
+        end
+
+        -- Check energy requirements only when actually trying to fire
+        if not config.skipEnergyCheck
+            and self.capCost and self.capCost > 0
+            and self.owner and self.owner.components and self.owner.components.health
+            and self.owner.isPlayer then
+            local currentEnergy = self.owner.components.health.energy or 0
+            if currentEnergy < self.capCost then
+                -- Show notification for insufficient energy (only for player) with spam protection
+                local currentTime = love.timer.getTime()
+                local lastEnergyNotification = self._lastEnergyNotification or 0
+                local energyNotificationCooldown = 2.0 -- 2 seconds between notifications
+
+                if currentTime - lastEnergyNotification > energyNotificationCooldown then
+                    Notifications.add("Insufficient energy to fire weapon!", "warning")
+                    self._lastEnergyNotification = currentTime
+                end
+                return -- Not enough energy to fire
+            end
+        end
+
         if handler.update then
             handler.update(self, dt, target, locked, world)
         end
@@ -320,8 +322,10 @@ end
 -- Check if turret can fire (cooldown and heat)
 function Turret:canFire()
     local canFire = self.cooldown <= 0
-    -- Only check clip status for gun turrets
-    if self.kind == "gun" then
+    -- Check clip status if this turret type requires clips
+    local handler = self:getHandler()
+    local config = handler and handler.config or EMPTY_TABLE
+    if config.requiresClip then
         canFire = canFire and not self.isReloading and self.currentClip > 0
     end
     return canFire
