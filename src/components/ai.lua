@@ -1,5 +1,10 @@
+-- AI Component Module
+-- Provides AI functionality for entities and turrets
+
 local AI = {}
 AI.__index = AI
+
+local TargetUtils = require("src.core.target_utils")
 
 -- Simple AI configuration - no complex intelligence levels
 AI.BASIC_CONFIG = {
@@ -55,4 +60,345 @@ function AI:isPlayerInRange(playerPos, entityPos)
     return distance <= self.detectionRange
 end
 
-return AI
+-- =============================================================================
+-- TURRET AI COMPONENT - Specialized AI for stationary turrets
+-- =============================================================================
+
+local TurretAI = {}
+TurretAI.__index = TurretAI
+
+-- Turret AI configuration
+TurretAI.DEFAULT_CONFIG = {
+    scanRange = 800,        -- How far the turret can detect targets
+    fireRange = 600,        -- Maximum firing range
+    scanAngle = math.pi,    -- 180 degrees scan arc (facing forward)
+    turnSpeed = 2.0,        -- Radians per second turning speed
+    reacquireTime = 1.0,    -- Time to reacquire target after losing it
+    targetTypes = {"enemy", "hostile"}, -- What types of entities to target
+    fireMode = "automatic", -- "automatic" or "manual"
+    autoFire = true         -- Whether to fire automatically when target acquired
+}
+
+local function cloneTable(value)
+    if type(value) ~= "table" then
+        return value
+    end
+
+    local copy = {}
+    for k, v in pairs(value) do
+        copy[k] = cloneTable(v)
+    end
+
+    return copy
+end
+
+local function acceptsTargetType(targetTypes, targetType)
+    if not targetTypes then
+        return false
+    end
+
+    for _, entry in ipairs(targetTypes) do
+        if entry == targetType then
+            return true
+        end
+    end
+
+    return false
+end
+
+function TurretAI.new(args)
+    local ai = {}
+    setmetatable(ai, TurretAI)
+
+    -- Merge with defaults
+    local config = TurretAI.DEFAULT_CONFIG
+    for k, v in pairs(config) do
+        ai[k] = (args and args[k]) or v
+    end
+
+    -- Turret AI state
+    ai.currentTarget = nil
+    ai.targetLastSeen = 0
+    ai.targetLostTime = 0
+    ai.isAcquiringTarget = false
+    ai.lastScanTime = 0
+    ai.scanInterval = 0.1 -- Scan every 100ms
+
+    -- Turret aiming
+    ai.desiredAngle = 0
+    ai.currentAngle = 0
+    ai.isAimed = false
+    ai.aimTolerance = math.rad(5) -- 5 degrees tolerance
+
+    -- Target tracking
+    ai.targetPosition = nil
+    ai.targetVelocity = {x = 0, y = 0}
+    ai.lastTargetPos = nil
+    ai.targetUpdateTime = 0
+
+    -- Cache turret position for later distance checks
+    ai.turretPosition = { x = 0, y = 0 }
+
+    if ai.targetTypes then
+        ai.targetTypes = cloneTable(ai.targetTypes)
+    end
+
+    return ai
+end
+
+function TurretAI:update(dt, entity, world, player)
+    if not entity or not entity.components then return end
+
+    local pos = entity.components.position
+    if not pos then return end
+
+    self.turretPosition.x = pos.x or self.turretPosition.x
+    self.turretPosition.y = pos.y or self.turretPosition.y
+    if pos.angle then
+        self.currentAngle = pos.angle
+    end
+
+    -- Periodic scanning for targets
+    self.lastScanTime = self.lastScanTime + dt
+    if self.lastScanTime >= self.scanInterval then
+        self:scanForTargets(world, pos, player, entity)
+        self.lastScanTime = 0
+    end
+
+    -- Update target tracking and aiming
+    self:updateTargeting(dt, entity, world)
+
+    -- Update turret rotation towards target
+    self:updateRotation(dt, entity)
+
+    self.target = self.currentTarget
+end
+
+local function isHostileTarget(self, candidate, owner)
+    if not candidate or candidate == owner or candidate.dead then
+        return false
+    end
+
+    if not (candidate.components and candidate.components.position) then
+        return false
+    end
+
+    if not self.targetTypes then
+        return TargetUtils.isEnemyTarget(candidate, owner)
+    end
+
+    if candidate.isEnemy then
+        return acceptsTargetType(self.targetTypes, "enemy")
+    end
+
+    local candidateFaction = candidate.faction
+    local ownerFaction = owner and owner.faction
+    if candidateFaction and ownerFaction and candidateFaction ~= ownerFaction then
+        return acceptsTargetType(self.targetTypes, "hostile")
+    end
+
+    if candidate.isPlayer or candidate.isRemotePlayer then
+        if owner and owner.isEnemy then
+            return acceptsTargetType(self.targetTypes, "enemy")
+        end
+        return acceptsTargetType(self.targetTypes, "player")
+    end
+
+    if acceptsTargetType(self.targetTypes, "hostile") then
+        return true
+    end
+
+    return TargetUtils.isEnemyTarget(candidate, owner)
+end
+
+function TurretAI:scanForTargets(world, turretPos, player, owner)
+    if not world or not world.get_entities_with_components then return end
+
+    local bestTarget = nil
+    local bestPriority = -1
+
+    local enemies = world:get_entities_with_components("position")
+
+    for _, enemy in ipairs(enemies or {}) do
+        if enemy ~= player and enemy ~= owner then
+            local enemyPos = enemy.components and enemy.components.position
+            if enemyPos and isHostileTarget(self, enemy, owner) then
+                local distance = self:getDistance(turretPos, enemyPos)
+
+                if distance <= self.scanRange then
+                    local angleToEnemy = self:getAngleToTarget(turretPos, enemyPos)
+                    local angleDiff = math.abs(self:normalizeAngle(angleToEnemy - self.currentAngle))
+
+                    if angleDiff <= (self.scanAngle / 2) then
+                        local priority = 1000 - distance
+
+                        if priority > bestPriority then
+                            bestTarget = enemy
+                            bestPriority = priority
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Update target acquisition
+    if bestTarget then
+        self:acquireTarget(bestTarget)
+    elseif self.currentTarget then
+        -- Check if current target is still valid
+        local targetPos = self.currentTarget.components.position
+        if targetPos then
+            local distance = self:getDistance(turretPos, targetPos)
+            if distance > self.scanRange * 1.5 then -- Give some grace distance
+                self:loseTarget()
+            end
+        else
+            self:loseTarget()
+        end
+    end
+end
+
+function TurretAI:acquireTarget(target)
+    if self.currentTarget ~= target then
+        self.currentTarget = target
+        self.targetLastSeen = love.timer.getTime()
+        self.isAcquiringTarget = true
+        -- Log target acquisition if needed
+    end
+end
+
+function TurretAI:loseTarget()
+    if self.currentTarget then
+        self.currentTarget = nil
+        self.targetLostTime = love.timer.getTime()
+        self.targetPosition = nil
+        self.isAcquiringTarget = false
+        self.isAimed = false
+        -- Could add target lost logic here
+    end
+end
+
+function TurretAI:updateTargeting(dt, entity, world)
+    if not self.currentTarget then
+        self.isAimed = false
+        if entity.components.ai then
+            entity.components.ai.turretState = {
+                hasTarget = false,
+                isAimed = false,
+                inRange = false
+            }
+        end
+        return
+    end
+
+    local targetPos = self.currentTarget.components.position
+    if not targetPos then
+        self:loseTarget()
+        return
+    end
+
+    -- Update target position tracking for leading shots if needed
+    local currentTime = love.timer.getTime()
+    if self.lastTargetPos then
+        local timeDiff = currentTime - self.targetUpdateTime
+        if timeDiff > 0 then
+            self.targetVelocity.x = (targetPos.x - self.lastTargetPos.x) / timeDiff
+            self.targetVelocity.y = (targetPos.y - self.lastTargetPos.y) / timeDiff
+        end
+    end
+
+    self.targetPosition = {x = targetPos.x, y = targetPos.y}
+    self.lastTargetPos = {x = targetPos.x, y = targetPos.y}
+    self.targetUpdateTime = currentTime
+    self.targetLastSeen = currentTime
+
+    -- Calculate desired aim angle
+    local turretPos = entity.components.position
+    self.desiredAngle = self:getAngleToTarget(turretPos, targetPos)
+
+    -- Check if turret is aimed at target
+    local angleDiff = math.abs(self:normalizeAngle(self.desiredAngle - self.currentAngle))
+    self.isAimed = angleDiff <= self.aimTolerance
+
+    -- Check if target is in firing range
+    local distance = self:getDistance(turretPos, targetPos)
+    local inRange = distance <= self.fireRange
+
+    -- Update turret state for firing system
+    if entity.components.ai then
+        entity.components.ai.turretState = {
+            hasTarget = true,
+            isAimed = self.isAimed,
+            inRange = inRange,
+            targetPosition = self.targetPosition,
+            targetVelocity = self.targetVelocity
+        }
+    end
+end
+
+function TurretAI:updateRotation(dt, entity)
+    if not self.currentTarget then return end
+
+    -- Smooth rotation towards desired angle
+    local angleDiff = self:normalizeAngle(self.desiredAngle - self.currentAngle)
+    local maxTurn = self.turnSpeed * dt
+
+    if math.abs(angleDiff) <= maxTurn then
+        self.currentAngle = self.desiredAngle
+    else
+        -- Use custom sign function since math.sign doesn't exist in standard Lua
+        local sign = angleDiff > 0 and 1 or -1
+        self.currentAngle = self.currentAngle + sign * maxTurn
+    end
+
+    -- Update entity rotation if it has one
+    if entity.components.position then
+        entity.components.position.angle = self.currentAngle
+    end
+end
+
+-- Utility functions
+function TurretAI:getDistance(pos1, pos2)
+    local dx = pos2.x - pos1.x
+    local dy = pos2.y - pos1.y
+    return math.sqrt(dx * dx + dy * dy)
+end
+
+function TurretAI:getAngleToTarget(fromPos, toPos)
+    return math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x)
+end
+
+function TurretAI:normalizeAngle(angle)
+    while angle > math.pi do angle = angle - 2 * math.pi end
+    while angle < -math.pi do angle = angle + 2 * math.pi end
+    return angle
+end
+
+-- Query functions for external systems
+function TurretAI:hasTarget()
+    return self.currentTarget ~= nil
+end
+
+function TurretAI:canFire()
+    return self:hasTarget() and self.isAimed and self:getDistanceToTarget() <= self.fireRange
+end
+
+function TurretAI:getDistanceToTarget()
+    if not self.currentTarget or not self.targetPosition then return math.huge end
+    return self:getDistance(self.turretPosition, self.targetPosition)
+end
+
+function TurretAI:getTargetPosition()
+    return self.targetPosition
+end
+
+function TurretAI:getCurrentAngle()
+    return self.currentAngle
+end
+
+function TurretAI:getCurrentTarget()
+    return self.currentTarget
+end
+
+return AI, TurretAI
