@@ -703,5 +703,71 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
     return applied > 0
 end
 
+-- Handle plasma torch operation (continuous beam with area damage)
+function UtilityBeams.updatePlasmaTorch(turret, dt, target, locked, world)
+    if locked or not isTurretInputActive(turret) or not turret:canFire() then
+        turret.beamActive = false
+        turret.beamTarget = nil
+        return
+    end
+
+    -- Determine aim angle first relative to ship, then compute muzzle and precise distance from muzzle to cursor
+    local Turret = require("src.systems.turret.core")
+    local angle = 0
+    if turret.owner.cursorWorldPos then
+        local dx = turret.owner.cursorWorldPos.x - turret.owner.components.position.x
+        local dy = turret.owner.cursorWorldPos.y - turret.owner.components.position.y
+        angle = math.atan2(dy, dx)
+    end
+
+    -- Get turret world position
+    local sx, sy = Turret.getTurretWorldPosition(turret)
+    local effectiveRange = turret.maxRange or 400
+
+    -- Calculate beam end point
+    local beamEndX = sx + math.cos(angle) * effectiveRange
+    local beamEndY = sy + math.sin(angle) * effectiveRange
+
+    -- Perform beam collision detection
+    local hitTarget, hitX, hitY = UtilityBeams.performBeamCollision(sx, sy, beamEndX, beamEndY, world, turret.owner)
+
+    -- Update beam state
+    local wasActive = turret.beamActive
+    turret.beamActive = true
+    turret.beamStartX = sx
+    turret.beamStartY = sy
+    turret.beamEndX = beamEndX
+    turret.beamEndY = beamEndY
+    turret.beamTarget = hitTarget
+
+    -- Calculate damage rate
+    local cycle = math.max(0.1, turret.cycle)
+    local damageRate = (turret.damagePerSecond or 30) / cycle
+
+    if hitTarget then
+        -- Apply damage to hit target
+        local damageValue = damageRate * dt
+        if hitTarget.components and hitTarget.components.health then
+            local CollisionEffects = require("src.systems.collision.effects")
+            CollisionEffects.applyDamage(hitTarget, damageValue, turret.owner)
+        end
+
+        -- Create impact effects
+        TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "plasma_torch")
+    end
+
+    turret.cooldownOverride = 0
+
+    -- Handle continuous plasma torch sound
+    if not wasActive and isTurretInputActive(turret) then
+        TurretEffects.playFiringSound(turret)
+    elseif wasActive and not isTurretInputActive(turret) then
+        -- Stop sound when beam stops
+        if turret.plasmaTorchSoundActive or turret.plasmaTorchSoundInstance then
+            TurretEffects.stopPlasmaTorchSound(turret)
+        end
+    end
+end
+
 
 return UtilityBeams

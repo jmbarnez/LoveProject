@@ -74,6 +74,8 @@ function love.setScreen(newScreen)
         if love.mouse and love.mouse.setVisible then
             love.mouse.setVisible(false)
         end
+        -- Force viewport sync when entering game mode to prevent flicker
+        Viewport.syncWithWindow()
     end
 
     configureInput()

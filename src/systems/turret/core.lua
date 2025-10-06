@@ -20,7 +20,7 @@ function Turret.new(owner, params)
     -- Skill progression tag used when this turret deals the killing blow
     self.skillId = params.skillId
     if not self.skillId then
-        if self.kind == 'gun' or self.kind == 'projectile' or self.kind == 'laser' or self.kind == 'missile' then
+        if self.kind == 'gun' or self.kind == 'projectile' or self.kind == 'laser' or self.kind == 'missile' or self.kind == 'plasma_torch' then
             self.skillId = "gunnery"
         end
     end
@@ -124,6 +124,10 @@ function Turret.new(owner, params)
         self.tracer.color = self.tracer.color
         self.tracer.width = self.tracer.width
         self.tracer.coreRadius = self.tracer.coreRadius
+    elseif self.kind == 'plasma_torch' then
+        self.tracer.color = self.tracer.color
+        self.tracer.width = self.tracer.width
+        self.tracer.coreRadius = self.tracer.coreRadius
     elseif self.kind == 'missile' then
         self.tracer.color = self.tracer.color
     end
@@ -206,6 +210,8 @@ function Turret:update(dt, target, locked, world)
             UtilityBeams.updateMiningLaser(self, dt, target, locked, world)
         elseif self.kind == "salvaging_laser" then
             UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
+        elseif self.kind == "plasma_torch" then
+            UtilityBeams.updatePlasmaTorch(self, dt, target, locked, world)
         end
     else
         -- Handle weapons that need to be updated even when not firing (for sound management)
@@ -213,6 +219,8 @@ function Turret:update(dt, target, locked, world)
             UtilityBeams.updateMiningLaser(self, dt, target, locked, world)
         elseif self.kind == "salvaging_laser" then
             UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
+        elseif self.kind == "plasma_torch" then
+            UtilityBeams.updatePlasmaTorch(self, dt, target, locked, world)
         end
 
         -- Don't set cooldown when not firing - cooldown should only be set when actually firing

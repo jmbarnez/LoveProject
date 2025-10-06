@@ -199,6 +199,11 @@ local function transitionToGame(opts)
     end
 
     mainState.UIManager = require("src.core.ui_manager")
+    
+    -- Force viewport sync BEFORE screen transition to prevent flicker
+    local Viewport = require("src.core.viewport")
+    Viewport.syncWithWindow()
+    
     -- Keep system cursor hidden in gameplay; UI draws its own reticle
     mainState.setScreen("game")
 
