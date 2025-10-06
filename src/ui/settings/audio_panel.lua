@@ -23,7 +23,7 @@ local function sliderColor(isHovered)
     return Theme.colors.bg3, Theme.effects.glowWeak * 0.1
 end
 
-local function handleColor(isHovered)
+local function sliderHandleColor(isHovered)
     if isHovered then
         return Theme.colors.accentGold, Theme.effects.glowWeak * 0.4
     end
@@ -54,8 +54,8 @@ function AudioPanel.draw(layout)
     local trackColor, trackGlow = sliderColor(hovered.master_volume)
     Theme.drawGradientGlowRect(sliderX, yOffset - 5, sliderW, 10, 2, trackColor, Theme.colors.bg2, Theme.colors.border, trackGlow)
     local handleX = sliderX + (sliderW - 10) * currentSettings.master_volume
-    local handleColor, handleGlow = handleColor(hovered.master_volume)
-    Theme.drawGradientGlowRect(handleX, yOffset - 7.5, 10, 15, 2, handleColor, Theme.colors.bg3, Theme.colors.border, handleGlow)
+    local handleColorValue, handleGlow = sliderHandleColor(hovered.master_volume)
+    Theme.drawGradientGlowRect(handleX, yOffset - 7.5, 10, 15, 2, handleColorValue, Theme.colors.bg3, Theme.colors.border, handleGlow)
     sliderRects.master_volume = { x = sliderX, y = sliderScreenY, w = sliderW, h = 15 }
     yOffset = yOffset + itemHeight
 
@@ -67,8 +67,8 @@ function AudioPanel.draw(layout)
     trackColor, trackGlow = sliderColor(hovered.sfx_volume)
     Theme.drawGradientGlowRect(sliderX, yOffset - 5, sliderW, 10, 2, trackColor, Theme.colors.bg2, Theme.colors.border, trackGlow)
     handleX = sliderX + (sliderW - 10) * currentSettings.sfx_volume
-    handleColor, handleGlow = handleColor(hovered.sfx_volume)
-    Theme.drawGradientGlowRect(handleX, yOffset - 7.5, 10, 15, 2, handleColor, Theme.colors.bg3, Theme.colors.border, handleGlow)
+    handleColorValue, handleGlow = sliderHandleColor(hovered.sfx_volume)
+    Theme.drawGradientGlowRect(handleX, yOffset - 7.5, 10, 15, 2, handleColorValue, Theme.colors.bg3, Theme.colors.border, handleGlow)
     sliderRects.sfx_volume = { x = sliderX, y = sliderScreenY, w = sliderW, h = 15 }
     yOffset = yOffset + itemHeight
 
@@ -80,8 +80,8 @@ function AudioPanel.draw(layout)
     trackColor, trackGlow = sliderColor(hovered.music_volume)
     Theme.drawGradientGlowRect(sliderX, yOffset - 5, sliderW, 10, 2, trackColor, Theme.colors.bg2, Theme.colors.border, trackGlow)
     handleX = sliderX + (sliderW - 10) * currentSettings.music_volume
-    handleColor, handleGlow = handleColor(hovered.music_volume)
-    Theme.drawGradientGlowRect(handleX, yOffset - 7.5, 10, 15, 2, handleColor, Theme.colors.bg3, Theme.colors.border, handleGlow)
+    handleColorValue, handleGlow = sliderHandleColor(hovered.music_volume)
+    Theme.drawGradientGlowRect(handleX, yOffset - 7.5, 10, 15, 2, handleColorValue, Theme.colors.bg3, Theme.colors.border, handleGlow)
     sliderRects.music_volume = { x = sliderX, y = sliderScreenY, w = sliderW, h = 15 }
     yOffset = yOffset + itemHeight
 
