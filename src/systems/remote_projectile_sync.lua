@@ -75,7 +75,8 @@ local function sanitiseDamageData(damage)
 
     -- Allow callers to pass either the raw damage table or the damage component
     local raw = damage
-    if type(damage) == "table" and damage.value ~= nil and (damage.min == nil and damage.max == nil and damage.value ~= damage) then
+    -- Check if this looks like a damage component wrapper (has value but no min/max/dps/skill)
+    if type(damage) == "table" and damage.value ~= nil and damage.min == nil and damage.max == nil and damage.damagePerSecond == nil and damage.skill == nil then
         raw = damage.value
     end
 
@@ -418,14 +419,16 @@ local function updateProjectileFromSnapshot(entity, projectileData)
     -- Update damage
     if entity.components and entity.components.damage and projectileData.damage then
         local damageComponent = entity.components.damage
-        damageComponent.value = Util.deepCopy(projectileData.damage)
-        damageComponent.min = projectileData.damage.min
-        damageComponent.max = projectileData.damage.max
-        damageComponent.skill = projectileData.damage.skill
-        damageComponent.damagePerSecond = projectileData.damage.damagePerSecond
-        if projectileData.damage.value ~= nil and type(damageComponent.value) == "table" then
-            damageComponent.value.value = projectileData.damage.value
-        end
+        local damageData = projectileData.damage
+        
+        -- Set the numeric damage value (prefer .value, fallback to .min or first element)
+        damageComponent.value = damageData.value or damageData.min or (type(damageData) == "table" and damageData[1]) or 1
+        
+        -- Set additional damage properties
+        damageComponent.min = damageData.min
+        damageComponent.max = damageData.max
+        damageComponent.skill = damageData.skill
+        damageComponent.damagePerSecond = damageData.damagePerSecond
     end
 
     -- Update timed life
