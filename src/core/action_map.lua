@@ -236,8 +236,36 @@ ActionMap.registerAction({
         if not love or not love.window then
             return false
         end
-        local fs = love.window.getFullscreen()
-        love.window.setFullscreen(not fs, "desktop")
+
+        local wasFullscreen = love.window.getFullscreen()
+        local toggled = love.window.setFullscreen(not wasFullscreen, "desktop")
+
+        if not toggled then
+            return false
+        end
+
+        local width, height = love.graphics.getDimensions()
+
+        -- Make sure the viewport and active UIs pick up the new backbuffer size.
+        if love.handlers and love.handlers.resize then
+            love.handlers.resize(width, height)
+        elseif love.resize then
+            love.resize(width, height)
+        end
+
+        local Settings = require("src.core.settings")
+        local graphicsSettings = Settings.getGraphicsSettings()
+        if graphicsSettings then
+            graphicsSettings.fullscreen = not wasFullscreen
+            graphicsSettings.fullscreen_type = "desktop"
+
+            if not graphicsSettings.resolution then
+                graphicsSettings.resolution = {}
+            end
+            graphicsSettings.resolution.width = width
+            graphicsSettings.resolution.height = height
+        end
+
         return true
     end,
 })
