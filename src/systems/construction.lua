@@ -14,7 +14,8 @@ local constructionState = {
     building = false, -- true when actively building
     buildProgress = 0, -- 0 to 1
     buildStartTime = 0,
-    buildDuration = 0
+    buildDuration = 0,
+    ghostLocked = false -- true when ghost is locked in place during building
 }
 
 function ConstructionSystem.init()
@@ -43,39 +44,44 @@ end
 
 function ConstructionSystem.updateConstructionMode(dt, player, world, input, camera)
     if not constructionState.selectedItem then return end
-    
-    -- Safety check for input parameter
-    if not input then
-        Log.warn("Input parameter is nil in updateConstructionMode")
-        return
+
+    -- Don't update placement position if ghost is locked (building in progress)
+    if not constructionState.ghostLocked then
+        -- Safety check for input parameter
+        if not input then
+            Log.warn("Input parameter is nil in updateConstructionMode")
+            return
+        end
+
+        -- Get mouse position in world coordinates
+        local Viewport = require("src.core.viewport")
+        local mx, my = Viewport.getMousePosition()
+        local sw, sh = Viewport.getDimensions()
+
+        if camera then
+            -- Convert screen coordinates to world coordinates using camera's screenToWorld function
+            constructionState.placementX, constructionState.placementY = camera:screenToWorld(mx, my)
+        else
+            constructionState.placementX = mx
+            constructionState.placementY = my
+        end
+
+        -- Check if placement is valid
+        constructionState.validPlacement = ConstructionSystem.isValidPlacement(
+            constructionState.placementX,
+            constructionState.placementY,
+            world,
+            player
+        )
+
+        -- Debug: Force valid placement to true
+        constructionState.validPlacement = true
     end
-    
-    -- Get mouse position in world coordinates
-    local Viewport = require("src.core.viewport")
-    local mx, my = Viewport.getMousePosition()
-    local sw, sh = Viewport.getDimensions()
-    
-    if camera then
-        -- Convert screen coordinates to world coordinates using camera's screenToWorld function
-        constructionState.placementX, constructionState.placementY = camera:screenToWorld(mx, my)
-    else
-        constructionState.placementX = mx
-        constructionState.placementY = my
+
+    -- Update ghost entity (only if not locked)
+    if not constructionState.ghostLocked then
+        ConstructionSystem.updateGhost()
     end
-    
-    -- Check if placement is valid
-    constructionState.validPlacement = ConstructionSystem.isValidPlacement(
-        constructionState.placementX, 
-        constructionState.placementY, 
-        world, 
-        player
-    )
-    
-    -- Debug: Force valid placement to true
-    constructionState.validPlacement = true
-    
-    -- Update ghost entity
-    ConstructionSystem.updateGhost()
 end
 
 function ConstructionSystem.isValidPlacement(x, y, world, player)
@@ -119,23 +125,32 @@ end
 
 function ConstructionSystem.placeItem(player, world)
     if not constructionState.selectedItem then return end
-    
+
+    -- Safety check - should not be building when this is called due to action map logic
+    if constructionState.building then
+        Log.warn("placeItem called while already building - this should not happen")
+        return
+    end
+
     -- Check if player has required resources
     if not ConstructionSystem.hasRequiredResources(player, constructionState.selectedItem) then
         Log.warn("Insufficient resources for construction")
         return
     end
-    
-    -- Start building process
+
+    -- Start building process at current placement location
     constructionState.building = true
     constructionState.buildProgress = 0
     constructionState.buildStartTime = love.timer.getTime()
-    
+
     -- Get build duration from item definition
     local itemDef = Content.getWorldObject(constructionState.selectedItem)
     constructionState.buildDuration = (itemDef and itemDef.construction and itemDef.construction.buildTime) or 3.0
-    
-    Log.info("Started building " .. constructionState.selectedItem)
+
+    -- Lock the ghost entity in place - don't update its position anymore
+    constructionState.ghostLocked = true
+
+    Log.info("Started building " .. constructionState.selectedItem .. " at (" .. constructionState.placementX .. ", " .. constructionState.placementY .. ")")
 end
 
 function ConstructionSystem.updateBuildingProgress(dt, player, world)
@@ -273,6 +288,7 @@ function ConstructionSystem.cancelConstruction()
     constructionState.buildProgress = 0
     constructionState.buildStartTime = 0
     constructionState.buildDuration = 0
+    constructionState.ghostLocked = false
     ConstructionSystem.clearGhost()
 end
 
@@ -284,10 +300,16 @@ function ConstructionSystem.startConstruction(itemType)
     constructionState.mode = true
     constructionState.selectedItem = itemType
     constructionState.ghostEntity = nil
+    constructionState.ghostLocked = false
+    constructionState.building = false
 end
 
 function ConstructionSystem.isInConstructionMode()
     return constructionState.mode
+end
+
+function ConstructionSystem.isBuilding()
+    return constructionState.building
 end
 
 function ConstructionSystem.getGhostEntity()
@@ -331,12 +353,12 @@ end
 function ConstructionSystem.drawBuildingProgress(x, y)
     local Theme = require("src.core.theme")
     local progress = constructionState.buildProgress or 0
-    
-    -- Draw progress bar background
-    local barWidth = 60
-    local barHeight = 8
+
+    -- Draw progress bar background (much bigger)
+    local barWidth = 200
+    local barHeight = 25
     local barX = x - barWidth / 2
-    local barY = y - 40
+    local barY = y - 60
     
     Theme.setColor({0.1, 0.1, 0.1, 0.8})
     love.graphics.rectangle('fill', barX, barY, barWidth, barHeight)
@@ -346,24 +368,24 @@ function ConstructionSystem.drawBuildingProgress(x, y)
     Theme.setColor({0.0, 1.0, 0.0, 0.8})
     love.graphics.rectangle('fill', barX, barY, fillWidth, barHeight)
     
-    -- Draw progress bar border
+    -- Draw progress bar border (thicker for bigger bar)
     Theme.setColor({1.0, 1.0, 1.0, 0.9})
-    love.graphics.setLineWidth(1)
+    love.graphics.setLineWidth(2)
     love.graphics.rectangle('line', barX, barY, barWidth, barHeight)
-    
-    -- Draw progress text
+
+    -- Draw progress text (bigger font for bigger bar)
     local progressText = string.format("%.0f%%", progress * 100)
-    local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
+    local font = Theme.fonts and (Theme.fonts.medium or Theme.fonts.normal) or love.graphics.getFont()
     local oldFont = love.graphics.getFont()
     love.graphics.setFont(font)
-    
+
     local textWidth = font:getWidth(progressText)
     local textX = x - textWidth / 2
-    local textY = barY - 20
-    
+    local textY = barY - 35
+
     Theme.setColor({1.0, 1.0, 1.0, 1.0})
     love.graphics.print(progressText, textX, textY)
-    
+
     if oldFont then love.graphics.setFont(oldFont) end
 end
 

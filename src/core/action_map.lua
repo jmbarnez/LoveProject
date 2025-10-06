@@ -338,7 +338,7 @@ ActionMap.registerAction({
     end,
     enabled = function(ctx)
         local ConstructionSystem = require("src.systems.construction")
-        return ConstructionSystem.isInConstructionMode()
+        return ConstructionSystem.isInConstructionMode() and not ConstructionSystem.isBuilding()
     end,
     callback = function(ctx)
         local ConstructionSystem = require("src.systems.construction")
@@ -354,7 +354,7 @@ ActionMap.registerAction({
     name = "cancel_construction",
     priority = 10,
     getKeys = function()
-        return {"escape", "mouse2"}
+        return {"escape"}
     end,
     enabled = function(ctx)
         local ConstructionSystem = require("src.systems.construction")
