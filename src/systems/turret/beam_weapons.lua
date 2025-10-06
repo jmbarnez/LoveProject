@@ -52,23 +52,25 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     local Turret = require("src.systems.turret.core")
     local shipPos = turret.owner.components and turret.owner.components.position
 
-    local sx, sy = Turret.getTurretWorldPosition(turret)
-
+    -- Determine aim angle first relative to ship, then compute muzzle and precise distance from muzzle to cursor
     local angle
     local desiredDistance
     local cursorPos = turret.owner.cursorWorldPos
 
     if cursorPos then
-        local cursorX, cursorY = cursorPos.x, cursorPos.y
-        local dx = cursorX - sx
-        local dy = cursorY - sy
-        angle = math.atan2(dy, dx)
-        desiredDistance = math.sqrt(dx * dx + dy * dy)
+        if shipPos then
+            angle = math.atan2(cursorPos.y - shipPos.y, cursorPos.x - shipPos.x)
+        else
+            angle = 0
+        end
     elseif target and target.components and target.components.position then
         local tx = target.components.position.x
         local ty = target.components.position.y
-        angle = math.atan2(ty - sy, tx - sx)
-        desiredDistance = math.sqrt((tx - sx) ^ 2 + (ty - sy) ^ 2)
+        if shipPos then
+            angle = math.atan2(ty - shipPos.y, tx - shipPos.x)
+        else
+            angle = math.atan2(ty, tx)
+        end
     elseif shipPos then
         angle = shipPos.angle
         desiredDistance = turret.maxRange or 0
@@ -78,6 +80,22 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     end
 
     turret.currentAimAngle = angle
+
+    -- Recompute muzzle world position using updated aim
+    local sx, sy = Turret.getTurretWorldPosition(turret)
+
+    -- Compute desired distance from muzzle to cursor or target
+    if cursorPos then
+        local dx = cursorPos.x - sx
+        local dy = cursorPos.y - sy
+        desiredDistance = math.sqrt(dx * dx + dy * dy)
+    elseif target and target.components and target.components.position then
+        local tx = target.components.position.x
+        local ty = target.components.position.y
+        local dx = tx - sx
+        local dy = ty - sy
+        desiredDistance = math.sqrt(dx * dx + dy * dy)
+    end
 
     local maxRange = turret.maxRange or 0
     local beamLength = math.min(desiredDistance or maxRange, maxRange)

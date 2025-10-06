@@ -71,6 +71,9 @@ function love.setScreen(newScreen)
         if not UIManager then
             UIManager = require("src.core.ui_manager")
         end
+        if love.mouse and love.mouse.setVisible then
+            love.mouse.setVisible(false)
+        end
     end
 
     configureInput()

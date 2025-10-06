@@ -247,8 +247,7 @@ end
 function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, remotePlayers, remotePlayerSnapshots)
   -- Draw modular HUD components
   StatusBars.draw(player, world)
-  -- Ensure system mouse cursor is visible across the entire screen
-  if love and love.mouse and love.mouse.setVisible then love.mouse.setVisible(true) end
+  -- System mouse cursor remains hidden during gameplay; custom reticle is drawn instead
 
   -- Draw targeting overlays and gameplay cursor when not over UI
   local UIManager = require("src.core.ui_manager")

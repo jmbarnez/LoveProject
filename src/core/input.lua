@@ -199,8 +199,7 @@ local function transitionToGame(opts)
     end
 
     mainState.UIManager = require("src.core.ui_manager")
-    -- Ensure system cursor remains visible across the game
-    if love and love.mouse and love.mouse.setVisible then love.mouse.setVisible(true) end
+    -- Keep system cursor hidden in gameplay; UI draws its own reticle
     mainState.setScreen("game")
 
     return true

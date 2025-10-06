@@ -83,8 +83,8 @@ function Load.load(Game, fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   networkManager = NetworkSession.getManager()
 
   updateProgress(0.3, "Setting up input...")
-  -- Ensure system mouse cursor is visible in-game
-  if love and love.mouse and love.mouse.setVisible then love.mouse.setVisible(true) end
+  -- Hide system mouse cursor in-game
+  if love and love.mouse and love.mouse.setVisible then love.mouse.setVisible(false) end
 
   updateProgress(0.4, "Loading sounds...")
   local soundConfig = require("content.sounds.sounds")

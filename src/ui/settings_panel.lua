@@ -6,7 +6,7 @@ local Window = require("src.ui.common.window")
 local Dropdown = require("src.ui.common.dropdown")
 local Strings = require("src.core.strings")
 local Util = require("src.core.util")
-local SciFiCursor = require("src.ui.hud.sci_fi_cursor")
+    -- SciFiCursor removed - using simple reticle
 
 local SettingsPanel = {}
 
@@ -550,9 +550,12 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     local pointerScale = 0.9 + (styleIndex - 1) / 49 * 0.6
     local baseScale = (previewSize / 32) * 0.95
     love.graphics.scale(baseScale * pointerScale, baseScale * pointerScale)
-    local previewFill = Theme.withAlpha(Theme.colors.textHighlight, 0.95)
-    local previewOutline = Theme.withAlpha(Theme.colors.text, 0.85)
-    SciFiCursor.drawAtOrigin(previewFill, previewOutline)
+    -- Simple reticle preview
+    Theme.setColor(Theme.colors.textHighlight)
+    love.graphics.setLineWidth(1)
+    love.graphics.line(-8, 0, 8, 0)
+    love.graphics.line(0, -8, 0, 8)
+    love.graphics.circle('fill', 0, 0, 1)
     love.graphics.pop()
     yOffset = yOffset + itemHeight
 
@@ -920,9 +923,12 @@ function SettingsPanel.drawContent(window, x, y, w, h)
             local pointerScale = 0.9 + (i - 1) / 49 * 0.6
             local baseScale = (cell / 32) * 0.95
             love.graphics.scale(baseScale * pointerScale, baseScale * pointerScale)
-            local previewFill = {cr, cg, cb, 1}
-            local previewOutline = Theme.withAlpha(Theme.colors.text, 0.85)
-            SciFiCursor.drawAtOrigin(previewFill, previewOutline)
+            -- Simple reticle preview
+            Theme.setColor({cr, cg, cb, 1})
+            love.graphics.setLineWidth(1)
+            love.graphics.line(-8, 0, 8, 0)
+            love.graphics.line(0, -8, 0, 8)
+            love.graphics.circle('fill', 0, 0, 1)
             love.graphics.pop()
         end
         -- Done button

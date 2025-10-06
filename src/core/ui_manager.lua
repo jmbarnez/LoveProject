@@ -10,7 +10,7 @@
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local Registry = require("src.ui.core.registry")
-local SciFiCursor = require("src.ui.hud.sci_fi_cursor")
+-- SciFiCursor removed - using simple reticle
 
 -- UI components
 local Inventory = require("src.ui.inventory")
@@ -580,36 +580,7 @@ function UIManager.draw(player, world, enemies, hub, wreckage, lootDrops)
   local TooltipManager = require("src.ui.tooltip_manager")
   TooltipManager.draw()
 
-  -- Draw the sci-fi cursor when mouse is over UI elements (on top of all UI)
-  local overUI = false
-  for _, comp in ipairs(Registry.visibleSortedDescending()) do
-    local r = comp.getRect and comp.getRect()
-    if r then
-      local mx, my = love.mouse.getPosition()
-      if mx >= r.x and mx <= r.x + r.w and my >= r.y and my <= r.y + r.h then
-        overUI = true
-        break
-      end
-    end
-  end
-
-  if overUI then
-    local mx, my = love.mouse.getPosition()
-    local Settings = require("src.core.settings")
-
-    -- Get UI cursor color (similar to reticle)
-    local g = Settings.getGraphicsSettings()
-    local uiCursorColor
-    if g and g.ui_cursor_color_rgb and type(g.ui_cursor_color_rgb) == 'table' then
-      uiCursorColor = { g.ui_cursor_color_rgb[1] or 1, g.ui_cursor_color_rgb[2] or 1, g.ui_cursor_color_rgb[3] or 1, g.ui_cursor_color_rgb[4] or 1 }
-    else
-      uiCursorColor = Theme.colors.accent
-    end
-
-    local fill = Theme.withAlpha(uiCursorColor, 0.95)
-    local outline = Theme.withAlpha(Theme.colors.text, 0.85)
-    SciFiCursor.draw(mx, my, fill, outline)
-  end
+  -- UI cursor removed - using simple reticle system
 
   -- Restore prior font to prevent persistent size changes across frames
   if oldFont then love.graphics.setFont(oldFont) end

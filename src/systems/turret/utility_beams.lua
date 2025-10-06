@@ -100,19 +100,15 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     -- Continuous visual effects - no timer needed
 
-    -- Get turret world position first for accurate aiming
+    -- Determine aim angle first relative to ship, then compute muzzle and precise distance from muzzle to cursor
     local Turret = require("src.systems.turret.core")
-    local sx, sy = Turret.getTurretWorldPosition(turret)
-
-    -- Manual shooting - fire in the direction of the cursor from turret position
     local angle = 0
-    local cursorDistance = math.huge
     if turret.owner.cursorWorldPos then
+        local shipPos = turret.owner.components and turret.owner.components.position
+        local shipX = shipPos and shipPos.x or 0
+        local shipY = shipPos and shipPos.y or 0
         local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
-        local dx = cursorX - sx
-        local dy = cursorY - sy
-        angle = math.atan2(dy, dx)
-        cursorDistance = math.sqrt(dx * dx + dy * dy)
+        angle = math.atan2(cursorY - shipY, cursorX - shipX)
     else
         -- Fallback to ship facing if cursor position not available
         angle = turret.owner.components.position.angle
@@ -120,7 +116,19 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     turret.currentAimAngle = angle
 
-    -- Calculate beam end point - use cursor distance as max range, but respect collisions
+    -- Now compute turret muzzle position using the updated aim
+    local sx, sy = Turret.getTurretWorldPosition(turret)
+
+    -- Compute distance from muzzle to cursor for accurate clamping
+    local cursorDistance = math.huge
+    if turret.owner.cursorWorldPos then
+        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
+        local dx = cursorX - sx
+        local dy = cursorY - sy
+        cursorDistance = math.sqrt(dx * dx + dy * dy)
+    end
+
+    -- Calculate beam end point - clamp to cursor distance within max range, respect collisions later
     local maxRange = turret.maxRange
     local effectiveRange = maxRange
     if turret.owner.cursorWorldPos then
@@ -417,19 +425,15 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     -- Continuous visual effects - no timer needed
 
-    -- Get turret world position first for accurate aiming
+    -- Determine aim angle first relative to ship, then compute muzzle and precise distance from muzzle to cursor
     local Turret = require("src.systems.turret.core")
-    local sx, sy = Turret.getTurretWorldPosition(turret)
-
-    -- Manual shooting - fire in the direction of the cursor from turret position
     local angle = 0
-    local cursorDistance = math.huge
     if turret.owner.cursorWorldPos then
+        local shipPos = turret.owner.components and turret.owner.components.position
+        local shipX = shipPos and shipPos.x or 0
+        local shipY = shipPos and shipPos.y or 0
         local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
-        local dx = cursorX - sx
-        local dy = cursorY - sy
-        angle = math.atan2(dy, dx)
-        cursorDistance = math.sqrt(dx * dx + dy * dy)
+        angle = math.atan2(cursorY - shipY, cursorX - shipX)
     else
         -- Fallback to ship facing if cursor position not available
         angle = turret.owner.components.position.angle
@@ -437,7 +441,19 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     turret.currentAimAngle = angle
 
-    -- Calculate beam end point - use cursor distance as max range, but respect collisions
+    -- Now compute turret muzzle position using the updated aim
+    local sx, sy = Turret.getTurretWorldPosition(turret)
+
+    -- Compute distance from muzzle to cursor for accurate clamping
+    local cursorDistance = math.huge
+    if turret.owner.cursorWorldPos then
+        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
+        local dx = cursorX - sx
+        local dy = cursorY - sy
+        cursorDistance = math.sqrt(dx * dx + dy * dy)
+    end
+
+    -- Calculate beam end point - clamp to cursor distance within max range, respect collisions later
     local maxRange = turret.maxRange
     local effectiveRange = maxRange
     if turret.owner.cursorWorldPos then
