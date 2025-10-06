@@ -356,6 +356,33 @@ local function handlePatrolling(entity, dt)
     end
 end
 
+local function updateTurretModules(entity, dt, world, target, ai, canShoot)
+    if not entity.components.equipment or not entity.components.equipment.grid then
+        return
+    end
+
+    local shouldFire = not not canShoot
+
+    for _, slot in ipairs(entity.components.equipment.grid) do
+        if slot and slot.module and slot.type == "turret" and slot.enabled ~= false then
+            local turret = slot.module
+            if turret and type(turret.update) == "function" then
+                turret.fireMode = "automatic"
+                turret.autoFire = true
+
+                local locked
+                if entity.aiType == "turret" and ai and ai.turretState then
+                    locked = not (ai.turretState.hasTarget and ai.turretState.isAimed and ai.turretState.inRange)
+                else
+                    locked = not shouldFire
+                end
+
+                turret:update(dt, target, locked, world)
+            end
+        end
+    end
+end
+
 local function handleHunting(entity, dt, player, spawnProjectile, world)
     local ai = entity.components.ai
     local pos = entity.components.position
@@ -516,33 +543,7 @@ local function handleHunting(entity, dt, player, spawnProjectile, world)
         end
     end
 
-    -- Handle turret firing through equipment grid
-    if entity.components.equipment and entity.components.equipment.grid then
-        for _, slot in ipairs(entity.components.equipment.grid) do
-            if slot and slot.module and slot.type == "turret" and slot.enabled ~= false then
-                local turret = slot.module
-
-                -- Safety check: make sure turret exists and has required properties
-                if turret and turret.update and type(turret.update) == "function" then
-                    -- Set turret to automatic fire mode
-                    turret.fireMode = "automatic"
-                    turret.autoFire = true
-
-                    -- For turrets with AI, use turret state information
-                    local locked = not canShoot
-                    if entity.aiType == "turret" and ai.turretState then
-                        -- Use TurretAI state for more precise control
-                        locked = not (ai.turretState.hasTarget and ai.turretState.isAimed and ai.turretState.inRange)
-                    end
-
-                    -- Update turret - pass 'locked' as opposite of 'canShoot'
-                    -- When locked=true, turret stops firing; locked=false allows firing
-                    turret:update(dt, player, locked, world)
-
-                end
-            end
-        end
-    end
+    updateTurretModules(entity, dt, world, player, ai, canShoot)
 end
 
 
@@ -628,6 +629,10 @@ end
 local function updateAIState(entity, dt, player)
     local ai = entity.components.ai
     local health = entity.components.health
+
+    if entity.aiType == "turret" then
+        return
+    end
 
     -- Check if should retreat due to low health
     local retreatHealthPercent = ai.retreatHealthPercent
@@ -746,8 +751,15 @@ function AISystem.update(dt, world, spawnProjectile)
 
         -- Handle turret AI separately
         if entity.aiType == "turret" and ai.update then
-            -- This is a turret with TurretAI component
             ai:update(dt, entity, world, player)
+
+            local turretTarget = ai.getCurrentTarget and ai:getCurrentTarget() or ai.currentTarget
+            local turretCanShoot = false
+            if ai.turretState then
+                turretCanShoot = not not (ai.turretState.hasTarget and ai.turretState.isAimed and ai.turretState.inRange)
+            end
+
+            updateTurretModules(entity, dt, world, turretTarget, ai, turretCanShoot)
         end
 
         ::continue::
