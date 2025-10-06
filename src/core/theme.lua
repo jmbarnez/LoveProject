@@ -228,7 +228,6 @@ Theme.effects = {
   particleLifetime = { min = 0.5, max = 1.5 },
 
   -- Screen effects
-  screenShake = { intensity = 3, duration = 0.2 },
   flashIntensity = 0.3,
   zoomIntensity = 1.05,
 }
@@ -408,17 +407,10 @@ end
 
 -- === SCREEN EFFECTS ===
 Theme.screenEffects = {
-  shake = { intensity = 0, duration = 0, timer = 0 },
   flash = { color = {1, 1, 1, 0}, duration = 0, timer = 0 },
   zoom = { scale = 1, duration = 0, timer = 0 },
 }
 
--- Add screen shake effect
-function Theme.shakeScreen(intensity, duration)
-  Theme.screenEffects.shake.intensity = intensity or Theme.effects.screenShake.intensity
-  Theme.screenEffects.shake.duration = duration or Theme.effects.screenShake.duration
-  Theme.screenEffects.shake.timer = 0
-end
 
 -- Add screen flash effect
 function Theme.flashScreen(color, duration)
@@ -436,13 +428,6 @@ end
 
 -- Update screen effects
 function Theme.updateScreenEffects(dt)
-  -- Update shake
-  if Theme.screenEffects.shake.timer < Theme.screenEffects.shake.duration then
-    Theme.screenEffects.shake.timer = Theme.screenEffects.shake.timer + dt
-    if Theme.screenEffects.shake.timer >= Theme.screenEffects.shake.duration then
-      Theme.screenEffects.shake.intensity = 0
-    end
-  end
 
   -- Update flash
   if Theme.screenEffects.flash.timer < Theme.screenEffects.flash.duration then
@@ -462,14 +447,6 @@ function Theme.updateScreenEffects(dt)
 end
 
 -- Get screen offset for shake effect
-function Theme.getScreenShakeOffset()
-  if Theme.screenEffects.shake.intensity > 0 and Theme.screenEffects.shake.timer < Theme.screenEffects.shake.duration then
-    local progress = Theme.screenEffects.shake.timer / Theme.screenEffects.shake.duration
-    local intensity = Theme.screenEffects.shake.intensity * (1 - progress)
-    return math.random(-intensity, intensity), math.random(-intensity, intensity)
-  end
-  return 0, 0
-end
 
 -- Get screen flash alpha
 function Theme.getScreenFlashAlpha()

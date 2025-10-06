@@ -3,6 +3,7 @@ LoadingScreen.__index = LoadingScreen
 
 local Theme = require("src.core.theme")
 local Log = require("src.core.log")
+local Viewport = require("src.core.viewport")
 
 -- Shared cached font reference so we avoid recreating fonts every frame
 LoadingScreen.titleFont = nil
@@ -91,7 +92,7 @@ end
 function LoadingScreen:draw()
     if not self.isVisible then return end
 
-    local vw, vh = love.graphics.getDimensions()
+    local vw, vh = Viewport.getDimensions()
     local centerX, centerY = vw / 2, vh / 2
     
     -- Black background

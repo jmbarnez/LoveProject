@@ -240,16 +240,9 @@ function World:drawBackground(camera)
 
   for i = 1, #self.skyStars do
     local s = self.skyStars[i]
-    local alpha
-    if shouldUpdateTwinkle then
-      -- Calculate new alpha and cache it
-      alpha = s.a + 0.05 * math.sin(t * s.tw + s.ph)
-      s._cachedAlpha = alpha -- Cache for next frames
-    else
-      -- Use cached alpha
-      alpha = s._cachedAlpha or s.a
-    end
-    love.graphics.setColor(1, 1, 1, math.max(0, alpha))
+    -- Disable twinkling temporarily to test for flicker
+    local alpha = s.a
+    love.graphics.setColor(1, 1, 1, alpha)
     local sx = math.floor(s.x) + 0.5
     local sy = math.floor(s.y) + 0.5
     love.graphics.circle('fill', sx, sy, s.s)

@@ -24,34 +24,18 @@ function Draw.draw(Game)
         return
     end
 
-    local shakeX, shakeY = Theme.getScreenShakeOffset()
     local flashAlpha = Theme.getScreenFlashAlpha()
     local zoomScale = Theme.getScreenZoomScale()
 
-    camera:apply(shakeX, shakeY, zoomScale)
+    camera:apply(0, 0, zoomScale)
 
     world:drawBackground(camera)
     if DEBUG_DRAW_BOUNDS then world:drawBounds() end
 
-    -- Render to main canvas for post-processing
-    local mainCanvas = PostProcessing.mainCanvas
-    if mainCanvas then
-        local currentCanvas = love.graphics.getCanvas()
-        love.graphics.setCanvas(mainCanvas)
-        love.graphics.clear()
-    end
-
     RenderSystem.draw(world, camera, player, State.clickMarkers, State.hoveredEntity, State.hoveredEntityType)
     Effects.draw()
     
-    
     camera:reset()
-    
-    -- Apply post-processing if we have a main canvas
-    if mainCanvas then
-        love.graphics.setCanvas(currentCanvas)
-        PostProcessing.apply(mainCanvas)
-    end
 
     UI.drawHelpers(player, world, hub, camera)
 
