@@ -1,23 +1,31 @@
+# AI assistant files
 .aider*
 
-# Build scripts and batch files
-build_love.bat
-*.bat
-
-# Built packages and executables
+# Build artifacts and executables
 Novus.love
 *.love
 love.exe
 lovec.exe
 *.dll
+*.exe
 *.ico
-game.ico
 
-# LÖVE framework dependencies (keep source code, ignore binaries)
-love.dll
-lua51.dll
-mpg123.dll
-msvcp120.dll
-msvcr120.dll
-OpenAL32.dll
-SDL2.dll
+# Debug and output files
+debug_output.txt
+output.txt
+*.log
+
+# Build scripts (keep build_love.bat as it's part of the project)
+# build_love.bat
+*.bat
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+*.tmp
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
