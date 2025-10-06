@@ -6,6 +6,7 @@ local Window = require("src.ui.common.window")
 local Dropdown = require("src.ui.common.dropdown")
 local Strings = require("src.core.strings")
 local Util = require("src.core.util")
+local SciFiCursor = require("src.ui.hud.sci_fi_cursor")
 
 local SettingsPanel = {}
 
@@ -531,24 +532,27 @@ function SettingsPanel.drawContent(window, x, y, w, h)
     SettingsPanel._showFpsToggleRect = { x = showFpsToggleX, y = showFpsToggleY - scrollY, w = showFpsToggleW, h = showFpsToggleH }
     yOffset = yOffset + itemHeight
 
-    -- Reticle popup trigger, current preview, and color dropdown
+    -- Cursor popup trigger, current preview, and color dropdown
     Theme.setColor(Theme.colors.text)
-    love.graphics.print("Reticle:", labelX, yOffset)
+    love.graphics.print("Cursor:", labelX, yOffset)
     local btnX, btnY, btnW, btnH = valueX, yOffset - 4, 140, 26
     local btnHover = mx >= btnX and mx <= btnX + btnW and scrolledMouseY >= btnY and scrolledMouseY <= btnY + btnH
     -- Show full text without truncation
-    Theme.drawStyledButton(btnX, btnY, btnW, btnH, "Select Reticle", btnHover, love.timer.getTime())
+    Theme.drawStyledButton(btnX, btnY, btnW, btnH, "Select Cursor", btnHover, love.timer.getTime())
     SettingsPanel._reticleButtonRect = { x = btnX, y = btnY - scrollY, w = btnW, h = btnH }
     -- Preview next to button (same height as button)
     local previewSize = btnH
     local pvX, pvY = btnX + btnW + 10, btnY
     Theme.drawGradientGlowRect(pvX, pvY, previewSize, previewSize, 3, Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak * 0.1)
-    local Reticle = require("src.ui.hud.reticle")
     love.graphics.push()
     love.graphics.translate(pvX + previewSize * 0.5, pvY + previewSize * 0.5)
-    Theme.setColor(Theme.colors.textHighlight)
-    local previewScale = (previewSize / 32) * 0.85 * 0.8
-    Reticle.drawPreset(currentGraphicsSettings.reticle_style or 1, previewScale, Theme.colors.textHighlight)
+    local styleIndex = math.max(1, math.min(50, currentGraphicsSettings.reticle_style or 1))
+    local pointerScale = 0.9 + (styleIndex - 1) / 49 * 0.6
+    local baseScale = (previewSize / 32) * 0.95
+    love.graphics.scale(baseScale * pointerScale, baseScale * pointerScale)
+    local previewFill = Theme.withAlpha(Theme.colors.textHighlight, 0.95)
+    local previewOutline = Theme.withAlpha(Theme.colors.text, 0.85)
+    SciFiCursor.drawAtOrigin(previewFill, previewOutline)
     love.graphics.pop()
     yOffset = yOffset + itemHeight
 
@@ -876,9 +880,9 @@ function SettingsPanel.drawContent(window, x, y, w, h)
         love.graphics.setLineWidth(2)
         love.graphics.rectangle("line", previewX, previewY, previewSize, previewSize)
         
-        -- Draw "Reticle Color" label above preview
+        -- Draw "Cursor Color" label above preview
         Theme.setColor(Theme.colors.text)
-        local labelText = "Reticle Color"
+        local labelText = "Cursor Color"
         local labelW = Theme.fonts.small:getWidth(labelText)
         love.graphics.print(labelText, previewX + (previewSize - labelW) / 2, previewY - 20)
         
@@ -903,7 +907,6 @@ function SettingsPanel.drawContent(window, x, y, w, h)
         local cols, cell, gap = 10, 44, 8
         local total, rows = 50, math.ceil(50/cols)
         SettingsPanel._reticlePopup = { x = px, y = py, cols = cols, rows = rows, cell = cell, gap = gap }
-        local Reticle = require("src.ui.hud.reticle")
         local curStyle = currentGraphicsSettings.reticle_style or 1
         for i = 1, total do
             local r = math.floor((i-1)/cols)
@@ -914,10 +917,12 @@ function SettingsPanel.drawContent(window, x, y, w, h)
             Theme.drawGradientGlowRect(cx, cy, cell, cell, 3, isSel and Theme.colors.bg3 or Theme.colors.bg2, Theme.colors.bg1, Theme.colors.border, Theme.effects.glowWeak * 0.1)
             love.graphics.push()
             love.graphics.translate(cx + cell * 0.5, cy + cell * 0.5)
-            -- Use selected color for previews
-            Theme.setColor({cr, cg, cb, 1})
-            local previewScale = 0.8 * (cell / 32) * 0.85
-            Reticle.drawPreset(i, previewScale, {cr, cg, cb, 1})
+            local pointerScale = 0.9 + (i - 1) / 49 * 0.6
+            local baseScale = (cell / 32) * 0.95
+            love.graphics.scale(baseScale * pointerScale, baseScale * pointerScale)
+            local previewFill = {cr, cg, cb, 1}
+            local previewOutline = Theme.withAlpha(Theme.colors.text, 0.85)
+            SciFiCursor.drawAtOrigin(previewFill, previewOutline)
             love.graphics.pop()
         end
         -- Done button

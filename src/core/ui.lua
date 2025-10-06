@@ -250,7 +250,7 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
   -- Ensure system mouse cursor is visible across the entire screen
   if love and love.mouse and love.mouse.setVisible then love.mouse.setVisible(true) end
 
-  -- Draw reticle when not over UI (in-game targeting cursor)
+  -- Draw targeting overlays and gameplay cursor when not over UI
   local UIManager = require("src.core.ui_manager")
   local overUI = UIManager.isMouseOverUI and UIManager.isMouseOverUI() or false
 
