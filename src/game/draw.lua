@@ -46,9 +46,20 @@ function Draw.draw(Game)
     QuestLogHUD.draw(player)
 
     if UIManager.isOpen("escape") then
+        local viewportWidth, viewportHeight = Viewport.getDimensions()
+
+        if Game.blurCanvas then
+            local canvasWidth, canvasHeight = Game.blurCanvas:getDimensions()
+            if canvasWidth ~= viewportWidth or canvasHeight ~= viewportHeight then
+                if Game.blurCanvas.release then
+                    Game.blurCanvas:release()
+                end
+                Game.blurCanvas = nil
+            end
+        end
+
         if not Game.blurCanvas then
-            local w, h = Viewport.getDimensions()
-            Game.blurCanvas = love.graphics.newCanvas(w, h)
+            Game.blurCanvas = love.graphics.newCanvas(viewportWidth, viewportHeight)
         end
 
         local currentCanvas = love.graphics.getCanvas()
