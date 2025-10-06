@@ -1,6 +1,6 @@
 -- Refactored rendering system with modular components
 local PlayerRenderer = require("src.systems.render.player_renderer")
-local EntityRenderers = require("src.systems.render.entity_renderers")
+local EntityRendererDispatcher = require("src.systems.render.entity_renderer_dispatcher")
 local ShieldEffects = require("src.systems.render.shield_effects")
 local ShieldImpactEffects = require("src.systems.render.shield_impact_effects")
 
@@ -9,8 +9,8 @@ local RenderSystem = {}
 function RenderSystem.draw(world, camera, player, clickMarkers, hoveredEntity, hoveredEntityType)
 
     -- Draw all non-player renderable entities
-    if EntityRenderers and EntityRenderers.draw then
-        EntityRenderers.draw(world, camera, player)
+    if EntityRendererDispatcher and EntityRendererDispatcher.draw then
+        EntityRendererDispatcher.draw(world, camera, player)
     end
 
     -- Draw player
