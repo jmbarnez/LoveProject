@@ -54,25 +54,9 @@ function Camera:update(dt)
       end
     end
     
-    -- Cursor-based deviation with distance-based sensitivity
-    if self.target.cursorWorldPos then
-      local dx = self.target.cursorWorldPos.x - targetX
-      local dy = self.target.cursorWorldPos.y - targetY
-      local cursorDistance = math.sqrt(dx * dx + dy * dy)
-      if cursorDistance > 80 then -- Only apply deviation when cursor is far from player (increased threshold for stiffer feel)
-        local cursorAngle = math.atan2(dy, dx)
-        
-        -- Distance-based sensitivity scaling (less sensitive when close)
-        local minDistance = 80
-        local maxDistance = 300
-        local normalizedDistance = math.min(1, (cursorDistance - minDistance) / (maxDistance - minDistance))
-        local distanceScale = 0.2 + 0.8 * normalizedDistance -- Scale from 0.2 to 1.0
-        
-        local deviationAmount = math.min(cursorDistance * self.cursorDeviation * distanceScale, self.maxDeviation)
-        targetDeviationX = targetDeviationX + math.cos(cursorAngle) * deviationAmount
-        targetDeviationY = targetDeviationY + math.sin(cursorAngle) * deviationAmount
-      end
-    end
+    -- Cursor-based deviation removed to prevent circular dependency
+    -- Camera deviation should only be based on movement, not cursor position
+    -- This ensures accurate cursor-to-world coordinate conversion
     
     -- Clamp total deviation to maxDeviation
     local totalDeviation = math.sqrt(targetDeviationX * targetDeviationX + targetDeviationY * targetDeviationY)

@@ -653,13 +653,14 @@ function UI.drawHelpers(player, world, hub, camera)
   do
     if not (docking and docking.docked) and world and camera then
       local mx, my = Viewport.getMousePosition()
-      local sw, sh = Viewport.getDimensions()
-      local camScale = camera and camera.scale or 1
-      local camX = (camera and camera.x) or 0
-      local camY = (camera and camera.y) or 0
-      local worldMouseX = (mx - sw * 0.5) / camScale + camX
-      local worldMouseY = (my - sh * 0.5) / camScale + camY
+      local worldMouseX, worldMouseY = camera:screenToWorld(mx, my)
       local px, py = player.components.position.x, player.components.position.y
+      
+      -- Keep camera variables for later use in screen coordinate calculations
+      local sw, sh = Viewport.getDimensions()
+      local camScale = camera.scale or 1
+      local camX = camera.x or 0
+      local camY = camera.y or 0
 
       local best, bestType
       local bestScore = math.huge

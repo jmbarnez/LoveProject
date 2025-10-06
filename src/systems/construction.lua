@@ -56,13 +56,8 @@ function ConstructionSystem.updateConstructionMode(dt, player, world, input, cam
     local sw, sh = Viewport.getDimensions()
     
     if camera then
-        local camScale = camera.scale or 1
-        local camX = camera.x or 0
-        local camY = camera.y or 0
-        
-        -- Convert screen coordinates to world coordinates
-        constructionState.placementX = (mx - sw * 0.5) / camScale + camX
-        constructionState.placementY = (my - sh * 0.5) / camScale + camY
+        -- Convert screen coordinates to world coordinates using camera's screenToWorld function
+        constructionState.placementX, constructionState.placementY = camera:screenToWorld(mx, my)
     else
         constructionState.placementX = mx
         constructionState.placementY = my
