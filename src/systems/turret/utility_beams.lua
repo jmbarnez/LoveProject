@@ -139,6 +139,45 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     local beamEndX = hitX or endX
     local beamEndY = hitY or endY
 
+    local energyStarved = false
+    if turret.energyPerSecond and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
+        local currentEnergy = turret.owner.components.health.energy or 0
+        local energyCost = turret.energyPerSecond * dt
+        local resumeMultiplier = turret.resumeEnergyMultiplier or 2
+        local resumeThreshold = turret.minResumeEnergy or (resumeMultiplier * energyCost)
+        resumeThreshold = math.max(resumeThreshold, energyCost)
+
+        if turret._energyStarved then
+            if currentEnergy >= resumeThreshold then
+                turret._energyStarved = false
+            else
+                energyStarved = true
+            end
+        end
+
+        if not energyStarved then
+            if currentEnergy >= energyCost then
+                turret.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
+            else
+                turret._energyStarved = true
+                energyStarved = true
+            end
+        end
+    end
+
+    if energyStarved then
+        turret.beamActive = false
+        turret.beamTarget = nil
+        turret.beamStartX = nil
+        turret.beamStartY = nil
+        turret.beamEndX = nil
+        turret.beamEndY = nil
+        if turret.miningSoundActive or turret.miningSoundInstance then
+            TurretEffects.stopMiningSound(turret)
+        end
+        return
+    end
+
     turret.beamActive = true
     turret.beamStartX = sx
     turret.beamStartY = sy
@@ -148,32 +187,10 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     -- Try to send utility beam weapon fire request first (for clients)
     local requestSent = sendUtilityBeamWeaponFireRequest(turret, sx, sy, angle, effectiveRange, "mining")
-    
+
     -- If not a client or request failed, process beam locally (for host)
     if not requestSent then
         -- Host processes beam locally
-    end
-
-    -- Consume energy per second while beam is active
-    -- Skip energy consumption for enemies - they ignore energy usage
-    if turret.energyPerSecond and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
-        local currentEnergy = turret.owner.components.health.energy or 0
-        local energyCost = turret.energyPerSecond * dt
-        if currentEnergy >= energyCost then
-            turret.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
-        else
-            -- Not enough energy, stop the beam
-            turret.beamActive = false
-            -- Stop mining laser sound if it was playing
-            if turret.miningSoundActive or turret.miningSoundInstance then
-                TurretEffects.stopMiningSound(turret)
-            end
-            return
-        end
-    else
-        -- Debug logging for missing energyPerSecond (only for player)
-        if turret.owner.isPlayer then
-        end
     end
 
     local cycle = math.max(0.1, turret.cycle)
@@ -439,6 +456,45 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     local beamEndX = hitX or endX
     local beamEndY = hitY or endY
 
+    local energyStarved = false
+    if turret.energyPerSecond and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
+        local currentEnergy = turret.owner.components.health.energy or 0
+        local energyCost = turret.energyPerSecond * dt
+        local resumeMultiplier = turret.resumeEnergyMultiplier or 2
+        local resumeThreshold = turret.minResumeEnergy or (resumeMultiplier * energyCost)
+        resumeThreshold = math.max(resumeThreshold, energyCost)
+
+        if turret._energyStarved then
+            if currentEnergy >= resumeThreshold then
+                turret._energyStarved = false
+            else
+                energyStarved = true
+            end
+        end
+
+        if not energyStarved then
+            if currentEnergy >= energyCost then
+                turret.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
+            else
+                turret._energyStarved = true
+                energyStarved = true
+            end
+        end
+    end
+
+    if energyStarved then
+        turret.beamActive = false
+        turret.beamTarget = nil
+        turret.beamStartX = nil
+        turret.beamStartY = nil
+        turret.beamEndX = nil
+        turret.beamEndY = nil
+        if turret.salvagingSoundActive or turret.salvagingSoundInstance then
+            TurretEffects.stopSalvagingSound(turret)
+        end
+        return
+    end
+
     turret.beamActive = true
     turret.beamStartX = sx
     turret.beamStartY = sy
@@ -448,31 +504,10 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     -- Try to send utility beam weapon fire request first (for clients)
     local requestSent = sendUtilityBeamWeaponFireRequest(turret, sx, sy, angle, effectiveRange, "salvaging")
-    
+
     -- If not a client or request failed, process beam locally (for host)
     if not requestSent then
         -- Host processes beam locally
-    end
-
-    -- Consume energy per second while beam is active
-    -- Skip energy consumption for enemies - they ignore energy usage
-    if turret.energyPerSecond and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
-        local currentEnergy = turret.owner.components.health.energy or 0
-        local energyCost = turret.energyPerSecond * dt
-        if currentEnergy >= energyCost then
-            turret.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
-        else
-            -- Not enough energy, stop the beam
-            turret.beamActive = false
-            if turret.salvagingSoundActive or turret.salvagingSoundInstance then
-                TurretEffects.stopSalvagingSound(turret)
-            end
-            return
-        end
-    else
-        -- Debug logging for missing energyPerSecond (only for player)
-        if turret.owner.isPlayer then
-        end
     end
 
     local cycle = math.max(0.1, turret.cycle)

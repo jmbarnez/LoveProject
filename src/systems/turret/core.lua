@@ -31,6 +31,8 @@ function Turret.new(owner, params)
     self.cycle = params.cycle
     self.capCost = params.capCost
     self.energyPerSecond = params.energyPerSecond
+    self.minResumeEnergy = params.minResumeEnergy
+    self.resumeEnergyMultiplier = params.resumeEnergyMultiplier
 
     -- Targeting parameters
     self.optimal = params.optimal
