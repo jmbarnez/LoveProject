@@ -1,32 +1,9 @@
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
-local Constants = require("src.core.constants")
-local Config = require("src.content.config")
-
-local combatOverrides = Config.COMBAT or {}
-local combatConstants = Constants.COMBAT
-
-local function getCombatValue(key)
-  local value = combatOverrides[key]
-  if value ~= nil then return value end
-  return combatConstants[key]
-end
+local SciFiCursor = require("src.ui.hud.sci_fi_cursor")
 local Settings = require("src.core.settings")
 
 local Reticle = {}
-
-local function isAligned(player)
-  if not player or not player.components or not player.components.position then return false end
-  if not player.cursorWorldPos then return false end
-  local pos = player.components.position
-  local wx, wy = player.cursorWorldPos.x, player.cursorWorldPos.y
-  -- Compare ship facing to cursor vector in world-space
-  local dx, dy = wx - pos.x, wy - pos.y
-  local desired = (math.atan2 and math.atan2(dy, dx)) or math.atan(dy / math.max(1e-6, dx))
-  local diff = (desired - (pos.angle or 0) + math.pi) % (2 * math.pi) - math.pi
-  local deg = math.deg(math.abs(diff))
-  return deg <= (getCombatValue("ALIGN_LOCK_DEG") or 10)
-end
 
 function Reticle.drawPreset(style, scale, color)
   -- Derive family and variation from style 1..50
@@ -140,7 +117,6 @@ function Reticle.draw(player, world, camera)
   else
     userColor = colorByName(g and g.reticle_color)
   end
-  local aligned = isAligned(player)
   local base = userColor
   -- Preserve user's exact color choice - don't blend with theme colors
   local color = Theme.pulseColor(base, base, t, 1.0)
@@ -161,11 +137,17 @@ function Reticle.draw(player, world, camera)
   love.graphics.translate(reticleX, reticleY)
 
   -- Read reticle settings (fixed scale)
-  local style = (g and g.reticle_style) or 1
   local scale = 0.8
+  local styleIndex = math.max(1, math.min(50, (g and g.reticle_style) or 1))
 
-  Theme.setColor(Theme.withAlpha(color, 0.95))
-  Reticle.drawPreset(style, scale, color)
+  local pointerFill = Theme.withAlpha(color, 0.95)
+  local pointerOutline = Theme.withAlpha(Theme.colors.text, 0.8)
+  local pointerBaseScale = scale * 1.4
+  local pointerSizeScale = 0.9 + (styleIndex - 1) / 49 * 0.6
+  love.graphics.push()
+  love.graphics.scale(pointerBaseScale * pointerSizeScale, pointerBaseScale * pointerSizeScale)
+  SciFiCursor.drawAtOrigin(pointerFill, pointerOutline)
+  love.graphics.pop()
 
   -- Draw lock-on indicator when we're tracking a target
   if lockInfo.progress > 0 or lockInfo.isLocked then
