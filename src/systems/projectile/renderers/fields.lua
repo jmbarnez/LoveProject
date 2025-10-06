@@ -1,4 +1,4 @@
-local RendererFactory = require("src.templates.projectile_system.renderer_factory")
+local RendererFactory = require("src.systems.projectile.renderer_factory")
 
 RendererFactory.register("area_field", function(def)
     local props = {}

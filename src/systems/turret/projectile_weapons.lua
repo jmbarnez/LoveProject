@@ -334,18 +334,26 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
     turret.currentAimAngle = angle
 
     -- Handle volley firing for turrets that support it
-    local volleyCount = turret.volleyCount or 1
-    local volleySpreadDeg = turret.volleySpreadDeg or 0
+    local volleyCount = turret.volleyCount
+    if type(volleyCount) ~= "number" or volleyCount < 1 then
+        volleyCount = 1
+    else
+        volleyCount = math.floor(volleyCount)
+    end
+    local volleySpreadDeg = (type(turret.volleySpreadDeg) == "number") and turret.volleySpreadDeg or 0
     local friendly = turret.owner.isPlayer or false
+    local spreadConfig = turret.spread or { minDeg = 0 }
+    local baseSpread = (type(spreadConfig.minDeg) == "number") and spreadConfig.minDeg or 0
 
     for i = 1, volleyCount do
         -- Calculate spread angle for this projectile in the volley
-        local spreadFactor = (turret.spread and turret.spread.minDeg) or 0
+        local spreadFactor = baseSpread
         local volleyAngle = 0
 
         if volleyCount > 1 then
             -- Distribute projectiles evenly across the volley spread
-            local spreadPerProjectile = volleySpreadDeg / (volleyCount - 1)
+            local divisor = math.max(1, volleyCount - 1)
+            local spreadPerProjectile = volleySpreadDeg / divisor
             volleyAngle = math.rad((i - 1) * spreadPerProjectile - volleySpreadDeg / 2)
         end
 

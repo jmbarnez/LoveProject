@@ -135,17 +135,59 @@ function Settings.applyGraphicsSettings(newSettings)
         return
     end
 
-    local sanitized = Util.deepCopy(newSettings)
     local oldSettings = Util.deepCopy(settings.graphics)
+
+    local function mergeTables(base, overrides)
+        local result = Util.deepCopy(base or {})
+
+        if type(overrides) ~= "table" then
+            return result
+        end
+
+        for key, value in pairs(overrides) do
+            if type(value) == "table" then
+                local baseValue = result[key]
+                if type(baseValue) == "table" then
+                    result[key] = mergeTables(baseValue, value)
+                else
+                    result[key] = mergeTables({}, value)
+                end
+            else
+                result[key] = value
+            end
+        end
+
+        return result
+    end
+
+    local defaults = defaultSettings and defaultSettings.graphics or {}
+    local base = oldSettings or defaults
+    local sanitized = mergeTables(base, newSettings)
+
+    if type(sanitized.resolution) ~= "table" then
+        sanitized.resolution = Util.deepCopy(base.resolution or defaults.resolution or {})
+    end
+
+    sanitized.resolution.width = tonumber(sanitized.resolution.width) or
+        (base.resolution and base.resolution.width) or
+        (defaults.resolution and defaults.resolution.width) or
+        Constants.RESOLUTION.DEFAULT_WIDTH
+
+    sanitized.resolution.height = tonumber(sanitized.resolution.height) or
+        (base.resolution and base.resolution.height) or
+        (defaults.resolution and defaults.resolution.height) or
+        Constants.RESOLUTION.DEFAULT_HEIGHT
+
     settings.graphics = sanitized
 
     -- Only change window mode if resolution or fullscreen settings changed
+    local oldResolution = oldSettings and oldSettings.resolution or {}
     if not oldSettings or
-       oldSettings.resolution.width ~= sanitized.resolution.width or
-       oldSettings.resolution.height ~= sanitized.resolution.height or
-       (oldSettings.fullscreen ~= sanitized.fullscreen) or
-       (oldSettings.fullscreen_type ~= sanitized.fullscreen_type) or
-       (oldSettings.borderless ~= sanitized.borderless) or
+       (oldResolution.width ~= sanitized.resolution.width) or
+       (oldResolution.height ~= sanitized.resolution.height) or
+       ((oldSettings.fullscreen or false) ~= (sanitized.fullscreen or false)) or
+       ((oldSettings.fullscreen_type) ~= (sanitized.fullscreen_type)) or
+       ((oldSettings.borderless or false) ~= (sanitized.borderless or false)) or
        (oldSettings.vsync ~= sanitized.vsync) then
 
         local success, err = WindowMode.apply(sanitized)

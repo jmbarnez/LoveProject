@@ -10,7 +10,7 @@
     already properly designed in the projectile template.
 ]]
 
-local ProjectileEvents = require("src.templates.projectile_system.event_dispatcher").EVENTS
+local ProjectileEvents = require("src.systems.projectile.event_dispatcher").EVENTS
 
 local ProjectileLifecycle = {}
 

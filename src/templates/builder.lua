@@ -1,6 +1,6 @@
 local ShipTemplate = require("src.templates.ship")
 local WorldObjectTemplate = require("src.templates.world_object")
-local ProjectileTemplate = require("src.templates.projectile")
+local ProjectileTemplate = require("src.systems.projectile.projectile")
 local StationTemplate = require("src.templates.station")
 
 local Builder = {}

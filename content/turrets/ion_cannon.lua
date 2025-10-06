@@ -77,6 +77,4 @@ return {
             [3] = { homingBonus = math.rad(45) },
         }
     },
-    -- Firing mode
-    fireMode = "manual"
 }

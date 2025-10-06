@@ -1,4 +1,4 @@
-local RendererFactory = require("src.templates.projectile_system.renderer_factory")
+local RendererFactory = require("src.systems.projectile.renderer_factory")
 
 local function build(name, defaults)
     RendererFactory.register(name, function(def)

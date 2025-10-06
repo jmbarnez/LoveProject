@@ -80,6 +80,4 @@ return {
             [3] = { cycleMultiplier = 0.9 },
         }
     },
-    -- Firing mode
-    fireMode = "manual"
 }

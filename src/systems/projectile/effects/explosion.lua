@@ -1,5 +1,5 @@
-local EffectRegistry = require("src.templates.projectile_system.effect_registry")
-local Events = require("src.templates.projectile_system.event_dispatcher").EVENTS
+local EffectRegistry = require("src.systems.projectile.effect_registry")
+local Events = require("src.systems.projectile.event_dispatcher").EVENTS
 local Effects = require("src.systems.effects")
 
 local function trigger_explosion(projectile, power, spawnDebris)
