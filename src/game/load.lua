@@ -77,7 +77,7 @@ function Load.load(Game, fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   updateProgress(0.2, "Initializing systems...")
   HotbarSystem.load()
   NodeMarket.init()
-  PortfolioManager.init()
+  PortfolioManager.init(nil, { force = true })
 
   updateProgress(0.25, "Initializing network...")
   networkManager = NetworkSession.getManager()

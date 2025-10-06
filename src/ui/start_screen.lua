@@ -123,6 +123,7 @@ local function genSkyStars(sw, sh, count)
       a = 0.06 + math.random() * 0.06,
       tw = 0.35 + math.random() * 0.55,
       ph = math.random() * math.pi * 2,
+      colorMix = math.random(),
     }
   end
   return stars
@@ -320,7 +321,8 @@ function Start:draw()
   for i = 1, #self.sky do
     local s = self.sky[i]
     local alpha = s.a + 0.04 * math.sin(t * s.tw + s.ph)
-    local starColor = Theme.blend(Theme.colors.text, Theme.colors.accent, math.random() * 0.3)
+    local blendFactor = (s.colorMix or 0.5) * 0.3
+    local starColor = Theme.blend(Theme.colors.text, Theme.colors.accent, blendFactor)
     Theme.setColor(Theme.withAlpha(starColor, math.max(0, alpha)))
     love.graphics.circle('fill', math.floor(s.x)+0.5, math.floor(s.y)+0.5, s.s)
   end
