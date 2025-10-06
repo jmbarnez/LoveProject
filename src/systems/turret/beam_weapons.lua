@@ -100,23 +100,40 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     end
 
     -- Compute desired distance from muzzle to cursor or target
+    local dx, dy
     if cursorPos then
-        local dx = cursorPos.x - sx
-        local dy = cursorPos.y - sy
+        dx = cursorPos.x - sx
+        dy = cursorPos.y - sy
         desiredDistance = math.sqrt(dx * dx + dy * dy)
     elseif target and target.components and target.components.position then
         local tx = target.components.position.x
         local ty = target.components.position.y
-        local dx = tx - sx
-        local dy = ty - sy
+        dx = tx - sx
+        dy = ty - sy
         desiredDistance = math.sqrt(dx * dx + dy * dy)
     end
 
-    local maxRange = turret.maxRange or 0
+    local maxRange = turret.maxRange
+    if not maxRange or maxRange <= 0 then
+        maxRange = desiredDistance or 0
+    end
     local beamLength = math.min(desiredDistance or maxRange, maxRange)
 
-    local endX = sx + math.cos(angle) * beamLength
-    local endY = sy + math.sin(angle) * beamLength
+    local endX, endY
+    if dx and dy then
+        if desiredDistance and desiredDistance > 0 then
+            local scale = beamLength / desiredDistance
+            endX = sx + dx * scale
+            endY = sy + dy * scale
+        else
+            beamLength = 0
+            endX = sx
+            endY = sy
+        end
+    else
+        endX = sx + math.cos(angle) * beamLength
+        endY = sy + math.sin(angle) * beamLength
+    end
 
     local hitTarget, hitX, hitY = BeamWeapons.performLaserHitscan(
         sx, sy, endX, endY, turret, world
