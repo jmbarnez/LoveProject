@@ -6,7 +6,31 @@ return {
     price = 3200,
     volume = 16,
     module = { type = "turret" },
-    icon = nil,
+    icon = {
+        size = 32,
+        shapes = {
+            -- Main chassis - gravity well generator
+            { type = "polygon", mode = "fill", color = {0.10, 0.08, 0.12, 1}, points = {4, 28, 8, 6, 24, 6, 28, 28, 16, 32} },
+            { type = "polygon", mode = "fill", color = {0.22, 0.18, 0.25, 1}, points = {6, 24, 10, 10, 22, 10, 26, 24, 16, 28} },
+            
+            -- Gravity core
+            { type = "circle", mode = "fill", color = {0.30, 0.20, 0.50, 1}, x = 16, y = 16, r = 8 },
+            { type = "circle", mode = "fill", color = {0.50, 0.30, 1.00, 0.8}, x = 16, y = 16, r = 6 },
+            { type = "circle", mode = "fill", color = {0.70, 0.50, 1.00, 0.6}, x = 16, y = 16, r = 4 },
+            
+            -- Gravity field rings
+            { type = "circle", mode = "line", color = {0.50, 0.30, 1.00, 0.6}, x = 16, y = 16, r = 10, lineWidth = 1 },
+            { type = "circle", mode = "line", color = {0.50, 0.30, 1.00, 0.4}, x = 16, y = 16, r = 12, lineWidth = 1 },
+            
+            -- Generator coils
+            { type = "rectangle", mode = "fill", color = {0.25, 0.20, 0.30, 1}, x = 12, y = 8, w = 8, h = 4, rx = 1 },
+            { type = "rectangle", mode = "fill", color = {0.45, 0.35, 0.55, 0.8}, x = 13, y = 9, w = 6, h = 2, rx = 0.5 },
+            
+            -- Power conduits
+            { type = "line", color = {0.50, 0.30, 1.00, 0.7}, x1 = 8, y1 = 20, x2 = 24, y2 = 20, lineWidth = 2 },
+            { type = "line", color = {0.50, 0.30, 1.00, 0.7}, x1 = 8, y1 = 22, x2 = 24, y2 = 22, lineWidth = 1 },
+        }
+    },
 
     projectile = {
         id = "gravity_well_orb",

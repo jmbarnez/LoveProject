@@ -6,7 +6,31 @@ return {
     price = 4200,
     volume = 20,
     module = { type = "turret" },
-    icon = nil,
+    icon = {
+        size = 32,
+        shapes = {
+            -- Main chassis - heavy bombardment cannon
+            { type = "polygon", mode = "fill", color = {0.12, 0.10, 0.08, 1}, points = {3, 28, 7, 4, 25, 4, 29, 28, 16, 32} },
+            { type = "polygon", mode = "fill", color = {0.28, 0.24, 0.20, 1}, points = {5, 24, 9, 8, 23, 8, 27, 24, 16, 28} },
+            
+            -- Massive barrel assembly
+            { type = "rectangle", mode = "fill", color = {0.20, 0.18, 0.15, 1}, x = 12, y = 4, w = 8, h = 20, rx = 1 },
+            { type = "rectangle", mode = "fill", color = {0.40, 0.35, 0.30, 0.8}, x = 13, y = 5, w = 6, h = 18, rx = 0.5 },
+            
+            -- Barrel reinforcement rings
+            { type = "circle", mode = "line", color = {0.60, 0.50, 0.40, 0.9}, x = 16, y = 8, r = 5, lineWidth = 2 },
+            { type = "circle", mode = "line", color = {0.60, 0.50, 0.40, 0.9}, x = 16, y = 14, r = 5, lineWidth = 2 },
+            { type = "circle", mode = "line", color = {0.60, 0.50, 0.40, 0.9}, x = 16, y = 20, r = 5, lineWidth = 2 },
+            
+            -- Ammunition feed
+            { type = "rectangle", mode = "fill", color = {0.25, 0.22, 0.18, 1}, x = 6, y = 12, w = 6, h = 8, rx = 1 },
+            { type = "rectangle", mode = "fill", color = {0.25, 0.22, 0.18, 1}, x = 20, y = 12, w = 6, h = 8, rx = 1 },
+            
+            -- Targeting systems
+            { type = "circle", mode = "fill", color = {0.80, 0.60, 0.40, 0.9}, x = 9, y = 16, r = 1.5 },
+            { type = "circle", mode = "fill", color = {0.80, 0.60, 0.40, 0.9}, x = 23, y = 16, r = 1.5 },
+        }
+    },
 
     projectile = {
         id = "kinetic_rod",

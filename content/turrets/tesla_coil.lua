@@ -6,7 +6,31 @@ return {
     price = 2800,
     volume = 14,
     module = { type = "turret" },
-    icon = nil,
+    icon = {
+        size = 32,
+        shapes = {
+            -- Main chassis - tesla coil design
+            { type = "polygon", mode = "fill", color = {0.12, 0.15, 0.18, 1}, points = {6, 28, 10, 8, 22, 8, 26, 28, 16, 32} },
+            { type = "polygon", mode = "fill", color = {0.25, 0.30, 0.35, 1}, points = {8, 24, 12, 12, 20, 12, 24, 24, 16, 28} },
+            
+            -- Tesla coil tower
+            { type = "rectangle", mode = "fill", color = {0.20, 0.25, 0.30, 1}, x = 14, y = 8, w = 4, h = 16, rx = 1 },
+            { type = "rectangle", mode = "fill", color = {0.40, 0.50, 0.60, 0.8}, x = 15, y = 9, w = 2, h = 14, rx = 0.5 },
+            
+            -- Coil windings
+            { type = "circle", mode = "line", color = {0.60, 0.90, 1.00, 0.9}, x = 16, y = 12, r = 3, lineWidth = 2 },
+            { type = "circle", mode = "line", color = {0.60, 0.90, 1.00, 0.9}, x = 16, y = 16, r = 3, lineWidth = 2 },
+            { type = "circle", mode = "line", color = {0.60, 0.90, 1.00, 0.9}, x = 16, y = 20, r = 3, lineWidth = 2 },
+            
+            -- Electrical discharge
+            { type = "line", color = {0.80, 1.00, 1.00, 0.8}, x1 = 12, y1 = 6, x2 = 20, y2 = 6, lineWidth = 2 },
+            { type = "line", color = {0.80, 1.00, 1.00, 0.8}, x1 = 10, y1 = 8, x2 = 22, y2 = 8, lineWidth = 1 },
+            
+            -- Power indicators
+            { type = "circle", mode = "fill", color = {0.60, 0.90, 1.00, 0.9}, x = 11, y = 18, r = 1.5 },
+            { type = "circle", mode = "fill", color = {0.60, 0.90, 1.00, 0.9}, x = 21, y = 18, r = 1.5 },
+        }
+    },
 
     projectile = {
         id = "tesla_bolt",

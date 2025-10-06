@@ -1,4 +1,4 @@
-local EntityFactory = require("src.templates.entity_factory")
+local Projectile = require("src.templates.projectile")
 local NetworkSession = require("src.core.network.session")
 local State = require("src.game.state")
 
@@ -39,7 +39,7 @@ function Projectiles.spawn(x, y, angle, friendly, opts)
     }
     extra_config.source = opts.source
 
-    local projectile = EntityFactory.create("projectile", projectile_id, x, y, extra_config)
+    local projectile = Projectile.new(x, y, angle, friendly, extra_config)
     if projectile and State.world then
         State.world:addEntity(projectile)
     end

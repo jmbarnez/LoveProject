@@ -1,7 +1,50 @@
 local BehaviorRegistry = require("src.templates.projectile_system.behavior_registry")
 local ProjectileEvents = require("src.templates.projectile_system.event_dispatcher").EVENTS
-local Projectiles = require("src.game.projectiles")
 local State = require("src.game.state")
+
+-- Local function to create projectiles without circular dependency
+local function createProjectile(x, y, angle, friendly, config)
+    local speed = config.speedOverride or 700
+    local vx = math.cos(angle) * speed
+    local vy = math.sin(angle) * speed
+    
+    return {
+        tag = "bullet",
+        projectileType = config.projectile or config.projectileId or "gun_bullet",
+        components = {
+            bullet = {
+                source = config.source,
+                impact = config.impact,
+                slot = config.sourceTurretSlot,
+                turretId = config.sourceTurretId,
+                turretType = config.sourceTurretType,
+                sourcePlayerId = config.sourcePlayerId,
+                sourceShipId = config.sourceShipId,
+            },
+            position = { x = x, y = y, angle = angle },
+            velocity = { x = vx, y = vy },
+            collidable = {
+                radius = 2,
+                friendly = friendly,
+            },
+            damage = { value = config.damage or 1 },
+            renderable = {
+                visible = true,
+                layer = "projectiles",
+                renderer = "fields", -- Use the fields renderer for area denial
+                props = {
+                    kind = config.kind or "area_field",
+                    radius = 40,
+                    coreRadius = 20,
+                    color = {0.2, 0.6, 1.0, 0.4}, -- Blue area field
+                }
+            },
+            timed_life = {
+                duration = 3.0
+            }
+        }
+    }
+end
 
 local function spawn_field(projectile, payload, config)
     local position = projectile.components and projectile.components.position
@@ -35,7 +78,10 @@ local function spawn_field(projectile, payload, config)
     }
 
     local friendly = projectile.components.collidable and projectile.components.collidable.friendly
-    Projectiles.spawn(position.x, position.y, 0, friendly, opts)
+    local fieldProjectile = createProjectile(position.x, position.y, 0, friendly, opts)
+    if fieldProjectile and world then
+        world:addEntity(fieldProjectile)
+    end
 end
 
 local function factory(context, config)
