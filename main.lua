@@ -88,29 +88,73 @@ end
 
 function love.applyGraphicsSettings()
     local graphicsSettings = Settings.getGraphicsSettings()
-    -- Guard: avoid applying fullscreen automatically during the first startup
-    -- if the current window mode already matches desired settings. This helps
-    -- prevent an immediate fullscreen switch after the window is created.
+
+    local resolution = graphicsSettings.resolution or {}
+    local desiredWidth = resolution.width
+    local desiredHeight = resolution.height
+    local desiredFullscreen = graphicsSettings.fullscreen
+    local desiredFullscreenType = graphicsSettings.fullscreen_type or "desktop"
+    local desiredBorderless = graphicsSettings.borderless or false
+    local desiredVsync = graphicsSettings.vsync
+
+    if desiredBorderless then
+        desiredFullscreen = false
+    end
+
+    local function normalizeVsync(value)
+        if value == nil then
+            return nil
+        end
+        if type(value) == "number" then
+            return value ~= 0
+        elseif type(value) == "boolean" then
+            return value
+        end
+        return value
+    end
+
+    local desiredVsyncNormalized = normalizeVsync(desiredVsync)
+    local shouldApplyMode = true
+
     local ok, curW, curH, curFlags = pcall(function() return love.window.getMode() end)
     if ok and curW and curH and curFlags then
-        -- curFlags might be boolean or table depending on LÖVE version; normalize
         local curFullscreen = false
+        local curFullscreenType = "desktop"
+        local curBorderless = false
+        local curVsync
+
         if type(curFlags) == "table" then
             curFullscreen = curFlags.fullscreen or false
+            curFullscreenType = curFlags.fullscreentype or curFlags.fullscreenType or curFlags.fullscreen_type or curFullscreenType
+            curBorderless = curFlags.borderless or false
+            curVsync = curFlags.vsync
         elseif type(curFlags) == "boolean" then
             curFullscreen = curFlags
         end
-        -- If the desired fullscreen state matches current, avoid re-applying
-        if curFullscreen == graphicsSettings.fullscreen then
-            updateFPSLimit()
-            return
+
+        if curBorderless then
+            curFullscreen = false
+        end
+
+        curVsync = normalizeVsync(curVsync)
+
+        if curW == desiredWidth and
+           curH == desiredHeight and
+           (curFullscreen and true or false) == (desiredFullscreen and true or false) and
+           (curFullscreenType or "desktop") == desiredFullscreenType and
+           (curBorderless and true or false) == (desiredBorderless and true or false) and
+           curVsync == desiredVsyncNormalized then
+            shouldApplyMode = false
         end
     end
 
-    local success = WindowMode.apply(graphicsSettings)
-    if success then
-        Viewport.init(graphicsSettings.resolution.width, graphicsSettings.resolution.height)
+    if shouldApplyMode then
+        local success = WindowMode.apply(graphicsSettings)
+        if success and desiredWidth and desiredHeight then
+            Viewport.init(desiredWidth, desiredHeight)
+        end
     end
+
     updateFPSLimit()
 end
 
