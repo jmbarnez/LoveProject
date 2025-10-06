@@ -134,19 +134,24 @@ function Settings.getAvailableResolutions()
 end
 
 function Settings.applyGraphicsSettings(newSettings)
+    if type(newSettings) ~= "table" then
+        return
+    end
+
+    local sanitized = Util.deepCopy(newSettings)
     local oldSettings = Util.deepCopy(settings.graphics)
-    settings.graphics = newSettings
+    settings.graphics = sanitized
 
     -- Only change window mode if resolution or fullscreen settings changed
     if not oldSettings or
-       oldSettings.resolution.width ~= newSettings.resolution.width or
-       oldSettings.resolution.height ~= newSettings.resolution.height or
-       (oldSettings.fullscreen ~= newSettings.fullscreen) or
-       (oldSettings.fullscreen_type ~= newSettings.fullscreen_type) or
-       (oldSettings.borderless ~= newSettings.borderless) or
-       (oldSettings.vsync ~= newSettings.vsync) then
+       oldSettings.resolution.width ~= sanitized.resolution.width or
+       oldSettings.resolution.height ~= sanitized.resolution.height or
+       (oldSettings.fullscreen ~= sanitized.fullscreen) or
+       (oldSettings.fullscreen_type ~= sanitized.fullscreen_type) or
+       (oldSettings.borderless ~= sanitized.borderless) or
+       (oldSettings.vsync ~= sanitized.vsync) then
 
-        local success, err = WindowMode.apply(newSettings)
+        local success, err = WindowMode.apply(sanitized)
         if not success then
             settings.graphics = oldSettings
             return
@@ -157,9 +162,11 @@ function Settings.applyGraphicsSettings(newSettings)
         Content.rebuildIcons()
 
         -- Trigger a resize event to update UI elements
-        local success, err = pcall(function()
+        pcall(function()
             if love.handlers and love.handlers.resize then
-                love.handlers.resize(newSettings.resolution.width, newSettings.resolution.height)
+                love.handlers.resize(sanitized.resolution.width, sanitized.resolution.height)
+            elseif love.resize then
+                love.resize(sanitized.resolution.width, sanitized.resolution.height)
             end
         end)
     end
@@ -288,15 +295,44 @@ function Settings.load()
     -- Deep merge loaded settings over defaults to ensure new defaults are applied
     -- while preserving user's existing settings.
     local function deepMerge(defaults, custom)
-        local new = {}
-        for k, v in pairs(defaults) do
-            if type(v) == "table" and custom and custom[k] and type(custom[k]) == "table" then
-                new[k] = deepMerge(v, custom[k])
-            else
-                new[k] = (custom and custom[k]) or v
+        if type(defaults) ~= "table" then
+            if custom ~= nil then
+                return Util.deepCopy(custom)
+            end
+            return defaults
+        end
+
+        local result = {}
+        local customTable = type(custom) == "table" and custom or nil
+
+        if customTable then
+            for key, value in pairs(customTable) do
+                if defaults[key] == nil then
+                    result[key] = Util.deepCopy(value)
+                end
             end
         end
-        return new
+
+        for key, value in pairs(defaults) do
+            local override = customTable and customTable[key] or nil
+            if type(value) == "table" then
+                if type(override) == "table" then
+                    result[key] = deepMerge(value, override)
+                elseif override ~= nil then
+                    result[key] = Util.deepCopy(override)
+                else
+                    result[key] = deepMerge(value, nil)
+                end
+            else
+                if override ~= nil then
+                    result[key] = override
+                else
+                    result[key] = value
+                end
+            end
+        end
+
+        return result
     end
     
     settings = deepMerge(defaultSettings, loadedSettings)
