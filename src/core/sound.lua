@@ -18,6 +18,21 @@ local masterVolume = 1.0
 local sfxVolume = 1.0
 local musicVolume = 1.0
 
+local function normalizeVolume(volume, fallback)
+    local candidate = tonumber(volume)
+    if candidate and candidate == candidate then -- guard against NaN
+        return math.max(0, math.min(1, candidate))
+    end
+
+    local fallbackNumber = tonumber(fallback)
+    if fallbackNumber and fallbackNumber == fallbackNumber then
+        return math.max(0, math.min(1, fallbackNumber))
+    end
+
+    -- As a last resort default to a sane audible value
+    return 1.0
+end
+
 -- Listener (camera/player) world position for distance-based attenuation
 local listenerX, listenerY = nil, nil
 
@@ -49,13 +64,10 @@ function Sound.setListenerPosition(x, y)
 end
 
 function Sound.applySettings()
-    local audioSettings = Settings.getAudioSettings()
-    masterVolume = audioSettings.master_volume
-    sfxVolume = audioSettings.sfx_volume
-    musicVolume = audioSettings.music_volume
-    Sound.setMasterVolume(masterVolume)
-    Sound.setSFXVolume(sfxVolume)
-    Sound.setMusicVolume(musicVolume)
+    local audioSettings = Settings.getAudioSettings() or {}
+    Sound.setMasterVolume(audioSettings.master_volume)
+    Sound.setSFXVolume(audioSettings.sfx_volume)
+    Sound.setMusicVolume(audioSettings.music_volume)
 end
 
 -- Helper to compute stereo pan (-1..1) from world X relative to listener
@@ -307,18 +319,18 @@ end
 
 -- Volume controls
 function Sound.setMasterVolume(volume)
-    masterVolume = math.max(0, math.min(1, volume))
+    masterVolume = normalizeVolume(volume, masterVolume)
     if currentMusic then
         currentMusic:setVolume(musicVolume * masterVolume)
     end
 end
 
 function Sound.setSFXVolume(volume)
-    sfxVolume = math.max(0, math.min(1, volume))
+    sfxVolume = normalizeVolume(volume, sfxVolume)
 end
 
 function Sound.setMusicVolume(volume)
-    musicVolume = math.max(0, math.min(1, volume))
+    musicVolume = normalizeVolume(volume, musicVolume)
     if currentMusic then
         currentMusic:setVolume(musicVolume * masterVolume)
     end
