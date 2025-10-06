@@ -431,4 +431,3 @@ function ProjectileCollision.handle_beam_collision(collision_system, beam, world
 end
 
 return ProjectileCollision
-local UpgradeSystem = require("src.systems.turret.upgrade_system")

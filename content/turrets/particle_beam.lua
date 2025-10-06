@@ -70,4 +70,6 @@ return {
             [3] = { damageMultiplier = 1.05, cycleMultiplier = 0.9 },
         }
     },
+    -- Firing mode
+    fireMode = "manual"
 }

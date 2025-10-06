@@ -72,4 +72,6 @@ return {
             [3] = { projectileSpeed = 120 },
         }
     },
+    -- Firing mode
+    fireMode = "manual"
 }

@@ -1,6 +1,5 @@
 local BehaviorRegistry = require("src.templates.projectile_system.behavior_registry")
 local ProjectileEvents = require("src.templates.projectile_system.event_dispatcher").EVENTS
-local Projectiles = require("src.game.projectiles")
 local State = require("src.game.state")
 
 local function spawnFragments(projectile, payload, config)
@@ -36,6 +35,9 @@ local function spawnFragments(projectile, payload, config)
         sourceTurretType = projectile.components.bullet and projectile.components.bullet.turretType,
     }
 
+    -- Use delayed require to avoid circular dependency
+    local Projectiles = require("src.game.projectiles")
+    
     for i = 1, count do
         local frac = (count == 1) and 0.5 or ((i - 1) / math.max(1, count - 1))
         local angle = baseAngle + spread * frac

@@ -1,6 +1,5 @@
 local BehaviorRegistry = require("src.templates.projectile_system.behavior_registry")
 local ProjectileEvents = require("src.templates.projectile_system.event_dispatcher").EVENTS
-local Projectiles = require("src.game.projectiles")
 local State = require("src.game.state")
 
 local function spawn_field(projectile, payload, config)
@@ -35,6 +34,9 @@ local function spawn_field(projectile, payload, config)
     }
 
     local friendly = projectile.components.collidable and projectile.components.collidable.friendly
+    
+    -- Use delayed require to avoid circular dependency
+    local Projectiles = require("src.game.projectiles")
     Projectiles.spawn(position.x, position.y, 0, friendly, opts)
 end
 
