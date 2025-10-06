@@ -79,12 +79,22 @@ function Viewport.begin()
     love.graphics.push('all')
     -- Enable stencil writes while rendering to the virtual canvas
     love.graphics.setCanvas({ canvas, stencil = true })
-    -- Do not clear here; let game decide its clear color
+    -- Clear the render target so stale pixels do not bleed through when the
+    -- output is letterboxed (which happens frequently in fullscreen mode).
+    love.graphics.clear(0, 0, 0, 0)
 end
 
 function Viewport.finish()
   love.graphics.setCanvas()
-  -- The backbuffer is no longer cleared to prevent rendering issues.
+
+  -- When the viewport is scaled down or letterboxed, clear the backbuffer so
+  -- fullscreen swaps do not flash previous frames along the unused edges.
+  local scaledW = math.floor(vw * scale + 0.5)
+  local scaledH = math.floor(vh * scale + 0.5)
+  if scaledW ~= winW or scaledH ~= winH or ox ~= 0 or oy ~= 0 then
+    love.graphics.clear(0, 0, 0, 1)
+  end
+
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(canvas, ox, oy, 0, scale, scale)
   love.graphics.pop()
