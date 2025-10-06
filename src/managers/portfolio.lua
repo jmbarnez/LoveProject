@@ -1,28 +1,34 @@
---[[
   Portfolio Manager
   Manages the player's assets, funds, and transaction history for the crypto market.
 ]]
 
 local PortfolioManager = {}
+local Util = require("src.core.util")
 
 PortfolioManager.holdings = {} -- { symbol = { quantity = number, avgPrice = number } }
 PortfolioManager.funds = 500 -- Starting funds
 PortfolioManager.transactionHistory = {}
 
 -- Initializes the portfolio, optionally loading from saved data
-function PortfolioManager.init(savedData)
-  if not PortfolioManager._initialized then
-    if savedData then
-      PortfolioManager.holdings = savedData.holdings or {}
-      PortfolioManager.funds = savedData.funds or 500
-      PortfolioManager.transactionHistory = savedData.transactionHistory or {}
-    else
-      PortfolioManager.holdings = {}
-      PortfolioManager.funds = 500
-      PortfolioManager.transactionHistory = {}
-    end
-    PortfolioManager._initialized = true
+function PortfolioManager.init(savedData, options)
+  options = options or {}
+  local force = options.force == true
+
+  if PortfolioManager._initialized and not force and not savedData then
+    return
   end
+
+  if savedData then
+    PortfolioManager.holdings = Util.deepCopy(savedData.holdings or {})
+    PortfolioManager.funds = savedData.funds or 500
+    PortfolioManager.transactionHistory = Util.deepCopy(savedData.transactionHistory or {})
+  else
+    PortfolioManager.holdings = {}
+    PortfolioManager.funds = 500
+    PortfolioManager.transactionHistory = {}
+  end
+
+  PortfolioManager._initialized = true
 end
 
 -- Places a buy order

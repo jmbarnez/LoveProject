@@ -419,7 +419,7 @@ local function applyGameState(state, player, world)
   -- Restore status flags
   -- Restore portfolio
   if state.portfolio then
-    PortfolioManager.init(state.portfolio)
+    PortfolioManager.init(state.portfolio, { force = true })
   end
   local docking = player.components and player.components.docking_status
   if docking then
