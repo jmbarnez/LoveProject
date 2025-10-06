@@ -25,6 +25,9 @@ local function render(entity, player)
         elseif kind == 'mining_laser' then
             baseColor = util.copy(props.color or {1.0, 0.7, 0.2, 0.8}) -- Orange
             baseWidth = props.tracerWidth or 2.0
+        elseif kind == 'plasma_torch' then
+            baseColor = util.copy(props.color or {1.0, 0.4, 0.1, 0.9}) -- Orange-red plasma
+            baseWidth = props.tracerWidth or 8.0
         else
             baseColor = util.copy(props.color or {0.3, 0.7, 1.0, 0.8}) -- Blue (combat)
             baseWidth = props.tracerWidth or 1.5
@@ -90,6 +93,7 @@ local function render(entity, player)
         love.graphics.circle("line", 0, 0, radius)
         love.graphics.setLineWidth(1)
     else
+        -- Default bullet rendering
         local color = props.color or {0.35, 0.70, 1.00, 1.0}
         local radius = props.radius or 1
 
