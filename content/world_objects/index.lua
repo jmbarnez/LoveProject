@@ -11,4 +11,5 @@ return {
     require("content.world_objects.ore_furnace_station"),
     require("content.world_objects.planet_massive"),
     require("content.world_objects.reward_crate"),
+    require("content.world_objects.holographic_turret"),
 }

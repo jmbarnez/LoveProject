@@ -35,7 +35,14 @@ function Viewport.resize(w, h)
         return
     end
 
+    -- Always use actual window dimensions, not settings
     winW, winH = w, h
+    
+    -- Force a complete viewport recalculation to ensure sync
+    local actualW, actualH = love.graphics.getDimensions()
+    if actualW ~= w or actualH ~= h then
+        winW, winH = actualW, actualH
+    end
 
     -- Ensure virtual dimensions are valid
     if not vw or not vh or vw <= 0 or vh <= 0 then
@@ -79,9 +86,9 @@ function Viewport.begin()
     love.graphics.push('all')
     -- Enable stencil writes while rendering to the virtual canvas
     love.graphics.setCanvas({ canvas, stencil = true })
-    -- Clear the render target so stale pixels do not bleed through when the
-    -- output is letterboxed (which happens frequently in fullscreen mode).
-    love.graphics.clear(0, 0, 0, 0)
+    -- Clear the render target with pure black to match space background
+    -- This prevents flicker and ensures consistent dark space rendering
+    love.graphics.clear(0, 0, 0, 1)
 end
 
 function Viewport.finish()
@@ -183,6 +190,25 @@ end
 
 function Viewport.getCanvas()
     return canvas
+end
+
+-- Force viewport to sync with actual window state
+function Viewport.syncWithWindow()
+    local actualW, actualH = love.graphics.getDimensions()
+    if actualW and actualH and actualW > 0 and actualH > 0 then
+        -- Force a complete viewport recalculation
+        Viewport.resize(actualW, actualH)
+        
+        -- Ensure canvas is properly sized
+        ensureCanvas()
+        
+        -- Force a redraw by clearing the canvas
+        if canvas then
+            love.graphics.setCanvas(canvas)
+            love.graphics.clear(0, 0, 0, 1)
+            love.graphics.setCanvas()
+        end
+    end
 end
 
 return Viewport

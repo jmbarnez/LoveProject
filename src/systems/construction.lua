@@ -1,0 +1,392 @@
+local ConstructionSystem = {}
+local Content = require("src.content.content")
+local EntityFactory = require("src.templates.entity_factory")
+local Events = require("src.core.events")
+local Log = require("src.core.log")
+
+local constructionState = {
+    mode = false, -- true when in construction mode
+    selectedItem = nil, -- currently selected construction item
+    ghostEntity = nil, -- preview entity
+    validPlacement = false,
+    placementX = 0,
+    placementY = 0,
+    building = false, -- true when actively building
+    buildProgress = 0, -- 0 to 1
+    buildStartTime = 0,
+    buildDuration = 0
+}
+
+function ConstructionSystem.init()
+    -- Initialize construction system
+    Log.info("Construction system initialized")
+end
+
+function ConstructionSystem.update(dt, context)
+    local player = context.player
+    local world = context.world
+    local input = context.input
+    local camera = context.camera
+    
+    if not player or not world then return end
+    
+    -- Handle building progress
+    if constructionState.building then
+        ConstructionSystem.updateBuildingProgress(dt, player, world)
+    end
+    
+    -- Handle construction mode
+    if constructionState.mode then
+        ConstructionSystem.updateConstructionMode(dt, player, world, input, camera)
+    end
+end
+
+function ConstructionSystem.updateConstructionMode(dt, player, world, input, camera)
+    if not constructionState.selectedItem then return end
+    
+    -- Safety check for input parameter
+    if not input then
+        Log.warn("Input parameter is nil in updateConstructionMode")
+        return
+    end
+    
+    -- Get mouse position in world coordinates
+    local Viewport = require("src.core.viewport")
+    local mx, my = Viewport.getMousePosition()
+    local sw, sh = Viewport.getDimensions()
+    
+    if camera then
+        local camScale = camera.scale or 1
+        local camX = camera.x or 0
+        local camY = camera.y or 0
+        
+        -- Convert screen coordinates to world coordinates
+        constructionState.placementX = (mx - sw * 0.5) / camScale + camX
+        constructionState.placementY = (my - sh * 0.5) / camScale + camY
+    else
+        constructionState.placementX = mx
+        constructionState.placementY = my
+    end
+    
+    -- Check if placement is valid
+    constructionState.validPlacement = ConstructionSystem.isValidPlacement(
+        constructionState.placementX, 
+        constructionState.placementY, 
+        world, 
+        player
+    )
+    
+    -- Debug: Force valid placement to true
+    constructionState.validPlacement = true
+    
+    -- Update ghost entity
+    ConstructionSystem.updateGhost()
+end
+
+function ConstructionSystem.isValidPlacement(x, y, world, player)
+    -- Allow placement anywhere - no restrictions
+    return true
+end
+
+function ConstructionSystem.updateGhost()
+    if not constructionState.selectedItem then return end
+    
+    -- Create or update ghost entity
+    if not constructionState.ghostEntity then
+        constructionState.ghostEntity = ConstructionSystem.createGhostEntity()
+    end
+    
+    if constructionState.ghostEntity and constructionState.ghostEntity.components then
+        constructionState.ghostEntity.components.position.x = constructionState.placementX
+        constructionState.ghostEntity.components.position.y = constructionState.placementY
+    end
+end
+
+function ConstructionSystem.createGhostEntity()
+    local ghost = {
+        id = "ghost_" .. (constructionState.selectedItem or "turret"),
+        isGhost = true,
+        components = {
+            position = {
+                x = constructionState.placementX,
+                y = constructionState.placementY,
+                angle = 0
+            },
+            renderable = {
+                visible = true,
+                layer = "ghost"
+            }
+        }
+    }
+    
+    return ghost
+end
+
+function ConstructionSystem.placeItem(player, world)
+    if not constructionState.selectedItem then return end
+    
+    -- Check if player has required resources
+    if not ConstructionSystem.hasRequiredResources(player, constructionState.selectedItem) then
+        Log.warn("Insufficient resources for construction")
+        return
+    end
+    
+    -- Start building process
+    constructionState.building = true
+    constructionState.buildProgress = 0
+    constructionState.buildStartTime = love.timer.getTime()
+    
+    -- Get build duration from item definition
+    local itemDef = Content.getWorldObject(constructionState.selectedItem)
+    constructionState.buildDuration = (itemDef and itemDef.construction and itemDef.construction.buildTime) or 3.0
+    
+    Log.info("Started building " .. constructionState.selectedItem)
+end
+
+function ConstructionSystem.updateBuildingProgress(dt, player, world)
+    if not constructionState.building then return end
+    
+    local currentTime = love.timer.getTime()
+    local elapsed = currentTime - constructionState.buildStartTime
+    constructionState.buildProgress = math.min(1.0, elapsed / constructionState.buildDuration)
+    
+    -- Check if building is complete
+    if constructionState.buildProgress >= 1.0 then
+        -- Create the actual entity
+        local entity = ConstructionSystem.createConstructionEntity(
+            constructionState.selectedItem,
+            constructionState.placementX,
+            constructionState.placementY
+        )
+        
+        if entity then
+            world:addEntity(entity)
+            
+            -- Deduct resources
+            ConstructionSystem.deductResources(player, constructionState.selectedItem)
+            
+            Log.info("Completed building " .. constructionState.selectedItem)
+        end
+        
+        -- Clear construction state
+        ConstructionSystem.cancelConstruction()
+    end
+end
+
+function ConstructionSystem.createConstructionEntity(itemType, x, y)
+    if itemType == "holographic_turret" then
+        local entity = EntityFactory.create("station", "holographic_turret", x, y)
+        if entity and entity.components and entity.components.position then
+            entity.id = "holographic_turret_" .. os.time() .. "_" .. math.random(1000, 9999)
+            
+            -- Equip the combat laser turret
+            ConstructionSystem.equipTurret(entity, "combat_laser")
+            
+            return entity
+        end
+    end
+    
+    return nil
+end
+
+function ConstructionSystem.equipTurret(entity, turretType)
+    if not entity or not entity.components then return end
+    
+    -- Get the turret definition
+    local turretDef = Content.getTurret(turretType)
+    if not turretDef then return end
+    
+    -- Initialize equipment component if it doesn't exist
+    if not entity.components.equipment then
+        entity.components.equipment = {
+            grid = {}
+        }
+    end
+    
+    -- Create turret module
+    local Turret = require("src.systems.turret.core")
+    local turretModule = Turret.new(entity, {
+        type = turretDef.type or turretType,
+        damage_range = turretDef.damage_range or {20, 20},
+        damagePerSecond = turretDef.damagePerSecond or 20,
+        cycle = turretDef.cycle or 2.0,
+        capCost = turretDef.capCost or 0,
+        energyPerSecond = turretDef.energyPerSecond or 40,
+        minResumeEnergy = turretDef.minResumeEnergy or 0,
+        resumeEnergyMultiplier = turretDef.resumeEnergyMultiplier or 1.0,
+        optimal = turretDef.optimal or 800,
+        falloff = turretDef.falloff or 400,
+        tracer = turretDef.tracer,
+        sound = turretDef.sound or "laser_fire",
+        muzzleFlash = turretDef.muzzleFlash or false,
+        projectile = turretDef.projectile and turretDef.projectile.id or "combat_laser_beam",
+        maxHeat = turretDef.maxHeat or 80,
+        heatPerShot = turretDef.heatPerShot or 60,
+        cooldownRate = turretDef.cooldownRate or 9,
+        overheatCooldown = turretDef.overheatCooldown or 4.0,
+        heatCycleMult = turretDef.heatCycleMult or 0.6,
+        heatEnergyMult = turretDef.heatEnergyMult or 1.4,
+        fireMode = turretDef.fireMode or "manual"
+    })
+    
+    -- Add turret to equipment grid
+    table.insert(entity.components.equipment.grid, {
+        slot = 1,
+        type = "turret",
+        module = turretModule,
+        id = turretType
+    })
+    
+    -- Set up turret behavior for AI
+    if entity.components.ai then
+        entity.components.ai.turretBehavior = {
+            fireMode = "automatic",
+            autoFire = true,
+            targetTypes = {"enemy", "hostile"}
+        }
+    end
+    
+    -- Set turret to automatic fire mode
+    turretModule.fireMode = "automatic"
+    turretModule.autoFire = true
+end
+
+function ConstructionSystem.hasRequiredResources(player, itemType)
+    if itemType == "holographic_turret" then
+        local health = player.components.health
+        if not health then return false end
+        
+        return (health.energy or 0) >= 50
+    end
+    
+    return false
+end
+
+function ConstructionSystem.deductResources(player, itemType)
+    if itemType == "holographic_turret" then
+        local health = player.components.health
+        if health then
+            health.energy = math.max(0, (health.energy or 0) - 50)
+        end
+    end
+end
+
+function ConstructionSystem.cancelConstruction()
+    constructionState.mode = false
+    constructionState.selectedItem = nil
+    constructionState.building = false
+    constructionState.buildProgress = 0
+    constructionState.buildStartTime = 0
+    constructionState.buildDuration = 0
+    ConstructionSystem.clearGhost()
+end
+
+function ConstructionSystem.clearGhost()
+    constructionState.ghostEntity = nil
+end
+
+function ConstructionSystem.startConstruction(itemType)
+    constructionState.mode = true
+    constructionState.selectedItem = itemType
+    constructionState.ghostEntity = nil
+end
+
+function ConstructionSystem.isInConstructionMode()
+    return constructionState.mode
+end
+
+function ConstructionSystem.getGhostEntity()
+    return constructionState.ghostEntity
+end
+
+function ConstructionSystem.isValidPlacement()
+    return constructionState.validPlacement
+end
+
+function ConstructionSystem.draw()
+    if not constructionState.mode or not constructionState.ghostEntity then return end
+
+    local Theme = require("src.core.theme")
+    local x = constructionState.placementX
+    local y = constructionState.placementY
+
+    love.graphics.push()
+    love.graphics.translate(math.floor(x + 0.5), math.floor(y + 0.5))
+
+    local accent = constructionState.validPlacement and Theme.colors.success or Theme.colors.danger
+    local softFill = Theme.withAlpha(accent, 0.18)
+
+    -- Soft placement disk
+    Theme.setColor(softFill)
+    love.graphics.circle("fill", 0, 0, 38)
+
+    -- Blueprint crosshair and frame
+    Theme.setColor(Theme.withAlpha(accent, 0.65))
+    love.graphics.setLineWidth(2)
+    love.graphics.circle("line", 0, 0, 38)
+    love.graphics.rectangle("line", -30, -30, 60, 60)
+    love.graphics.line(-46, 0, 46, 0)
+    love.graphics.line(0, -46, 0, 46)
+
+    Theme.setColor(Theme.withAlpha(Theme.colors.accent, 0.35))
+    love.graphics.setLineWidth(1)
+    love.graphics.circle("line", 0, 0, 20)
+    love.graphics.circle("line", 0, 0, 28)
+
+    love.graphics.pop()
+    love.graphics.setLineWidth(1)
+
+    -- Draw building progress if currently building
+    if constructionState.building then
+        ConstructionSystem.drawBuildingProgress(x, y, accent)
+    end
+end
+
+function ConstructionSystem.drawBuildingProgress(x, y, accentColor)
+    local Theme = require("src.core.theme")
+    local progress = constructionState.buildProgress or 0
+
+    local barWidth = 140
+    local barHeight = 12
+    local barX = x - barWidth * 0.5
+    local barY = y - 70
+    local accent = accentColor or Theme.colors.accent
+
+    Theme.drawGradientGlowRect(
+        barX,
+        barY,
+        barWidth,
+        barHeight,
+        6,
+        Theme.colors.bg2,
+        Theme.colors.bg0,
+        accent,
+        Theme.effects.glowWeak * 1.6,
+        false
+    )
+
+    local fillWidth = (barWidth - 6) * progress
+    Theme.setColor(Theme.withAlpha(accent, 0.85))
+    love.graphics.rectangle("fill", barX + 3, barY + 3, fillWidth, barHeight - 6)
+
+    Theme.drawEVEBorder(barX, barY, barWidth, barHeight, 6, Theme.colors.border, 1)
+
+    local previousFont = love.graphics.getFont()
+    local font = (Theme.fonts and Theme.fonts.small) or love.graphics.getFont()
+    love.graphics.setFont(font)
+
+    local progressText = string.format("%d%%", math.floor(progress * 100 + 0.5))
+    Theme.setColor(Theme.colors.textHighlight)
+    love.graphics.printf(progressText, barX, barY - font:getHeight() - 6, barWidth, "center")
+
+    Theme.setColor(Theme.colors.textSecondary)
+    love.graphics.printf("Constructing...", barX, barY + barHeight + 4, barWidth, "center")
+
+    if previousFont then love.graphics.setFont(previousFont) end
+end
+
+function ConstructionSystem.getSelectedItem()
+    return constructionState.selectedItem
+end
+
+return ConstructionSystem

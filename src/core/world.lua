@@ -224,7 +224,7 @@ function World:drawBackground(camera)
   -- Draw in screen space regardless of camera
   love.graphics.push('all')
   love.graphics.origin()
-  love.graphics.clear(2/255, 3/255, 6/255)
+  love.graphics.clear(0, 0, 0) -- Pure black space background
   local w, h = Viewport.getDimensions()
   -- Regenerate static sky on resolution change
   if self.skyW ~= w or self.skyH ~= h or (#self.skyStars == 0) then

@@ -14,6 +14,7 @@ local Minimap = require("src.ui.hud.minimap")
 local Hotbar = require("src.ui.hud.hotbar")
 local Crosshair = require("src.ui.hud.crosshair")
 local ExperienceNotification = require("src.ui.hud.experience_notification")
+local ConstructionButton = require("src.ui.hud.construction_button")
 
 local UI = {}
 
@@ -259,6 +260,7 @@ function UI.drawHUD(player, world, enemies, hub, wreckage, lootDrops, camera, re
   Minimap.draw(player, world, enemies, hub, wreckage, lootDrops, remotePlayers, world:get_entities_with_components("mineable"), remotePlayerSnapshots)
   Hotbar.draw(player)
   ExperienceNotification.draw()
+  ConstructionButton.draw()
 end
 
 
@@ -789,6 +791,12 @@ UI.drawTurretIcon = IconSystem.drawIconAny
 
 function UI.handleHelperMousePressed(x, y, button, player)
   if button ~= 1 then return false end
+  
+  -- Handle construction button clicks first
+  if ConstructionButton.mousepressed(x, y, button) then
+    return true
+  end
+  
   if not dockPromptState.visible and not warpPromptState.visible and not cratePromptState.visible and not beaconRepairPromptState.visible then
     return false
   end

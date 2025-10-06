@@ -6,7 +6,31 @@ return {
     price = 3000,
     volume = 14,
     module = { type = "turret" },
-    icon = nil,
+    icon = {
+        size = 32,
+        shapes = {
+            -- Main chassis - missile launcher
+            { type = "polygon", mode = "fill", color = {0.10, 0.12, 0.08, 1}, points = {4, 28, 8, 6, 24, 6, 28, 28, 16, 32} },
+            { type = "polygon", mode = "fill", color = {0.24, 0.28, 0.22, 1}, points = {6, 24, 10, 10, 22, 10, 26, 24, 16, 28} },
+            
+            -- Missile tube
+            { type = "rectangle", mode = "fill", color = {0.15, 0.18, 0.12, 1}, x = 14, y = 6, w = 4, h = 16, rx = 1 },
+            { type = "rectangle", mode = "fill", color = {0.35, 0.42, 0.28, 0.8}, x = 15, y = 7, w = 2, h = 14, rx = 0.5 },
+            
+            -- Missile nose cone
+            { type = "polygon", mode = "fill", color = {0.60, 0.70, 0.50, 1}, points = {14, 6, 18, 6, 16, 2} },
+            { type = "polygon", mode = "fill", color = {0.80, 0.90, 0.70, 0.9}, points = {15, 6, 17, 6, 16, 3} },
+            
+            -- Guidance fins
+            { type = "polygon", mode = "fill", color = {0.40, 0.50, 0.35, 1}, points = {12, 12, 14, 10, 14, 14} },
+            { type = "polygon", mode = "fill", color = {0.40, 0.50, 0.35, 1}, points = {18, 10, 20, 12, 18, 14} },
+            { type = "polygon", mode = "fill", color = {0.40, 0.50, 0.35, 1}, points = {15, 18, 17, 18, 16, 20} },
+            
+            -- Targeting array
+            { type = "circle", mode = "fill", color = {0.20, 0.80, 0.40, 0.9}, x = 10, y = 16, r = 2 },
+            { type = "circle", mode = "fill", color = {0.20, 0.80, 0.40, 0.9}, x = 22, y = 16, r = 2 },
+        }
+    },
 
     projectile = {
         id = "homing_missile_round",
