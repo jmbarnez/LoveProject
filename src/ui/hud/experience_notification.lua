@@ -2,6 +2,7 @@ local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local UIUtils = require("src.ui.common.utils")
 local Events = require("src.core.events")
+local Skills = require("src.core.skills")
 
 local ExperienceNotification = {
     visible = false,
@@ -23,9 +24,13 @@ local ExperienceNotification = {
         leveledUp = false
     },
     animation = {
-        targetProgress = 0,
         currentProgress = 0,
-        animating = false
+        segments = {},
+        activeSegment = nil,
+        speed = 6,
+        displayLevel = 1,
+        targetLevel = 1,
+        segmentTimer = 0
     }
 }
 
@@ -55,26 +60,211 @@ function ExperienceNotification.resubscribe()
     subscribe()
 end
 
+local function computeSkillSnapshot(skillId, totalXp, maxLevel, fallbackLevel)
+    local skillDef = Skills.definitions and Skills.definitions[skillId]
+    if not skillDef then
+        local level = fallbackLevel or 1
+        return {
+            level = level,
+            progress = 0,
+            xpInLevel = 0,
+            xpToNext = 0
+        }
+    end
+
+    local cap = math.min(maxLevel or math.huge, skillDef.maxLevel or math.huge)
+    local level = math.min(cap, math.max(1, fallbackLevel or 1))
+    local xpTotal = math.max(0, totalXp or 0)
+
+    while level > 1 do
+        local threshold = Skills.getXpForLevel(skillId, level)
+        if xpTotal >= threshold then
+            break
+        end
+        level = level - 1
+    end
+
+    -- Walk levels using the same logic as the skill system to avoid drift.
+    while level < cap do
+        local xpForNext = Skills.getXpForLevel(skillId, level + 1)
+        if xpTotal < xpForNext then
+            break
+        end
+        level = level + 1
+    end
+
+    local previousTotal = 0
+    if level > 1 then
+        previousTotal = Skills.getXpForLevel(skillId, level - 1)
+    end
+
+    local xpInLevel = xpTotal - previousTotal
+    local xpToNext = 0
+    if level < cap then
+        local currentTotal = Skills.getXpForLevel(skillId, level)
+        local nextTotal = Skills.getXpForLevel(skillId, level + 1)
+        xpToNext = math.max(0, nextTotal - currentTotal)
+    end
+
+    local progress = 0
+    if xpToNext <= 0 then
+        progress = level >= cap and 1 or 0
+    else
+        progress = clamp01(xpInLevel / xpToNext)
+    end
+
+    return {
+        level = level,
+        progress = progress,
+        xpInLevel = xpInLevel,
+        xpToNext = xpToNext
+    }
+end
+
+local function clearAnimation()
+    ExperienceNotification.animation.segments = {}
+    ExperienceNotification.animation.activeSegment = nil
+    ExperienceNotification.animation.segmentTimer = 0
+end
+
+local function enqueueSegment(targetProgress, options)
+    local segment = {
+        target = clamp01(targetProgress or 0),
+        speed = options and options.speed,
+        hold = options and options.hold,
+        onStart = options and options.onStart,
+        onComplete = options and options.onComplete
+    }
+    table.insert(ExperienceNotification.animation.segments, segment)
+end
+
+local function beginNextSegment()
+    local anim = ExperienceNotification.animation
+    if anim.activeSegment or #anim.segments == 0 then
+        return
+    end
+
+    anim.activeSegment = table.remove(anim.segments, 1)
+    anim.segmentTimer = 0
+
+    if anim.activeSegment.onStart then
+        anim.activeSegment.onStart()
+    end
+end
+
 function ExperienceNotification.onXpGain(payload)
     if not payload then return end
 
     ExperienceNotification.state.skillName = payload.skillName or payload.skillId or "Unknown Skill"
     ExperienceNotification.state.level = payload.level or 1
-    ExperienceNotification.state.maxLevel = payload.maxLevel or ExperienceNotification.state.level
+    ExperienceNotification.state.maxLevel = payload.maxLevel or ExperienceNotification.state.maxLevel or ExperienceNotification.state.level
     ExperienceNotification.state.progress = clamp01(payload.progress or 0)
     ExperienceNotification.state.xpInLevel = payload.xpInLevel or 0
     ExperienceNotification.state.xpToNext = payload.xpToNext or 0
     ExperienceNotification.state.xpGained = payload.xpGained or 0
     ExperienceNotification.state.leveledUp = payload.leveledUp or false
 
-    -- Start progress bar animation
-    ExperienceNotification.animation.targetProgress = ExperienceNotification.state.progress
-    ExperienceNotification.animation.animating = true
+    local skillId = payload.skillId or payload.skillName
+    local totalXp = payload.totalXp or 0
+    local xpGained = payload.xpGained or 0
+    local previousSnapshot = computeSkillSnapshot(
+        skillId,
+        totalXp - xpGained,
+        ExperienceNotification.state.maxLevel,
+        ExperienceNotification.state.level - (payload.leveledUp and 1 or 0)
+    )
+
+    local finalSnapshot = computeSkillSnapshot(
+        skillId,
+        totalXp,
+        ExperienceNotification.state.maxLevel,
+        ExperienceNotification.state.level
+    )
+
+    if finalSnapshot then
+        ExperienceNotification.state.level = finalSnapshot.level or ExperienceNotification.state.level
+        ExperienceNotification.state.progress = clamp01(finalSnapshot.progress or ExperienceNotification.state.progress)
+        ExperienceNotification.state.xpInLevel = finalSnapshot.xpInLevel or ExperienceNotification.state.xpInLevel
+        ExperienceNotification.state.xpToNext = finalSnapshot.xpToNext or ExperienceNotification.state.xpToNext
+    end
+
+    local previousLevel = previousSnapshot.level or ExperienceNotification.state.level
+    local targetLevel = ExperienceNotification.state.level
+    local leveledUp = targetLevel > previousLevel
+    ExperienceNotification.state.leveledUp = leveledUp
+
+    ExperienceNotification.animation.currentProgress = clamp01(previousSnapshot.progress or 0)
+    ExperienceNotification.animation.targetLevel = targetLevel
+    ExperienceNotification.animation.displayLevel = math.floor(math.max(1, math.min(targetLevel, previousSnapshot.level or targetLevel)))
+
+    clearAnimation()
+
+    local anim = ExperienceNotification.animation
+    local finalProgress = ExperienceNotification.state.progress or 0
+    local levelsRemaining = math.max(0, (anim.targetLevel or 1) - (anim.displayLevel or 1))
+    local fillSpeed = anim.speed or 6
+
+    if levelsRemaining > 0 then
+        local firstLevel = true
+
+        while levelsRemaining > 0 do
+            local segmentOptions = {
+                speed = fillSpeed,
+                hold = 0.12,
+                onComplete = function()
+                    anim.displayLevel = anim.displayLevel + 1
+                    anim.currentProgress = 0
+                end
+            }
+
+            if not firstLevel then
+                segmentOptions.onStart = function()
+                    anim.currentProgress = 0
+                end
+            end
+
+            enqueueSegment(1, segmentOptions)
+
+            firstLevel = false
+            levelsRemaining = levelsRemaining - 1
+        end
+
+        finalProgress = clamp01(finalProgress)
+        if finalProgress > 0 then
+            enqueueSegment(finalProgress, {
+                speed = fillSpeed,
+                onStart = function()
+                    anim.currentProgress = 0
+                end,
+                onComplete = function()
+                    anim.currentProgress = finalProgress
+                end
+            })
+        else
+            anim.currentProgress = 0
+        end
+    else
+        finalProgress = clamp01(finalProgress)
+        if math.abs((anim.currentProgress or 0) - finalProgress) < 0.001 then
+            anim.currentProgress = finalProgress
+        else
+            enqueueSegment(finalProgress, { speed = fillSpeed })
+        end
+    end
+
+    if #anim.segments == 0 then
+        anim.currentProgress = finalProgress
+        anim.displayLevel = anim.targetLevel
+    end
 
     -- Show level up notification in the normal notification system
-    if payload.leveledUp then
+    if leveledUp then
         local Notifications = require("src.ui.notifications")
-        local levelUpText = string.format("%s leveled up to level %d!", payload.skillName or payload.skillId, payload.level or 1)
+        local levelUpText = string.format(
+            "%s leveled up to level %d!",
+            payload.skillName or payload.skillId,
+            ExperienceNotification.state.level or payload.level or 1
+        )
         Notifications.add(levelUpText, "success")
     end
 
@@ -84,6 +274,8 @@ function ExperienceNotification.onXpGain(payload)
     ExperienceNotification.slideY = -20
     ExperienceNotification.timer = 0
     ExperienceNotification.animationTime = 0
+
+    beginNextSegment()
 end
 
 function ExperienceNotification.update(dt)
@@ -92,18 +284,50 @@ function ExperienceNotification.update(dt)
         ExperienceNotification.animationTime = ExperienceNotification.animationTime + dt
 
         -- Progress bar animation
-        if ExperienceNotification.animation.animating then
-            local target = ExperienceNotification.animation.targetProgress
-            local current = ExperienceNotification.animation.currentProgress
-            local diff = target - current
-            
-            if math.abs(diff) < 0.001 then
-                ExperienceNotification.animation.currentProgress = target
-                ExperienceNotification.animation.animating = false
+        local anim = ExperienceNotification.animation
+        anim.segmentTimer = anim.segmentTimer + dt
+
+        if not anim.activeSegment and #anim.segments > 0 then
+            beginNextSegment()
+        end
+
+        local segment = anim.activeSegment
+        if segment then
+            if segment.waiting and segment.waiting > 0 then
+                segment.waiting = segment.waiting - dt
+                if segment.waiting <= 0 then
+                    if segment.onComplete then
+                        segment.onComplete()
+                    end
+                    anim.activeSegment = nil
+                    beginNextSegment()
+                end
             else
-                -- Smooth animation with easing
-                local speed = 3.0 -- Animation speed
-                ExperienceNotification.animation.currentProgress = current + diff * speed * dt
+                local target = segment.target or anim.currentProgress
+                local diff = target - anim.currentProgress
+                local speed = segment.speed or anim.speed or 6
+
+                if math.abs(diff) <= 0.0001 then
+                    anim.currentProgress = target
+                else
+                    anim.currentProgress = anim.currentProgress + diff * math.min(1, speed * dt)
+                end
+
+                anim.currentProgress = clamp01(anim.currentProgress)
+
+                if math.abs(target - anim.currentProgress) <= 0.002 then
+                    anim.currentProgress = target
+                    local holdDuration = segment.hold or 0
+                    if holdDuration > 0 then
+                        segment.waiting = holdDuration
+                    else
+                        if segment.onComplete then
+                            segment.onComplete()
+                        end
+                        anim.activeSegment = nil
+                        beginNextSegment()
+                    end
+                end
             end
         end
 
@@ -211,8 +435,20 @@ function ExperienceNotification.draw()
     end
 
     -- Compact title and XP gain on same line
-    local title = ExperienceNotification.state.skillName .. " Lv." .. ExperienceNotification.state.level
-    local titleColor = ExperienceNotification.state.leveledUp and Theme.colors.success or Theme.colors.text
+    local displayLevel = ExperienceNotification.animation.displayLevel or ExperienceNotification.state.level
+    local targetLevel = ExperienceNotification.animation.targetLevel or displayLevel
+    if ExperienceNotification.animation.activeSegment == nil and #ExperienceNotification.animation.segments == 0 then
+        displayLevel = targetLevel
+    end
+
+    local levelLabel = tostring(displayLevel)
+    if targetLevel and targetLevel > displayLevel then
+        levelLabel = string.format("%s → %s", displayLevel, targetLevel)
+    end
+
+    local title = string.format("%s Lv.%s", ExperienceNotification.state.skillName, levelLabel)
+    local shouldHighlight = ExperienceNotification.state.leveledUp or (targetLevel and targetLevel > displayLevel)
+    local titleColor = shouldHighlight and Theme.colors.success or Theme.colors.text
     Theme.setColor(Theme.withAlpha(titleColor, alpha))
     love.graphics.print(title, 16, 12)
 
