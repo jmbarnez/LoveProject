@@ -84,9 +84,11 @@ function EnemyStatusBars.drawMiniBars(entity)
 
   -- Check if this is a player entity
   local isPlayer = entity.isPlayer or (entity.components and entity.components.player ~= nil) or entity.isRemotePlayer
-
+  
   -- For players, always show health bars
-  if not isPlayer then
+  if isPlayer then
+    -- Always show for players
+  else
     -- For enemies, show bars if recently damaged OR if enemy is low on health/shield
     local showTime = getCombatValue("ENEMY_BAR_VIS_TIME") or 2.5
     local last = entity._hudDamageTime or -1e9
@@ -112,26 +114,15 @@ function EnemyStatusBars.drawMiniBars(entity)
   local maxShield = h.maxShield or 0
 
   local radius = col.radius or 12
-
-  local barScale = 1.0
-  local barHeight = 12
-  local verticalOffset = 22
-
-  if isPlayer then
-    barScale = 1.35
-    barHeight = 16
-    verticalOffset = 30
-  end
-
-  local barW = math.max(60, math.min(140, radius * 2.4)) * barScale
-  local barH = barHeight
+  local barW = math.max(60, math.min(140, radius * 2.4))
+  local barH = 12
 
   -- Position above the ship: undo rotation so bars are screen-aligned
   local angle = (entity.components.position and entity.components.position.angle) or 0
   love.graphics.push()
   love.graphics.rotate(-angle)
 
-  local baseY = -(radius + verticalOffset)
+  local baseY = -(radius + 22)
   local x0 = -barW/2
 
   -- Combined hull + shield bar (like player) - shield overlays hull
