@@ -77,7 +77,6 @@ return {
     }
   },
 
-  bounty = 60,
   xpReward = 100,
   cargo = { capacity = 50, volumeLimit = 25.0 }, -- 25 m^3 cargo hold for boss drone
 

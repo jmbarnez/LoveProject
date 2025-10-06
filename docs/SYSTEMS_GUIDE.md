@@ -73,7 +73,7 @@ UI elements (`StatusBars`, `SkillXpPopup`, `Theme` animations) are updated befor
 
 ### Destruction System (`src/systems/destruction.lua`)
 * Processes `entity.dead` flags, spawns wreckage/pickups, and dispatches destruction events.
-* Notifies bounty tracking and quest systems about kills.
+* Emits kill events for quest systems and rewards experience gains.
 
 ## Gameplay Systems
 

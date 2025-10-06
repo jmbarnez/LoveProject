@@ -249,7 +249,6 @@ function Input.update(dt)
     
     if mainState.UIManager then
         if mainState.UIManager.isOpen("inventory")
-            or mainState.UIManager.isOpen("bounty")
             or mainState.UIManager.isOpen("skills")
             or mainState.UIManager.isOpen("escape")
             or mainState.UIManager.isModalActive() then
@@ -325,8 +324,6 @@ function Input.love_keypressed(key)
               mainState.UIManager.close("ship")
             elseif component == "map" then
               mainState.UIManager.close("map")
-            elseif component == "bounty" then
-              mainState.UIManager.close("bounty")
             elseif component == "skills" then
               mainState.UIManager.close("skills")
             elseif component == "settings" then
@@ -565,17 +562,6 @@ function Input.mousereleased(x, y, button)
     if SkillsPanel.isVisible() then
         local consumed, shouldClose = SkillsPanel.mousereleased(x, y, button)
         if shouldClose then SkillsPanel.visible = false end
-        if consumed then return end
-    end
-
-    if mainState.UIManager.isOpen("bounty") then
-        local Bounty = require("src.ui.bounty")
-        local docking = gameState.player and gameState.player.components and gameState.player.components.docking_status
-        local consumed, shouldClose = Bounty.mousereleased(x, y, button, docking and docking.docked, function()
-            gameState.player:addGC(gameState.bounty.uncollected or 0)
-            gameState.bounty.uncollected = 0
-        end)
-        if shouldClose then mainState.UIManager.close("bounty") end
         if consumed then return end
     end
 
