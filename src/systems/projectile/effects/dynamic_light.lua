@@ -1,4 +1,4 @@
-local EffectRegistry = require("src.templates.projectile_system.effect_registry")
+local EffectRegistry = require("src.systems.projectile.effect_registry")
 local DynamicLight = require("src.components.dynamic_light")
 
 local function factory(context, config)

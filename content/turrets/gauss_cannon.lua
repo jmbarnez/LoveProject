@@ -73,6 +73,4 @@ return {
             [3] = { damageMultiplier = 1.05, projectileSpeed = 200 },
         }
     },
-    -- Firing mode
-    fireMode = "manual"
 }

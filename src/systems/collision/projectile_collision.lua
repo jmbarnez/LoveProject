@@ -6,7 +6,7 @@ local Radius = require("src.systems.collision.radius")
 local StationShields = require("src.systems.collision.station_shields")
 local CollisionEffects = require("src.systems.collision.effects")
 local Log = require("src.core.log")
-local ProjectileEvents = require("src.templates.projectile_system.event_dispatcher").EVENTS
+local ProjectileEvents = require("src.systems.projectile.event_dispatcher").EVENTS
 local UpgradeSystem = require("src.systems.turret.upgrade_system")
 
 local ProjectileCollision = {}

@@ -1,4 +1,4 @@
-local PluginRegistry = require("src.templates.projectile_system.plugin_registry")
+local PluginRegistry = require("src.systems.projectile.plugin_registry")
 
 PluginRegistry.register("default", function(context)
     local config = context.config or {}

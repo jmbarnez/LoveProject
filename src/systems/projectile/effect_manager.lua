@@ -1,5 +1,5 @@
 local Log = require("src.core.log")
-local EffectRegistry = require("src.templates.projectile_system.effect_registry")
+local EffectRegistry = require("src.systems.projectile.effect_registry")
 
 local EffectManager = {}
 EffectManager.__index = EffectManager

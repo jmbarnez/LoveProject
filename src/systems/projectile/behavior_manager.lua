@@ -1,5 +1,5 @@
 local Log = require("src.core.log")
-local BehaviorRegistry = require("src.templates.projectile_system.behavior_registry")
+local BehaviorRegistry = require("src.systems.projectile.behavior_registry")
 
 local BehaviorManager = {}
 BehaviorManager.__index = BehaviorManager

@@ -8,7 +8,7 @@
 ]]
 
 local tiny = require("src.libs.tiny")
-local ProjectileEvents = require("src.templates.projectile_system.event_dispatcher").EVENTS
+local ProjectileEvents = require("src.systems.projectile.event_dispatcher").EVENTS
 local Effects = require("src.systems.effects")
 local State = require("src.game.state")
 

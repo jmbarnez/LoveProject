@@ -21,7 +21,7 @@ end
 -- A registry for entity blueprints/templates.
 local entity_templates = {
     ship = require("src.templates.ship"),
-    projectile = require("src.templates.projectile"),
+    projectile = require("src.systems.projectile.projectile"),
     world_object = require("src.templates.world_object"),
     station = require("src.templates.station"),
     warp_gate = require("src.templates.warp_gate"),
