@@ -174,54 +174,77 @@ function ExperienceNotification.onXpGain(payload)
         ExperienceNotification.state.level - (payload.leveledUp and 1 or 0)
     )
 
-    ExperienceNotification.animation.currentProgress = clamp01(previousSnapshot.progress or 0)
+    local finalSnapshot = computeSkillSnapshot(
+        skillId,
+        totalXp,
+        ExperienceNotification.state.maxLevel,
+        ExperienceNotification.state.level
+    )
+
+    if finalSnapshot then
+        ExperienceNotification.state.level = finalSnapshot.level or ExperienceNotification.state.level
+        ExperienceNotification.state.progress = clamp01(finalSnapshot.progress or ExperienceNotification.state.progress)
+        ExperienceNotification.state.xpInLevel = finalSnapshot.xpInLevel or ExperienceNotification.state.xpInLevel
+        ExperienceNotification.state.xpToNext = finalSnapshot.xpToNext or ExperienceNotification.state.xpToNext
+    end
+
+    local previousLevel = previousSnapshot.level or ExperienceNotification.state.level
     local targetLevel = ExperienceNotification.state.level
+    local leveledUp = targetLevel > previousLevel
+    ExperienceNotification.state.leveledUp = leveledUp
+
+    ExperienceNotification.animation.currentProgress = clamp01(previousSnapshot.progress or 0)
     ExperienceNotification.animation.targetLevel = targetLevel
     ExperienceNotification.animation.displayLevel = math.floor(math.max(1, math.min(targetLevel, previousSnapshot.level or targetLevel)))
 
     clearAnimation()
 
     local anim = ExperienceNotification.animation
-    local finalProgress = ExperienceNotification.state.progress
+    local finalProgress = ExperienceNotification.state.progress or 0
     local levelsRemaining = math.max(0, (anim.targetLevel or 1) - (anim.displayLevel or 1))
     local fillSpeed = anim.speed or 6
 
     if levelsRemaining > 0 then
-        enqueueSegment(1, {
-            speed = fillSpeed,
-            hold = 0.12,
-            onComplete = function()
-                anim.displayLevel = anim.displayLevel + 1
-                anim.currentProgress = 0
-            end
-        })
-        levelsRemaining = levelsRemaining - 1
+        local firstLevel = true
 
         while levelsRemaining > 0 do
-            enqueueSegment(1, {
+            local segmentOptions = {
                 speed = fillSpeed,
                 hold = 0.12,
-                onStart = function()
-                    anim.currentProgress = 0
-                end,
                 onComplete = function()
                     anim.displayLevel = anim.displayLevel + 1
                     anim.currentProgress = 0
                 end
-            })
+            }
+
+            if not firstLevel then
+                segmentOptions.onStart = function()
+                    anim.currentProgress = 0
+                end
+            end
+
+            enqueueSegment(1, segmentOptions)
+
+            firstLevel = false
             levelsRemaining = levelsRemaining - 1
         end
 
-        enqueueSegment(finalProgress, {
-            speed = fillSpeed,
-            onStart = function()
-                anim.currentProgress = 0
-            end,
-            onComplete = function()
-                anim.currentProgress = finalProgress
-            end
-        })
+        finalProgress = clamp01(finalProgress)
+        if finalProgress > 0 then
+            enqueueSegment(finalProgress, {
+                speed = fillSpeed,
+                onStart = function()
+                    anim.currentProgress = 0
+                end,
+                onComplete = function()
+                    anim.currentProgress = finalProgress
+                end
+            })
+        else
+            anim.currentProgress = 0
+        end
     else
+        finalProgress = clamp01(finalProgress)
         if math.abs((anim.currentProgress or 0) - finalProgress) < 0.001 then
             anim.currentProgress = finalProgress
         else
@@ -235,9 +258,13 @@ function ExperienceNotification.onXpGain(payload)
     end
 
     -- Show level up notification in the normal notification system
-    if payload.leveledUp then
+    if leveledUp then
         local Notifications = require("src.ui.notifications")
-        local levelUpText = string.format("%s leveled up to level %d!", payload.skillName or payload.skillId, payload.level or 1)
+        local levelUpText = string.format(
+            "%s leveled up to level %d!",
+            payload.skillName or payload.skillId,
+            ExperienceNotification.state.level or payload.level or 1
+        )
         Notifications.add(levelUpText, "success")
     end
 
