@@ -164,6 +164,10 @@ function Pipeline.build()
             TurretEffects.cleanupOrphanedSounds()
         end,
         function(ctx)
+            local ConstructionSystem = require("src.systems.construction")
+            ConstructionSystem.update(ctx.dt, ctx)
+        end,
+        function(ctx)
             update_network(ctx.dt, ctx.player, ctx.world)
         end,
     }

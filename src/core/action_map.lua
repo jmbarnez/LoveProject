@@ -311,6 +311,63 @@ ActionMap.registerAction({
     end,
 })
 
+-- Construction system actions
+ActionMap.registerAction({
+    name = "construction_toggle",
+    priority = 10,
+    getKeys = function()
+        return ActionMap.bindingKeys("construction_toggle", {"c"})
+    end,
+    enabled = function(ctx)
+        return ctx and ctx.player ~= nil and ctx.world ~= nil
+    end,
+    callback = function(ctx)
+        local ConstructionSystem = require("src.systems.construction")
+        if ConstructionSystem.isInConstructionMode() then
+            ConstructionSystem.cancelConstruction()
+        end
+        return true
+    end,
+})
 
+ActionMap.registerAction({
+    name = "place_construction",
+    priority = 10,
+    getKeys = function()
+        return {"mouse1"}
+    end,
+    enabled = function(ctx)
+        local ConstructionSystem = require("src.systems.construction")
+        return ConstructionSystem.isInConstructionMode()
+    end,
+    callback = function(ctx)
+        local ConstructionSystem = require("src.systems.construction")
+        if ConstructionSystem.isInConstructionMode() then
+            ConstructionSystem.placeItem(ctx.player, ctx.world)
+            return true
+        end
+        return false
+    end,
+})
+
+ActionMap.registerAction({
+    name = "cancel_construction",
+    priority = 10,
+    getKeys = function()
+        return {"escape", "mouse2"}
+    end,
+    enabled = function(ctx)
+        local ConstructionSystem = require("src.systems.construction")
+        return ConstructionSystem.isInConstructionMode()
+    end,
+    callback = function(ctx)
+        local ConstructionSystem = require("src.systems.construction")
+        if ConstructionSystem.isInConstructionMode() then
+            ConstructionSystem.cancelConstruction()
+            return true
+        end
+        return false
+    end,
+})
 
 return ActionMap

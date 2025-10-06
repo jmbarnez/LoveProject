@@ -35,6 +35,10 @@ function Draw.draw(Game)
     RenderSystem.draw(world, camera, player, State.clickMarkers, State.hoveredEntity, State.hoveredEntityType)
     Effects.draw()
     
+    -- Draw construction system
+    local ConstructionSystem = require("src.systems.construction")
+    ConstructionSystem.draw()
+    
     camera:reset()
 
     UI.drawHelpers(player, world, hub, camera)

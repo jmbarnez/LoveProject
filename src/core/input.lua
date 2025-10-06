@@ -533,7 +533,24 @@ function Input.mousepressed(x, y, button)
         end
     end
 
-    -- Hotbar mouse interactions
+    -- Process mouse clicks through action map first
+    local context = {
+        key = button == 1 and "mouse1" or "mouse2",
+        player = gameState.player,
+        world = gameState.world,
+        UIManager = mainState.UIManager,
+        Events = Events,
+        notifications = Notifications,
+        util = Util,
+        repairSystem = RepairSystem,
+    }
+    
+    local handled = ActionMap.dispatch(context.key, context)
+    if handled then
+        return
+    end
+
+    -- Hotbar mouse interactions (fallback)
     if button == 1 then
         Hotbar.keypressed("mouse1", gameState.player)
     elseif button == 2 then
