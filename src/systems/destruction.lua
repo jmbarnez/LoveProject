@@ -1,7 +1,6 @@
 local Effects = require("src.systems.effects")
 local Wreckage = require("src.entities.wreckage")
 local ItemPickup = require("src.entities.item_pickup")
-local Pickups = require("src.systems.pickups")
 local Events = require("src.core.events")
 local Content = require("src.content.content")
 local ProceduralGen = require("src.core.procedural_gen")
@@ -12,34 +11,6 @@ local DestructionSystem = {}
 
 local Log = require("src.core.log")
 local Debug = require("src.core.debug")
-
--- Add bounty rewards to uncollected bounties
-local function addBountyReward(gameState, enemy, enemyName)
-  if not gameState or not gameState.bounty then return end
-  
-  local bountyValue = enemy.bounty or 0
-  local xpValue = enemy.xpReward or 0
-  
-  if bountyValue > 0 or xpValue > 0 then
-    gameState.bounty.uncollected = (gameState.bounty.uncollected or 0) + bountyValue
-    
-    -- Add entry to recent kills
-    if not gameState.bounty.entries then
-      gameState.bounty.entries = {}
-    end
-    
-    table.insert(gameState.bounty.entries, {
-      name = enemyName or "Unknown Enemy",
-      gc = bountyValue,
-      timestamp = love.timer.getTime()
-    })
-    
-    -- Keep only last 10 entries
-    while #gameState.bounty.entries > 10 do
-      table.remove(gameState.bounty.entries, 1)
-    end
-  end
-end
 
 local function rollLoot(drops)
   local items = {}
@@ -221,10 +192,7 @@ function DestructionSystem.update(world, gameState, hub)
         if isEnemyShip then
           -- Only give rewards if not killed by unfriendly station
           if not e._killedByUnfriendlyStation then
-            -- Enemy death: add bounty rewards and use configured loot table
-            local enemyName = e.name or "Unknown Enemy"
-            addBountyReward(gameState, e, enemyName)
-
+            -- Enemy death: grant XP to the player and use configured loot table
             -- Grant XP to the player
             local players = world:get_entities_with_components("player")
             if players and #players > 0 and e.xpReward then

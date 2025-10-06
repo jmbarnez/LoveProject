@@ -24,7 +24,6 @@ A 2D space exploration game built with LÖVE2D featuring mining, combat, trading
 - **E**: Interact with stations and objects
 - **Tab**: Open inventory
 - **I**: Open skills menu
-- **B**: Open bounty/missions menu
 - **ESC**: Pause menu
 
 ### Gameplay Loop
