@@ -59,9 +59,16 @@ function Turret.new(owner, params)
     end
 
     -- Visual and audio parameters
-    self.tracer = params.tracer
+    self.tracer = params.tracer or {}
     self.impact = params.impact
     self.spread = params.spread
+    if type(self.spread) ~= "table" then
+        self.spread = { minDeg = 0, maxDeg = 0, decay = 0 }
+    else
+        self.spread.minDeg = self.spread.minDeg or 0
+        self.spread.maxDeg = self.spread.maxDeg or self.spread.minDeg or 0
+        self.spread.decay = self.spread.decay or 0
+    end
 
     -- Weapon-specific parameters
     -- Handle both embedded projectile definitions and projectile ID strings
@@ -91,8 +98,18 @@ function Turret.new(owner, params)
     self.secondaryFireEvery = params.secondaryFireEvery
 
     -- Volley firing support
-    self.volleyCount = params.volleyCount
-    self.volleySpreadDeg = params.volleySpreadDeg
+    if type(params.volleyCount) == "number" and params.volleyCount >= 1 then
+        self.volleyCount = params.volleyCount
+    else
+        self.volleyCount = 1
+    end
+    if type(params.volleySpreadDeg) == "number" then
+        self.volleySpreadDeg = params.volleySpreadDeg
+    else
+        self.volleySpreadDeg = 0
+    end
+
+    self.secondaryFireCounter = 0
 
 
     -- Initialize state variables
@@ -126,8 +143,12 @@ function Turret.new(owner, params)
     end
 
     -- Set default tracer colors if not specified
-    if (self.kind == 'gun' or self.kind == 'projectile' or not self.kind) and not self.tracer.color then
-        self.tracer.color = {0.35, 0.70, 1.00, 1.0}
+    if self.kind == 'gun' or self.kind == 'projectile' or not self.kind then
+        if not self.tracer.color then
+            self.tracer.color = {0.35, 0.70, 1.00, 1.0}
+        end
+        self.tracer.width = self.tracer.width or 2
+        self.tracer.coreRadius = self.tracer.coreRadius or 3
     end
     if self.kind == 'laser' then
         self.tracer.color = self.tracer.color
