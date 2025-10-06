@@ -134,6 +134,11 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
             incoming = damageValue[1] or 1 -- fallback
         end
     end
+    
+    -- Validate damage value
+    if not incoming or incoming <= 0 then
+        return false -- No damage to apply
+    end
 
     -- Apply global enemy damage multiplier (x2)
     if source and (source.isEnemy or (source.components and source.components.ai)) then

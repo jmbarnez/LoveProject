@@ -10,16 +10,16 @@ local Radius = require("src.systems.collision.radius")
 
 local NetworkSync = {}
 
-local POSITION_SEND_INTERVAL = 1 / 15
+local POSITION_SEND_INTERVAL = 1 / 20  -- Reduced frequency for smoother updates
 
 local remoteEntities = {}
 local lastSentSnapshot = nil
 local lastSentTimestamp = nil
 local sendAccumulator = 0
 
-local MIN_INTERP_DURATION = 1 / 120
-local MAX_INTERP_DURATION = 0.35
-local MAX_EXTRAPOLATION = 0.75
+local MIN_INTERP_DURATION = 1 / 30   -- Increased minimum for smoother interpolation
+local MAX_INTERP_DURATION = 0.2      -- Reduced maximum to prevent lag
+local MAX_EXTRAPOLATION = 0.3        -- Reduced extrapolation to prevent overshooting
 
 local function now()
     if love and love.timer and love.timer.getTime then
@@ -217,9 +217,28 @@ local function updateEntityFromSnapshot(entity, snapshot)
         end
 
         if not isMovementStale then
-            interp.startPos.x = posComponent.x or data.position.x
-            interp.startPos.y = posComponent.y or data.position.y
-            interp.startPos.angle = posComponent.angle or data.position.angle
+            -- Use current interpolated position as start point for smoother transitions
+            local currentX = posComponent.x or data.position.x
+            local currentY = posComponent.y or data.position.y
+            local currentAngle = posComponent.angle or data.position.angle
+            
+            -- If we're currently interpolating, use the interpolated position as start
+            if interp.initialised and interp.startTime then
+                local currentTime = now()
+                local elapsed = currentTime - interp.startTime
+                local duration = interp.duration or POSITION_SEND_INTERVAL
+                if elapsed < duration then
+                    local t = math.max(0, math.min(1, elapsed / duration))
+                    local smoothT = t < 0.5 and 4 * t * t * t or 1 - math.pow(-2 * t + 2, 3) / 2
+                    currentX = interp.startPos.x + (interp.targetPos.x - interp.startPos.x) * smoothT
+                    currentY = interp.startPos.y + (interp.targetPos.y - interp.startPos.y) * smoothT
+                    currentAngle = interp.startPos.angle + (interp.targetPos.angle - interp.startPos.angle) * smoothT
+                end
+            end
+            
+            interp.startPos.x = currentX
+            interp.startPos.y = currentY
+            interp.startPos.angle = currentAngle
 
             interp.targetPos.x = data.position.x
             interp.targetPos.y = data.position.y
@@ -240,9 +259,14 @@ local function updateEntityFromSnapshot(entity, snapshot)
         end
     end
 
+    -- Store velocity for extrapolation but don't apply it during interpolation
     if not isMovementStale and entity.components and entity.components.velocity then
-        entity.components.velocity.x = data.velocity.x
-        entity.components.velocity.y = data.velocity.y
+        -- Only update velocity if we're not currently interpolating
+        local interp = entity._netSync
+        if not interp or not interp.initialised or (now() - (interp.startTime or 0)) > (interp.duration or POSITION_SEND_INTERVAL) then
+            entity.components.velocity.x = data.velocity.x
+            entity.components.velocity.y = data.velocity.y
+        end
     end
 
     -- Apply health data to remote player entities
@@ -330,7 +354,9 @@ local function applyRemotePlayerSmoothing()
                 local duration = math.max(MIN_INTERP_DURATION, interp.duration or POSITION_SEND_INTERVAL)
                 local elapsed = currentTime - (interp.startTime or currentTime)
                 local t = math.max(0, math.min(1, elapsed / duration))
-                local smoothT = t * t * (3 - 2 * t)
+                
+                -- Use smoother interpolation curve (ease-in-out cubic)
+                local smoothT = t < 0.5 and 4 * t * t * t or 1 - math.pow(-2 * t + 2, 3) / 2
 
                 local newX, newY, newAngle
 
@@ -341,8 +367,11 @@ local function applyRemotePlayerSmoothing()
                 else
                     local sinceHeard = currentTime - (interp.lastHeard or currentTime)
                     local extrapTime = math.min(sinceHeard, MAX_EXTRAPOLATION)
-                    newX = interp.targetPos.x + interp.lastVelocity.x * extrapTime
-                    newY = interp.targetPos.y + interp.lastVelocity.y * extrapTime
+                    
+                    -- Use velocity-based extrapolation with damping to prevent overshooting
+                    local dampFactor = math.max(0.1, 1 - (extrapTime / MAX_EXTRAPOLATION))
+                    newX = interp.targetPos.x + interp.lastVelocity.x * extrapTime * dampFactor
+                    newY = interp.targetPos.y + interp.lastVelocity.y * extrapTime * dampFactor
                     newAngle = interp.targetPos.angle
 
                     -- Prepare for smooth catch-up when the next packet arrives
@@ -355,11 +384,13 @@ local function applyRemotePlayerSmoothing()
                 pos.y = newY
                 pos.angle = newAngle
 
-                if entity.components.velocity then
+                -- Only update velocity if we're not interpolating (to avoid conflicts)
+                if elapsed > duration and entity.components.velocity then
                     entity.components.velocity.x = interp.lastVelocity.x
                     entity.components.velocity.y = interp.lastVelocity.y
                 end
 
+                -- Update physics body position smoothly
                 if entity.components.physics and entity.components.physics.body then
                     local body = entity.components.physics.body
                     if body.setPosition then
@@ -370,11 +401,14 @@ local function applyRemotePlayerSmoothing()
                     end
                     body.angle = newAngle
 
-                    if body.setVelocity then
-                        body:setVelocity(interp.lastVelocity.x, interp.lastVelocity.y)
-                    else
-                        body.vx = interp.lastVelocity.x
-                        body.vy = interp.lastVelocity.y
+                    -- Only update physics velocity during extrapolation to avoid jitter
+                    if elapsed > duration then
+                        if body.setVelocity then
+                            body:setVelocity(interp.lastVelocity.x, interp.lastVelocity.y)
+                        else
+                            body.vx = interp.lastVelocity.x
+                            body.vy = interp.lastVelocity.y
+                        end
                     end
                 end
             end

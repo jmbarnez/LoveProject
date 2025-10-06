@@ -96,11 +96,15 @@ local function perform_collision_check(x1, y1, x2, y2, target, target_radius)
     target_radius = validate_target_radius(target_radius)
 
     local health = components.health
-    -- For players, always check shield collision first if they have any shield capacity
+    -- For players, check shield collision first if they have active shields
     -- This ensures remote projectiles properly detect shield hits even with stale shield data
-    if health and (health.maxShield or 0) > 0 then
+    if health and (health.shield or 0) > 0 then
         local shield_radius = Radius.getShieldRadius(target)
-        return Geometry.calculateShieldHitPoint(x1, y1, x2, y2, ex, ey, shield_radius)
+        local shield_hit, hx, hy = Geometry.calculateShieldHitPoint(x1, y1, x2, y2, ex, ey, shield_radius)
+        if shield_hit then
+            return shield_hit, hx, hy
+        end
+        -- If shield miss, continue to check hull collision
     end
 
     local hasPolygon = collidable and collidable.vertices

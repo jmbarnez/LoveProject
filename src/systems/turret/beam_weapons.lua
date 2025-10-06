@@ -228,6 +228,11 @@ function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMet
         return
     end
 
+    -- Validate damage value
+    if not damage or damage <= 0 then
+        return -- No damage to apply
+    end
+
     local health = target.components.health
 
     -- Apply global enemy damage multiplier (x2)
@@ -277,6 +282,20 @@ function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMet
             target._hudDamageTime = love.timer.getTime()
         else
             target._hudDamageTime = os.clock()
+        end
+        
+        -- Emit damage event for players
+        if target.isPlayer or target.isRemotePlayer then
+            local Events = require("src.core.events")
+            local eventData = {
+                entity = target,
+                damage = baseDamage,
+                shieldDamage = shieldDamage,
+                hullDamage = hullDamage,
+                hadShield = (shieldBefore > 0),
+                source = source
+            }
+            Events.emit(Events.GAME_EVENTS.PLAYER_DAMAGED, eventData)
         end
     end
 end
