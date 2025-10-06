@@ -181,14 +181,12 @@ function ExperienceNotification.onXpGain(payload)
         ExperienceNotification.state.level
     )
 
-    if finalSnapshot then
-        ExperienceNotification.state.level = finalSnapshot.level or ExperienceNotification.state.level
-        ExperienceNotification.state.progress = clamp01(finalSnapshot.progress or ExperienceNotification.state.progress)
-        ExperienceNotification.state.xpInLevel = finalSnapshot.xpInLevel or ExperienceNotification.state.xpInLevel
-        ExperienceNotification.state.xpToNext = finalSnapshot.xpToNext or ExperienceNotification.state.xpToNext
-    end
+    ExperienceNotification.state.level = finalSnapshot.level or ExperienceNotification.state.level
+    ExperienceNotification.state.progress = clamp01(finalSnapshot.progress or ExperienceNotification.state.progress)
+    ExperienceNotification.state.xpInLevel = finalSnapshot.xpInLevel or ExperienceNotification.state.xpInLevel
+    ExperienceNotification.state.xpToNext = finalSnapshot.xpToNext or ExperienceNotification.state.xpToNext
 
-    local previousLevel = previousSnapshot.level or ExperienceNotification.state.level
+    local previousLevel = previousSnapshot.level or 1
     local targetLevel = ExperienceNotification.state.level
     local leveledUp = targetLevel > previousLevel
     ExperienceNotification.state.leveledUp = leveledUp

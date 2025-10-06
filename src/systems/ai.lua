@@ -1,5 +1,6 @@
 local Util = require("src.core.util")
 local AIComponent = require("src.components.ai")
+local SimpleTurretAI = require("src.components.simple_turret_ai")
 local Log = require("src.core.log")
 local SpaceStationSystem = require("src.systems.hub")
 local EntityFactory = require("src.templates.entity_factory")
@@ -750,16 +751,18 @@ function AISystem.update(dt, world, spawnProjectile)
         end
 
         -- Handle turret AI separately
-        if entity.aiType == "turret" and ai.update then
-            ai:update(dt, entity, world, player)
-
-            local turretTarget = ai.getCurrentTarget and ai:getCurrentTarget() or ai.currentTarget
-            local turretCanShoot = false
-            if ai.turretState then
-                turretCanShoot = not not (ai.turretState.hasTarget and ai.turretState.isAimed and ai.turretState.inRange)
+        if entity.aiType == "turret" then
+            -- Use SimpleTurretAI
+            if SimpleTurretAI and getmetatable(ai) == SimpleTurretAI then
+                ai:update(dt, entity, world, player)
+                
+                local turretTarget = ai:getCurrentTarget()
+                local turretCanShoot = ai:canFire()
+                
+                -- Provide fallback target to prevent turret malfunction
+                local effectiveTarget = turretTarget or player
+                updateTurretModules(entity, dt, world, effectiveTarget, ai, turretCanShoot)
             end
-
-            updateTurretModules(entity, dt, world, turretTarget, ai, turretCanShoot)
         end
 
         ::continue::

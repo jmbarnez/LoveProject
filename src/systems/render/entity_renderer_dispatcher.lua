@@ -21,6 +21,7 @@ local rendererModules = {
     planet = "src.systems.render.entities.planet",
     reward_crate = "src.systems.render.entities.reward_crate",
     lootContainer = "src.systems.render.entities.loot_container",
+    stationary_turret = "src.systems.render.entities.stationary_turret",
 }
 
 local function fallbackRenderer(entity, player)
@@ -55,6 +56,8 @@ local function getRendererType(entity)
             entity._rendererType = "bullet"
         elseif entity.isStation then
             entity._rendererType = "station"
+        elseif entity.isTurret or entity.type == "stationary_turret" or entity.aiType == "turret" then
+            entity._rendererType = "stationary_turret"
         elseif entity.type == "world_object" and entity.subtype == "planet_massive" then
             entity._rendererType = "planet"
         elseif entity.type == "world_object" and entity.subtype == "reward_crate" then
@@ -81,6 +84,11 @@ local function getRendererType(entity)
 end
 
 local function getRendererByType(rendererType)
+    -- Handle legacy "turret" renderer type
+    if rendererType == "turret" then
+        rendererType = "stationary_turret"
+    end
+    
     local renderer = cachedRenderers[rendererType]
     if renderer then
         return renderer
@@ -88,13 +96,29 @@ local function getRendererByType(rendererType)
 
     local modulePath = rendererModules[rendererType]
     if modulePath then
-        renderer = require(modulePath)
+        local success, result = pcall(require, modulePath)
+        if success then
+            renderer = result
+        else
+            print("ERROR: Failed to load renderer module:", modulePath, "Error:", result)
+            renderer = fallbackRenderer
+        end
     else
+        print("WARNING: No module path found for renderer type:", rendererType)
         renderer = fallbackRenderer
     end
 
     cachedRenderers[rendererType] = renderer
     return renderer
+end
+
+-- Clear cache function to handle module renames
+local function clearRendererCache()
+    cachedRenderers = {}
+    for tracked in pairs(trackedEntities) do
+        tracked._rendererType = nil
+        trackedEntities[tracked] = nil
+    end
 end
 
 function Dispatcher.getRendererType(entity)
@@ -104,6 +128,10 @@ end
 function Dispatcher.getEntityRenderer(entity)
     local rendererType = getRendererType(entity)
     return getRendererByType(rendererType), rendererType
+end
+
+function Dispatcher.clearCache()
+    clearRendererCache()
 end
 
 function Dispatcher.draw(world, camera, player)

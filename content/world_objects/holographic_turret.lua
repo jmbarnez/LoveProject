@@ -1,7 +1,7 @@
 return {
     id = "holographic_turret",
     name = "Holographic Turret",
-    type = "utility_station",
+    type = "stationary_turret",
     
     -- Construction requirements
     construction = {
@@ -25,9 +25,9 @@ return {
             { type = "rectangle", mode = "fill", color = {0.2, 0.8, 1.0, 0.6}, x = -8, y = -12, w = 16, h = 24 },
             { type = "rectangle", mode = "line", color = {0.0, 1.0, 1.0, 0.9}, x = -8, y = -12, w = 16, h = 24, lineWidth = 1 },
             
-            -- Turret barrel
-            { type = "rectangle", mode = "fill", color = {0.1, 0.6, 0.9, 0.7}, x = -2, y = -20, w = 4, h = 16 },
-            { type = "rectangle", mode = "line", color = {0.0, 1.0, 1.0, 1.0}, x = -2, y = -20, w = 4, h = 16, lineWidth = 1 },
+            -- Turret barrel (rotates with entity) - pointing right by default
+            { type = "rectangle", mode = "fill", color = {0.1, 0.6, 0.9, 0.7}, x = 8, y = -2, w = 16, h = 4, turret = true },
+            { type = "rectangle", mode = "line", color = {0.0, 1.0, 1.0, 1.0}, x = 8, y = -2, w = 16, h = 4, lineWidth = 1, turret = true },
             
             -- Holographic effect lines
             { type = "line", color = {0.0, 1.0, 1.0, 0.4}, x1 = -12, y1 = -8, x2 = 12, y2 = 8, lineWidth = 1 },
@@ -67,13 +67,9 @@ return {
         targetTypes = {"enemy", "hostile"}
     },
     
-    -- Station properties
-    station = {
-        type = "holographic_turret",
-        name = "Holographic Turret",
-        description = "An automated holographic defense turret",
-        interactionRange = 50
-    },
+    -- Turret properties (not a station)
+    name = "Holographic Turret",
+    description = "An automated holographic defense turret",
     
     -- Collision
     collidable = {

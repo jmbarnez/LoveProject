@@ -3,14 +3,7 @@ local Content = require("src.content.content")
 local EntityFactory = require("src.templates.entity_factory")
 local Events = require("src.core.events")
 local Log = require("src.core.log")
-local AI, TurretAI = require("src.components.ai")
-
--- Debug: Check what we got
-Log.info("AI module loaded:")
-Log.info("AI type:", type(AI))
-Log.info("TurretAI type:", type(TurretAI))
-Log.info("AI has new method:", AI and type(AI.new))
-Log.info("TurretAI has new method:", TurretAI and type(TurretAI.new))
+local SimpleTurretAI = require("src.components.simple_turret_ai")
 
 local constructionState = {
     mode = false, -- true when in construction mode
@@ -193,21 +186,22 @@ end
 
 function ConstructionSystem.createConstructionEntity(itemType, x, y)
     if itemType == "holographic_turret" then
-        local entity = EntityFactory.create("station", "holographic_turret", x, y)
+        local entity = EntityFactory.create("world_object", "holographic_turret", x, y)
         if entity and entity.components and entity.components.position then
             entity.id = "holographic_turret_" .. os.time() .. "_" .. math.random(1000, 9999)
+            
+            -- Override the entity type to be a stationary turret, not a world object
+            entity.type = "stationary_turret"
+            entity.subtype = "holographic_turret"
+            entity.isTurret = true
 
-            -- Set up dedicated turret AI component
-            if TurretAI and TurretAI.new then
-                entity.components.ai = TurretAI.new({
-                    scanRange = 800,    -- Detection range
-                    fireRange = 600,    -- Shooting range
-                    targetTypes = {"enemy", "hostile"},
-                    position = entity.components.position
-                })
-            else
-                Log.error("TurretAI not available for turret construction")
-            end
+            -- Set up simple turret AI component
+            entity.components.ai = SimpleTurretAI.new({
+                scanRange = 800,    -- Detection range
+                fireRange = 600,    -- Shooting range
+                turnSpeed = 3.0,    -- Turn speed in radians per second
+                scanInterval = 0.2  -- Scan every 200ms
+            })
 
             -- Equip the combat laser turret
             ConstructionSystem.equipTurret(entity, "combat_laser")
