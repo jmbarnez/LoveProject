@@ -17,6 +17,7 @@ local rendererModules = {
     xp_pickup = "src.systems.render.entities.xp_pickup",
     wreckage = "src.systems.render.entities.wreckage",
     bullet = "src.systems.render.entities.bullet",
+    wave = "src.systems.render.entities.wave",
     station = "src.systems.render.entities.station",
     planet = "src.systems.render.entities.planet",
     reward_crate = "src.systems.render.entities.reward_crate",
@@ -53,7 +54,13 @@ local function getRendererType(entity)
         elseif entity.components.lootable and entity.isWreckage then
             entity._rendererType = "wreckage"
         elseif entity.components.bullet then
-            entity._rendererType = "bullet"
+            -- Check if it's a wave projectile
+            local renderable = entity.components.renderable
+            if renderable and renderable.type == "wave" then
+                entity._rendererType = "wave"
+            else
+                entity._rendererType = "bullet"
+            end
         elseif entity.isStation then
             entity._rendererType = "station"
         elseif entity.isTurret or entity.type == "stationary_turret" or entity.aiType == "turret" then
@@ -143,6 +150,7 @@ local RENDER_LAYERS = {
     warp_gate = 4,
     enemy = 5,
     bullet = 6,
+    wave = 6, -- Same layer as bullets
     item_pickup = 7,
     xp_pickup = 8,
     reward_crate = 9,

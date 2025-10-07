@@ -477,18 +477,18 @@ function Start:draw()
   local by = startY
   local mx, my = Viewport.getMousePosition()
   local hover = mx >= bx and mx <= bx + bw and my >= by and my <= by + bh
-  self.button._rect = Theme.drawMenuButton(bx, by, "New Game", hover, t)
+  self.button._rect = Theme.drawMenuButton(bx, by, bw, bh, "New Game", hover, t)
 
   local lbx = bx
   local lby = by + bh + Theme.getScaledSize(20)
   local lhover = mx >= lbx and mx <= lbx + bw and my >= lby and my <= lby + bh
-  self.loadButton._rect = Theme.drawMenuButton(lbx, lby, "Load Game", lhover, t)
+  self.loadButton._rect = Theme.drawMenuButton(lbx, lby, bw, bh, "Load Game", lhover, t)
 
   -- Join Multiplayer button
   local mbx = bx
   local mby = lby + bh + Theme.getScaledSize(20)
   local mhover = mx >= mbx and mx <= mbx + bw and my >= mby and my <= mby + bh
-  self.multiplayerButton._rect = Theme.drawMenuButton(mbx, mby, "Join Game", mhover, t)
+  self.multiplayerButton._rect = Theme.drawMenuButton(mbx, mby, bw, bh, "Join Game", mhover, t)
 
   local versionText = Strings.getUI('version') or ""
   local versionWidth = Theme.getFont("normal"):getWidth(versionText)

@@ -256,12 +256,12 @@ function Theme.drawButton(x, y, w, h, text, hover, t, options)
   return { x = x, y = y, w = w, h = h }
 end
 
-function Theme.drawMenuButton(x, y, text, hover, t, options)
+function Theme.drawMenuButton(x, y, w, h, text, hover, t, options)
   -- Convenience function for menu buttons
   options = options or {}
   options.size = "menu"
   options.menuButton = true
-  return Theme.drawButton(x, y, nil, nil, text, hover, t, options)
+  return Theme.drawButton(x, y, w, h, text, hover, t, options)
 end
 
 function Theme.drawCompactButton(x, y, w, h, text, hover, t, options)

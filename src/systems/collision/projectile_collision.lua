@@ -213,6 +213,83 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
                 shield_hit = CollisionEffects.applyDamage(target, dmg_val, source)
             end
 
+            -- Handle force wave effect for kinetic wave projectiles
+            local renderableProps = renderable.props or {}
+            if renderableProps.kind == 'wave' and bullet.components.force_wave then
+                local forceWave = bullet.components.force_wave
+                local knockbackForce = forceWave.knockback_force or 500
+                local waveRadius = forceWave.radius or 12
+                local arcAngle = math.pi * 0.6 -- 108 degrees wide arc (same as visual)
+                
+                -- Get projectile angle for arc direction
+                local projAngle = pos.angle or 0
+                local arcStart = projAngle - arcAngle / 2
+                local arcEnd = projAngle + arcAngle / 2
+                
+                -- Calculate knockback direction from projectile to target
+                local dx = ex - pos.x
+                local dy = ey - pos.y
+                local distance = math.sqrt(dx * dx + dy * dy)
+                if distance > 0 then
+                    local targetAngle = math.atan2(dy, dx)
+                    
+                    -- Check if target is within the arc
+                    local angleDiff = targetAngle - projAngle
+                    -- Normalize angle difference to [-pi, pi]
+                    while angleDiff > math.pi do angleDiff = angleDiff - 2 * math.pi end
+                    while angleDiff < -math.pi do angleDiff = angleDiff + 2 * math.pi end
+                    
+                    local isInArc = math.abs(angleDiff) <= arcAngle / 2
+                    
+                    if isInArc and distance <= waveRadius then
+                        local normalX = dx / distance
+                        local normalY = dy / distance
+                        
+                        -- Apply knockback force to target
+                        local pushX = normalX * knockbackForce * 0.01 -- Scale down for reasonable force
+                        local pushY = normalY * knockbackForce * 0.01
+                        
+                        -- Use the existing pushEntity function from entity collision
+                        local EntityCollision = require("src.systems.collision.entity_collision")
+                        EntityCollision.pushEntity(target, pushX, pushY, normalX, normalY, dt, 0.5)
+                    end
+                end
+                
+                -- Apply area effect to nearby entities within the arc
+                local nearbyEntities = world:get_entities_in_radius(pos.x, pos.y, waveRadius, {"enemy", "player"})
+                for _, entity in ipairs(nearbyEntities) do
+                    if entity ~= target and entity.components.position and entity.components.physics then
+                        local ex2 = entity.components.position.x
+                        local ey2 = entity.components.position.y
+                        local dx2 = ex2 - pos.x
+                        local dy2 = ey2 - pos.y
+                        local distance2 = math.sqrt(dx2 * dx2 + dy2 * dy2)
+                        
+                        if distance2 > 0 and distance2 <= waveRadius then
+                            local entityAngle = math.atan2(dy2, dx2)
+                            
+                            -- Check if entity is within the arc
+                            local angleDiff2 = entityAngle - projAngle
+                            -- Normalize angle difference to [-pi, pi]
+                            while angleDiff2 > math.pi do angleDiff2 = angleDiff2 - 2 * math.pi end
+                            while angleDiff2 < -math.pi do angleDiff2 = angleDiff2 + 2 * math.pi end
+                            
+                            local isInArc2 = math.abs(angleDiff2) <= arcAngle / 2
+                            
+                            if isInArc2 then
+                                local normalX2 = dx2 / distance2
+                                local normalY2 = dy2 / distance2
+                                local forceMultiplier = 1.0 - (distance2 / waveRadius) -- Falloff with distance
+                                local pushX2 = normalX2 * knockbackForce * 0.01 * forceMultiplier
+                                local pushY2 = normalY2 * knockbackForce * 0.01 * forceMultiplier
+                                
+                                EntityCollision.pushEntity(entity, pushX2, pushY2, normalX2, normalY2, dt, 0.3)
+                            end
+                        end
+                    end
+                end
+            end
+
             -- Determine impact type using actual damage results
             local impact_type = (shield_hit or had_shield) and 'shield' or 'hull'
             if bullet.components and bullet.components.bullet then

@@ -49,4 +49,11 @@ build("kinetic_bombardment", {
     streak = { length = 40, width = 3.2, color = {1.0, 0.9, 0.7, 0.6} },
 })
 
+build("wave", {
+    radius = 8,
+    tracerWidth = 4,
+    color = {0.6, 0.4, 0.8, 0.8},
+    streak = { length = 20, width = 6, color = {0.8, 0.6, 1.0, 0.6} },
+})
+
 return true

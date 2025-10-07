@@ -32,11 +32,11 @@ end
 
 -- Calculate preferred layout size based on content
 local function getLayoutSize()
-    local buttonH = (Theme.ui and Theme.ui.buttonHeight) or 28
-    local buttonSpacing = (Theme.ui and Theme.ui.buttonSpacing) or 4
+    local buttonH = Theme.getScaledSize(28)
+    local buttonSpacing = Theme.getScaledSize(4)
     local totalButtons = 4
 
-    local w = 200 -- Set a fixed width for the content area
+    local w = Theme.getScaledSize(200) -- Set a fixed width for the content area
 
     -- Calculate height without padding
     local totalHeight = (buttonH * totalButtons) + (buttonSpacing * (totalButtons - 1))
@@ -47,8 +47,8 @@ end
 
 local function getLayout()
   -- Always compute layout in CONTENT coordinates so it matches drawContent()
-  local buttonH = 28
-  local buttonSpacing = 4
+  local buttonH = Theme.getScaledSize(28)
+  local buttonSpacing = Theme.getScaledSize(4)
 
   local x, y, w, h
   if EscapeMenu.window and EscapeMenu.window.getContentBounds then
@@ -58,7 +58,8 @@ local function getLayout()
     -- Fallback before init: estimate centered content rect using chrome sizes
     local sw, sh = Viewport.getDimensions()
     local cw, ch = getLayoutSize()
-    local border, titleBar = ((Theme.ui and Theme.ui.borderWidth) or 2), ((Theme.ui and Theme.ui.titleBarHeight) or 24)
+    local border = Theme.getScaledSize(2)
+    local titleBar = Theme.getScaledSize(24)
     local winW = cw + border * 2
     local winH = ch + titleBar + border
     local winX = (sw - winW) / 2
@@ -117,7 +118,8 @@ end
 function EscapeMenu.init()
     local contentW, contentH = getLayoutSize()
     -- Add chrome (borders/titlebar) so content fits without being scissored
-    local border, titleBar = ((Theme.ui and Theme.ui.borderWidth) or 2), ((Theme.ui and Theme.ui.titleBarHeight) or 24)
+    local border = Theme.getScaledSize(2)
+    local titleBar = Theme.getScaledSize(24)
     local windowW = contentW + border * 2
     local windowH = contentH + titleBar + border
 
@@ -174,19 +176,19 @@ function EscapeMenu.drawContent(window, x, y, w, h)
 
     -- Save Game button
     local saveHover = pointIn(mx, my, buttonX, saveButtonY, buttonW, buttonH)
-    Theme.drawMenuButton(buttonX, saveButtonY, "Save", saveHover, t, { down = EscapeMenu.saveButtonDown })
+    Theme.drawMenuButton(buttonX, saveButtonY, buttonW, buttonH, "Save", saveHover, t, { down = EscapeMenu.saveButtonDown })
 
     -- Settings button
     local settingsHover = pointIn(mx, my, buttonX, settingsButtonY, buttonW, buttonH)
-    Theme.drawMenuButton(buttonX, settingsButtonY, "Settings", settingsHover, t, { down = EscapeMenu.settingsButtonDown })
+    Theme.drawMenuButton(buttonX, settingsButtonY, buttonW, buttonH, "Settings", settingsHover, t, { down = EscapeMenu.settingsButtonDown })
 
     -- LAN button
     local lanHover = pointIn(mx, my, buttonX, lanButtonY, buttonW, buttonH)
-    Theme.drawMenuButton(buttonX, lanButtonY, "Open to LAN", lanHover, t, { down = EscapeMenu.lanButtonDown })
+    Theme.drawMenuButton(buttonX, lanButtonY, buttonW, buttonH, "Open to LAN", lanHover, t, { down = EscapeMenu.lanButtonDown })
 
     -- Exit to Main Menu button
     local exitHover = pointIn(mx, my, buttonX, exitButtonY, buttonW, buttonH)
-    Theme.drawMenuButton(buttonX, exitButtonY, "Exit to Menu", exitHover, t, { down = EscapeMenu.exitButtonDown })
+    Theme.drawMenuButton(buttonX, exitButtonY, buttonW, buttonH, "Exit to Menu", exitHover, t, { down = EscapeMenu.exitButtonDown })
 end
 
 function EscapeMenu.mousepressed(x, y, button)
