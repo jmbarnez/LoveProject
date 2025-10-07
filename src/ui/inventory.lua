@@ -105,6 +105,9 @@ function Inventory.init()
         onClose = function()
             Inventory.visible = false
             setSearchActive(false)
+            -- Play close sound
+            local Sound = require("src.core.sound")
+            Sound.triggerEvent('ui_button_click')
         end
     })
 end

@@ -134,8 +134,39 @@ function Dispatcher.clearCache()
     clearRendererCache()
 end
 
+-- Define render layer priorities (lower numbers render first/behind)
+local RENDER_LAYERS = {
+    planet = 0,
+    asteroid = 1,
+    wreckage = 2,
+    station = 3,
+    warp_gate = 4,
+    enemy = 5,
+    bullet = 6,
+    item_pickup = 7,
+    xp_pickup = 8,
+    reward_crate = 9,
+    lootContainer = 10,
+    stationary_turret = 11,
+    remote_player = 12,
+}
+
+-- Get render layer for an entity
+local function getRenderLayer(entity)
+    local rendererType = getRendererType(entity)
+    return RENDER_LAYERS[rendererType] or 50 -- Default to high layer if unknown
+end
+
 function Dispatcher.draw(world, camera, player)
     local entities = world:get_entities_with_components("renderable", "position")
+    
+    -- Sort entities by render layer to ensure proper z-ordering
+    table.sort(entities, function(a, b)
+        if a == player then return false end -- Player always renders last
+        if b == player then return true end
+        return getRenderLayer(a) < getRenderLayer(b)
+    end)
+    
     -- Draw engine trails for all non-player entities first (world space)
     for _, entity in ipairs(entities) do
         if entity ~= player and entity.components and entity.components.engine_trail then
@@ -143,7 +174,7 @@ function Dispatcher.draw(world, camera, player)
         end
     end
 
-    -- Then draw entities themselves
+    -- Then draw entities themselves in sorted order
     for _, entity in ipairs(entities) do
         if entity == player then goto continue end
         local pos = entity.components.position

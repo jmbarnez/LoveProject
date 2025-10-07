@@ -83,6 +83,9 @@ function SkillsPanel.init()
         drawContent = SkillsPanel.drawContent,
         onClose = function()
             SkillsPanel.visible = false
+            -- Play close sound
+            local Sound = require("src.core.sound")
+            Sound.triggerEvent('ui_button_click')
         end
     })
 end

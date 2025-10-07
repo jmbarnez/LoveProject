@@ -259,6 +259,12 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
             local e2Physics = entity2.components.physics and entity2.components.physics.body
             
             if e1Physics and e2Physics then
+                -- Play rock impact sound
+                local Sound = require("src.core.sound")
+                local impactX = (e1x + e2x) / 2
+                local impactY = (e1y + e2y) / 2
+                Sound.triggerEventAt('impact_rock', impactX, impactY)
+                
                 -- Use the physics body collision method for realistic bouncing
                 e1Physics:collideWith(e2Physics, 0.6) -- 60% restitution for asteroid bouncing
                 return -- Skip normal collision resolution

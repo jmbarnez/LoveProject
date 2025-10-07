@@ -101,6 +101,9 @@ function SettingsPanel.init()
         drawContent = SettingsPanel.drawContent,
         onClose = function()
             SettingsPanel.visible = false
+            -- Play close sound
+            local Sound = require("src.core.sound")
+            Sound.triggerEvent('ui_button_click')
         end
     })
 

@@ -165,7 +165,30 @@ function Sound.loadSFX(name, path)
     -- Try procedural generation as fallback
     local proceduralSound = nil
     local targetName = resolvedName
-    if targetName == "laser_fire" then
+    if targetName == "kinetic_turret_fire" then
+        proceduralSound = SoundGenerator.generateKineticTurretFire()
+    elseif targetName == "low_power_laser_fire" then
+        proceduralSound = SoundGenerator.generateLowPowerLaserFire()
+    elseif targetName == "missile_launcher_fire" then
+        proceduralSound = SoundGenerator.generateMissileLauncherFire()
+    -- Collision sounds
+    elseif targetName == "shield_hit_light" then
+        proceduralSound = SoundGenerator.generateShieldHitLight()
+    elseif targetName == "shield_hit_heavy" then
+        proceduralSound = SoundGenerator.generateShieldHitHeavy()
+    elseif targetName == "hull_hit_light" then
+        proceduralSound = SoundGenerator.generateHullHitLight()
+    elseif targetName == "hull_hit_heavy" then
+        proceduralSound = SoundGenerator.generateHullHitHeavy()
+    elseif targetName == "hull_hit_critical" then
+        proceduralSound = SoundGenerator.generateHullHitCritical()
+    elseif targetName == "asteroid_hit_light" then
+        proceduralSound = SoundGenerator.generateAsteroidHitLight()
+    elseif targetName == "asteroid_hit_heavy" then
+        proceduralSound = SoundGenerator.generateAsteroidHitHeavy()
+    elseif targetName == "rock_impact" then
+        proceduralSound = SoundGenerator.generateRockImpact()
+    elseif targetName == "laser_fire" then
         proceduralSound = SoundGenerator.getCachedSound("laser", 0.55, 200) -- Combat laser: deep, bass-heavy blast
     elseif targetName == "mining_laser" then
         proceduralSound = SoundGenerator.getCachedSound("mining_laser", 0.55, 90) -- Mining laser: looping sub-bass rumble

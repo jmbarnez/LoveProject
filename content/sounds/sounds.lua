@@ -6,16 +6,31 @@
 return {
   -- Sound Effects
   sfx = {
-    -- Weapon sounds
+    -- Weapon sounds - specific to each weapon type
+    kinetic_turret_fire = "kinetic_turret_fire",
+    low_power_laser_fire = "low_power_laser_fire", 
+    missile_launcher_fire = "missile_launcher_fire",
+    
+    -- Legacy weapon sounds (for compatibility)
     laser_fire = "laser_fire",
     missile_launch = "missile_launch", 
     gun_fire = "gun_fire",
     
-    -- Impact sounds
-    shield_hit = "shield_hit",
+    -- Impact sounds - specific collision types
+    shield_hit_light = "shield_hit_light",
+    shield_hit_heavy = "shield_hit_heavy",
     shield_static = "shield_static",
-    hull_hit = "hull_hit",
+    hull_hit_light = "hull_hit_light",
+    hull_hit_heavy = "hull_hit_heavy",
+    hull_hit_critical = "hull_hit_critical",
+    asteroid_hit_light = "asteroid_hit_light",
+    asteroid_hit_heavy = "asteroid_hit_heavy",
+    rock_impact = "rock_impact",
     explosion = "explosion",
+    
+    -- Legacy impact sounds (for compatibility)
+    shield_hit = "shield_hit",
+    hull_hit = "hull_hit",
     
     -- Ship sounds
     engine_thrust = "engine_thrust",
@@ -50,18 +65,33 @@ return {
   
   -- Event Sound Mappings
   events = {
-    -- Weapon events
+    -- Specific weapon events
+    weapon_kinetic_turret_fire = {type = "sfx", sound = "kinetic_turret_fire", volume = 0.4},
+    weapon_low_power_laser_fire = {type = "sfx", sound = "low_power_laser_fire", volume = 0.3},
+    weapon_missile_launcher_fire = {type = "sfx", sound = "missile_launcher_fire", volume = 0.8},
+    
+    -- Legacy weapon events (for compatibility)
     weapon_laser_fire = {type = "sfx", sound = "laser_fire", volume = 0.3},
     weapon_missile_fire = {type = "sfx", sound = "missile_launch", volume = 0.8},
     weapon_gun_fire = {type = "sfx", sound = "gun_fire", volume = 0.25},
     weapon_mining_laser = {type = "sfx", sound = "mining_laser", volume = 0.2},
     weapon_salvaging_laser = {type = "sfx", sound = "mining_laser", volume = 0.2},
     
-    -- Impact events  
-    impact_shield = {type = "sfx", sound = "shield_hit", volume = 0.5},
+    -- Impact events - specific collision types
+    impact_shield_light = {type = "sfx", sound = "shield_hit_light", volume = 0.4},
+    impact_shield_heavy = {type = "sfx", sound = "shield_hit_heavy", volume = 0.7},
     shield_bounce = {type = "sfx", sound = "shield_static", volume = 0.6},
-    impact_hull = {type = "sfx", sound = "hull_hit", volume = 0.6},
+    impact_hull_light = {type = "sfx", sound = "hull_hit_light", volume = 0.5},
+    impact_hull_heavy = {type = "sfx", sound = "hull_hit_heavy", volume = 0.8},
+    impact_hull_critical = {type = "sfx", sound = "hull_hit_critical", volume = 1.0},
+    impact_asteroid_light = {type = "sfx", sound = "asteroid_hit_light", volume = 0.3},
+    impact_asteroid_heavy = {type = "sfx", sound = "asteroid_hit_heavy", volume = 0.6},
+    impact_rock = {type = "sfx", sound = "rock_impact", volume = 0.5},
     ship_explosion = {type = "sfx", sound = "explosion", volume = 0.9},
+    
+    -- Legacy impact events (for compatibility)
+    impact_shield = {type = "sfx", sound = "shield_hit", volume = 0.5},
+    impact_hull = {type = "sfx", sound = "hull_hit", volume = 0.6},
     
     -- Ship events
     thruster_activate = {type = "sfx", sound = "engine_thrust", volume = 0.3},

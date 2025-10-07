@@ -301,6 +301,16 @@ function UtilityBeams.applyMiningDamage(target, damage, source, world, impactX, 
     -- Apply base damage plus burst damage
     local finalDamage = damage + burstDamage
 
+    -- Play asteroid impact sound based on damage amount
+    local Sound = require("src.core.sound")
+    local x = target.components.position.x
+    local y = target.components.position.y
+    if finalDamage >= 5 then
+        Sound.triggerEventAt('impact_asteroid_heavy', x, y)
+    else
+        Sound.triggerEventAt('impact_asteroid_light', x, y)
+    end
+
     -- Create visual effect for hotspot consumption
     if hotspotConsumed then
         local effectX = impactX or (source and source.cursorWorldPos and source.cursorWorldPos.x)

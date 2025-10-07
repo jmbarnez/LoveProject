@@ -28,6 +28,292 @@ local function highpass(prevOut, input, cutoff, sampleRate)
     return alpha * (prevOut + input - (prevOut or 0))
 end
 
+-- Generate kinetic turret sound - Sharp, metallic projectile launch
+function SoundGenerator.generateKineticTurretFire(duration, sampleRate)
+    duration = duration or 0.15
+    sampleRate = sampleRate or 22050
+
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
+
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+        
+        -- Sharp metallic "crack" with quick decay
+        local envelope = math.exp(-t * 8) -- Quick decay
+        local frequency = 800 + 200 * math.sin(t * 20) -- High frequency with modulation
+        local phase = t * frequency * 2 * math.pi
+        
+        local sample = math.sin(phase) * envelope * 0.6
+        sample = sample + 0.3 * math.sin(phase * 2) * envelope -- Harmonic
+        sample = sample + 0.1 * noise() * envelope -- Metallic noise
+        
+        soundData:setSample(i, sample)
+    end
+
+    return love.audio.newSource(soundData)
+end
+
+-- Generate low power laser sound - Clean energy beam
+function SoundGenerator.generateLowPowerLaserFire(duration, sampleRate)
+    duration = duration or 0.25
+    sampleRate = sampleRate or 22050
+
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
+
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+        
+        -- Clean energy beam with slight modulation
+        local envelope = math.exp(-t * 4) -- Moderate decay
+        local frequency = 400 + 50 * math.sin(t * 15) -- Mid frequency with gentle modulation
+        local phase = t * frequency * 2 * math.pi
+        
+        local sample = math.sin(phase) * envelope * 0.5
+        sample = sample + 0.2 * math.sin(phase * 1.5) * envelope -- Harmonic
+        sample = sample + 0.1 * math.sin(phase * 0.5) * envelope -- Sub harmonic
+        
+        soundData:setSample(i, sample)
+    end
+
+    return love.audio.newSource(soundData)
+end
+
+-- Generate missile launcher sound - Deep whoosh with engine rumble
+function SoundGenerator.generateMissileLauncherFire(duration, sampleRate)
+    duration = duration or 0.8
+    sampleRate = sampleRate or 22050
+
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
+
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+        
+        -- Deep engine rumble with whoosh
+        local envelope = math.exp(-t * 2) -- Slow decay
+        local frequency = 120 + 30 * math.sin(t * 8) -- Low frequency with modulation
+        local phase = t * frequency * 2 * math.pi
+        
+        local sample = math.sin(phase) * envelope * 0.7
+        sample = sample + 0.4 * math.sin(phase * 0.3) * envelope -- Deep rumble
+        sample = sample + 0.2 * math.sin(phase * 2.1) * envelope -- Mid harmonic
+        sample = sample + 0.1 * noise() * envelope * (1 - t) -- Engine noise that fades
+        
+        soundData:setSample(i, sample)
+    end
+
+    return love.audio.newSource(soundData)
+end
+
+-- Generate shield hit sounds - Energy discharge effects
+function SoundGenerator.generateShieldHitLight(duration, sampleRate)
+    duration = duration or 0.12
+    sampleRate = sampleRate or 22050
+
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
+
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+        
+        -- Quick energy zap with high frequency
+        local envelope = math.exp(-t * 12) -- Very quick decay
+        local frequency = 1200 + 400 * math.sin(t * 30) -- High frequency with rapid modulation
+        local phase = t * frequency * 2 * math.pi
+        
+        local sample = math.sin(phase) * envelope * 0.4
+        sample = sample + 0.2 * math.sin(phase * 2.3) * envelope -- Harmonic
+        sample = sample + 0.1 * noise() * envelope -- Electric crackle
+        
+        soundData:setSample(i, sample)
+    end
+
+    return love.audio.newSource(soundData)
+end
+
+function SoundGenerator.generateShieldHitHeavy(duration, sampleRate)
+    duration = duration or 0.25
+    sampleRate = sampleRate or 22050
+
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
+
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+        
+        -- Powerful energy discharge with deeper tone
+        local envelope = math.exp(-t * 6) -- Moderate decay
+        local frequency = 600 + 200 * math.sin(t * 20) -- Mid-high frequency
+        local phase = t * frequency * 2 * math.pi
+        
+        local sample = math.sin(phase) * envelope * 0.6
+        sample = sample + 0.3 * math.sin(phase * 1.7) * envelope -- Harmonic
+        sample = sample + 0.2 * math.sin(phase * 0.5) * envelope -- Sub harmonic
+        sample = sample + 0.15 * noise() * envelope -- Electric crackle
+        
+        soundData:setSample(i, sample)
+    end
+
+    return love.audio.newSource(soundData)
+end
+
+-- Generate hull hit sounds - Metallic impacts
+function SoundGenerator.generateHullHitLight(duration, sampleRate)
+    duration = duration or 0.15
+    sampleRate = sampleRate or 22050
+
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
+
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+        
+        -- Sharp metallic "ping"
+        local envelope = math.exp(-t * 8) -- Quick decay
+        local frequency = 800 + 200 * math.sin(t * 25) -- High frequency with modulation
+        local phase = t * frequency * 2 * math.pi
+        
+        local sample = math.sin(phase) * envelope * 0.5
+        sample = sample + 0.3 * math.sin(phase * 2.1) * envelope -- Metallic harmonic
+        sample = sample + 0.1 * noise() * envelope -- Metallic resonance
+        
+        soundData:setSample(i, sample)
+    end
+
+    return love.audio.newSource(soundData)
+end
+
+function SoundGenerator.generateHullHitHeavy(duration, sampleRate)
+    duration = duration or 0.3
+    sampleRate = sampleRate or 22050
+
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
+
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+        
+        -- Deep metallic "thud" with resonance
+        local envelope = math.exp(-t * 4) -- Slower decay
+        local frequency = 300 + 100 * math.sin(t * 15) -- Lower frequency
+        local phase = t * frequency * 2 * math.pi
+        
+        local sample = math.sin(phase) * envelope * 0.7
+        sample = sample + 0.4 * math.sin(phase * 1.5) * envelope -- Harmonic
+        sample = sample + 0.2 * math.sin(phase * 0.7) * envelope -- Sub harmonic
+        sample = sample + 0.15 * noise() * envelope -- Metallic resonance
+        
+        soundData:setSample(i, sample)
+    end
+
+    return love.audio.newSource(soundData)
+end
+
+function SoundGenerator.generateHullHitCritical(duration, sampleRate)
+    duration = duration or 0.5
+    sampleRate = sampleRate or 22050
+
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
+
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+        
+        -- Deep, sustained metallic impact with structural damage
+        local envelope = math.exp(-t * 2.5) -- Very slow decay
+        local frequency = 150 + 50 * math.sin(t * 10) -- Very low frequency
+        local phase = t * frequency * 2 * math.pi
+        
+        local sample = math.sin(phase) * envelope * 0.8
+        sample = sample + 0.5 * math.sin(phase * 1.3) * envelope -- Harmonic
+        sample = sample + 0.3 * math.sin(phase * 0.4) * envelope -- Deep sub harmonic
+        sample = sample + 0.2 * noise() * envelope -- Structural creaking
+        
+        soundData:setSample(i, sample)
+    end
+
+    return love.audio.newSource(soundData)
+end
+
+-- Generate asteroid/rock impact sounds
+function SoundGenerator.generateAsteroidHitLight(duration, sampleRate)
+    duration = duration or 0.1
+    sampleRate = sampleRate or 22050
+
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
+
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+        
+        -- Quick rock "chip" sound
+        local envelope = math.exp(-t * 10) -- Very quick decay
+        local frequency = 1000 + 300 * math.sin(t * 35) -- High frequency
+        local phase = t * frequency * 2 * math.pi
+        
+        local sample = math.sin(phase) * envelope * 0.3
+        sample = sample + 0.2 * math.sin(phase * 2.5) * envelope -- Harmonic
+        sample = sample + 0.1 * noise() * envelope -- Rock chipping
+        
+        soundData:setSample(i, sample)
+    end
+
+    return love.audio.newSource(soundData)
+end
+
+function SoundGenerator.generateAsteroidHitHeavy(duration, sampleRate)
+    duration = duration or 0.4
+    sampleRate = sampleRate or 22050
+
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
+
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+        
+        -- Deep rock "crack" with debris
+        local envelope = math.exp(-t * 3) -- Moderate decay
+        local frequency = 200 + 80 * math.sin(t * 12) -- Lower frequency
+        local phase = t * frequency * 2 * math.pi
+        
+        local sample = math.sin(phase) * envelope * 0.6
+        sample = sample + 0.4 * math.sin(phase * 1.8) * envelope -- Harmonic
+        sample = sample + 0.2 * math.sin(phase * 0.6) * envelope -- Sub harmonic
+        sample = sample + 0.15 * noise() * envelope -- Rock debris
+        
+        soundData:setSample(i, sample)
+    end
+
+    return love.audio.newSource(soundData)
+end
+
+function SoundGenerator.generateRockImpact(duration, sampleRate)
+    duration = duration or 0.2
+    sampleRate = sampleRate or 22050
+
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
+
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+        
+        -- Solid rock impact
+        local envelope = math.exp(-t * 6) -- Quick decay
+        local frequency = 400 + 150 * math.sin(t * 18) -- Mid frequency
+        local phase = t * frequency * 2 * math.pi
+        
+        local sample = math.sin(phase) * envelope * 0.5
+        sample = sample + 0.3 * math.sin(phase * 2.2) * envelope -- Harmonic
+        sample = sample + 0.1 * noise() * envelope -- Rock impact
+        
+        soundData:setSample(i, sample)
+    end
+
+    return love.audio.newSource(soundData)
+end
+
 -- Generate a laser zap sound (combat laser) - Proper sci-fi laser beam
 function SoundGenerator.generateLaserZap(duration, frequency, sampleRate)
     duration = duration or 0.55  -- Longer sustain for deep resonance

@@ -477,6 +477,9 @@ function VersionLog.close()
     if VersionLog.closing then return end
     VersionLog.closing = true
     VersionLog.visible = false
+    -- Play close sound
+    local Sound = require("src.core.sound")
+    Sound.triggerEvent('ui_button_click')
     local ok, UIManager = pcall(require, "src.core.ui_manager")
     if ok and UIManager and UIManager.state and UIManager.state.debug then
         UIManager.state.debug.open = false

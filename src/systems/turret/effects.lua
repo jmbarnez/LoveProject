@@ -9,7 +9,7 @@ local TurretEffects = {}
 -- Global sound tracking for utility beams
 local activeUtilitySounds = {}
 
--- Play firing sound effects based on turret type
+-- Play firing sound effects based on turret type and ID
 function TurretEffects.playFiringSound(turret)
     if not turret or not turret.kind then return end
 
@@ -19,7 +19,15 @@ function TurretEffects.playFiringSound(turret)
         y = turret.owner.components.position.y
     end
 
-    if turret.kind == "missile" then
+    -- Use specific weapon sounds based on turret ID for better audio variety
+    if turret.id == "kinetic_turret" then
+        Sound.triggerEvent('weapon_kinetic_turret_fire', x, y)
+    elseif turret.id == "low_power_laser" then
+        Sound.triggerEvent('weapon_low_power_laser_fire', x, y)
+    elseif turret.id == "missile_launcher_mk1" then
+        Sound.triggerEvent('weapon_missile_launcher_fire', x, y)
+    -- Fallback to generic weapon sounds for other turrets
+    elseif turret.kind == "missile" then
         Sound.triggerEvent('weapon_missile_fire', x, y)
     elseif turret.kind == "laser" then
         Sound.triggerEvent('weapon_laser_fire', x, y)

@@ -307,6 +307,9 @@ function Window:mousepressed(x, y, button)
     
     -- Close button
     if self.closable and self:pointInCloseButton(x, y) then
+      -- Play click sound
+      local Sound = require("src.core.sound")
+      Sound.triggerEvent('ui_button_click')
       self:hide()
       return true
     end

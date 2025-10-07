@@ -34,6 +34,9 @@ function DebugPanel.init()
         drawContent = DebugPanel.drawContent,
         onClose = function()
             DebugPanel.visible = false
+            -- Play close sound
+            local Sound = require("src.core.sound")
+            Sound.triggerEvent('ui_button_click')
         end
     })
     DebugPanel.visible = false

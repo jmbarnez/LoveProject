@@ -391,6 +391,9 @@ end
 function ConstructionButton.closeMenu()
     menuState.visible = false
     buttonState.active = false
+    -- Play close sound
+    local Sound = require("src.core.sound")
+    Sound.triggerEvent('ui_button_click')
 end
 
 return ConstructionButton

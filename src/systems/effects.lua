@@ -138,10 +138,24 @@ function Effects.spawnImpact(kind, cx, cy, r, hx, hy, angle, style, bulletKind, 
       if bulletKind == 'collision' then
         Sound.triggerEventAt('shield_bounce', hx, hy)
       else
-        Sound.triggerEventAt('impact_shield', hx, hy)
+        -- Use damage-based shield sounds
+        local damage = (damage and (damage.value or damage)) or 1
+        if damage >= 20 then
+          Sound.triggerEventAt('impact_shield_heavy', hx, hy)
+        else
+          Sound.triggerEventAt('impact_shield_light', hx, hy)
+        end
       end
     else
-      Sound.triggerEventAt('impact_hull', hx, hy)
+      -- Use damage-based hull sounds
+      local damage = (damage and (damage.value or damage)) or 1
+      if damage >= 30 then
+        Sound.triggerEventAt('impact_hull_critical', hx, hy)
+      elseif damage >= 15 then
+        Sound.triggerEventAt('impact_hull_heavy', hx, hy)
+      else
+        Sound.triggerEventAt('impact_hull_light', hx, hy)
+      end
     end
   end
 

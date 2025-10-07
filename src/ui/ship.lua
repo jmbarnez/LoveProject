@@ -195,6 +195,9 @@ function Ship:new()
         end,
         onClose = function()
             Ship.visible = false
+            -- Play close sound
+            local Sound = require("src.core.sound")
+            Sound.triggerEvent('ui_button_click')
         end
     })
     o.statsScroll = 0

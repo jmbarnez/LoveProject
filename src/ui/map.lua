@@ -69,7 +69,7 @@ local function ensureWindow()
             Map._drawWorld = nil
             Map._mapBounds = nil
             Map._contentBounds = nil
-            Sound.playSFX("ui_close")
+            Sound.triggerEvent('ui_button_click')
         end,
     })
 

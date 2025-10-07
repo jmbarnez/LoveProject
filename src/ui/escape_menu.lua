@@ -141,6 +141,9 @@ function EscapeMenu.init()
         drawContent = EscapeMenu.drawContent,
         onClose = function()
             EscapeMenu.hide()
+            -- Play close sound
+            local Sound = require("src.core.sound")
+            Sound.triggerEvent('ui_button_click')
         end
     })
 end
