@@ -451,12 +451,26 @@ function Turret.getTurretWorldPosition(turret)
         muzzleX, muzzleY = pivotX, pivotY
     end
 
-    -- Determine how much the turret is rotated relative to the ship.
+    -- Determine how much the turret is rotated relative to the ship by comparing the
+    -- desired aim with the default muzzle orientation encoded in the ship visuals.
+    local offsetX = muzzleX - pivotX
+    local offsetY = muzzleY - pivotY
+    local hasOffset = (offsetX ~= 0) or (offsetY ~= 0)
+    local baseOrientation = 0
+    if hasOffset then
+        baseOrientation = math.atan2(offsetY, offsetX)
+    end
+
     local aimAngle = turret.currentAimAngle
     if not aimAngle then
-        aimAngle = shipAngle - math.pi / 2
+        -- Default to aiming straight along the turret's unrotated muzzle direction so the
+        -- calculated world position matches the ship visuals even before explicit aiming
+        -- data is provided.
+        aimAngle = shipAngle + baseOrientation
     end
-    local turretAngle = aimAngle - shipAngle + math.pi / 2
+
+    local aimRelative = aimAngle - shipAngle
+    local turretAngle = aimRelative - baseOrientation
 
     -- Rotate pivot into world space.
     local cosShip = math.cos(shipAngle)
@@ -465,8 +479,6 @@ function Turret.getTurretWorldPosition(turret)
     local pivotWorldY = shipY + pivotX * sinShip + pivotY * cosShip
 
     -- Rotate muzzle offset by turret rotation, then by ship rotation.
-    local offsetX = muzzleX - pivotX
-    local offsetY = muzzleY - pivotY
     local cosTurret = math.cos(turretAngle)
     local sinTurret = math.sin(turretAngle)
     local rotatedOffsetX = offsetX * cosTurret - offsetY * sinTurret
