@@ -40,10 +40,45 @@ end
 
 -- Screen-space parallax stars (move with camera by a small factor)
 -- Generate screen-space parallax stars that follow the camera subtly.
-local function genScreenStars(sw, sh, count)
+local function genScreenStars(sw, sh, count, layerType)
   local stars = {}
+  layerType = layerType or "default"
+  
   for i = 1, count do
-    stars[i] = { x = math.random() * sw, y = math.random() * sh, s = 0.28 + math.random() * 0.36 }
+    local star = { 
+      x = math.random() * sw, 
+      y = math.random() * sh
+    }
+    
+    -- Different star properties based on layer type
+    if layerType == "close" then
+      -- Close stars: larger, brighter, more varied
+      star.s = 0.4 + math.random() * 0.8
+      star.brightness = 0.8 + math.random() * 0.2
+      star.color = {1.0, 1.0, 1.0} -- Pure white
+    elseif layerType == "medium" then
+      -- Medium stars: medium size, slight blue tint
+      star.s = 0.3 + math.random() * 0.5
+      star.brightness = 0.6 + math.random() * 0.3
+      star.color = {0.9, 0.95, 1.0} -- Slight blue tint
+    elseif layerType == "far" then
+      -- Far stars: smaller, dimmer, more blue
+      star.s = 0.2 + math.random() * 0.4
+      star.brightness = 0.4 + math.random() * 0.3
+      star.color = {0.8, 0.9, 1.0} -- More blue tint
+    elseif layerType == "very_far" then
+      -- Very far stars: tiny, very dim, deep blue
+      star.s = 0.1 + math.random() * 0.3
+      star.brightness = 0.2 + math.random() * 0.2
+      star.color = {0.7, 0.8, 1.0} -- Deep blue tint
+    else
+      -- Default: original behavior
+      star.s = 0.28 + math.random() * 0.36
+      star.brightness = 0.6 + math.random() * 0.4
+      star.color = {1.0, 1.0, 1.0}
+    end
+    
+    stars[i] = star
   end
   return stars
 end
@@ -62,9 +97,12 @@ function World.new(width, height)
   self.entities = {}
   self.next_id = 1
   -- Screen-space star layers + static sky stars
+  -- Multiple parallax layers for depth perception
   self.starLayers = {
-    { p = 0.040, stars = {} }, -- far
-    { p = 0.015, stars = {} }, -- very far
+    { p = 0.08, stars = {}, type = "close" },      -- Close stars: move fast
+    { p = 0.05, stars = {}, type = "medium" },     -- Medium stars: moderate movement
+    { p = 0.03, stars = {}, type = "far" },        -- Far stars: slow movement
+    { p = 0.015, stars = {}, type = "very_far" },  -- Very far stars: barely move
   }
   self.skyW, self.skyH = 0, 0
   self.skyStars = {}
@@ -77,8 +115,12 @@ function World.new(width, height)
   local sw, sh = Viewport.getDimensions()
   self.starW, self.starH = sw, sh
   local scale = (sw * sh) / (1920 * 1080)
-  self.starLayers[1].stars = genScreenStars(sw, sh, math.floor(120 * math.max(1, scale)))
-  self.starLayers[2].stars = genScreenStars(sw, sh, math.floor(80  * math.max(1, scale)))
+  
+  -- Generate stars for each layer with appropriate density
+  self.starLayers[1].stars = genScreenStars(sw, sh, math.floor(60 * math.max(1, scale)), "close")
+  self.starLayers[2].stars = genScreenStars(sw, sh, math.floor(80 * math.max(1, scale)), "medium")
+  self.starLayers[3].stars = genScreenStars(sw, sh, math.floor(100 * math.max(1, scale)), "far")
+  self.starLayers[4].stars = genScreenStars(sw, sh, math.floor(120 * math.max(1, scale)), "very_far")
 
   -- Cache for star rendering batches
   self.starBatches = {}
@@ -251,18 +293,31 @@ function World:drawBackground(camera)
   if self.starW ~= w or self.starH ~= h then
     self.starW, self.starH = w, h
     local scale = (w * h) / (1920 * 1080)
-    self.starLayers[1].stars = genScreenStars(w, h, math.floor(160 * math.max(1, scale)))
-    self.starLayers[2].stars = genScreenStars(w, h, math.floor(120 * math.max(1, scale)))
+    
+    -- Regenerate all star layers with appropriate densities
+    self.starLayers[1].stars = genScreenStars(w, h, math.floor(60 * math.max(1, scale)), "close")
+    self.starLayers[2].stars = genScreenStars(w, h, math.floor(80 * math.max(1, scale)), "medium")
+    self.starLayers[3].stars = genScreenStars(w, h, math.floor(100 * math.max(1, scale)), "far")
+    self.starLayers[4].stars = genScreenStars(w, h, math.floor(120 * math.max(1, scale)), "very_far")
   end
   -- Parallax stars: move slightly with camera and wrap on screen bounds
   -- Use batched rendering for better performance
+  local t = (love.timer and love.timer.getTime and love.timer.getTime()) or 0
   for li = 1, #self.starLayers do
     local layer = self.starLayers[li]
     local p = layer.p or 0.02
     local ox = (-camera.x * p) % w
     local oy = (-camera.y * p) % h
-    local alpha = math.min(0.35, 0.12 + 1.8 * p)
-    love.graphics.setColor(1,1,1, alpha)
+    
+    -- Calculate base alpha based on parallax speed (closer = more visible)
+    local baseAlpha = math.min(0.6, 0.1 + 2.0 * p)
+    
+    -- Add subtle twinkling effect (slower for distant stars)
+    local twinkleSpeed = 1.0 + (4 - li) * 0.5 -- Closer stars twinkle faster
+    local twinkle = 0.8 + 0.2 * math.sin(t * twinkleSpeed)
+    baseAlpha = baseAlpha * twinkle
+    
+    love.graphics.setColor(1,1,1, baseAlpha)
 
     -- Batch star rendering for better performance
     local batch = self.starBatches[li]
@@ -305,6 +360,16 @@ function World:drawBackground(camera)
         if sy < 0 then sy = sy + h end
         local sxs = math.floor(sx) + 0.5
         local sys = math.floor(sy) + 0.5
+        
+        -- Use individual star color and brightness with twinkling
+        local starColor = s.color or {1.0, 1.0, 1.0}
+        local starBrightness = s.brightness or 1.0
+        
+        -- Individual star twinkling (slight variation per star)
+        local starTwinkle = 0.9 + 0.1 * math.sin(t * (twinkleSpeed + (i % 3) * 0.3))
+        local finalAlpha = baseAlpha * starBrightness * starTwinkle
+        
+        love.graphics.setColor(starColor[1], starColor[2], starColor[3], finalAlpha)
         love.graphics.circle('fill', sxs, sys, s.s)
       end
     end

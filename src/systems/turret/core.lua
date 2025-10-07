@@ -19,6 +19,7 @@ Turret.__index = Turret
 local turretInstanceCounter = 0
 local EMPTY_TABLE = {}
 
+
 function Turret.new(owner, params)
     local self = setmetatable({}, Turret)
 

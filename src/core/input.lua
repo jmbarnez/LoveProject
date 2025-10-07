@@ -92,8 +92,8 @@ local function handleInput()
         return { aimx = 0, aimy = 0 } -- Default values if camera isn't ready
     end
 
-    -- Use raw mouse coordinates directly - don't apply viewport transformations
-    -- The camera system handles its own coordinate conversion
+    -- Get raw mouse coordinates and convert to virtual coordinates
+    -- The camera system works in virtual space, not raw screen space
     local mx, my = love.mouse.getPosition()
 
     -- Handle case where mouse position might be invalid
@@ -101,7 +101,9 @@ local function handleInput()
         return { aimx = 0, aimy = 0, leftClick = mouseState.leftButtonDown }
     end
 
-    local wx, wy = gameState.camera:screenToWorld(mx, my)
+    -- Convert from actual screen coordinates to virtual coordinates
+    local vx, vy = Viewport.toVirtual(mx, my)
+    local wx, wy = gameState.camera:screenToWorld(vx, vy)
 
     -- Handle case where world coordinates might be invalid
     if wx == nil or wy == nil or wx ~= wx or wy ~= wy then -- Check for NaN

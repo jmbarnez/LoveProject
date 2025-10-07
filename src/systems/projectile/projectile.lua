@@ -181,6 +181,11 @@ function Projectile.new(x, y, angle, friendly, config)
 
     behaviorManager:loadConfig(config.behaviors or config.behavior or {})
 
+    -- Set up ignore targets for collision detection
+    if config.ignoreTargets then
+        self._behaviorIgnoreTargets = config.ignoreTargets
+    end
+
     dispatcher:emit(ProjectileEvents.SPAWN, {
         projectile = self,
         config = config,

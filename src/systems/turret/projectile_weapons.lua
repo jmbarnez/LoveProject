@@ -4,6 +4,7 @@ local Skills = require("src.core.skills")
 local Log = require("src.core.log")
 local BeamWeapons = require("src.systems.turret.beam_weapons")
 local TargetUtils = require("src.core.target_utils")
+local TurretUtils = require("src.systems.turret.utils")
 
 local ProjectileWeapons = {}
 local PLAYER_LOCK_ANGLE_TOLERANCE = math.rad(25)
@@ -357,7 +358,7 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
     end
     local volleySpreadDeg = (type(turret.volleySpreadDeg) == "number") and turret.volleySpreadDeg or 0
     local owner = turret.owner
-    local friendly = owner and (owner.isPlayer or owner.isRemotePlayer or owner.isFriendly) or false
+    local friendly = TurretUtils.isFriendly(owner)
     local spreadConfig = turret.spread or { minDeg = 0 }
     local baseSpread = (type(spreadConfig.minDeg) == "number") and spreadConfig.minDeg or 0
 
@@ -562,7 +563,7 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         end
 
         local owner = turret.owner
-        local friendly = owner and (owner.isPlayer or owner.isRemotePlayer or owner.isFriendly) or false
+        local friendly = TurretUtils.isFriendly(owner)
 
         -- Try to send weapon fire request first (for clients)
         local requestSent = sendWeaponFireRequest(turret, sx, sy, angle, projectileId, damageConfig, additionalEffects)
@@ -651,7 +652,7 @@ function ProjectileWeapons.fireSecondaryProjectile(turret, target, primaryAngle,
         dmg = { min = 1, max = 2, skill = turret.skillId }
     end
 
-    local friendly = owner and (owner.isPlayer or owner.isRemotePlayer or owner.isFriendly) or false
+    local friendly = TurretUtils.isFriendly(owner)
 
     -- Try to send weapon fire request first (for clients)
     local requestSent = sendWeaponFireRequest(turret, sx, sy, angle, turret.secondaryProjectile.id, dmg, nil)

@@ -300,6 +300,7 @@ function ConstructionButton.drawMenu()
 
     local previousFont = love.graphics.getFont()
     Theme.setFont("medium")
+    local titleFont = Theme.getFont("medium")
     Theme.setColor(Theme.colors.textHighlight)
     love.graphics.print("Construction", x + layout.padding, y + layout.padding)
 
