@@ -5,6 +5,7 @@ local Geometry = require("src.systems.collision.geometry")
 local Radius = require("src.systems.collision.radius")
 local StationShields = require("src.systems.collision.station_shields")
 local CollisionEffects = require("src.systems.collision.effects")
+local EntityCollision = require("src.systems.collision.entity_collision")
 local Log = require("src.core.log")
 local ProjectileEvents = require("src.systems.projectile.event_dispatcher").EVENTS
 local UpgradeSystem = require("src.systems.turret.upgrade_system")
@@ -213,48 +214,58 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
                 shield_hit = CollisionEffects.applyDamage(target, dmg_val, source)
             end
 
-            -- Handle force wave effect for kinetic wave projectiles
+            -- Handle impact direction vectors for special interactions
             local renderableProps = renderable.props or {}
+            local dx = ex - pos.x
+            local dy = ey - pos.y
+            local distance = math.sqrt(dx * dx + dy * dy)
+            local impactDirX, impactDirY = 1, 0
+            if pos.angle then
+                impactDirX = math.cos(pos.angle)
+                impactDirY = math.sin(pos.angle)
+            else
+                local speedMag = math.sqrt((vel.x or 0) * (vel.x or 0) + (vel.y or 0) * (vel.y or 0))
+                if speedMag > 0 then
+                    impactDirX = (vel.x or 0) / speedMag
+                    impactDirY = (vel.y or 0) / speedMag
+                elseif distance > 0 then
+                    impactDirX = dx / distance
+                    impactDirY = dy / distance
+                end
+            end
+            local projAngle = pos.angle or math.atan2(impactDirY, impactDirX)
+
+            -- Handle force wave effect for kinetic wave projectiles
             if renderableProps.kind == 'wave' and bullet.components.force_wave then
                 local forceWave = bullet.components.force_wave
                 local knockbackForce = forceWave.knockback_force or 500
                 local waveRadius = forceWave.radius or 12
                 local arcAngle = math.pi * 0.6 -- 108 degrees wide arc (same as visual)
-                
-                -- Get projectile angle for arc direction
-                local projAngle = pos.angle or 0
-                local arcStart = projAngle - arcAngle / 2
-                local arcEnd = projAngle + arcAngle / 2
-                
+
                 -- Calculate knockback direction from projectile to target
-                local dx = ex - pos.x
-                local dy = ey - pos.y
-                local distance = math.sqrt(dx * dx + dy * dy)
                 if distance > 0 then
                     local targetAngle = math.atan2(dy, dx)
-                    
+
                     -- Check if target is within the arc
                     local angleDiff = targetAngle - projAngle
                     -- Normalize angle difference to [-pi, pi]
                     while angleDiff > math.pi do angleDiff = angleDiff - 2 * math.pi end
                     while angleDiff < -math.pi do angleDiff = angleDiff + 2 * math.pi end
-                    
+
                     local isInArc = math.abs(angleDiff) <= arcAngle / 2
-                    
+
                     if isInArc and distance <= waveRadius then
                         local normalX = dx / distance
                         local normalY = dy / distance
-                        
+
                         -- Apply knockback force to target
                         local pushX = normalX * knockbackForce * 0.01 -- Scale down for reasonable force
                         local pushY = normalY * knockbackForce * 0.01
-                        
-                        -- Use the existing pushEntity function from entity collision
-                        local EntityCollision = require("src.systems.collision.entity_collision")
+
                         EntityCollision.pushEntity(target, pushX, pushY, normalX, normalY, dt, 0.5)
                     end
                 end
-                
+
                 -- Apply area effect to nearby entities within the arc
                 local nearbyEntities = world:get_entities_in_radius(pos.x, pos.y, waveRadius, {"enemy", "player"})
                 for _, entity in ipairs(nearbyEntities) do
@@ -264,28 +275,64 @@ function ProjectileCollision.handle_projectile_collision(collision_system, bulle
                         local dx2 = ex2 - pos.x
                         local dy2 = ey2 - pos.y
                         local distance2 = math.sqrt(dx2 * dx2 + dy2 * dy2)
-                        
+
                         if distance2 > 0 and distance2 <= waveRadius then
                             local entityAngle = math.atan2(dy2, dx2)
-                            
+
                             -- Check if entity is within the arc
                             local angleDiff2 = entityAngle - projAngle
                             -- Normalize angle difference to [-pi, pi]
                             while angleDiff2 > math.pi do angleDiff2 = angleDiff2 - 2 * math.pi end
                             while angleDiff2 < -math.pi do angleDiff2 = angleDiff2 + 2 * math.pi end
-                            
+
                             local isInArc2 = math.abs(angleDiff2) <= arcAngle / 2
-                            
+
                             if isInArc2 then
                                 local normalX2 = dx2 / distance2
                                 local normalY2 = dy2 / distance2
                                 local forceMultiplier = 1.0 - (distance2 / waveRadius) -- Falloff with distance
                                 local pushX2 = normalX2 * knockbackForce * 0.01 * forceMultiplier
                                 local pushY2 = normalY2 * knockbackForce * 0.01 * forceMultiplier
-                                
+
                                 EntityCollision.pushEntity(entity, pushX2, pushY2, normalX2, normalY2, dt, 0.3)
                             end
                         end
+                    end
+                end
+            end
+
+            -- Apply ballistic impulse for kinetic projectiles
+            if bullet.components.ballistics then
+                local ballistics = bullet.components.ballistics
+                local projectileMass = ballistics.projectile_mass or ballistics.mass or 1
+                local muzzleVelocity = ballistics.muzzle_velocity or ballistics.velocity or 0
+                local speedMag = math.sqrt((vel.x or 0) * (vel.x or 0) + (vel.y or 0) * (vel.y or 0))
+                local impactVelocity = ballistics.impact_velocity or ((speedMag > 0) and speedMag or muzzleVelocity)
+                if muzzleVelocity > 0 and impactVelocity < muzzleVelocity * 0.25 then
+                    impactVelocity = muzzleVelocity * 0.25
+                end
+
+                local impulse = projectileMass * impactVelocity
+                local impulseTransfer = ballistics.impulse_transfer or 1.0
+                local impulseX = impactDirX * impulse * impulseTransfer
+                local impulseY = impactDirY * impulse * impulseTransfer
+
+                local appliedImpulse = false
+                local physicsComp = target.components.physics
+                local body = physicsComp and physicsComp.body
+                if body and body.applyImpulse then
+                    body:applyImpulse(impulseX, impulseY)
+                    appliedImpulse = true
+                end
+
+                if not appliedImpulse then
+                    local displacementScale = ballistics.displacement_scale or 0.0003
+                    EntityCollision.pushEntity(target, impactDirX * impulse * displacementScale, impactDirY * impulse * displacementScale, impactDirX, impactDirY, dt, ballistics.restitution or 0.2)
+
+                    local targetVel = target.components.velocity
+                    if targetVel then
+                        targetVel.x = (targetVel.x or 0) + impulseX * 0.01
+                        targetVel.y = (targetVel.y or 0) + impulseY * 0.01
                     end
                 end
             end
