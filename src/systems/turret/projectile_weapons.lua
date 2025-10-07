@@ -52,7 +52,6 @@ local function sendWeaponFireRequest(turret, sx, sy, angle, projectileId, damage
         
         -- Send via network manager
         if networkManager.sendWeaponFireRequest then
-            local json = require("src.libs.json")
             networkManager:sendWeaponFireRequest(request)
         end
         return true
@@ -357,7 +356,8 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
         volleyCount = math.floor(volleyCount)
     end
     local volleySpreadDeg = (type(turret.volleySpreadDeg) == "number") and turret.volleySpreadDeg or 0
-    local friendly = turret.owner.isPlayer or false
+    local owner = turret.owner
+    local friendly = owner and (owner.isPlayer or owner.isRemotePlayer or owner.isFriendly) or false
     local spreadConfig = turret.spread or { minDeg = 0 }
     local baseSpread = (type(spreadConfig.minDeg) == "number") and spreadConfig.minDeg or 0
 
@@ -432,7 +432,6 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
                     spawnConfig.targetX = targetX
                     spawnConfig.targetY = targetY
                     spawnConfig.targetAngle = angle
-                    print("Passing target position to projectile:", targetX, targetY, "angle:", angle)
                 end
                 
                 world.spawn_projectile(sx, sy, finalAngle, friendly, spawnConfig)
@@ -562,7 +561,8 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
             })
         end
 
-        local friendly = turret.owner.isPlayer or false
+        local owner = turret.owner
+        local friendly = owner and (owner.isPlayer or owner.isRemotePlayer or owner.isFriendly) or false
 
         -- Try to send weapon fire request first (for clients)
         local requestSent = sendWeaponFireRequest(turret, sx, sy, angle, projectileId, damageConfig, additionalEffects)
@@ -613,7 +613,10 @@ end
 function ProjectileWeapons.fireSecondaryProjectile(turret, target, primaryAngle, world)
     if not turret.secondaryProjectile then return end
 
-    local ownerPos = turret.owner.components.position
+    local owner = turret.owner
+    local Turret = require("src.systems.turret.core")
+    local sx, sy = Turret.getTurretWorldPosition(turret)
+    local ownerPos = (owner and owner.components and owner.components.position) or { x = sx, y = sy }
     local targetPos = target and target.components and target.components.position
     local dx, dy = 0, 0
     local angle = primaryAngle
@@ -628,14 +631,12 @@ function ProjectileWeapons.fireSecondaryProjectile(turret, target, primaryAngle,
     end
 
     -- Secondary projectiles often have different characteristics
-    local secondarySpeed = turret.secondaryProjectile.speed
+    local secondarySpeed = turret.secondaryProjectile.speed or turret.secondaryProjectileSpeed or 0
 
     turret.currentAimAngle = primaryAngle
 
     -- Create secondary projectile
-    -- Get turret world position instead of ship center
-    local Turret = require("src.systems.turret.core")
-    local sx, sy = Turret.getTurretWorldPosition(turret)
+
     local vx = math.cos(angle) * secondarySpeed
     local vy = math.sin(angle) * secondarySpeed
 
@@ -650,7 +651,7 @@ function ProjectileWeapons.fireSecondaryProjectile(turret, target, primaryAngle,
         dmg = { min = 1, max = 2, skill = turret.skillId }
     end
 
-    local friendly = turret.owner.isPlayer or false
+    local friendly = owner and (owner.isPlayer or owner.isRemotePlayer or owner.isFriendly) or false
 
     -- Try to send weapon fire request first (for clients)
     local requestSent = sendWeaponFireRequest(turret, sx, sy, angle, turret.secondaryProjectile.id, dmg, nil)
