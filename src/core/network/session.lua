@@ -220,7 +220,8 @@ local function applyAdditionalEffectContext(effects, turretInstance, turretDef, 
                     speed = turretDef.projectile.physics.speed
                 end
 
-                effect.speed = speed or effect.speed
+                -- Provide a sensible default speed if no turret speed is found
+                effect.speed = speed or 1200
             end
 
             local target = turretInstance and turretInstance.lockOnTarget

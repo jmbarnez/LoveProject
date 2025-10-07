@@ -87,9 +87,20 @@ local function factory(context, config)
             return -- Keep the specific target
         end
 
-        if not state.currentTarget or forceNearest or state.maintainNearest then
+        -- If we have a valid current target, keep it unless it becomes invalid
+        if state.currentTarget and is_target_valid(state.currentTarget) then
+            return
+        end
+
+        -- Only look for a new target if we don't have one or the current one is invalid
+        if not state.currentTarget or forceNearest then
             local target = acquire_target(projectile, world, maxRangeSq, true)
             if target then
+                state.currentTarget = target
+            end
+        elseif state.maintainNearest then
+            local target = acquire_target(projectile, world, maxRangeSq, true)
+            if target and target ~= state.currentTarget then
                 state.currentTarget = target
             end
         end

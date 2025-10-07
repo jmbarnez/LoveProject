@@ -84,19 +84,21 @@ local function factory(context, config)
             return
         end
 
-        if forceNearest then
+        -- If we have a valid current target, keep it unless it becomes invalid
+        if currentTarget and isTargetValid(currentTarget, projectile) then
+            return
+        end
+
+        -- Only look for a new target if we don't have one or the current one is invalid
+        if forceNearest or not currentTarget then
             local nearest = findNearestTarget(projectile, world, maxRangeSq)
             if nearest then
                 currentTarget = nearest
             end
-        else
-            if not isTargetValid(currentTarget, projectile) then
-                currentTarget = findNearestTarget(projectile, world, maxRangeSq)
-            elseif maintainNearest then
-                local nearest = findNearestTarget(projectile, world, maxRangeSq)
-                if nearest and nearest ~= currentTarget then
-                    currentTarget = nearest
-                end
+        elseif maintainNearest then
+            local nearest = findNearestTarget(projectile, world, maxRangeSq)
+            if nearest and nearest ~= currentTarget then
+                currentTarget = nearest
             end
         end
 
