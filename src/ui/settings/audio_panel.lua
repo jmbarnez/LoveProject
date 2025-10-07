@@ -47,7 +47,7 @@ function AudioPanel.draw(layout)
     Theme.setColor(Theme.colors.text)
     love.graphics.print("Master Volume:", labelX, yOffset)
     local masterText = string.format("%.2f", currentSettings.master_volume)
-    love.graphics.print(masterText, layout.x + 400, yOffset)
+    love.graphics.print(masterText, valueX + 220, yOffset)
     local sliderX = valueX
     local sliderW = 200
     local sliderScreenY = yOffset - 5 - layout.scrollY
@@ -62,7 +62,7 @@ function AudioPanel.draw(layout)
     Theme.setColor(Theme.colors.text)
     love.graphics.print("SFX Volume:", labelX, yOffset)
     local sfxText = string.format("%.2f", currentSettings.sfx_volume)
-    love.graphics.print(sfxText, layout.x + 400, yOffset)
+    love.graphics.print(sfxText, valueX + 220, yOffset)
     sliderScreenY = yOffset - 5 - layout.scrollY
     trackColor, trackGlow = sliderColor(hovered.sfx_volume)
     Theme.drawGradientGlowRect(sliderX, yOffset - 5, sliderW, 10, 2, trackColor, Theme.colors.bg2, Theme.colors.border, trackGlow)
@@ -75,7 +75,7 @@ function AudioPanel.draw(layout)
     Theme.setColor(Theme.colors.text)
     love.graphics.print("Music Volume:", labelX, yOffset)
     local musicText = string.format("%.2f", currentSettings.music_volume)
-    love.graphics.print(musicText, layout.x + 400, yOffset)
+    love.graphics.print(musicText, valueX + 220, yOffset)
     sliderScreenY = yOffset - 5 - layout.scrollY
     trackColor, trackGlow = sliderColor(hovered.music_volume)
     Theme.drawGradientGlowRect(sliderX, yOffset - 5, sliderW, 10, 2, trackColor, Theme.colors.bg2, Theme.colors.border, trackGlow)

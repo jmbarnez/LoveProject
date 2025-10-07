@@ -376,8 +376,8 @@ function Start:draw()
     love.graphics.setColor(r, g, b, 1)
     love.graphics.printf(titleText, titleX, titleY, textWidth, "center")
   end
-  -- Use smaller theme font for menu items
-  love.graphics.setFont(Theme.fonts and (Theme.fonts.small or Theme.fonts.normal) or love.graphics.getFont())
+  -- Use unified font system for menu items
+  Theme.setFont("normal")
 
   -- Animated star field with theme integration
   for i = 1, #self.sky do
@@ -467,60 +467,55 @@ function Start:draw()
     love.graphics.circle('fill', math.floor(comet.x)+0.5, math.floor(comet.y)+0.5, comet.size * 0.4)
   end
 
-  -- Enhanced main button with sci-fi styling
-  local s = uiScale()
-  local bw, bh = self.button.w * s, self.button.h * s
-  local totalButtonHeight = bh * 4 + 40 * s -- 4 buttons now
+  -- Enhanced main button with sci-fi styling using unified system
+  local buttonSize = Theme.getButtonSize("menu")
+  local bw, bh = buttonSize.w, buttonSize.h
+  local totalButtonHeight = bh * 4 + Theme.getScaledSize(40) -- 4 buttons now
   local startY = math.floor((h - totalButtonHeight) / 2)
 
   local bx = math.floor((w - bw) * 0.5)
   local by = startY
   local mx, my = Viewport.getMousePosition()
   local hover = mx >= bx and mx <= bx + bw and my >= by and my <= by + bh
-  UIButton.drawRect(bx, by, bw, bh, "New Game", hover, t, { compact = true, menuButton = true })
-  self.button._rect = { x = bx, y = by, w = bw, h = bh }
+  self.button._rect = Theme.drawMenuButton(bx, by, "New Game", hover, t)
 
   local lbx = bx
-  local lby = by + bh + 20 * s
+  local lby = by + bh + Theme.getScaledSize(20)
   local lhover = mx >= lbx and mx <= lbx + bw and my >= lby and my <= lby + bh
-  UIButton.drawRect(lbx, lby, bw, bh, "Load Game", lhover, t, { compact = true, menuButton = true })
-  self.loadButton._rect = { x = lbx, y = lby, w = bw, h = bh }
+  self.loadButton._rect = Theme.drawMenuButton(lbx, lby, "Load Game", lhover, t)
 
   -- Join Multiplayer button
   local mbx = bx
-  local mby = lby + bh + 20 * s
+  local mby = lby + bh + Theme.getScaledSize(20)
   local mhover = mx >= mbx and mx <= mbx + bw and my >= mby and my <= mby + bh
-  UIButton.drawRect(mbx, mby, bw, bh, "Join Game", mhover, t, { compact = true, menuButton = true })
-  self.multiplayerButton._rect = { x = mbx, y = mby, w = bw, h = bh }
+  self.multiplayerButton._rect = Theme.drawMenuButton(mbx, mby, "Join Game", mhover, t)
 
   local versionText = Strings.getUI('version') or ""
-  local baseFont = Theme.fonts and Theme.fonts.normal or love.graphics.getFont()
-  local versionWidth = baseFont:getWidth(versionText)
-  local versionButtonPadding = 20 * s
-  local vbw = math.max(160 * s, versionWidth + versionButtonPadding)
+  local versionWidth = Theme.getFont("normal"):getWidth(versionText)
+  local versionButtonPadding = Theme.getScaledSize(20)
+  local vbw = math.max(Theme.getScaledSize(160), versionWidth + versionButtonPadding)
   local vbh = bh
   local vbx = math.floor((w - vbw) * 0.5)
-  local vby = math.floor(h - vbh - 40 * s)
+  local vby = math.floor(h - vbh - Theme.getScaledSize(40))
 
   local vhover = mx >= vbx and mx <= vbx + vbw and my >= vby and my <= vby + vbh
 
-  -- Use proper button system for version button
-  UIButton.drawRect(vbx, vby, vbw, vbh, versionText, vhover, t, { 
-    compact = true,
+  -- Use unified button system for version button
+  Theme.drawCompactButton(vbx, vby, vbw, vbh, versionText, vhover, t, { 
     color = {0, 0, 0, 0.3} -- Semi-transparent background
   })
 
   self.versionButton._rect = { x = vbx, y = vby, w = vbw, h = vbh }
 
   -- Settings button in top right (smaller)
-  local settingsButtonSize = 32 * s
-  local settingsButtonX = w - settingsButtonSize - 20 * s
-  local settingsButtonY = 20 * s
+  local settingsButtonSize = Theme.getScaledSize(32)
+  local settingsButtonX = w - settingsButtonSize - Theme.getScaledSize(20)
+  local settingsButtonY = Theme.getScaledSize(20)
   local settingsHover = mx >= settingsButtonX and mx <= settingsButtonX + settingsButtonSize and my >= settingsButtonY and my <= settingsButtonY + settingsButtonSize
 
-  -- Use proper button system for settings button
-  UIButton.drawRect(settingsButtonX, settingsButtonY, settingsButtonSize, settingsButtonSize, "", settingsHover, t, { 
-    compact = true,
+  -- Use unified button system for settings button
+  Theme.drawButton(settingsButtonX, settingsButtonY, settingsButtonSize, settingsButtonSize, "", settingsHover, t, { 
+    size = "square",
     color = {0, 0, 0, 0.3} -- Semi-transparent background
   })
   
@@ -531,15 +526,15 @@ function Start:draw()
   self.settingsButton._rect = { x = settingsButtonX, y = settingsButtonY, w = settingsButtonSize, h = settingsButtonSize }
 
   -- Exit button in top left (red X)
-  local exitButtonSize = 32 * s
-  local exitButtonX = 20 * s
-  local exitButtonY = 20 * s
+  local exitButtonSize = Theme.getScaledSize(32)
+  local exitButtonX = Theme.getScaledSize(20)
+  local exitButtonY = Theme.getScaledSize(20)
   local exitHover = mx >= exitButtonX and mx <= exitButtonX + exitButtonSize and my >= exitButtonY and my <= exitButtonY + exitButtonSize
 
-  -- Use proper button system for exit button with red color
+  -- Use unified button system for exit button with red color
   local exitColor = exitHover and {1.0, 0.3, 0.3, 1.0} or {0.8, 0.2, 0.2, 1.0}
-  UIButton.drawRect(exitButtonX, exitButtonY, exitButtonSize, exitButtonSize, "", exitHover, t, { 
-    compact = true,
+  Theme.drawButton(exitButtonX, exitButtonY, exitButtonSize, exitButtonSize, "", exitHover, t, { 
+    size = "square",
     color = exitColor
   })
   
@@ -588,22 +583,21 @@ function Start:draw()
 end
 
 function Start:drawJoinWindowContent(window, x, y, w, h)
-  local s = uiScale()
-  local padding = 20 * s
+  local padding = Theme.getScaledSize(20)
 
   local font = Theme.fonts.normal
   if not font then font = love.graphics.getFont() end
   love.graphics.setFont(font)
 
   local contentWidth = w - padding * 2
-  local headerY = y + 20 * s
+  local headerY = y + Theme.getScaledSize(20)
   Theme.setColor(Theme.colors.text)
   love.graphics.printf("Connect to the official main server to start your adventure.", x + padding, headerY, contentWidth, "center")
 
   local infoBoxX = x + padding
-  local infoBoxY = headerY + font:getHeight() + 15 * s
-  local lineHeight = font:getHeight() + 6 * s
-  local infoBoxH = lineHeight * 3 + 20 * s
+  local infoBoxY = headerY + font:getHeight() + Theme.getScaledSize(15)
+  local lineHeight = font:getHeight() + Theme.getScaledSize(6)
+  local infoBoxH = lineHeight * 3 + Theme.getScaledSize(20)
   local infoBoxW = contentWidth
 
   self.addressInputRect = nil
@@ -616,10 +610,10 @@ function Start:drawJoinWindowContent(window, x, y, w, h)
   love.graphics.rectangle("line", infoBoxX, infoBoxY, infoBoxW, infoBoxH)
 
   Theme.setColor(Theme.colors.text)
-  love.graphics.print("Server: Main Server", infoBoxX + 10 * s, infoBoxY + 10 * s)
+  love.graphics.print("Server: Main Server", infoBoxX + Theme.getScaledSize(10), infoBoxY + Theme.getScaledSize(10))
   -- Status light indicating server online/offline/unknown
-  local lightX = infoBoxX + infoBoxW - 18 * s
-  local lightY = infoBoxY + 16 * s
+  local lightX = infoBoxX + infoBoxW - Theme.getScaledSize(18)
+  local lightY = infoBoxY + Theme.getScaledSize(16)
   local lightColor
   if self.serverOnline == true then
     lightColor = {0.2, 0.9, 0.2, 1}
@@ -629,19 +623,19 @@ function Start:drawJoinWindowContent(window, x, y, w, h)
     lightColor = {0.9, 0.8, 0.2, 1}
   end
   Theme.setColor(lightColor)
-  love.graphics.circle("fill", lightX, lightY, 6 * s)
+  love.graphics.circle("fill", lightX, lightY, Theme.getScaledSize(6))
   Theme.setColor(Theme.colors.border)
-  love.graphics.circle("line", lightX, lightY, 6 * s)
-  love.graphics.print("Address: " .. self.joinAddress, infoBoxX + 10 * s, infoBoxY + 10 * s + lineHeight)
-  love.graphics.print("Port: " .. self.joinPort, infoBoxX + 10 * s, infoBoxY + 10 * s + lineHeight * 2)
+  love.graphics.circle("line", lightX, lightY, Theme.getScaledSize(6))
+  love.graphics.print("Address: " .. self.joinAddress, infoBoxX + Theme.getScaledSize(10), infoBoxY + Theme.getScaledSize(10) + lineHeight)
+  love.graphics.print("Port: " .. self.joinPort, infoBoxX + Theme.getScaledSize(10), infoBoxY + Theme.getScaledSize(10) + lineHeight * 2)
 
   -- Status text removed - using status light and button state instead
 
-  local inputH = 30 * s
-  local usernameLabelY = infoBoxY + infoBoxH + 20 * s
+  local inputH = Theme.getScaledSize(30)
+  local usernameLabelY = infoBoxY + infoBoxH + Theme.getScaledSize(20)
   love.graphics.print("Username", x + padding, usernameLabelY)
 
-  local inputY = usernameLabelY + font:getHeight() + 8 * s
+  local inputY = usernameLabelY + font:getHeight() + Theme.getScaledSize(8)
   local inputX = x + padding
   local inputW = contentWidth
   self.usernameInputRect = { x = inputX, y = inputY, w = inputW, h = inputH }
@@ -652,17 +646,17 @@ function Start:drawJoinWindowContent(window, x, y, w, h)
   love.graphics.rectangle("line", inputX, inputY, inputW, inputH)
 
   Theme.setColor(Theme.colors.text)
-  love.graphics.print(self.joinUsername, inputX + 5 * s, inputY + 5 * s)
+  love.graphics.print(self.joinUsername, inputX + Theme.getScaledSize(5), inputY + Theme.getScaledSize(5))
   if self.activeInput == 'username' and (love.timer.getTime() % 1) < 0.5 then
     local textWidth = font:getWidth(self.joinUsername)
-    love.graphics.rectangle("fill", inputX + 5 * s + textWidth, inputY + 4 * s, 2 * s, inputH - 8 * s)
+    love.graphics.rectangle("fill", inputX + Theme.getScaledSize(5) + textWidth, inputY + Theme.getScaledSize(4), Theme.getScaledSize(2), inputH - Theme.getScaledSize(8))
   end
 
-  local buttonW = 80 * s
-  local buttonH = 30 * s
-  local buttonY = inputY + inputH + 40 * s
-  local joinX = x + (w - buttonW * 2 - 20 * s) / 2
-  local cancelX = joinX + buttonW + 20 * s
+  local buttonW = Theme.getScaledSize(80)
+  local buttonH = Theme.getScaledSize(30)
+  local buttonY = inputY + inputH + Theme.getScaledSize(40)
+  local joinX = x + (w - buttonW * 2 - Theme.getScaledSize(20)) / 2
+  local cancelX = joinX + buttonW + Theme.getScaledSize(20)
 
   local mx, my = Viewport.getMousePosition()
   local joinHover = mx >= joinX and mx <= joinX + buttonW and my >= buttonY and my <= buttonY + buttonH
@@ -681,14 +675,11 @@ function Start:drawJoinWindowContent(window, x, y, w, h)
     buttonText = "Join"
   end
 
-  UIButton.drawRect(joinX, buttonY, buttonW, buttonH, buttonText, (not disabledByStatus) and joinHover, love.timer.getTime(), {
-    compact = true,
+  Theme.drawCompactButton(joinX, buttonY, buttonW, buttonH, buttonText, (not disabledByStatus) and joinHover, love.timer.getTime(), {
     color = (isConnecting or disabledByStatus) and Theme.colors.bg2 or nil
   })
 
-  UIButton.drawRect(cancelX, buttonY, buttonW, buttonH, "Cancel", cancelHover, love.timer.getTime(), {
-    compact = true
-  })
+  Theme.drawCompactButton(cancelX, buttonY, buttonW, buttonH, "Cancel", cancelHover, love.timer.getTime())
 
   self.joinButton = { x = joinX, y = buttonY, w = buttonW, h = buttonH }
   self.cancelButton = { x = cancelX, y = buttonY, w = buttonW, h = buttonH }

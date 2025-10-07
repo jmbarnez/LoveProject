@@ -441,13 +441,12 @@ function Ship:draw(player, x, y, w, h)
 
     local infoX = iconX + iconSize + 12
     Theme.setColor(Theme.colors.textHighlight)
-    love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
+    Theme.setFont("medium")
     local shipName = player.name or (player.ship and player.ship.name) or "Unknown Ship"
     love.graphics.print(shipName, infoX, iconY + 2)
 
     Theme.setColor(Theme.colors.text)
-    local smallFont = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
-    love.graphics.setFont(smallFont)
+    Theme.setFont("small")
     local shipClass = player.class or (player.ship and player.ship.class) or "Unknown Class"
     love.graphics.print("Class: " .. shipClass, infoX, iconY + 22)
 
@@ -511,11 +510,11 @@ function Ship:draw(player, x, y, w, h)
     local contentY = statsY + 12
 
     Theme.setColor(Theme.colors.textHighlight)
-    love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
+    Theme.setFont("medium")
     love.graphics.print("Ship Stats", contentX, contentY)
 
     contentY = contentY + 26
-    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+    Theme.setFont("small")
 
     for _, statData in ipairs(statsList) do
         Theme.setColor(Theme.colors.textSecondary)
@@ -559,7 +558,7 @@ function Ship:draw(player, x, y, w, h)
 
         local keyLabel = UIUtils.formatKeyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(slotIndex), "Unbound")
         Theme.setColor(Theme.colors.textSecondary)
-        love.graphics.setFont(Theme.fonts and Theme.fonts.tiny or love.graphics.getFont())
+        Theme.setFont("small")
         love.graphics.printf(keyLabel, sx, slotsY - 18, slotSize, "center")
 
         local previewEntry = hotbarPreview[slotIndex]
@@ -592,11 +591,11 @@ function Ship:draw(player, x, y, w, h)
     love.graphics.rectangle("fill", gridX, gridY, gridPanelWidth, slotPanelHeight, 4, 4)
 
     Theme.setColor(Theme.colors.textHighlight)
-    love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
+    Theme.setFont("medium")
     love.graphics.print("Fitting Slots", gridX + 12, gridY + 12)
 
-    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-    local labelFont = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
+    Theme.setFont("small")
+    local labelFont = Theme.getFont("small")
     local labelHeights = {}
     local slotClipX = gridX + 4
     local slotClipY = gridY + 40
@@ -642,7 +641,7 @@ function Ship:draw(player, x, y, w, h)
         local slotType = resolveSlotType(slotData) or "module"
         if currentSlotHeader ~= slotType then
             Theme.setColor(Theme.colors.textHighlight)
-            love.graphics.setFont(Theme.fonts and Theme.fonts.medium or love.graphics.getFont())
+            Theme.setFont("medium")
             love.graphics.print(resolveSlotHeaderLabel(slotType), gridX + 12, slotY + slotScroll)
             slotY = slotY + 30
             currentSlotHeader = slotType

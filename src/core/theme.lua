@@ -118,13 +118,13 @@ function Theme.loadFonts()
   local fontScale = (Viewport.getFontScale() or 1.0) * (Viewport.getUIScale() or 1.0)
   local fontPath = "assets/fonts/PressStart2P-Regular.ttf"
   local fontSizes = {
-    xsmall = 7,
-    small = 9,
-    normal = 11,
-    medium = 13,
-    large = 15,
-    title = 17,
-    monospace = 9
+    xsmall = 8,    -- Increased from 7 for better readability
+    small = 10,    -- Increased from 9 for better readability
+    normal = 12,   -- Increased from 11 for better readability
+    medium = 14,   -- Increased from 13 for better readability
+    large = 16,    -- Increased from 15 for better readability
+    title = 18,    -- Increased from 17 for better readability
+    monospace = 10 -- Increased from 9 for better readability
   }
 
   -- Initialize fonts table if it doesn't exist
@@ -147,6 +147,128 @@ function Theme.loadFonts()
   -- Set default font
   love.graphics.setFont(Theme.fonts.normal)
   return Theme.fonts
+end
+
+-- === UNIFIED FONT SYSTEM ===
+-- Centralized font handling to eliminate inconsistencies
+
+function Theme.getFont(size)
+  -- Unified font getter with consistent fallback
+  size = size or "normal"
+  if Theme.fonts and Theme.fonts[size] then
+    return Theme.fonts[size]
+  end
+  return love.graphics.getFont()
+end
+
+function Theme.setFont(size)
+  -- Unified font setter
+  local font = Theme.getFont(size)
+  love.graphics.setFont(font)
+  return font
+end
+
+function Theme.withFont(size, callback)
+  -- Temporarily set font, execute callback, then restore
+  local oldFont = love.graphics.getFont()
+  Theme.setFont(size)
+  local result = callback()
+  love.graphics.setFont(oldFont)
+  return result
+end
+
+-- === UNIFIED SCALING SYSTEM ===
+-- Centralized scaling to eliminate inconsistencies
+
+function Theme.getUIScale()
+  -- Get current UI scale with fallback
+  local Viewport = require("src.core.viewport")
+  return Viewport.getUIScale() or 1.0
+end
+
+function Theme.getScaledSize(baseSize)
+  -- Get scaled size with proper rounding
+  return math.floor(baseSize * Theme.getUIScale() + 0.5)
+end
+
+function Theme.getScaledRect(baseRect)
+  -- Get scaled rectangle
+  return {
+    x = Theme.getScaledSize(baseRect.x),
+    y = Theme.getScaledSize(baseRect.y),
+    w = Theme.getScaledSize(baseRect.w),
+    h = Theme.getScaledSize(baseRect.h)
+  }
+end
+
+-- === UNIFIED BUTTON SYSTEM ===
+-- Standardized button rendering to eliminate inconsistencies
+
+-- Standard button sizes
+Theme.buttonSizes = {
+  tiny = { w = 60, h = 20 },
+  small = { w = 80, h = 24 },
+  medium = { w = 120, h = 32 },
+  large = { w = 200, h = 40 },
+  menu = { w = 260, h = 40 },
+  square = { w = 32, h = 32 }
+}
+
+function Theme.getButtonSize(size)
+  -- Get standardized button size
+  size = size or "medium"
+  local baseSize = Theme.buttonSizes[size] or Theme.buttonSizes.medium
+  return {
+    w = Theme.getScaledSize(baseSize.w),
+    h = Theme.getScaledSize(baseSize.h)
+  }
+end
+
+function Theme.drawButton(x, y, w, h, text, hover, t, options)
+  -- Unified button drawing function
+  options = options or {}
+  local size = options.size or "medium"
+  local color = options.color
+  local down = options.down or false
+  local font = options.font or "normal"
+  local compact = options.compact or false
+  local menuButton = options.menuButton or false
+  
+  -- Use standardized size if not provided
+  if not w or not h then
+    local buttonSize = Theme.getButtonSize(size)
+    w = w or buttonSize.w
+    h = h or buttonSize.h
+  end
+  
+  -- Apply scaling
+  w = Theme.getScaledSize(w)
+  h = Theme.getScaledSize(h)
+  
+  -- Use the existing drawStyledButton with proper options
+  local opts = {
+    compact = compact,
+    font = Theme.getFont(font)
+  }
+  
+  Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
+  
+  return { x = x, y = y, w = w, h = h }
+end
+
+function Theme.drawMenuButton(x, y, text, hover, t, options)
+  -- Convenience function for menu buttons
+  options = options or {}
+  options.size = "menu"
+  options.menuButton = true
+  return Theme.drawButton(x, y, nil, nil, text, hover, t, options)
+end
+
+function Theme.drawCompactButton(x, y, w, h, text, hover, t, options)
+  -- Convenience function for compact buttons
+  options = options or {}
+  options.compact = true
+  return Theme.drawButton(x, y, w, h, text, hover, t, options)
 end
 
 -- Draw text scaled to fit a maximum width, centered or aligned

@@ -255,7 +255,7 @@ function Map.drawUI(mapX, mapY, mapW, mapH)
     local controlX = mapX + 18
     local controlY = mapY + 22
     local oldFont = love.graphics.getFont()
-    local smallFont = (Theme.fonts and Theme.fonts.xsmall) or oldFont
+    local smallFont = Theme.getFont("small") -- Use small instead of xsmall for better readability
     local lineHeight = 16
     local panelWidth = 210
     local textPad = 12
@@ -281,7 +281,7 @@ function Map.drawUI(mapX, mapY, mapW, mapH)
     Theme.setColor(Theme.colors.border)
     love.graphics.rectangle("line", controlX - textPad, controlY - topPad, panelWidth, panelHeight)
 
-    love.graphics.setFont(smallFont)
+    Theme.setFont("small")
 
     Theme.setColor(Theme.colors.text)
     Theme.drawTextFit(string.format("Scale: %.2fx", Map.scale), controlX, controlY, panelWidth - textPad * 2, 'left', smallFont, 0.5, 1.2)

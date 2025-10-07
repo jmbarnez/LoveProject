@@ -122,8 +122,7 @@ function SettingsPanel.draw()
 end
 
 local function drawSections(window, x, y, w, h)
-    local settingsFont = Theme.fonts and (Theme.fonts.small or Theme.fonts.normal) or love.graphics.getFont()
-    love.graphics.setFont(settingsFont)
+    Theme.setFont("normal")
 
     local mx, my = Viewport.getMousePosition()
     local scrolledMouseY = my + scrollY
@@ -138,13 +137,14 @@ local function drawSections(window, x, y, w, h)
 
     local pad = (Theme.ui and Theme.ui.contentPadding) or 20
     local yOffset = innerTop + 10
+    local settingsFont = Theme.getFont("normal")
     local layout = {
         x = x,
         y = y,
         w = w,
         h = h,
         labelX = x + pad,
-        valueX = x + 150,
+        valueX = x + 200,  -- Increased from 150 to 200 for more space
         itemHeight = 40,
         scrollY = scrollY,
         settingsFont = settingsFont,
@@ -202,8 +202,7 @@ end
 function SettingsPanel.drawContent(window, x, y, w, h)
     local content, mx, my = drawSections(window, x, y, w, h)
 
-    local settingsFont = Theme.fonts and (Theme.fonts.small or Theme.fonts.normal) or love.graphics.getFont()
-    love.graphics.setFont(settingsFont)
+    Theme.setFont("normal")
 
     drawScrollbar(content, x, y, w, h)
 
@@ -217,20 +216,18 @@ function SettingsPanel.drawContent(window, x, y, w, h)
         GraphicsPanel.drawOverlays()
     end
 
-    local buttonW, buttonH = 100, 30
-    local buttonSpacing = 20
+    local buttonSize = Theme.getButtonSize("medium")
+    local buttonW, buttonH = buttonSize.w, buttonSize.h
+    local buttonSpacing = Theme.getScaledSize(20)
     local totalButtonWidth = buttonW * 2 + buttonSpacing
     local applyButtonX = content.x + (content.w / 2) - totalButtonWidth / 2
     local resetButtonX = applyButtonX + buttonW + buttonSpacing
-    local buttonY = content.y + content.h + 15
+    local buttonY = content.y + content.h + Theme.getScaledSize(15)
     local applyHover = mx >= applyButtonX and mx <= applyButtonX + buttonW and my >= buttonY and my <= buttonY + buttonH
     local resetHover = mx >= resetButtonX and mx <= resetButtonX + buttonW and my >= buttonY and my <= buttonY + buttonH
 
-    Theme.drawStyledButton(applyButtonX, buttonY, buttonW, buttonH, Strings.getUI("apply_button"), applyHover, love.timer.getTime(), {0.2, 0.8, 0.2, 1.0})
-    SettingsPanel._applyButton = { _rect = { x = applyButtonX, y = buttonY, w = buttonW, h = buttonH } }
-
-    Theme.drawStyledButton(resetButtonX, buttonY, buttonW, buttonH, "Reset", resetHover, love.timer.getTime(), {0.8, 0.2, 0.2, 1.0})
-    SettingsPanel._resetButton = { _rect = { x = resetButtonX, y = buttonY, w = buttonW, h = buttonH } }
+    SettingsPanel._applyButton = { _rect = Theme.drawButton(applyButtonX, buttonY, buttonW, buttonH, Strings.getUI("apply_button"), applyHover, love.timer.getTime(), { color = {0.2, 0.8, 0.2, 1.0} }) }
+    SettingsPanel._resetButton = { _rect = Theme.drawButton(resetButtonX, buttonY, buttonW, buttonH, "Reset", resetHover, love.timer.getTime(), { color = {0.8, 0.2, 0.2, 1.0} }) }
 end
 
 local function applySettings()

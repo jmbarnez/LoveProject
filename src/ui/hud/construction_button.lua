@@ -121,9 +121,9 @@ local function getResourceColor(resource)
 end
 
 local function drawInfoPill(text, x, y, color, font)
-    font = font or (Theme.fonts and (Theme.fonts.xsmall or Theme.fonts.small)) or love.graphics.getFont()
+    font = font or Theme.getFont("small") -- Use small instead of xsmall for better readability
     local previousFont = love.graphics.getFont()
-    love.graphics.setFont(font)
+    Theme.setFont("small")
 
     local metrics = UIUtils.getCachedTextMetrics(text, font)
     local textWidth = metrics.width
@@ -200,17 +200,17 @@ local function drawMenuOption(option, rect, hovered, active)
     local textWidth = rect.w - (textX - rect.x) - 16
     local previousFont = love.graphics.getFont()
 
-    love.graphics.setFont((Theme.fonts and Theme.fonts.medium) or love.graphics.getFont())
+    Theme.setFont("medium")
     Theme.setColor(Theme.colors.textHighlight)
     love.graphics.printf(option.name or "", textX, rect.y + 10, textWidth, "left")
 
     if option.description and option.description ~= "" then
-        love.graphics.setFont((Theme.fonts and Theme.fonts.small) or love.graphics.getFont())
+        Theme.setFont("small")
         Theme.setColor(Theme.colors.textSecondary)
         love.graphics.printf(option.description, textX, rect.y + 36, textWidth, "left")
     end
 
-    local pillFont = (Theme.fonts and Theme.fonts.xsmall) or (Theme.fonts and Theme.fonts.small) or love.graphics.getFont()
+    local pillFont = Theme.getFont("small")
     local pillY = rect.y + rect.h - (pillFont:getHeight() + 12)
     local pillX = textX
 
@@ -298,9 +298,8 @@ function ConstructionButton.drawMenu()
     )
     Theme.drawEVEBorder(x, y, menuWidth, menuHeight, 8, Theme.colors.border, 2)
 
-    local titleFont = (Theme.fonts and Theme.fonts.medium) or love.graphics.getFont()
     local previousFont = love.graphics.getFont()
-    love.graphics.setFont(titleFont)
+    Theme.setFont("medium")
     Theme.setColor(Theme.colors.textHighlight)
     love.graphics.print("Construction", x + layout.padding, y + layout.padding)
 

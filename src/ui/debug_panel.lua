@@ -82,7 +82,7 @@ function DebugPanel.draw()
 end
 
 function DebugPanel.drawContent(window, x, y, w, h)
-    local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
+    local font = Theme.getFont("small")
     local lineHeight = font:getHeight()
     local padding = 8
     local margin = 4
@@ -106,7 +106,7 @@ function DebugPanel.drawContent(window, x, y, w, h)
         texts[#texts + 1] = "Detect Rng: --"
     end
 
-    love.graphics.setFont(font)
+    Theme.setFont("small")
     Theme.setColor(Theme.colors.text)
     for i, text in ipairs(texts) do
         local textY = y + padding + (i - 1) * (lineHeight + margin)

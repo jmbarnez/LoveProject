@@ -356,7 +356,7 @@ local function drawSearchBar(x, y, w, h, searchText, isActive)
   local iconX = x + 4
   local iconY = y + 4
   Theme.setColor(Theme.colors.textSecondary)
-  love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+  Theme.setFont("small")
 
   -- Only show "Search" label when not actively inputting
   if not isActive then
@@ -385,7 +385,7 @@ local function drawSortButton(x, y, w, h, sortBy, sortOrder)
   local icon = sortOrder == "asc" and "↑" or "↓"
   local sortNames = {name = "Name", type = "Type", rarity = "Rarity", value = "Value", quantity = "Qty"}
 
-  love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+  Theme.setFont("small")
   local text = sortNames[sortBy] or "Name"
   local iconWidth = love.graphics.getFont():getWidth(icon)
   local textWidth = love.graphics.getFont():getWidth(text)
@@ -476,16 +476,15 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
   if not iconDrawn then
     local prevColor = { love.graphics.getColor() }
     Theme.setColor(Theme.colors.textSecondary)
-    local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
-    love.graphics.setFont(font)
+    Theme.setFont("small")
     love.graphics.printf(def and def.name or item.id, iconX, iconY + iconSize * 0.4, iconSize, "center")
     love.graphics.setColor(prevColor[1] or 1, prevColor[2] or 1, prevColor[3] or 1, prevColor[4] or 1)
   end
 
   if not item.turretData and item.qty > 1 then
     local stackCount = Util.formatNumber(item.qty)
-    local font = Theme.fonts and Theme.fonts.xsmall or love.graphics.getFont()
-    love.graphics.setFont(font)
+    local font = Theme.getFont("small")
+    Theme.setFont("small")
     local textW = font:getWidth(stackCount)
     local textH = font:getHeight()
 
@@ -649,12 +648,12 @@ function Inventory.drawContent(window, x, y, w, h)
         volumeText = string.format("Volume: %.1f/%.1f m³", currentVolume, volumeLimit)
     end
 
-    local font = Theme.fonts and Theme.fonts.small or love.graphics.getFont()
-    love.graphics.setFont(font)
+    Theme.setFont("small")
     Theme.setColor(Theme.colors.textSecondary)
     love.graphics.print(volumeText, x + 8, infoBarY + 3)
 
     local creditText = Util.formatNumber(credits)
+    local font = Theme.getFont("small")
     local creditWidth = font:getWidth(creditText)
     local iconSize = 12
     local iconSpacing = 4
@@ -882,7 +881,7 @@ function Inventory.drawContextMenu()
       love.graphics.rectangle('fill', x + 4, optY, w - 8, optionH)
     end
     Theme.setColor(hover and Theme.colors.textHighlight or Theme.colors.text)
-    love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+    Theme.setFont("small")
     love.graphics.print(option.name, x + 12, optY + (optionH - 12) * 0.5)
   end
 end

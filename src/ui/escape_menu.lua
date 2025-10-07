@@ -166,28 +166,27 @@ function EscapeMenu.drawContent(window, x, y, w, h)
     local mx, my = Viewport.getMousePosition()
     local t = love.timer.getTime()
 
-    -- Use consistent font handling like other panels
-    local font = Theme.fonts and (Theme.fonts.small or Theme.fonts.normal) or love.graphics.getFont()
-    love.graphics.setFont(font)
+    -- Use unified font system
+    Theme.setFont("normal")
 
     -- Use the same layout calculation as mousepressed for consistency
     local _, _, _, _, buttonX, saveButtonY, settingsButtonY, lanButtonY, exitButtonY, buttonW, buttonH = getLayout()
 
     -- Save Game button
     local saveHover = pointIn(mx, my, buttonX, saveButtonY, buttonW, buttonH)
-    Theme.drawStyledButton(buttonX, saveButtonY, buttonW, buttonH, "Save", saveHover, t, nil, EscapeMenu.saveButtonDown, { menuButton = true })
+    Theme.drawMenuButton(buttonX, saveButtonY, "Save", saveHover, t, { down = EscapeMenu.saveButtonDown })
 
     -- Settings button
     local settingsHover = pointIn(mx, my, buttonX, settingsButtonY, buttonW, buttonH)
-    Theme.drawStyledButton(buttonX, settingsButtonY, buttonW, buttonH, "Settings", settingsHover, t, nil, EscapeMenu.settingsButtonDown, { menuButton = true })
+    Theme.drawMenuButton(buttonX, settingsButtonY, "Settings", settingsHover, t, { down = EscapeMenu.settingsButtonDown })
 
     -- LAN button
     local lanHover = pointIn(mx, my, buttonX, lanButtonY, buttonW, buttonH)
-    Theme.drawStyledButton(buttonX, lanButtonY, buttonW, buttonH, "Open to LAN", lanHover, t, nil, EscapeMenu.lanButtonDown, { menuButton = true })
+    Theme.drawMenuButton(buttonX, lanButtonY, "Open to LAN", lanHover, t, { down = EscapeMenu.lanButtonDown })
 
     -- Exit to Main Menu button
     local exitHover = pointIn(mx, my, buttonX, exitButtonY, buttonW, buttonH)
-    Theme.drawStyledButton(buttonX, exitButtonY, buttonW, buttonH, "Exit to Menu", exitHover, t, nil, EscapeMenu.exitButtonDown, { menuButton = true })
+    Theme.drawMenuButton(buttonX, exitButtonY, "Exit to Menu", exitHover, t, { down = EscapeMenu.exitButtonDown })
 end
 
 function EscapeMenu.mousepressed(x, y, button)

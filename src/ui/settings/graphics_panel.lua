@@ -461,8 +461,7 @@ function GraphicsPanel.draw(layout)
     local showFpsToggleH = 26
     local showFpsToggleHover = mx >= showFpsToggleX and mx <= showFpsToggleX + showFpsToggleW and scrolledMouseY >= showFpsToggleY and scrolledMouseY <= showFpsToggleY + showFpsToggleH
     local showFpsToggleActive = currentSettings and currentSettings.show_fps or false
-    Theme.drawStyledButton(showFpsToggleX, showFpsToggleY, showFpsToggleW, showFpsToggleH, showFpsToggleActive and "ON" or "OFF", showFpsToggleHover, love.timer.getTime())
-    GraphicsPanel._showFpsToggleRect = { x = showFpsToggleX, y = showFpsToggleY - layout.scrollY, w = showFpsToggleW, h = showFpsToggleH }
+    GraphicsPanel._showFpsToggleRect = Theme.drawCompactButton(showFpsToggleX, showFpsToggleY, showFpsToggleW, showFpsToggleH, showFpsToggleActive and "ON" or "OFF", showFpsToggleHover, love.timer.getTime(), { font = "small" })
     yOffset = yOffset + itemHeight
 
     
