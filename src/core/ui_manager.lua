@@ -259,6 +259,7 @@ function UIManager.init()
   if DebugPanel.init then DebugPanel.init() end
   if RewardWheelPanel.init then RewardWheelPanel.init() end
   if Ship.init then Ship.init() end
+  if Map.init then Map.init() end
   -- Register components in the UI registry once
   if not UIManager._registryInitialized then
     Registry.register({
