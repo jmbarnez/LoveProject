@@ -321,7 +321,14 @@ local function getGameState()
     -- World data (simplified to avoid circular references)
     world = {
       width = currentWorld.width or 15000,
-      height = currentWorld.height or 15000
+      height = currentWorld.height or 15000,
+      discovery = (function()
+        local ok, Discovery = pcall(require, "src.systems.discovery")
+        if ok and Discovery and Discovery.serialize then
+          return Discovery.serialize()
+        end
+        return nil
+      end)()
     },
     
     -- Game progression
@@ -431,6 +438,14 @@ local function applyGameState(state, player, world)
   end
   if currentPlayer.components and currentPlayer.components.questLog and state.player.questLog then
     currentPlayer.components.questLog = require("src.components.quest_log").deserialize(state.player.questLog)
+  end
+
+  -- Restore world discovery (fog-of-war)
+  if state.world and state.world.discovery then
+    local ok, Discovery = pcall(require, "src.systems.discovery")
+    if ok and Discovery and Discovery.deserialize then
+      Discovery.deserialize(state.world.discovery, world)
+    end
   end
 
   -- TODO: Restore world entities (asteroids, wreckage, etc.)

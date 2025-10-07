@@ -2,6 +2,7 @@ local EntityFactory = require("src.templates.entity_factory")
 local Constants = require("src.core.constants")
 local Config = require("src.content.config")
 local Log = require("src.core.log")
+local Util = require("src.core.util")
 
 local SpawningSystem = {}
 
@@ -20,11 +21,11 @@ end
 
 local maxEnemies = getSpawnValue("MAX_ENEMIES") or 36 -- Significantly increased for relentless pressure
 local maxBosses = 3   -- Hard cap on boss drones
-local maxAsteroids = 80  -- Increased from 15 to 80 for more asteroids
-local maxClusters = 20  -- Increased from 5 to 20 for many more clusters
-local clusterRadius = 200  -- Radius around cluster center
-local clusterMinAsteroids = 3  -- Increased minimum asteroids per cluster
-local clusterMaxAsteroids = 8  -- Increased maximum asteroids per cluster
+local maxAsteroids = 80  -- Cap total asteroids
+local maxClusters = 12  -- Fewer clusters overall
+local clusterRadius = 420  -- Much larger cluster radius
+local clusterMinAsteroids = 6  -- Bigger clusters
+local clusterMaxAsteroids = 18  -- Bigger clusters
 
 local asteroidVariants = {
   { id = "asteroid_small", weight = 3 },
@@ -87,6 +88,39 @@ end
 -- Pick a random gray shade for asteroid variation
 local function pickGrayShade()
   return grayShades[math.random(1, #grayShades)]
+end
+
+-- Apply strong per-asteroid size variance by scaling radius and regenerating geometry
+local function applyAsteroidScaleVariance(asteroid)
+  if not asteroid or not asteroid.components then return end
+  local collidable = asteroid.components.collidable
+  local renderable = asteroid.components.renderable
+  if not collidable or not renderable or renderable.type ~= "asteroid" then return end
+
+  -- Scale range: small to very large
+  local minScale, maxScale = 0.55, 2.4
+  local scale = minScale + (maxScale - minScale) * math.random()
+
+  local newRadius = (collidable.radius or 30) * scale
+  collidable.radius = newRadius
+
+  -- Regenerate asteroid geometry and polygon based on new radius
+  local chunkOptions = renderable.props and renderable.props.chunkOptions
+  local geometry = Util.generateAsteroidGeometry(newRadius, chunkOptions)
+  if geometry and geometry.vertices then
+    renderable.props.vertices = geometry.vertices
+    if geometry.chunks then
+      renderable.props.chunks = geometry.chunks
+    end
+    -- Update polygon collision hull
+    local flat = {}
+    for _, v in ipairs(geometry.vertices) do
+      table.insert(flat, v[1])
+      table.insert(flat, v[2])
+    end
+    collidable.shape = "polygon"
+    collidable.vertices = flat
+  end
 end
 
 -- Create an asteroid cluster at a given center point
@@ -168,6 +202,9 @@ local function createAsteroidCluster(centerX, centerY, hub, world)
             asteroid.visuals.colors.outline = {grayShade[1] * 0.6, grayShade[2] * 0.6, grayShade[3] * 0.6, grayShade[4]}
           end
           
+          -- Apply size variance before physics so mass reflects new size
+          applyAsteroidScaleVariance(asteroid)
+
           -- Add physics body for collision detection and bouncing
           local Physics = require("src.components.physics")
           local radius = asteroid.components.collidable and asteroid.components.collidable.radius or 30
@@ -432,6 +469,9 @@ local function spawnAsteroid(hub, world)
         asteroid.visuals.colors.outline = {grayShade[1] * 0.6, grayShade[2] * 0.6, grayShade[3] * 0.6, grayShade[4]}
       end
       
+      -- Apply size variance before physics so mass reflects new size
+      applyAsteroidScaleVariance(asteroid)
+
       -- Add physics body for collision detection and bouncing
       local Physics = require("src.components.physics")
       local radius = asteroid.components.collidable and asteroid.components.collidable.radius or 30
@@ -455,18 +495,18 @@ local function spawnInitialEntities(player, hub, world)
     -- Don't spawn any enemies at startup - only spawn when player is nearby or explicitly needed
     -- This prevents red engine trails from appearing immediately on startup
 
-    -- Create multiple asteroid clusters around the space
+    -- Create fewer but larger asteroid clusters around the space
     local margin = 300  -- Distance from edge
-    local clustersToSpawn = 15  -- Spawn 15 clusters initially
+    local clustersToSpawn = 7  -- Fewer initial clusters
     
     for i = 1, clustersToSpawn do
         -- Random position across the world
         local centerX = margin + math.random(0, world.width - 2 * margin)
         local centerY = margin + math.random(0, world.height - 2 * margin)
         
-        -- Create a cluster with 3-8 asteroids
-        local clusterSize = clusterMinAsteroids + math.random(0, clusterMaxAsteroids - clusterMinAsteroids)
-        local clusterRadius = 200  -- Standard cluster radius
+        -- Create a larger cluster
+        local clusterSize = clusterMinAsteroids + math.random(0, math.max(0, clusterMaxAsteroids - clusterMinAsteroids))
+        local clusterRadius = 420  -- Larger cluster radius
         
         -- Check if cluster center is safe from stations
         local asteroid_buffer = (getSpawnValue("STATION_BUFFER") or 300) * 0.5
@@ -553,8 +593,8 @@ function SpawningSystem.update(dt, player, hub, world)
 
   asteroidSpawnTimer = asteroidSpawnTimer - dt
   if asteroidSpawnTimer <= 0 and #asteroids < maxAsteroids then
-    -- 60% chance to spawn a new cluster, otherwise spawn individual asteroid
-    if math.random() < 0.6 then
+    -- Lower chance to spawn a new cluster (fewer clusters over time)
+    if math.random() < 0.4 then
       local margin = 300
       local centerX = math.random(margin, world.width - margin)
       local centerY = math.random(margin, world.height - margin)

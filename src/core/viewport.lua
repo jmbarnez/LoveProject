@@ -104,7 +104,11 @@ function Viewport.finish()
 
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(canvas, ox, oy, 0, scale, scale)
-  love.graphics.pop()
+  -- Be resilient if some draw path unbalanced the stack; ignore pop errors
+  local ok = pcall(love.graphics.pop)
+  if not ok then
+    -- Nothing to pop; continue without crashing
+  end
 end
 
 function Viewport.toVirtual(x, y)
