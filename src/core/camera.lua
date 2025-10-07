@@ -99,32 +99,26 @@ end
 function Camera:getBounds()
     local w = love.graphics.getWidth() / self.scale
     local h = love.graphics.getHeight() / self.scale
-    -- Account for camera deviation in bounds calculation
-    local cameraX = self.x + self.deviationX
-    local cameraY = self.y + self.deviationY
-    local x = cameraX - w / 2
-    local y = cameraY - h / 2
+    -- self.x/self.y already include deviation, so use them directly
+    local x = self.x - w / 2
+    local y = self.y - h / 2
     return x, y, w, h
 end
 
 
 function Camera:screenToWorld(sx, sy)
   local w, h = Viewport.getDimensions()
-  -- Account for camera deviation in coordinate conversion
-  local cameraX = self.x + self.deviationX
-  local cameraY = self.y + self.deviationY
-  local x = (sx - w * 0.5) / self.scale + cameraX
-  local y = (sy - h * 0.5) / self.scale + cameraY
+  -- self.x/self.y already represent the final camera center (including deviation)
+  local x = (sx - w * 0.5) / self.scale + self.x
+  local y = (sy - h * 0.5) / self.scale + self.y
   return x, y
 end
 
 function Camera:worldToScreen(wx, wy)
   local w, h = Viewport.getDimensions()
-  -- Account for camera deviation in coordinate conversion
-  local cameraX = self.x + self.deviationX
-  local cameraY = self.y + self.deviationY
-  local sx = (wx - cameraX) * self.scale + w * 0.5
-  local sy = (wy - cameraY) * self.scale + h * 0.5
+  -- self.x/self.y already represent the final camera center (including deviation)
+  local sx = (wx - self.x) * self.scale + w * 0.5
+  local sy = (wy - self.y) * self.scale + h * 0.5
   return sx, sy
 end
 
