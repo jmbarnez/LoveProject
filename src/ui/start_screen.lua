@@ -14,6 +14,7 @@ local VersionLog = require("src.ui.version_log")
 local NetworkManager = require("src.core.network.manager")
 local Notifications = require("src.ui.notifications")
 local UICursor = require("src.ui.hud.cursor")
+local EnetTransport = require("src.core.network.transport.enet")
 
 local MAIN_SERVER_ADDRESS = "107.10.172.75"
 local MAIN_SERVER_PORT = 25565
@@ -87,6 +88,10 @@ local startScreenHandler = function(self, x, y, button)
     self.joinPort = tostring(MAIN_SERVER_PORT)
     self.activeInput = 'username'
     self.joinWindow:show()
+    -- Trigger immediate status check on open
+    self.serverOnline = nil
+    self._serverCheck.state = "idle"
+    self._serverCheck.nextPollAt = 0
   end) then
     return false
   end
@@ -206,6 +211,9 @@ function Start.new()
   self.usernameInputRect = nil
   -- Create a temporary network manager for the start screen
   self.networkManager = NetworkManager.new()
+  -- Server availability check state (used while join window is open)
+  self.serverOnline = nil -- nil=unknown, true=online, false=offline
+  self._serverCheck = { client = nil, startedAt = 0, state = "idle", nextPollAt = 0 }
   
   -- Create join game window
   self.joinWindow = Window.new({
@@ -282,6 +290,54 @@ function Start:update(dt)
    SettingsPanel.update(dt)
    self.networkManager:update(dt)
    Notifications.update(dt)
+   -- Periodically check server availability when join UI is visible
+   if self.showJoinUI then
+     local t = love.timer.getTime()
+     if self._serverCheck.state == "idle" and t >= (self._serverCheck.nextPollAt or 0) then
+       if EnetTransport and EnetTransport.isAvailable and EnetTransport.isAvailable() then
+         local client = select(1, EnetTransport.createClient())
+         if client then
+           EnetTransport.connect(client, MAIN_SERVER_ADDRESS, tonumber(MAIN_SERVER_PORT))
+           self._serverCheck.client = client
+           self._serverCheck.startedAt = t
+           self._serverCheck.state = "connecting"
+         else
+           self.serverOnline = false
+           self._serverCheck.state = "idle"
+           self._serverCheck.nextPollAt = t + 5
+         end
+       else
+         self.serverOnline = false
+         self._serverCheck.state = "idle"
+         self._serverCheck.nextPollAt = t + 5
+       end
+     elseif self._serverCheck.state == "connecting" and self._serverCheck.client then
+       local event = EnetTransport.service(self._serverCheck.client, 0)
+       local connected = false
+       local failed = false
+       while event do
+         if event.type == "connect" then connected = true; break
+         elseif event.type == "disconnect" then failed = true; break end
+         event = EnetTransport.service(self._serverCheck.client, 0)
+       end
+       local timedOut = (t - (self._serverCheck.startedAt or t)) > 1.5
+       if connected or failed or timedOut then
+         self.serverOnline = connected and true or false
+         EnetTransport.disconnectClient(self._serverCheck.client)
+         EnetTransport.destroy(self._serverCheck.client)
+         self._serverCheck.client = nil
+         self._serverCheck.state = "idle"
+         self._serverCheck.nextPollAt = t + 5
+       end
+     end
+   else
+     if self._serverCheck.client then
+       EnetTransport.disconnectClient(self._serverCheck.client)
+       EnetTransport.destroy(self._serverCheck.client)
+       self._serverCheck.client = nil
+     end
+     self._serverCheck.state = "idle"
+   end
 end
 
 function Start:draw()
@@ -561,34 +617,28 @@ function Start:drawJoinWindowContent(window, x, y, w, h)
 
   Theme.setColor(Theme.colors.text)
   love.graphics.print("Server: Main Server", infoBoxX + 10 * s, infoBoxY + 10 * s)
+  -- Status light indicating server online/offline/unknown
+  local lightX = infoBoxX + infoBoxW - 18 * s
+  local lightY = infoBoxY + 16 * s
+  local lightColor
+  if self.serverOnline == true then
+    lightColor = {0.2, 0.9, 0.2, 1}
+  elseif self.serverOnline == false then
+    lightColor = {0.95, 0.25, 0.25, 1}
+  else
+    lightColor = {0.9, 0.8, 0.2, 1}
+  end
+  Theme.setColor(lightColor)
+  love.graphics.circle("fill", lightX, lightY, 6 * s)
+  Theme.setColor(Theme.colors.border)
+  love.graphics.circle("line", lightX, lightY, 6 * s)
   love.graphics.print("Address: " .. self.joinAddress, infoBoxX + 10 * s, infoBoxY + 10 * s + lineHeight)
   love.graphics.print("Port: " .. self.joinPort, infoBoxX + 10 * s, infoBoxY + 10 * s + lineHeight * 2)
 
-  local pending = _G.PENDING_MULTIPLAYER_CONNECTION
-  local statusText
-  local statusColor = Theme.colors.text
-  if self.joinErrorMessage then
-    statusText = self.joinErrorMessage
-    statusColor = Theme.colors.danger
-  elseif pending then
-    if pending.connected then
-      statusText = "Status: Connected to the main server."
-    elseif pending.connecting then
-      statusText = "Status: Connecting to the main server..."
-    else
-      statusText = "Status: Ready to connect to the main server."
-    end
-  else
-    statusText = "Status: Ready to connect to the main server."
-  end
-
-  local statusY = infoBoxY + infoBoxH + 15 * s
-  Theme.setColor(statusColor)
-  love.graphics.printf(statusText, x + padding, statusY, contentWidth, "center")
-  Theme.setColor(Theme.colors.text)
+  -- Status text removed - using status light and button state instead
 
   local inputH = 30 * s
-  local usernameLabelY = statusY + font:getHeight() + 20 * s
+  local usernameLabelY = infoBoxY + infoBoxH + 20 * s
   love.graphics.print("Username", x + padding, usernameLabelY)
 
   local inputY = usernameLabelY + font:getHeight() + 8 * s
@@ -619,11 +669,21 @@ function Start:drawJoinWindowContent(window, x, y, w, h)
   local cancelHover = mx >= cancelX and mx <= cancelX + buttonW and my >= buttonY and my <= buttonY + buttonH
 
   local isConnecting = _G.PENDING_MULTIPLAYER_CONNECTION and _G.PENDING_MULTIPLAYER_CONNECTION.connecting
-  local buttonText = isConnecting and "Connecting..." or "Join"
+  local disabledByStatus = (self.serverOnline == false)
+  local buttonText
+  if isConnecting then
+    buttonText = "Connecting..."
+  elseif self.serverOnline == nil then
+    buttonText = "Checking..."
+  elseif disabledByStatus then
+    buttonText = "Offline"
+  else
+    buttonText = "Join"
+  end
 
-  UIButton.drawRect(joinX, buttonY, buttonW, buttonH, buttonText, joinHover, love.timer.getTime(), {
+  UIButton.drawRect(joinX, buttonY, buttonW, buttonH, buttonText, (not disabledByStatus) and joinHover, love.timer.getTime(), {
     compact = true,
-    color = isConnecting and Theme.colors.bg2 or nil
+    color = (isConnecting or disabledByStatus) and Theme.colors.bg2 or nil
   })
 
   UIButton.drawRect(cancelX, buttonY, buttonW, buttonH, "Cancel", cancelHover, love.timer.getTime(), {
@@ -655,6 +715,10 @@ function Start:mousepressed(x, y, button)
       -- Check if already connecting
       if _G.PENDING_MULTIPLAYER_CONNECTION and _G.PENDING_MULTIPLAYER_CONNECTION.connecting then
         print("Already connecting, please wait...")
+        return false
+      end
+      -- Block if server appears offline or status unknown
+      if self.serverOnline == false or self.serverOnline == nil then
         return false
       end
       
@@ -865,6 +929,9 @@ function Start:keypressed(key)
       elseif key == 'return' or key == 'kpenter' then
         -- Simulate join button click
         if not (_G.PENDING_MULTIPLAYER_CONNECTION and _G.PENDING_MULTIPLAYER_CONNECTION.connecting) then
+          if self.serverOnline == false or self.serverOnline == nil then
+            return true
+          end
           local port = MAIN_SERVER_PORT
           _G.PENDING_MULTIPLAYER_CONNECTION = {
             address = MAIN_SERVER_ADDRESS,

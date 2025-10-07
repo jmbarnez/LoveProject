@@ -11,34 +11,63 @@ local Projectiles = require("src.game.projectiles")
 local WorldBuilder = {}
 
 local function createStations(world)
-    local hub = EntityFactory.create("station", "hub_station", 5000, 5000)
-    if not hub then
-        Debug.error("game", "Failed to create hub station")
-        return nil, "Failed to create hub station"
-    end
-    world:addEntity(hub)
+	-- Choose a random cluster center inside world bounds with a generous margin
+	local worldW, worldH = Constants.WORLD.WIDTH, Constants.WORLD.HEIGHT
+	local margin = math.max(2000, (Constants.SPAWNING and Constants.SPAWNING.STATION_BUFFER) or 0)
+	local cx = math.random(margin, worldW - margin)
+	local cy = math.random(margin, worldH - margin)
 
-    local furnace = EntityFactory.create("station", "ore_furnace_station", 9500, 9500)
-    if not furnace then
-        Debug.error("game", "Failed to create ore furnace station")
-        return nil, "Failed to create ore furnace station"
-    end
-    world:addEntity(furnace)
+	-- Place hub at cluster center
+	local hub = EntityFactory.create("station", "hub_station", cx, cy)
+	if not hub then
+		Debug.error("game", "Failed to create hub station")
+		return nil, "Failed to create hub station"
+	end
+	world:addEntity(hub)
 
-    local beacon = EntityFactory.create("station", "beacon_station", 2000, 2000)
-    if not beacon then
-        Debug.error("game", "Failed to create beacon station")
-        return nil, "Failed to create beacon station"
-    end
-    world:addEntity(beacon)
+	-- Distribute other stations around the center with spread similar to current feel
+	local baseAngle = math.random() * math.pi * 2
+	local function polarOffset(angle, radius)
+		return cx + math.cos(angle) * radius, cy + math.sin(angle) * radius
+	end
 
-    return hub
+	-- Furnace station
+	local r1 = 1800 + math.random() * 2200  -- ~2k-4k spread from center
+	local a1 = baseAngle
+	local fx, fy = polarOffset(a1, r1)
+	-- Clamp to bounds if extremely close to edges (rare due to margin)
+	fx = math.max(margin, math.min(worldW - margin, fx))
+	fy = math.max(margin, math.min(worldH - margin, fy))
+	local furnace = EntityFactory.create("station", "ore_furnace_station", fx, fy)
+	if not furnace then
+		Debug.error("game", "Failed to create ore furnace station")
+		return nil, "Failed to create ore furnace station"
+	end
+	world:addEntity(furnace)
+
+	-- Beacon station
+	local r2 = 1800 + math.random() * 2200
+	local a2 = baseAngle + (2 * math.pi / 3) -- space them apart
+	local bx, by = polarOffset(a2, r2)
+	bx = math.max(margin, math.min(worldW - margin, bx))
+	by = math.max(margin, math.min(worldH - margin, by))
+	local beacon = EntityFactory.create("station", "beacon_station", bx, by)
+	if not beacon then
+		Debug.error("game", "Failed to create beacon station")
+		return nil, "Failed to create beacon station"
+	end
+	world:addEntity(beacon)
+
+	return hub
 end
 
 local function createWorldObjects(world)
     do
-        local px = 15000
-        local py = 15000
+        -- Spawn planet at random position with safe distance from stations
+        local worldSize = 30000
+        local margin = 2000
+        local px = math.random(margin, worldSize - margin)
+        local py = math.random(margin, worldSize - margin)
         local planet = EntityFactory.create("world_object", "planet_massive", px, py)
         if planet then
             world:addEntity(planet)

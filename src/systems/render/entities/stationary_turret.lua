@@ -6,23 +6,6 @@ local function render(entity, player)
     local size = v.size or 1.0
     local S = RenderUtils.createScaler(size)
 
-    -- Draw range circle first (behind the turret)
-    local rangeRadius = 600 -- Default firing range
-    if entity.components and entity.components.ai then
-        -- Try to get the actual firing range from the AI component
-        if entity.components.ai.fireRange then
-            rangeRadius = entity.components.ai.fireRange
-        end
-    end
-    
-    -- Draw faint green range circle
-    love.graphics.setColor(0.0, 0.8, 0.0, 0.1) -- Very faint green
-    love.graphics.circle("fill", 0, 0, S(rangeRadius))
-    love.graphics.setColor(0.0, 0.6, 0.0, 0.2) -- Slightly more visible outline
-    love.graphics.setLineWidth(S(1))
-    love.graphics.circle("line", 0, 0, S(rangeRadius))
-    love.graphics.setLineWidth(1)
-
     -- Draw the turret shapes from content definition
     if type(v.shapes) == "table" and #v.shapes > 0 then
         for _, shape in ipairs(v.shapes) do
@@ -38,7 +21,7 @@ local function render(entity, player)
         end
     else
         -- Simple fallback turret design
-        love.graphics.setColor({0.2, 0.8, 1.0, 0.8})
+        RenderUtils.setColor({0.2, 0.8, 1.0, 0.8})
         love.graphics.circle("fill", 0, 0, S(16))
         love.graphics.setColor({0.0, 1.0, 1.0, 1.0})
         love.graphics.setLineWidth(S(2))
