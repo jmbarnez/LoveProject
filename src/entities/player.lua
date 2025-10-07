@@ -98,20 +98,28 @@ function Player.new(x, y, shipId)
           return equipped
       end
 
-      if not equipStartingModule(1, "gun_turret") and self.components and self.components.cargo then
-          self:addItem("gun_turret", 1)
+      -- Equip starting combat turrets
+      if not equipStartingModule(1, "kinetic_turret") and self.components and self.components.cargo then
+          self:addItem("kinetic_turret", 1)
       end
 
-      if not equipStartingModule(2, "combat_laser") and self.components and self.components.cargo then
-          self:addItem("combat_laser", 1)
+      if not equipStartingModule(2, "low_power_laser") and self.components and self.components.cargo then
+          self:addItem("low_power_laser", 1)
       end
 
-      if not equipStartingModule(3, "shield_module_basic") and self.components and self.components.cargo then
+      if not equipStartingModule(3, "missile_launcher_mk1") and self.components and self.components.cargo then
+          self:addItem("missile_launcher_mk1", 1)
+      end
+
+      if not equipStartingModule(4, "shield_module_basic") and self.components and self.components.cargo then
           self:addItem("shield_module_basic", 1)
       end
 
-      -- Add mining and salvaging lasers to cargo hold
+      -- Add all turrets to cargo hold (including utility turrets)
       if self.components and self.components.cargo then
+          self:addItem("kinetic_turret", 1)
+          self:addItem("low_power_laser", 1)
+          self:addItem("missile_launcher_mk1", 1)
           self:addItem("mining_laser", 1)
           self:addItem("salvaging_laser", 1)
       end

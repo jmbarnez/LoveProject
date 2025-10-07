@@ -61,8 +61,8 @@ return {
 
     hardpoints = {
         {
-            turret = "gun_turret",
-            randomTurrets = { "gun_turret", "combat_laser", "missile_launcher" },
+            turret = "kinetic_turret",
+            randomTurrets = { "kinetic_turret", "low_power_laser", "missile_launcher_mk1" },
         }
     },
 
@@ -86,9 +86,9 @@ return {
             { id = "broken_circuitry", min = 1, max = 2, chance = 0.4 },
             { id = "ore_tritanium", min = 1, max = 2, chance = 0.25 },
             { id = "ore_palladium", min = 1, max = 1, chance = 0.1 },
-            { id = "gun_turret", chance = 0.05 },
-            { id = "combat_laser", chance = 0.03 },
-            { id = "missile_launcher", chance = 0.02 },
+            { id = "kinetic_turret", chance = 0.05 },
+            { id = "low_power_laser", chance = 0.03 },
+            { id = "missile_launcher_mk1", chance = 0.02 },
             { id = "node_wallet", min = 1, max = 1, chance = 0.3 },
         }
     },
@@ -123,7 +123,7 @@ return {
             hull = { hp = 180, shield = 120, cap = 0 }, -- No energy system
             engine = { maxSpeed = 420, accel = 700 },
             hardpoints = {
-                { turret = "combat_laser" }  -- Use streamlined combat laser
+                { turret = "low_power_laser" }
             }
         }
     }

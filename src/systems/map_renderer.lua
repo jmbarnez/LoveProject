@@ -85,6 +85,8 @@ end
 function MapRenderer.drawMinimap(player, world, entities, discovery, viewport)
   if not player or not world then return end
   
+  -- Clip all minimap drawing to its bounds to avoid overdraw outside
+  love.graphics.setScissor(viewport.x, viewport.y, viewport.w, viewport.h)
   -- Draw background
   MapRenderer._drawMinimapBackground(viewport)
   
@@ -102,6 +104,8 @@ function MapRenderer.drawMinimap(player, world, entities, discovery, viewport)
   
   -- Draw fog overlay
   MapRenderer.drawFogOverlay(discovery, viewport, world)
+  -- Remove clipping
+  love.graphics.setScissor()
 end
 
 -- Draw full map

@@ -67,13 +67,13 @@ return {
 
   hardpoints = {
     {
-      turret = "gun_turret",
+      turret = "kinetic_turret",
     },
     {
-      turret = "combat_laser",
+      turret = "low_power_laser",
     },
     {
-      turret = "missile_launcher",
+      turret = "missile_launcher_mk1",
     }
   },
 
@@ -99,9 +99,9 @@ return {
       { id = "broken_circuitry", min = 2, max = 4, chance = 0.6 },
       { id = "ore_tritanium", min = 2, max = 5, chance = 0.5 },
       { id = "ore_palladium", min = 1, max = 3, chance = 0.3 },
-      { id = "gun_turret", chance = 0.15 },
-      { id = "combat_laser", chance = 0.12 },
-      { id = "missile_launcher", chance = 0.08 },
+      { id = "kinetic_turret", chance = 0.15 },
+      { id = "low_power_laser", chance = 0.12 },
+      { id = "missile_launcher_mk1", chance = 0.08 },
     }
   },
 

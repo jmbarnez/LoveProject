@@ -81,6 +81,28 @@ local function createWorldObjects(world)
     local minDistance = 1000
     local cratePositions = {}
     local maxAttempts = 1000
+    
+    -- Cache stations for spawn exclusion checks
+    local stations = world:get_entities_with_components("station") or {}
+    local function isSafeFromStations(x, y)
+        for _, s in ipairs(stations) do
+            local sp = s.components and s.components.position
+            if sp then
+                local dx = x - sp.x
+                local dy = y - sp.y
+                local distSq = dx * dx + dy * dy
+                -- Prefer explicit noSpawnRadius, fall back to shieldRadius, then radius
+                local protectionRadius = s.noSpawnRadius or s.shieldRadius or s.radius or 0
+                -- Add a small extra buffer so crates don't visually touch station edges
+                local buffer = 150
+                local required = protectionRadius + buffer
+                if required > 0 and distSq < (required * required) then
+                    return false
+                end
+            end
+        end
+        return true
+    end
 
     for i = 1, 8 do
         local validPosition = false
@@ -91,6 +113,10 @@ local function createWorldObjects(world)
             local y = math.random(margin, worldSize - margin)
 
             validPosition = true
+            -- Reject positions that are inside station protection/no-spawn radii
+            if not isSafeFromStations(x, y) then
+                validPosition = false
+            end
             for _, existingPos in ipairs(cratePositions) do
                 local dx = x - existingPos.x
                 local dy = y - existingPos.y
