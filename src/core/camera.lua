@@ -99,26 +99,32 @@ end
 function Camera:getBounds()
     local w = love.graphics.getWidth() / self.scale
     local h = love.graphics.getHeight() / self.scale
-    -- self.x/self.y already include deviation, so use them directly
-    local x = self.x - w / 2
-    local y = self.y - h / 2
+    -- Use the same floor operation as apply() for pixel-perfect accuracy
+    local visualX = math.floor(self.x)
+    local visualY = math.floor(self.y)
+    local x = visualX - w / 2
+    local y = visualY - h / 2
     return x, y, w, h
 end
 
 
 function Camera:screenToWorld(sx, sy)
   local w, h = Viewport.getDimensions()
-  -- self.x/self.y already represent the final camera center (including deviation)
-  local x = (sx - w * 0.5) / self.scale + self.x
-  local y = (sy - h * 0.5) / self.scale + self.y
+  -- Use the same floor operation as apply() for pixel-perfect accuracy
+  local visualX = math.floor(self.x)
+  local visualY = math.floor(self.y)
+  local x = (sx - w * 0.5) / self.scale + visualX
+  local y = (sy - h * 0.5) / self.scale + visualY
   return x, y
 end
 
 function Camera:worldToScreen(wx, wy)
   local w, h = Viewport.getDimensions()
-  -- self.x/self.y already represent the final camera center (including deviation)
-  local sx = (wx - self.x) * self.scale + w * 0.5
-  local sy = (wy - self.y) * self.scale + h * 0.5
+  -- Use the same floor operation as apply() for pixel-perfect accuracy
+  local visualX = math.floor(self.x)
+  local visualY = math.floor(self.y)
+  local sx = (wx - visualX) * self.scale + w * 0.5
+  local sy = (wy - visualY) * self.scale + h * 0.5
   return sx, sy
 end
 

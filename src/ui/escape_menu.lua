@@ -12,6 +12,7 @@ local EscapeMenu = {
     exitButtonDown = false,
     settingsButtonDown = false,
     saveButtonDown = false,
+    lanButtonDown = false,
     saveLoadPanel = nil,
     saveLoadPanelZ = nil,
     _floatingWindowZ = 180
@@ -33,7 +34,7 @@ end
 local function getLayoutSize()
     local buttonH = (Theme.ui and Theme.ui.buttonHeight) or 28
     local buttonSpacing = (Theme.ui and Theme.ui.buttonSpacing) or 4
-    local totalButtons = 3
+    local totalButtons = 4
 
     local w = 200 -- Set a fixed width for the content area
 
@@ -72,9 +73,10 @@ local function getLayout()
     local startY = y
     local saveButtonY = startY
     local settingsButtonY = saveButtonY + buttonH + buttonSpacing
-    local exitButtonY = settingsButtonY + buttonH + buttonSpacing
+    local lanButtonY = settingsButtonY + buttonH + buttonSpacing
+    local exitButtonY = lanButtonY + buttonH + buttonSpacing
 
-    return x, y, w, h, buttonX, saveButtonY, settingsButtonY, exitButtonY, buttonW, buttonH
+    return x, y, w, h, buttonX, saveButtonY, settingsButtonY, lanButtonY, exitButtonY, buttonW, buttonH
 end
 
 function EscapeMenu.show()
@@ -169,7 +171,7 @@ function EscapeMenu.drawContent(window, x, y, w, h)
     love.graphics.setFont(font)
 
     -- Use the same layout calculation as mousepressed for consistency
-    local _, _, _, _, buttonX, saveButtonY, settingsButtonY, exitButtonY, buttonW, buttonH = getLayout()
+    local _, _, _, _, buttonX, saveButtonY, settingsButtonY, lanButtonY, exitButtonY, buttonW, buttonH = getLayout()
 
     -- Save Game button
     local saveHover = pointIn(mx, my, buttonX, saveButtonY, buttonW, buttonH)
@@ -178,6 +180,10 @@ function EscapeMenu.drawContent(window, x, y, w, h)
     -- Settings button
     local settingsHover = pointIn(mx, my, buttonX, settingsButtonY, buttonW, buttonH)
     Theme.drawStyledButton(buttonX, settingsButtonY, buttonW, buttonH, "Settings", settingsHover, t, nil, EscapeMenu.settingsButtonDown, { menuButton = true })
+
+    -- LAN button
+    local lanHover = pointIn(mx, my, buttonX, lanButtonY, buttonW, buttonH)
+    Theme.drawStyledButton(buttonX, lanButtonY, buttonW, buttonH, "Open to LAN", lanHover, t, nil, EscapeMenu.lanButtonDown, { menuButton = true })
 
     -- Exit to Main Menu button
     local exitHover = pointIn(mx, my, buttonX, exitButtonY, buttonW, buttonH)
@@ -212,11 +218,12 @@ function EscapeMenu.mousepressed(x, y, button)
     end
 
     -- Handle buttons inside the escape menu content area
-    local _, _, _, _, buttonX, saveButtonY, settingsButtonY, exitButtonY, buttonW, buttonH = getLayout()
+    local _, _, _, _, buttonX, saveButtonY, settingsButtonY, lanButtonY, exitButtonY, buttonW, buttonH = getLayout()
 
     local buttons = {
         {name = "save", y = saveButtonY, action = function() EscapeMenu.saveButtonDown = true end},
         {name = "settings", y = settingsButtonY, action = function() EscapeMenu.settingsButtonDown = true end},
+        {name = "lan", y = lanButtonY, action = function() EscapeMenu.lanButtonDown = true end},
         {name = "exit", y = exitButtonY, action = function() EscapeMenu.exitButtonDown = true end}
     }
 
@@ -249,7 +256,7 @@ function EscapeMenu.mousereleased(x, y, button)
         return SettingsPanel.mousereleased(x, y, button)
     end
 
-    local menuX, menuY, menuW, menuH, buttonX, saveButtonY, settingsButtonY, exitButtonY, buttonW, buttonH = getLayout()
+    local menuX, menuY, menuW, menuH, buttonX, saveButtonY, settingsButtonY, lanButtonY, exitButtonY, buttonW, buttonH = getLayout()
 
     if button == 1 then
         -- Save Game button
@@ -364,6 +371,38 @@ function EscapeMenu.mousereleased(x, y, button)
                 SettingsPanel.toggle()
                 if _G.UIManager and _G.UIManager.open then
                     _G.UIManager.open("settings")
+                end
+                return true, false
+            end
+        end
+
+        -- LAN button
+        if EscapeMenu.lanButtonDown then
+            EscapeMenu.lanButtonDown = false
+            if pointIn(x, y, buttonX, lanButtonY, buttonW, buttonH) then
+                -- Play button click sound
+                local Sound = require("src.core.sound")
+                Sound.triggerEvent('ui_button_click')
+                
+                -- Toggle LAN hosting
+                local Game = require("src.game")
+                local Notifications = require("src.ui.notifications")
+                
+                local success, result = Game.toggleLanHosting()
+                if not success then
+                    if result == "no_network" then
+                        Notifications.add("Network manager not available", "error")
+                    else
+                        Notifications.add("Failed to start multiplayer server", "error")
+                    end
+                else
+                    if result == "lan_opened" then
+                        Notifications.add("Opened current world to LAN players", "success")
+                    elseif result == "lan_closed" then
+                        Notifications.add("Stopped hosting multiplayer game", "info")
+                    else
+                        Notifications.add("Left multiplayer game", "info")
+                    end
                 end
                 return true, false
             end

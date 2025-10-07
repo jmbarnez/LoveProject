@@ -270,46 +270,46 @@ ActionMap.registerAction({
     end,
 })
 
-print("REGISTERING F3 ACTION!")
-ActionMap.registerAction({
-    name = "toggle_multiplayer_host",
-    priority = 25,
-    getKeys = function()
-        return { "f3" }
-    end,
-    enabled = function(ctx)
-        return ctx and ctx.player ~= nil and ctx.world ~= nil
-    end,
-    callback = function(ctx)
-        local Log = require("src.core.log")
-        local Game = require("src.game")
-        local Notifications = require("src.ui.notifications")
-        
-        print("F3 KEY PRESSED!")
-        Log.info("F3 key pressed - attempting to toggle multiplayer hosting")
-        print("Current state - isMultiplayer:", Game.isMultiplayer(), "isHost:", Game.isHost())
+-- F3 LAN functionality moved to escape menu
+-- ActionMap.registerAction({
+--     name = "toggle_multiplayer_host",
+--     priority = 25,
+--     getKeys = function()
+--         return { "f3" }
+--     end,
+--     enabled = function(ctx)
+--         return ctx and ctx.player ~= nil and ctx.world ~= nil
+--     end,
+--     callback = function(ctx)
+--         local Log = require("src.core.log")
+--         local Game = require("src.game")
+--         local Notifications = require("src.ui.notifications")
+--         
+--         print("F3 KEY PRESSED!")
+--         Log.info("F3 key pressed - attempting to toggle multiplayer hosting")
+--         print("Current state - isMultiplayer:", Game.isMultiplayer(), "isHost:", Game.isHost())
 
-        local success, result = Game.toggleLanHosting()
-        if not success then
-            if result == "no_network" then
-                Notifications.add("Network manager not available", "error")
-            else
-                Notifications.add("Failed to start multiplayer server", "error")
-            end
-            return false
-        end
+--         local success, result = Game.toggleLanHosting()
+--         if not success then
+--             if result == "no_network" then
+--                 Notifications.add("Network manager not available", "error")
+--             else
+--                 Notifications.add("Failed to start multiplayer server", "error")
+--             end
+--             return false
+--         end
 
-        if result == "lan_opened" then
-            Notifications.add("Opened current world to LAN players (F3 to close)", "success")
-        elseif result == "lan_closed" then
-            Notifications.add("Stopped hosting multiplayer game", "info")
-        else
-            Notifications.add("Left multiplayer game", "info")
-        end
+--         if result == "lan_opened" then
+--             Notifications.add("Opened current world to LAN players (F3 to close)", "success")
+--         elseif result == "lan_closed" then
+--             Notifications.add("Stopped hosting multiplayer game", "info")
+--         else
+--             Notifications.add("Left multiplayer game", "info")
+--         end
 
-        return true
-    end,
-})
+--         return true
+--     end,
+-- })
 
 -- Construction system actions
 ActionMap.registerAction({

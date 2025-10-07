@@ -115,11 +115,8 @@ function Player.new(x, y, shipId)
           self:addItem("shield_module_basic", 1)
       end
 
-      -- Add all turrets to cargo hold (including utility turrets)
+      -- Add utility turrets to cargo hold (combat turrets are already equipped)
       if self.components and self.components.cargo then
-          self:addItem("kinetic_turret", 1)
-          self:addItem("low_power_laser", 1)
-          self:addItem("missile_launcher_mk1", 1)
           self:addItem("mining_laser", 1)
           self:addItem("salvaging_laser", 1)
       end
