@@ -7,6 +7,7 @@ local RemoteProjectileSync = require("src.systems.remote_projectile_sync")
 local Content = require("src.content.content")
 local NetworkManager = require("src.core.network.manager")
 local NetworkSync = require("src.systems.network_sync")
+local TargetUtils = require("src.core.target_utils")
 
 local Session = {}
 
@@ -189,6 +190,47 @@ local function sanitiseAdditionalEffects(effects, turretInstance, turretDef)
     end
 
     return sanitised
+end
+
+local function applyAdditionalEffectContext(effects, turretInstance, turretDef, player)
+    if type(effects) ~= "table" or #effects == 0 then
+        return
+    end
+
+    local world = state.world
+    if not world then
+        return
+    end
+
+    for _, effect in ipairs(effects) do
+        if type(effect) == "table" and effect.type == "homing" then
+            effect.world = world
+
+            if not effect.speed or effect.speed <= 0 then
+                local speed
+                if turretInstance then
+                    if turretInstance.projectile and turretInstance.projectile.physics then
+                        speed = turretInstance.projectile.physics.speed
+                    elseif turretInstance.projectileSpeed then
+                        speed = turretInstance.projectileSpeed
+                    end
+                end
+
+                if not speed and turretDef and type(turretDef.projectile) == "table" and turretDef.projectile.physics then
+                    speed = turretDef.projectile.physics.speed
+                end
+
+                effect.speed = speed or effect.speed
+            end
+
+            local target = turretInstance and turretInstance.lockOnTarget
+            if target and TargetUtils.isEnemyTarget(target, player) then
+                effect.target = target
+            else
+                effect.target = nil
+            end
+        end
+    end
 end
 
 -- Simple hash function for change detection
@@ -701,6 +743,7 @@ local function handleProjectileRequest(request, playerId)
 
     local damageConfig = buildDamageConfig(turretInstance, turretDef)
     local additionalEffects = sanitiseAdditionalEffects(request.additionalEffects, turretInstance, turretDef)
+    applyAdditionalEffectContext(additionalEffects, turretInstance, turretDef, player)
 
     local playerPos = player.components and player.components.position
     local startX = playerPos and playerPos.x or 0
