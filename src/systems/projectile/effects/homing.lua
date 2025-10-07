@@ -77,44 +77,34 @@ local function factory(context, config)
     local reacquireTimer = 0
 
     local function acquire(forceNearest)
-        if not world or not world.get_entities_with_components then
-            if not isTargetValid(currentTarget, projectile) then
-                currentTarget = nil
-            end
-            return
-        end
-
-        -- If we have a valid current target, keep it unless it becomes invalid
-        if currentTarget and isTargetValid(currentTarget, projectile) then
-            return
-        end
-
-        -- Only look for a new target if we don't have one or the current one is invalid
-        if forceNearest or not currentTarget then
-            local nearest = findNearestTarget(projectile, world, maxRangeSq)
-            if nearest then
-                currentTarget = nearest
-            end
-        elseif maintainNearest then
-            local nearest = findNearestTarget(projectile, world, maxRangeSq)
-            if nearest and nearest ~= currentTarget then
-                currentTarget = nearest
-            end
-        end
-
+        -- Only check if current target is still valid
+        -- No nearest target acquisition - missile only targets locked enemy
         if currentTarget and not isTargetValid(currentTarget, projectile) then
             currentTarget = nil
         end
     end
 
     local function steer(dt)
-        if not currentTarget or not isTargetValid(currentTarget, projectile) then
-            return
-        end
-
         local position = projectile.components and projectile.components.position
         local velocity = projectile.components and projectile.components.velocity
         if not position or not velocity then
+            return
+        end
+
+        -- If no target or target is invalid, maintain current velocity (fly straight)
+        if not currentTarget or not isTargetValid(currentTarget, projectile) then
+            -- Just maintain current speed and direction
+            local speed = math.sqrt((velocity.x or 0) * (velocity.x or 0) + (velocity.y or 0) * (velocity.y or 0))
+            if desiredSpeed and desiredSpeed > 0 then
+                speed = desiredSpeed
+            elseif speed <= 0 then
+                speed = 1
+            end
+            
+            local currentAngle = math.atan2(velocity.y or 0, velocity.x or 0)
+            velocity.x = math.cos(currentAngle) * speed
+            velocity.y = math.sin(currentAngle) * speed
+            position.angle = currentAngle
             return
         end
 

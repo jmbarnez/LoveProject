@@ -78,42 +78,36 @@ local function factory(context, config)
     }
 
     local function update_target(world, forceNearest)
+        -- Only check if current target is still valid
+        -- No nearest target acquisition - missile only targets locked enemy
         if state.currentTarget and not is_target_valid(state.currentTarget) then
             state.currentTarget = nil
-        end
-
-        -- If we have a specific target, only reacquire if it becomes invalid
-        if state.hasSpecificTarget and state.currentTarget then
-            return -- Keep the specific target
-        end
-
-        -- If we have a valid current target, keep it unless it becomes invalid
-        if state.currentTarget and is_target_valid(state.currentTarget) then
-            return
-        end
-
-        -- Only look for a new target if we don't have one or the current one is invalid
-        if not state.currentTarget or forceNearest then
-            local target = acquire_target(projectile, world, maxRangeSq, true)
-            if target then
-                state.currentTarget = target
-            end
-        elseif state.maintainNearest then
-            local target = acquire_target(projectile, world, maxRangeSq, true)
-            if target and target ~= state.currentTarget then
-                state.currentTarget = target
-            end
         end
     end
 
     local function steer(dt, world)
-        if not state.currentTarget or not is_target_valid(state.currentTarget) then
-            return
-        end
-
         local position = projectile.components and projectile.components.position
         local velocity = projectile.components and projectile.components.velocity
         if not position or not velocity then
+            return
+        end
+
+        -- If no target or target is invalid, maintain current velocity (fly straight)
+        if not state.currentTarget or not is_target_valid(state.currentTarget) then
+            -- Just maintain current speed and direction
+            local speed = vector_length(velocity.x, velocity.y)
+            if state.desiredSpeed and state.desiredSpeed > 0 then
+                speed = state.desiredSpeed
+            elseif speed <= 0 then
+                local physics = projectile.components.physics
+                local baseSpeed = (physics and physics.speed) or 700
+                speed = baseSpeed
+            end
+            
+            local currentAngle = math.atan2(velocity.y or 0, velocity.x or 0)
+            velocity.x = math.cos(currentAngle) * speed
+            velocity.y = math.sin(currentAngle) * speed
+            position.angle = currentAngle
             return
         end
 
