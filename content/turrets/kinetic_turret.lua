@@ -2,7 +2,7 @@ return {
     id = "kinetic_turret",
     type = "gun",
     name = "Kinetic Turret",
-    description = "Wind arc weapon that blasts ships in a wide cone with powerful kinetic force.",
+    description = "Electromagnetic turret that launches dense sabot penetrators with extreme muzzle velocity.",
     price = 1500,
     volume = 8,
     module = { type = "turret" },
@@ -33,53 +33,62 @@ return {
         name = "Kinetic Wave",
         class = "Projectile",
         physics = {
-            speed = 600,
-            drag = 0.05,
+            speed = 1150,
+            drag = 0.01,
         },
         renderable = {
-            type = "wave",
+            type = "bullet",
             props = {
-                radius = 8,
-                color = {0.5, 0.5, 0.5, 0.8}
+                kind = "gauss",
+                radius = 4,
+                color = {0.92, 0.82, 0.58, 1.0},
+                streak = {
+                    length = 26,
+                    width = 2.4,
+                    color = {1.0, 0.86, 0.42, 0.75}
+                }
             }
         },
         collidable = {
-            radius = 8,
+            radius = 4,
         },
         damage = {
-            value = 15.0,
+            value = 18.0,
         },
         timed_life = {
-            duration = 2.0,
+            duration = 2.4,
         },
-        -- Force wave effect component
         components = {
             {
-                name = "force_wave",
+                name = "ballistics",
                 value = {
-                    knockback_force = 500,
-                    radius = 12,
-                    duration = 0.5
+                    projectile_mass = 2.8, -- kilograms for the sabot penetrator
+                    caliber_mm = 45,
+                    muzzle_velocity = 1150, -- meters per second
+                    muzzle_energy = 0.5 * 2.8 * 1150 * 1150, -- ≈1.85 MJ per shot
+                    impulse_transfer = 0.42, -- scales how much impulse hits targets
+                    displacement_scale = 0.00045, -- converts impulse into positional shove when no rigid body exists
+                    restitution = 0.15,
                 }
             }
         }
     },
-    
+
     -- Visual effects
-    tracer = { color = {0.6, 0.4, 0.8, 0.6}, width = 4, coreRadius = 6 },
+    tracer = { color = {0.9, 0.8, 0.6, 0.8}, width = 2.4, coreRadius = 5 },
     impact = {
-        shield = { spanDeg = 90, color1 = {0.6, 0.4, 0.8, 0.8}, color2 = {0.4, 0.2, 0.6, 0.6} },
-        hull = { spark = {0.6, 0.4, 0.8, 1.0}, ring = {0.4, 0.2, 0.6, 0.8} },
+        shield = { spanDeg = 70, color1 = {0.9, 0.8, 0.6, 0.7}, color2 = {0.7, 0.6, 0.4, 0.5} },
+        hull = { spark = {1.0, 0.85, 0.55, 1.0}, ring = {0.8, 0.6, 0.3, 0.8} },
     },
-    
+
     -- Weapon stats
-    optimal = 400, falloff = 200,
-    damage_range = { min = 12, max = 18 },
-    damagePerSecond = 15,
-    cycle = 2.0, capCost = 3,
-    energyPerSecond = 5,
-    maxRange = 600,
-    spread = { minDeg = 0, maxDeg = 0, decay = 0 },
+    optimal = 550, falloff = 250,
+    damage_range = { min = 16, max = 22 },
+    damagePerSecond = 18,
+    cycle = 1.8, capCost = 4,
+    energyPerSecond = 8,
+    maxRange = 700,
+    spread = { minDeg = 0.3, maxDeg = 1.0, decay = 260 },
     
     -- Volley firing (single shot by default)
     volleyCount = 1,
