@@ -39,8 +39,8 @@ return {
             props = {
                 kind = "laser",
                 length = 600,
-                tracerWidth = 2,
-                color = {0.3, 0.7, 1.0, 0.9},
+                tracerWidth = 1.2,
+                color = {0.3, 0.7, 1.0, 0.5},
             }
         },
         collidable = {
@@ -59,7 +59,7 @@ return {
     },
     
     -- Visual effects
-    tracer = { color = {0.3, 0.7, 1.0, 0.8}, width = 2, coreRadius = 1 },
+    tracer = { color = {0.3, 0.7, 1.0, 0.4}, width = 1.2, coreRadius = 0.6 },
     impact = {
         shield = { spanDeg = 50, color1 = {0.3, 0.7, 1.0, 0.5}, color2 = {0.2, 0.5, 0.8, 0.3} },
         hull = { spark = {0.3, 0.7, 1.0, 0.7}, ring = {0.2, 0.5, 0.8, 0.5} },

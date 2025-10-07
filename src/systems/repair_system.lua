@@ -92,51 +92,8 @@ local function attemptRepair(station, player)
 end
 
 function RepairSystem.update(dt, player, world)
-    local popup = getRepairPopup()
-    if not popup or not world or not player then
-        return
-    end
-
-    local repairableEntities = world:get_entities_with_components("repairable")
-    if not repairableEntities or #repairableEntities == 0 then
-        popup.hide()
-        return
-    end
-
-    local playerPos = player.components and player.components.position
-    if not playerPos then
-        popup.hide()
-        return
-    end
-
-    local interactionRange = popup.interactionRange or 220
-    local rangeSq = interactionRange * interactionRange
-
-    local nearestStation = nil
-    local nearestDistSq = rangeSq + 1
-
-    for _, entity in ipairs(repairableEntities) do
-        local repairable = entity.components and entity.components.repairable
-        local stationComponent = entity.components and entity.components.station
-        if repairable and repairable.broken and stationComponent and stationComponent.type == "beacon_station" then
-            local pos = entity.components.position
-            if pos then
-                local dx = playerPos.x - pos.x
-                local dy = playerPos.y - pos.y
-                local distSq = dx * dx + dy * dy
-                if distSq <= rangeSq and distSq < nearestDistSq then
-                    nearestStation = entity
-                    nearestDistSq = distSq
-                end
-            end
-        end
-    end
-
-    if nearestStation then
-        popup.show(nearestStation, player, RepairSystem.tryRepair)
-    else
-        popup.hide()
-    end
+    -- Repair system disabled - players must build their own stations
+    return
 end
 
 function RepairSystem.tryRepair(station, player)

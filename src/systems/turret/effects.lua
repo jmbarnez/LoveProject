@@ -246,8 +246,8 @@ function TurretEffects.renderBeam(turret, startX, startY, endX, endY, hitTarget)
         -- Salvaging laser uses wavy beam effect like mining laser
         TurretEffects.renderWavyBeam(startX, startY, endX, endY, color, width, coreRadius, distance, angle)
     elseif turret.kind == "laser" then
-        -- Combat laser uses tazer beam effect
-        TurretEffects.renderTazerBeam(startX, startY, endX, endY, color, width, coreRadius, distance, angle)
+        -- Combat laser uses simple straight beam
+        TurretEffects.renderStraightBeam(startX, startY, endX, endY, color, width, coreRadius)
     else
         -- Draw straight beam for other lasers
         love.graphics.setColor(color[1], color[2], color[3], color[4])
@@ -304,6 +304,26 @@ function TurretEffects.renderWavyBeam(startX, startY, endX, endY, color, width, 
         love.graphics.setColor(math.min(1, color[1] + 0.2), math.min(1, color[2] + 0.2), math.min(1, color[3] + 0.2), color[4] * 0.9)
         love.graphics.setLineWidth(coreRadius)
         love.graphics.line(points)
+    end
+end
+
+-- Render a simple straight beam for combat lasers
+function TurretEffects.renderStraightBeam(startX, startY, endX, endY, color, width, coreRadius)
+    -- Draw outer glow (very faint)
+    love.graphics.setColor(color[1], color[2], color[3], color[4] * 0.15)
+    love.graphics.setLineWidth(width + 1.5)
+    love.graphics.line(startX, startY, endX, endY)
+    
+    -- Draw main beam
+    love.graphics.setColor(color[1], color[2], color[3], color[4])
+    love.graphics.setLineWidth(width)
+    love.graphics.line(startX, startY, endX, endY)
+    
+    -- Draw bright core
+    if coreRadius > 0 then
+        love.graphics.setColor(math.min(1, color[1] + 0.2), math.min(1, color[2] + 0.2), math.min(1, color[3] + 0.2), color[4])
+        love.graphics.setLineWidth(coreRadius)
+        love.graphics.line(startX, startY, endX, endY)
     end
 end
 
