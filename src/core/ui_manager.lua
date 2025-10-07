@@ -995,6 +995,23 @@ function UIManager.wheelmoved(x, y, dx, dy)
     local mx, my = love.mouse.getPosition()
     if versionLogModule.wheelmoved(mx, my, dx, dy) then return true end
   end
+  
+  -- Route wheel to visible UI components (topmost first)
+  do
+    local mx, my = love.mouse.getPosition()
+    for _, comp in ipairs(Registry.visibleSortedDescending()) do
+      local id = comp.id
+      -- Special case: map expects (mouseX, wheelDeltaY)
+      if id == "map" then
+        local handled = callComponentMethod("map", "wheelmoved", { mx, dy }, { mx, dy })
+        if handled then return true end
+      else
+        -- Generic convention: (mx, my, dx, dy)
+        local handled = callComponentMethod(id, "wheelmoved", { mx, my, dx, dy }, { mx, my, dx, dy })
+        if handled then return true end
+      end
+    end
+  end
   -- Save slots UI doesn't need wheel handling, but we need to consume the event if it's active
   if UIManager.state.escape.open and UIManager.state.escape.showingSaveSlots then
     return true

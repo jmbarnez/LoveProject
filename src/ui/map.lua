@@ -21,6 +21,7 @@ local Map = {
     dragOffsetX = 0,
     dragOffsetY = 0,
     scale = 1.0,
+    dragSpeed = 2.0,
     minScale = 0.1,
     maxScale = 3.0,
     centerX = 0,
@@ -253,47 +254,64 @@ function Map.drawUI(mapX, mapY, mapW, mapH)
 
     local controlX = mapX + 18
     local controlY = mapY + 22
-    local filters = {
-        { key = "filterStations", label = "Stations", value = Map.filterStations },
-        { key = "filterEnemies", label = "Enemies", value = Map.filterEnemies },
-        { key = "filterAsteroids", label = "Asteroids", value = Map.filterAsteroids },
-        { key = "filterWrecks", label = "Wrecks", value = Map.filterWrecks },
+    local oldFont = love.graphics.getFont()
+    local smallFont = (Theme.fonts and Theme.fonts.xsmall) or oldFont
+    local lineHeight = 16
+    local panelWidth = 210
+    local textPad = 12
+    local topPad = 14
+    local bottomPad = 14
+    
+    -- Legend entries (display-only)
+    local legend = {
+        { label = "Player", color = Theme.colors.accent },
+        { label = "Stations", color = Theme.colors.textSecondary },
+        { label = "Enemies", color = Theme.colors.danger },
+        { label = "Asteroids", color = Theme.colors.textTertiary },
+        { label = "Wrecks", color = Theme.colors.warning },
+        { label = "Warp Gates", color = Theme.colors.info },
+        { label = "Remote Players", color = Theme.colors.success },
     }
 
-    local infoLines = 4 + #filters
-    local panelHeight = 18 + infoLines * 18
-    local panelWidth = 210
+    local infoLines = 4 + #legend -- scale + legend title + items + help lines (2)
+    local panelHeight = topPad + bottomPad + infoLines * lineHeight
 
     Theme.setColor(Theme.colors.bg2)
-    love.graphics.rectangle("fill", controlX - 12, controlY - 14, panelWidth, panelHeight)
+    love.graphics.rectangle("fill", controlX - textPad, controlY - topPad, panelWidth, panelHeight)
     Theme.setColor(Theme.colors.border)
-    love.graphics.rectangle("line", controlX - 12, controlY - 14, panelWidth, panelHeight)
+    love.graphics.rectangle("line", controlX - textPad, controlY - topPad, panelWidth, panelHeight)
+
+    love.graphics.setFont(smallFont)
 
     Theme.setColor(Theme.colors.text)
-    love.graphics.print(string.format("Scale: %.2fx", Map.scale), controlX, controlY)
-    controlY = controlY + 20
+    Theme.drawTextFit(string.format("Scale: %.2fx", Map.scale), controlX, controlY, panelWidth - textPad * 2, 'left', smallFont, 0.5, 1.2)
+    controlY = controlY + lineHeight
 
-    for _, filter in ipairs(filters) do
-        local color = filter.value and Theme.colors.success or Theme.colors.text
-        Theme.setColor(color)
-        love.graphics.print(string.format("%s: %s", filter.label, filter.value and "ON" or "OFF"), controlX, controlY)
-        controlY = controlY + 18
+    -- Legend title
+    Theme.setColor(Theme.colors.textSecondary)
+    Theme.drawTextFit("Legend", controlX, controlY, panelWidth - textPad * 2, 'left', smallFont, 0.5, 1.2)
+    controlY = controlY + lineHeight
+
+    -- Legend items with colored squares
+    for _, item in ipairs(legend) do
+        local boxSize = 8
+        Theme.setColor(item.color)
+        love.graphics.rectangle("fill", controlX, controlY + math.floor((lineHeight - boxSize) * 0.5), boxSize, boxSize)
+        Theme.setColor(Theme.colors.border)
+        love.graphics.rectangle("line", controlX, controlY + math.floor((lineHeight - boxSize) * 0.5), boxSize, boxSize)
+        Theme.setColor(Theme.colors.text)
+        Theme.drawTextFit(item.label, controlX + boxSize + 6, controlY, panelWidth - textPad * 2 - (boxSize + 6), 'left', smallFont, 0.5, 1.2)
+        controlY = controlY + lineHeight
     end
 
-    local gridColor = Map.showGrid and Theme.colors.success or Theme.colors.text
-    Theme.setColor(gridColor)
-    love.graphics.print(string.format("Grid: %s", Map.showGrid and "ON" or "OFF"), controlX, controlY)
-    controlY = controlY + 18
+    -- Guidance lines
+    Theme.setColor(Theme.colors.text)
+    Theme.drawTextFit("Drag: Left Mouse", controlX, controlY, panelWidth - textPad * 2, 'left', smallFont, 0.5, 1.2)
+    controlY = controlY + lineHeight
+    Theme.drawTextFit("Zoom: Mouse Wheel", controlX, controlY, panelWidth - textPad * 2, 'left', smallFont, 0.5, 1.2)
 
-    local trailColor = Map.showTrails and Theme.colors.success or Theme.colors.text
-    Theme.setColor(trailColor)
-    love.graphics.print(string.format("Trails: %s", Map.showTrails and "ON" or "OFF"), controlX, controlY)
-    controlY = controlY + 18
 
-    Theme.setColor(Theme.colors.muted or Theme.colors.text)
-    love.graphics.print("Drag: Left Mouse", controlX, controlY)
-    controlY = controlY + 18
-    love.graphics.print("Zoom: Mouse Wheel", controlX, controlY)
+    if oldFont then love.graphics.setFont(oldFont) end
 end
 
 function Map.mousepressed(x, y, button)
@@ -328,30 +346,33 @@ function Map.mousemoved(x, y, dx, dy)
         return false
     end
 
+    -- Prioritize map dragging so window hover/resize can't swallow movement
+    if Map.dragging then
+        local world = Map._drawWorld
+        if not world then
+            return false
+        end
+
+        local scale = Map.scale
+        local speed = Map.dragSpeed or 1.0
+        local newCenterX = Map.dragOffsetX - (x - Map.dragStartX) * (speed / scale)
+        local newCenterY = Map.dragOffsetY - (y - Map.dragStartY) * (speed / scale)
+
+        local worldWidth = world.width or Map.centerX
+        local worldHeight = world.height or Map.centerY
+        Map.centerX = math.max(0, math.min(worldWidth, newCenterX))
+        Map.centerY = math.max(0, math.min(worldHeight, newCenterY))
+
+        return true
+    end
+
+    -- Not dragging: allow the window to handle movement (resize/drag/title bar)
     local window = Map.window
     if window and window:mousemoved(x, y, dx, dy) then
         return true
     end
 
-    if not Map.dragging then
-        return false
-    end
-
-    local world = Map._drawWorld
-    if not world then
-        return false
-    end
-
-    local scale = Map.scale
-    local newCenterX = Map.dragOffsetX - (x - Map.dragStartX) / scale
-    local newCenterY = Map.dragOffsetY - (y - Map.dragStartY) / scale
-
-    local worldWidth = world.width or Map.centerX
-    local worldHeight = world.height or Map.centerY
-    Map.centerX = math.max(0, math.min(worldWidth, newCenterX))
-    Map.centerY = math.max(0, math.min(worldHeight, newCenterY))
-
-    return true
+    return false
 end
 
 function Map.mousereleased(x, y, button)
