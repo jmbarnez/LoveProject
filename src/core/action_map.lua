@@ -178,7 +178,53 @@ toggleAction("toggle_map", "toggle_map", "map")
 
 
 
--- Beacon repair system removed - players must build their own stations
+ActionMap.registerAction({
+    name = "repair_beacon",
+    priority = 20,
+    getKeys = function()
+        return ActionMap.bindingKeys("repair_beacon")
+    end,
+    enabled = function(ctx)
+        return ctx and ctx.player ~= nil and ctx.world ~= nil and ctx.repairSystem ~= nil
+    end,
+    callback = function(ctx)
+        local player = ctx.player
+        local world = ctx.world
+        local repairSystem = ctx.repairSystem
+        if not (player and world and repairSystem) then return false end
+
+        local position = player.components and player.components.position
+        if not position then return false end
+
+        local stations = world.get_entities_with_components and world:get_entities_with_components("repairable")
+        if not stations then return false end
+
+        for _, station in ipairs(stations) do
+            local repairable = station.components and station.components.repairable
+            if repairable and repairable.broken then
+                local pos = station.components.position
+                if pos then
+                    local dx = pos.x - position.x
+                    local dy = pos.y - position.y
+                    local distance = math.sqrt(dx * dx + dy * dy)
+                    if distance <= 200 then
+                        local success = repairSystem.tryRepair(station, player)
+                        if ctx.notifications and ctx.notifications.add then
+                            if success then
+                                ctx.notifications.add("Beacon station repaired successfully!", "success")
+                            else
+                                ctx.notifications.add("Insufficient materials for repair", "error")
+                            end
+                        end
+                        return true
+                    end
+                end
+            end
+        end
+
+        return false
+    end,
+})
 
 ActionMap.registerAction({
     name = "toggle_fullscreen",

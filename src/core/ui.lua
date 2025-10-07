@@ -798,13 +798,29 @@ function UI.handleHelperMousePressed(x, y, button, player)
     return true
   end
   
-  if not dockPromptState.visible and not warpPromptState.visible and not cratePromptState.visible then
+  if not dockPromptState.visible and not warpPromptState.visible and not cratePromptState.visible and not beaconRepairPromptState.visible then
     return false
   end
   local docking = getDocking(player)
   if not player or (docking and docking.docked) then return false end
 
-  -- Beacon repair system removed
+  if beaconRepairPromptState.buttonRect and UIUtils.pointInRect(x, y, beaconRepairPromptState.buttonRect) then
+    local station = beaconRepairPromptState.station
+    if station and station.components and station.components.repairable and station.components.repairable.broken then
+      local success = RepairSystem.tryRepair(station, player)
+      local Notifications = require("src.ui.notifications")
+      if success then
+        Notifications.add("Beacon station repaired successfully!", "success")
+        beaconRepairPromptState.visible = false
+        beaconRepairPromptState.buttonRect = nil
+        beaconRepairPromptState.station = nil
+        beaconRepairPromptState.canRepair = false
+      else
+        Notifications.add("Insufficient materials for repair", "error")
+      end
+    end
+    return true
+  end
 
   if cratePromptState.collectRect and UIUtils.pointInRect(x, y, cratePromptState.collectRect) then
     local crate = cratePromptState.pickup

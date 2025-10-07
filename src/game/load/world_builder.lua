@@ -11,10 +11,54 @@ local Projectiles = require("src.game.projectiles")
 local WorldBuilder = {}
 
 local function createStations(world)
-	-- No stations spawn automatically - player must build them
-	-- This creates the "empty space" survival experience
-	Debug.info("game", "No stations spawned - player must build their own")
-	return nil
+	-- Choose a random cluster center inside world bounds with a generous margin
+	local worldW, worldH = Constants.WORLD.WIDTH, Constants.WORLD.HEIGHT
+	local margin = math.max(2000, (Constants.SPAWNING and Constants.SPAWNING.STATION_BUFFER) or 0)
+	local cx = math.random(margin, worldW - margin)
+	local cy = math.random(margin, worldH - margin)
+
+	-- Place hub at cluster center
+	local hub = EntityFactory.create("station", "hub_station", cx, cy)
+	if not hub then
+		Debug.error("game", "Failed to create hub station")
+		return nil, "Failed to create hub station"
+	end
+	world:addEntity(hub)
+
+	-- Distribute other stations around the center with spread similar to current feel
+	local baseAngle = math.random() * math.pi * 2
+	local function polarOffset(angle, radius)
+		return cx + math.cos(angle) * radius, cy + math.sin(angle) * radius
+	end
+
+	-- Furnace station
+	local r1 = 1800 + math.random() * 2200  -- ~2k-4k spread from center
+	local a1 = baseAngle
+	local fx, fy = polarOffset(a1, r1)
+	-- Clamp to bounds if extremely close to edges (rare due to margin)
+	fx = math.max(margin, math.min(worldW - margin, fx))
+	fy = math.max(margin, math.min(worldH - margin, fy))
+	local furnace = EntityFactory.create("station", "ore_furnace_station", fx, fy)
+	if not furnace then
+		Debug.error("game", "Failed to create ore furnace station")
+		return nil, "Failed to create ore furnace station"
+	end
+	world:addEntity(furnace)
+
+	-- Beacon station
+	local r2 = 1800 + math.random() * 2200
+	local a2 = baseAngle + (2 * math.pi / 3) -- space them apart
+	local bx, by = polarOffset(a2, r2)
+	bx = math.max(margin, math.min(worldW - margin, bx))
+	by = math.max(margin, math.min(worldH - margin, by))
+	local beacon = EntityFactory.create("station", "beacon_station", bx, by)
+	if not beacon then
+		Debug.error("game", "Failed to create beacon station")
+		return nil, "Failed to create beacon station"
+	end
+	world:addEntity(beacon)
+
+	return hub
 end
 
 local function createWorldObjects(world)
@@ -123,10 +167,14 @@ function WorldBuilder.build(Game, updateProgress)
 
     local camera = Camera.new()
 
-    updateProgress(0.6, "Preparing empty space...")
-    local hub = nil  -- No hub station - player starts in empty space
+    updateProgress(0.6, "Creating stations...")
+    local hub
     if not NetworkSession.isMultiplayer() or NetworkSession.isHost() then
-        createStations(world)  -- This now does nothing, just logs
+        local createdHub, errorMessage = createStations(world)
+        if not createdHub then
+            return nil, nil, nil, nil, errorMessage
+        end
+        hub = createdHub
     end
     NetworkSession.setContext({ hub = hub })
 
