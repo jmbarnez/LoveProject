@@ -92,7 +92,9 @@ local function handleInput()
         return { aimx = 0, aimy = 0 } -- Default values if camera isn't ready
     end
 
-    local mx, my = Viewport.getMousePosition()
+    -- Use raw mouse coordinates directly - don't apply viewport transformations
+    -- The camera system handles its own coordinate conversion
+    local mx, my = love.mouse.getPosition()
 
     -- Handle case where mouse position might be invalid
     if mx == nil or my == nil or mx ~= mx or my ~= my then -- Check for NaN

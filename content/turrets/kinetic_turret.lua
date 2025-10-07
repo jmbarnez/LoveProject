@@ -1,8 +1,8 @@
 return {
     id = "kinetic_turret",
     type = "gun",
-    name = "Kinetic Turret",
-    description = "Electromagnetic turret that launches dense sabot penetrators with extreme muzzle velocity.",
+    name = "Shrapnel Bomb Launcher",
+    description = "Launches explosive bombs that detonate at target location, releasing a deadly cone of shrapnel.",
     price = 1500,
     volume = 8,
     module = { type = "turret" },
@@ -29,66 +29,67 @@ return {
     
     -- Embedded projectile definition
     projectile = {
-        id = "kinetic_wave",
-        name = "Kinetic Wave",
+        id = "shrapnel_bomb",
+        name = "Shrapnel Bomb",
         class = "Projectile",
         physics = {
-            speed = 1150,
-            drag = 0.01,
+            speed = 800,
+            drag = 0.02,
         },
         renderable = {
             type = "bullet",
             props = {
-                kind = "gauss",
-                radius = 4,
-                color = {0.92, 0.82, 0.58, 1.0},
+                kind = "fragmentation",
+                radius = 6,
+                color = {0.8, 0.2, 0.2, 1.0},
                 streak = {
-                    length = 26,
-                    width = 2.4,
-                    color = {1.0, 0.86, 0.42, 0.75}
+                    length = 20,
+                    width = 3,
+                    color = {1.0, 0.3, 0.3, 0.8}
                 }
             }
         },
         collidable = {
-            radius = 4,
+            radius = 6,
         },
         damage = {
-            value = 18.0,
+            value = 0.0, -- Bomb itself doesn't damage, only explosion does
         },
         timed_life = {
-            duration = 2.4,
+            duration = 3.0,
         },
+        -- Bomb explosion component
         components = {
             {
-                name = "ballistics",
+                name = "bomb_explosion",
                 value = {
-                    projectile_mass = 2.8, -- kilograms for the sabot penetrator
-                    caliber_mm = 45,
-                    muzzle_velocity = 1150, -- meters per second
-                    muzzle_energy = 0.5 * 2.8 * 1150 * 1150, -- ≈1.85 MJ per shot
-                    impulse_transfer = 0.42, -- scales how much impulse hits targets
-                    displacement_scale = 0.00045, -- converts impulse into positional shove when no rigid body exists
-                    restitution = 0.15,
+                    explosion_radius = 80,
+                    shrapnel_count = 12,
+                    shrapnel_spread = math.pi * 0.6, -- 108 degree cone
+                    shrapnel_speed = 600,
+                    shrapnel_damage = 8,
+                    explosion_damage = 25,
+                    explosion_delay = 999.0, -- Large delay - will explode when reaching target
                 }
             }
         }
     },
 
     -- Visual effects
-    tracer = { color = {0.9, 0.8, 0.6, 0.8}, width = 2.4, coreRadius = 5 },
+    tracer = { color = {0.8, 0.2, 0.2, 0.8}, width = 3, coreRadius = 6 },
     impact = {
-        shield = { spanDeg = 70, color1 = {0.9, 0.8, 0.6, 0.7}, color2 = {0.7, 0.6, 0.4, 0.5} },
-        hull = { spark = {1.0, 0.85, 0.55, 1.0}, ring = {0.8, 0.6, 0.3, 0.8} },
+        shield = { spanDeg = 90, color1 = {1.0, 0.3, 0.3, 0.8}, color2 = {0.8, 0.1, 0.1, 0.6} },
+        hull = { spark = {1.0, 0.4, 0.2, 1.0}, ring = {0.9, 0.2, 0.1, 0.8} },
     },
 
     -- Weapon stats
-    optimal = 550, falloff = 250,
-    damage_range = { min = 16, max = 22 },
-    damagePerSecond = 18,
-    cycle = 1.8, capCost = 4,
-    energyPerSecond = 8,
-    maxRange = 700,
-    spread = { minDeg = 0.3, maxDeg = 1.0, decay = 260 },
+    optimal = 400, falloff = 200,
+    damage_range = { min = 20, max = 30 }, -- Total damage from explosion + shrapnel
+    damagePerSecond = 15,
+    cycle = 2.5, capCost = 5,
+    energyPerSecond = 6,
+    maxRange = 600,
+    spread = { minDeg = 0.5, maxDeg = 1.5, decay = 200 },
     
     -- Volley firing (single shot by default)
     volleyCount = 1,

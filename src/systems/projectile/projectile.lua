@@ -40,6 +40,9 @@ function Projectile.new(x, y, angle, friendly, config)
             turretType = config.sourceTurretType,
             sourcePlayerId = config.sourcePlayerId,
             sourceShipId = config.sourceShipId,
+            targetX = config.targetX, -- Target position for bomb-type projectiles
+            targetY = config.targetY,
+            targetAngle = config.targetAngle,
         },
         position = Position.new({ x = x, y = y, angle = angle }),
         velocity = Velocity.new({ x = vx, y = vy }),
@@ -157,6 +160,20 @@ function Projectile.new(x, y, angle, friendly, config)
 
     effectManager:loadConfig(config.effects or {})
     effectManager:loadConfig(config.additionalEffects or {})
+    
+    -- Load effects from components field (for embedded effects like bomb_explosion)
+    if config.components then
+        for _, component in ipairs(config.components) do
+            if component.name and component.value then
+                -- Create effect definition from component
+                local effectDef = {
+                    type = component.name,
+                    value = component.value
+                }
+                effectManager:addEffect(effectDef)
+            end
+        end
+    end
 
     local behaviorManager = BehaviorManager.new(self, dispatcher)
     self.behavior_manager = behaviorManager

@@ -59,6 +59,9 @@ function Projectiles.spawn(x, y, angle, friendly, opts)
     extra_config.sourceTurretId = opts.sourceTurretId
     extra_config.sourceTurretType = opts.sourceTurretType
     extra_config.source = opts.source
+    extra_config.targetX = opts.targetX
+    extra_config.targetY = opts.targetY
+    extra_config.targetAngle = opts.targetAngle
 
     -- Handle velocity override if provided
     if opts.vx and opts.vy then

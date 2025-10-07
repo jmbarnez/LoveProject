@@ -17,13 +17,13 @@ function Camera.new()
   self.target = nil
   self.smooth = 6
   
-  -- Camera deviation properties
+  -- Camera deviation properties - DISABLED for simplified world calculations
   self.deviationX = 0
   self.deviationY = 0
-  self.maxDeviation = 300 -- Maximum deviation distance in pixels (increased from 200)
-  self.deviationLerp = 8 -- How quickly deviation returns to center (increased for stiffer feel)
-  self.movementDeviation = 0.1 -- How much movement affects deviation (reduced significantly)
-  self.cursorDeviation = 0.15 -- How much cursor position affects deviation (much reduced for stiffer feel)
+  self.maxDeviation = 0 -- No deviation - camera stays centered on player
+  self.deviationLerp = 8 -- How quickly deviation returns to center
+  self.movementDeviation = 0.0 -- No movement-based deviation
+  self.cursorDeviation = 0.0 -- No cursor-based deviation
   
   return self
 end
@@ -38,44 +38,10 @@ function Camera:update(dt)
     local targetX = self.target.components.position.x
     local targetY = self.target.components.position.y
     
-    -- Calculate deviation based on movement and cursor position
-    local targetDeviationX = 0
-    local targetDeviationY = 0
-    
-    -- Movement-based deviation
-    if self.target.components.physics and self.target.components.physics.body then
-      local body = self.target.components.physics.body
-      local velocity = math.sqrt(body.vx * body.vx + body.vy * body.vy)
-      if velocity > 20 then -- Only apply deviation when moving fast (increased threshold)
-        local moveAngle = math.atan2(body.vy, body.vx)
-        local deviationAmount = math.min(velocity * self.movementDeviation, self.maxDeviation)
-        targetDeviationX = math.cos(moveAngle) * deviationAmount
-        targetDeviationY = math.sin(moveAngle) * deviationAmount
-      end
-    end
-    
-    -- Cursor-based deviation removed to prevent circular dependency
-    -- Camera deviation should only be based on movement, not cursor position
-    -- This ensures accurate cursor-to-world coordinate conversion
-    
-    -- Clamp total deviation to maxDeviation
-    local totalDeviation = math.sqrt(targetDeviationX * targetDeviationX + targetDeviationY * targetDeviationY)
-    if totalDeviation > self.maxDeviation then
-      local scale = self.maxDeviation / totalDeviation
-      targetDeviationX = targetDeviationX * scale
-      targetDeviationY = targetDeviationY * scale
-    end
-    
-    -- Smooth deviation towards target
-    self.deviationX = self.deviationX + (targetDeviationX - self.deviationX) * math.min(1, self.deviationLerp * dt)
-    self.deviationY = self.deviationY + (targetDeviationY - self.deviationY) * math.min(1, self.deviationLerp * dt)
-    
-    -- Apply deviation to camera position
-    local finalTargetX = targetX + self.deviationX
-    local finalTargetY = targetY + self.deviationY
-    
-    self.x = self.x + (finalTargetX - self.x) * math.min(1, self.smooth * dt)
-    self.y = self.y + (finalTargetY - self.y) * math.min(1, self.smooth * dt)
+    -- Simplified camera: directly follow player position with no deviation
+    -- This simplifies world calculations and ensures consistent cursor-to-world conversion
+    self.x = self.x + (targetX - self.x) * math.min(1, self.smooth * dt)
+    self.y = self.y + (targetY - self.y) * math.min(1, self.smooth * dt)
   end
   
   -- Smooth zoom towards targetScale

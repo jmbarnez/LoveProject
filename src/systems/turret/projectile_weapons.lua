@@ -413,7 +413,7 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
             -- If not a client or request failed, spawn projectile directly (for host)
             if not requestSent and world and world.spawn_projectile then
                 local metadata = buildProjectileMetadata(turret)
-                world.spawn_projectile(sx, sy, finalAngle, friendly, {
+                local spawnConfig = {
                     projectile = projectileId,
                     vx = vx,
                     vy = vy,
@@ -425,7 +425,17 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
                     sourceTurretSlot = metadata.turretSlot,
                     sourceTurretId = metadata.turretId,
                     sourceTurretType = metadata.turretType,
-                })
+                }
+                
+                -- Pass target position for bomb-type projectiles
+                if targetX and targetY then
+                    spawnConfig.targetX = targetX
+                    spawnConfig.targetY = targetY
+                    spawnConfig.targetAngle = angle
+                    print("Passing target position to projectile:", targetX, targetY, "angle:", angle)
+                end
+                
+                world.spawn_projectile(sx, sy, finalAngle, friendly, spawnConfig)
             end
             
         end
