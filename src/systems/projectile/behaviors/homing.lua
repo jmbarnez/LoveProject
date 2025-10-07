@@ -74,11 +74,17 @@ local function factory(context, config)
         reacquireTimer = 0,
         maintainNearest = config.retargetNearest ~= false,
         desiredSpeed = config.speed,
+        hasSpecificTarget = config.target ~= nil, -- Track if we were given a specific target
     }
 
     local function update_target(world, forceNearest)
         if state.currentTarget and not is_target_valid(state.currentTarget) then
             state.currentTarget = nil
+        end
+
+        -- If we have a specific target, only reacquire if it becomes invalid
+        if state.hasSpecificTarget and state.currentTarget then
+            return -- Keep the specific target
         end
 
         if not state.currentTarget or forceNearest or state.maintainNearest then

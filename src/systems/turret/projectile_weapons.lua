@@ -444,23 +444,25 @@ end
 
 -- Handle missile turret firing (directional projectiles)
 function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world)
+    -- Always update lock state so UI can reflect progress even when not firing
+    ProjectileWeapons.updateMissileLockState(turret, dt, target, world)
+
     if locked or not turret:canFire() then
         return
     end
 
     local owner = turret.owner
-    local sx, sy, angle = computeMissileAim(turret, target)
-    turret.currentAimAngle = angle
-
     local isPlayer = owner and owner.isPlayer
 
     if isPlayer then
+        -- For players, require lock-on before firing (lock time is just delay)
         if not turret.isLockedOn or not isTargetValid(turret.lockOnTarget, owner) then
             turret.cooldownOverride = 0
             return
         end
         target = turret.lockOnTarget
     else
+        -- For AI enemies, find target and fire immediately (no lock-on delay)
         local maxRangeSq = math.huge
         if turret.maxRange and turret.maxRange > 0 then
             maxRangeSq = turret.maxRange * turret.maxRange
@@ -470,11 +472,7 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
             target = findNearestEnemyTarget(turret, world, sx, sy, maxRangeSq)
         end
 
-        if target then
-            turret.lockOnTarget = target
-            turret.lockOnProgress = 1
-            turret.isLockedOn = true
-        else
+        if not target then
             turret.cooldownOverride = 0
             return
         end
@@ -484,6 +482,10 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
         turret.cooldownOverride = 0
         return
     end
+
+    -- Compute aim AFTER target resolution so we launch toward the locked target
+    local sx, sy, angle = computeMissileAim(turret, target)
+    turret.currentAimAngle = angle
 
     -- Get projectile speed from embedded definition or fallback to turret setting
     local projSpeed = 1200 -- Increased default speed for rockets (faster than bullets)
@@ -519,8 +521,11 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
             damageConfig = { min = 2, max = 4, skill = turret.skillId }
         end
 
-        local additionalEffects = {
-            {
+        local additionalEffects = {}
+        
+        -- Add homing behavior if we have a target (both player and enemy missiles)
+        if target then
+            table.insert(additionalEffects, {
                 type = "homing",
                 world = world,
                 target = target,
@@ -528,8 +533,8 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
                 maxRange = turret.maxRange,
                 speed = projSpeed,
                 reacquireDelay = 0.1,
-            }
-        }
+            })
+        end
 
         local friendly = turret.owner.isPlayer or false
 

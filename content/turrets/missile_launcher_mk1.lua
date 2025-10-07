@@ -75,6 +75,13 @@ return {
     maxRange = 2500,
     spread = { minDeg = 1.0, maxDeg = 2.5, decay = 400 },
     
+    -- Targeting and guidance
+    -- Lock settings: how precisely to aim and how long to hold before lock
+    lockOnAngleTolerance = 0.26, -- ~15 degrees in radians
+    lockOnDuration = 0.9,        -- seconds to acquire lock when aimed at target
+    -- Guidance: missile turn rate (radians/second)
+    missileTurnRate = 4.19,      -- ~240 deg/sec
+    
     -- Volley firing (single shot by default)
     volleyCount = 1,
     volleySpreadDeg = 0,
