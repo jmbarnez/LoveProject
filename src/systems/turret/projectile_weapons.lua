@@ -299,28 +299,44 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
     end
 
 
-    -- Get turret world position first for accurate aiming
     local Turret = require("src.systems.turret.core")
+
+    -- Capture the current muzzle position so we can calculate aim vectors.
     local sx, sy = Turret.getTurretWorldPosition(turret)
 
     -- Aim at target if available, otherwise use cursor or ship facing
     local angle = 0
+    local targetX, targetY = nil, nil
     if target and target.components and target.components.position then
         -- For automatic firing (AI), aim from turret position to target
-        local tx = target.components.position.x
-        local ty = target.components.position.y
-        local dx = tx - sx
-        local dy = ty - sy
-        angle = math.atan2(dy, dx)
+        targetX = target.components.position.x
+        targetY = target.components.position.y
     elseif turret.owner.cursorWorldPos then
         -- For manual firing, use the cursor direction from turret position
-        local cursorX, cursorY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
-        local dx = cursorX - sx
-        local dy = cursorY - sy
+        targetX, targetY = turret.owner.cursorWorldPos.x, turret.owner.cursorWorldPos.y
+    end
+
+    if targetX and targetY then
+        local dx = targetX - sx
+        local dy = targetY - sy
+        angle = math.atan2(dy, dx)
+
+        -- Update the turret orientation before re-evaluating the muzzle
+        turret.currentAimAngle = angle
+        sx, sy = Turret.getTurretWorldPosition(turret)
+
+        -- Recalculate the angle using the updated muzzle position. This keeps the
+        -- direction vector aligned with the actual shot origin.
+        dx = targetX - sx
+        dy = targetY - sy
         angle = math.atan2(dy, dx)
     else
         -- Fallback to ship facing if no target or cursor available
         angle = turret.owner.components.position.angle
+
+        -- Ensure the muzzle matches the fallback orientation
+        turret.currentAimAngle = angle
+        sx, sy = Turret.getTurretWorldPosition(turret)
     end
     -- Get projectile speed from embedded definition or fallback to turret setting
     local projSpeed = 2400 -- Default fallback
