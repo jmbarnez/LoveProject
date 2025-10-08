@@ -60,6 +60,20 @@ local entity = {
 | `src/core/sound.lua` | Loads SFX/music, updates listener position, and plays events. |
 | `src/core/theme.lua` | Supplies fonts, colors, spacing tokens, and shader references for UI components. |
 
+### Module Registration & Lazy Loading
+
+`src/core/module_registry.lua` centralizes lazy-loaded dependencies so the entry point no longer needs to manage bespoke caches.
+
+- **Registration** – Startup code (currently `main.lua`) calls `ModuleRegistry.registerMany` with name/function pairs. Each
+  loader returns the module table when first invoked.
+- **Resolution** – `ModuleRegistry.get("ModuleName")` loads the dependency on first access, memoizes it, and optionally
+  reports the load duration back to the caller for profiling.
+- **Maintenance** – Use `ModuleRegistry.clear(name)` to invalidate a cached module when it should be rebuilt (e.g., forcing a
+  fresh `UIManager`). Tests or hot-reload helpers can inject doubles with `ModuleRegistry.set`.
+
+This keeps the boot script lean, provides a single location for future module wiring, and makes adding new lazily loaded systems
+as simple as appending another registration entry.
+
 ## Game Loop Flow
 
 The runtime loop is coordinated by `src/game.lua`.
