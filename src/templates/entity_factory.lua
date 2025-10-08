@@ -33,7 +33,7 @@ local EntityFactory = {}
 -- Creates a base entity instance from a template and a configuration.
 -- This is the core, generic creation function.
 ---
-function EntityFactory.create(entityType, entityId, x, y, extraConfig)
+function EntityFactory.create(entityType, entityId, x, y, extraConfig, world)
     local template = entity_templates[entityType]
     if not template then
         Log.warn("EntityFactory - No template for type", tostring(entityType))
@@ -97,7 +97,7 @@ function EntityFactory.create(entityType, entityId, x, y, extraConfig)
     if entityType == "ship" then
         entity = Builder.buildShip(config, x, y, { angle = angle, friendly = friendly })
     elseif entityType == "projectile" then
-        entity = Builder.buildProjectile(config, x, y, angle, friendly, extraConfig)
+        entity = Builder.buildProjectile(config, x, y, angle, friendly, extraConfig, world)
     elseif entityType == "world_object" then
         entity = Builder.buildWorldObject(config, x, y, { angle = angle, friendly = friendly })
     elseif entityType == "station" then

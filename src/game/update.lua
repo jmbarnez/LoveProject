@@ -110,6 +110,12 @@ function Update.update(dt)
     end
     context.refreshDockingState = State.refreshDockingState
     context.gameState = {}
+    
+    -- Add missing dependencies that systems need
+    context.clickMarkers = State.clickMarkers
+    context.hoveredEntity = State.hoveredEntity
+    context.hoveredEntityType = State.hoveredEntityType
+    context.networkManager = State.networkManager
 
     State.systemPipeline:update(context)
 

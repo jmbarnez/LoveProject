@@ -9,7 +9,6 @@ local EffectManager = require("src.systems.projectile.effect_manager")
 local BehaviorManager = require("src.systems.projectile.behavior_manager")
 local RendererFactory = require("src.systems.projectile.renderer_factory")
 local PluginRegistry = require("src.systems.projectile.plugin_registry")
-local State = require("src.game.state")
 
 require("src.systems.projectile.effects.init")
 require("src.systems.projectile.plugins.init")
@@ -20,7 +19,7 @@ local Projectile = {}
 Projectile.__index = Projectile
 local ProjectileEvents = EventDispatcher.EVENTS
 
-function Projectile.new(x, y, angle, friendly, config)
+function Projectile.new(x, y, angle, friendly, config, world)
     local self = setmetatable({}, Projectile)
     self.tag = "bullet" -- Keep tag for compatibility with some legacy checks
 
@@ -189,7 +188,7 @@ function Projectile.new(x, y, angle, friendly, config)
     dispatcher:emit(ProjectileEvents.SPAWN, {
         projectile = self,
         config = config,
-        world = State.world,
+        world = world,
     })
 
     return self

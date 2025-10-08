@@ -1,7 +1,5 @@
 local World = require("src.core.world")
 local Constants = require("src.core.constants")
-local ECS = require("src.core.ecs")
-local LifetimeSystem = require("src.systems.lifetime")
 local Camera = require("src.core.camera")
 local EntityFactory = require("src.templates.entity_factory")
 local Debug = require("src.core.debug")
@@ -156,14 +154,12 @@ end
 function WorldBuilder.build(Game, updateProgress)
     updateProgress(0.5, "Creating world...")
     local world = World.new(Constants.WORLD.WIDTH, Constants.WORLD.HEIGHT)
-    world.spawn_projectile = Projectiles.spawn
+    world.spawn_projectile = function(x, y, angle, friendly, opts)
+        return Projectiles.spawn(x, y, angle, friendly, opts, world)
+    end
     Game.world = world
     NetworkSession.setContext({ world = world })
 
-    local ecsManager = ECS.new()
-    ecsManager:setWorld(world)
-    world:setECSWorld(ecsManager)
-    ecsManager:addSystem(LifetimeSystem.create())
 
     local camera = Camera.new()
 
@@ -183,7 +179,7 @@ function WorldBuilder.build(Game, updateProgress)
         createWorldObjects(world)
     end
 
-    return world, camera, hub, ecsManager
+    return world, camera, hub
 end
 
 return WorldBuilder

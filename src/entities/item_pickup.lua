@@ -19,7 +19,8 @@ function ItemPickup.new(x, y, itemId, qty, sizeScale, vx, vy)
   -- Tag component for systems to query
   self.components.item_pickup = { itemId = itemId or "ore_tritanium", qty = qty or 1 }
   -- Velocity for initial explosion spread
-  self.components.velocity = { vx = vx or 0, vy = vy or 0 }
+  local Velocity = require("src.components.velocity")
+  self.components.velocity = Velocity.new({ x = vx or 0, y = vy or 0 })
   -- Optional: expire after some time if uncollected
   self.components.timed_life = TimedLife.new(180)
 

@@ -7,7 +7,7 @@
 
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
-local Discovery = require("src.systems.discovery")
+-- Discovery system removed - no fog of war
 local MapEntities = require("src.systems.map_entities")
 local MapRenderer = require("src.systems.map_renderer")
 local Sound = require("src.core.sound")
@@ -23,7 +23,7 @@ local Minimap = {
   centerX = 0,
   centerY = 0,
   showEntities = true,
-  showFog = true,
+  showFog = false, -- Fog of war disabled
 }
 
 local function getMinimapBounds()
@@ -66,33 +66,24 @@ end
 
 function Minimap.update(dt, player, world)
   if not Minimap.visible or not player then return end
-  local State = require("src.game.state")
-  world = world or State.world
   if not world then return end
-  
-  -- Update discovery system
-  Discovery.update(player, world)
   
   -- Update minimap center if following player
   if Minimap.followPlayer and player.components and player.components.position then
     Minimap.centerX = player.components.position.x
     Minimap.centerY = player.components.position.y
-    end
   end
+end
 
 function Minimap.draw(player, world, additionalEntities)
   if not Minimap.visible or not player or not world then return end
-  
-  local State = require("src.game.state")
-  world = world or State.world
-  if not world then return end
   local viewport = getMinimapViewport(world)
   
   -- Get visible entities
-  local entities = MapEntities.getMinimapEntities(world, Discovery, additionalEntities)
+  local entities = MapEntities.getMinimapEntities(world, nil, additionalEntities)
   
   -- Draw the minimap
-  MapRenderer.drawMinimap(player, world, entities, Discovery, viewport)
+  MapRenderer.drawMinimap(player, world, entities, nil, viewport)
   
   -- Draw minimap border
   Theme.setColor(Theme.colors.border)
@@ -169,21 +160,21 @@ function Minimap.keypressed(key)
   return false
 end
 
--- Expose discovery functions for compatibility
+-- Discovery functions removed - no fog of war
 function Minimap.ensureDiscovery(world)
-  Discovery.init(world)
+  -- No-op: fog of war disabled
 end
 
 function Minimap.isDiscovered(wx, wy)
-  return Discovery.isDiscovered(wx, wy)
+  return true -- All areas are always discovered
 end
 
 function Minimap.getDiscovery()
-  return Discovery
+  return nil -- No discovery system
 end
 
 function Minimap.revealAt(wx, wy, radius)
-  Discovery.revealAt(wx, wy, radius)
+  -- No-op: fog of war disabled
 end
 
 return Minimap

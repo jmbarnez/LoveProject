@@ -99,12 +99,12 @@ function Player.new(x, y, shipId)
       end
 
       -- Equip starting combat turrets
-      if not equipStartingModule(1, "kinetic_turret") and self.components and self.components.cargo then
-          self:addItem("kinetic_turret", 1)
+      if not equipStartingModule(1, "low_power_laser") and self.components and self.components.cargo then
+          self:addItem("low_power_laser", 1)
       end
 
-      if not equipStartingModule(2, "low_power_laser") and self.components and self.components.cargo then
-          self:addItem("low_power_laser", 1)
+      if not equipStartingModule(2, "railgun_turret") and self.components and self.components.cargo then
+          self:addItem("railgun_turret", 1)
       end
 
       if not equipStartingModule(3, "missile_launcher_mk1") and self.components and self.components.cargo then

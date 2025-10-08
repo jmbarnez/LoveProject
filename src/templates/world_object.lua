@@ -32,11 +32,12 @@ function WorldObject.new(x, y, angle, friendly, config)
     end
 
     if config.interactable then
-        self.components.interactable = {
+        local Interactable = require("src.components.interactable")
+        self.components.interactable = Interactable.new({
             range = config.interactable.range or 50,
             prompt = config.interactable.prompt or "Click to interact",
             requiresKey = config.interactable.requiresKey
-        }
+        })
     end
 
     if config.mineable then

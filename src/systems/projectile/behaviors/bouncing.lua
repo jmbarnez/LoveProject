@@ -1,6 +1,5 @@
 local BehaviorRegistry = require("src.systems.projectile.behavior_registry")
 local ProjectileEvents = require("src.systems.projectile.event_dispatcher").EVENTS
-local State = require("src.game.state")
 
 local function reflect_velocity(vx, vy, nx, ny)
     local dot = (vx * nx) + (vy * ny)

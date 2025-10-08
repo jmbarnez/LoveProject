@@ -22,7 +22,7 @@ function Builder.buildWorldObject(def, x, y, opts)
   return WorldObjectTemplate.new(x, y, angle, friendly, def)
 end
 
-function Builder.buildProjectile(def, x, y, angle, friendly, opts)
+function Builder.buildProjectile(def, x, y, angle, friendly, opts, world)
   -- Merge runtime options into the base definition to ensure all properties are passed
   if opts then
     for k, v in pairs(opts) do
@@ -31,7 +31,7 @@ function Builder.buildProjectile(def, x, y, angle, friendly, opts)
       end
     end
   end
-  return ProjectileTemplate.new(x, y, angle, friendly, def)
+  return ProjectileTemplate.new(x, y, angle, friendly, def, world)
 end
 
 function Builder.buildStation(def, x, y, opts)

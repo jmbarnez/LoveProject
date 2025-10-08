@@ -11,28 +11,6 @@ local Transform = require("src.ui.map.transform")
 
 local MapRenderer = {}
 
--- Draw fog overlay over undiscovered areas
-function MapRenderer.drawFogOverlay(discovery, viewport, world)
-  if not world or not discovery then return end
-  
-  local discovered, cellSize, gx, gy = discovery.getGrid()
-  if not discovered then return end
-  
-  for cy = 1, (gy or 0) do
-    for cx = 1, (gx or 0) do
-      if not discovered[cy][cx] then
-        local wx = (cx - 1) * cellSize
-        local wy = (cy - 1) * cellSize
-        
-        if viewport.type == "minimap" then
-          MapRenderer._drawMinimapFogCell(wx, wy, cellSize, viewport, world)
-        else
-          MapRenderer._drawFullMapFogCell(wx, wy, cellSize, viewport, world)
-        end
-      end
-    end
-  end
-end
 
 -- Draw a single entity on the map
 function MapRenderer.drawEntity(entityData, viewport, world)
@@ -102,8 +80,6 @@ function MapRenderer.drawMinimap(player, world, entities, discovery, viewport)
     MapRenderer._drawPlayer(sx, sy, viewport)
   end
   
-  -- Draw fog overlay
-  MapRenderer.drawFogOverlay(discovery, viewport, world)
   -- Remove clipping
   love.graphics.setScissor()
 end
@@ -133,8 +109,6 @@ function MapRenderer.drawFullMap(player, world, entities, discovery, viewport)
     MapRenderer._drawPlayer(sx, sy, viewport)
   end
   
-  -- Draw fog overlay
-  MapRenderer.drawFogOverlay(discovery, viewport, world)
 end
 
 -- Helper: Convert world coordinates to minimap coordinates
@@ -171,31 +145,6 @@ function MapRenderer._drawMinimapBackground(viewport)
   end
 end
 
--- Helper: Draw fog cell for minimap
-function MapRenderer._drawMinimapFogCell(wx, wy, cellSize, viewport, world)
-  local rx = viewport.ox + wx * viewport.sx
-  local ry = viewport.oy + wy * viewport.sy
-  local rw = cellSize * viewport.sx
-  local rh = cellSize * viewport.sy
-  
-  Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.85))
-  love.graphics.rectangle("fill", rx, ry, rw, rh)
-end
-
--- Helper: Draw fog cell for full map
-function MapRenderer._drawFullMapFogCell(wx, wy, cellSize, viewport, world)
-  local sx, sy = Transform.worldToScreen(wx, wy, viewport.mapX, viewport.mapY, viewport.mapW, viewport.mapH, viewport.mapState, world)
-  local sx2, sy2 = Transform.worldToScreen(wx + cellSize, wy + cellSize, viewport.mapX, viewport.mapY, viewport.mapW, viewport.mapH, viewport.mapState, world)
-  local rx = math.min(sx, sx2)
-  local ry = math.min(sy, sy2)
-  local rw = math.abs(sx2 - sx)
-  local rh = math.abs(sy2 - sy)
-  
-  if rx < viewport.mapX + viewport.mapW and ry < viewport.mapY + viewport.mapH and (rx + rw) > viewport.mapX and (ry + rh) > viewport.mapY then
-    Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.85))
-    love.graphics.rectangle("fill", rx, ry, rw, rh)
-  end
-end
 
 -- Entity drawing helpers
 function MapRenderer._drawPlayer(sx, sy, viewport)

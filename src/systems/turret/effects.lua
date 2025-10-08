@@ -20,8 +20,8 @@ function TurretEffects.playFiringSound(turret)
     end
 
     -- Use specific weapon sounds based on turret ID for better audio variety
-    if turret.id == "kinetic_turret" then
-        Sound.triggerEvent('weapon_kinetic_turret_fire', x, y)
+    if turret.id == "railgun_turret" then
+        Sound.triggerEvent('weapon_railgun_turret_fire', x, y)
     elseif turret.id == "low_power_laser" then
         Sound.triggerEvent('weapon_low_power_laser_fire', x, y)
     elseif turret.id == "missile_launcher_mk1" then

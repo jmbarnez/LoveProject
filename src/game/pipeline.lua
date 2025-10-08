@@ -40,12 +40,9 @@ local function update_listener_position(player)
     end
 end
 
-local function update_ecs(dt, context)
-    if not State.ecsManager then
-        return
-    end
-
-    State.ecsManager:update(dt, context)
+local function update_lifetime_system(dt, world)
+    local LifetimeSystem = require("src.systems.lifetime")
+    LifetimeSystem.update(dt, world)
 end
 
 local function update_collision_system(world, dt)
@@ -90,7 +87,7 @@ function Pipeline.build()
             PhysicsSystem.update(ctx.dt, ctx.world:getEntities(), ctx.world)
         end,
         function(ctx)
-            update_ecs(ctx.dt, ctx)
+            update_lifetime_system(ctx.dt, ctx.world)
         end,
         function(ctx)
             BoundarySystem.update(ctx.world)

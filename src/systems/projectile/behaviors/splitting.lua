@@ -1,9 +1,8 @@
 local BehaviorRegistry = require("src.systems.projectile.behavior_registry")
 local ProjectileEvents = require("src.systems.projectile.event_dispatcher").EVENTS
-local State = require("src.game.state")
 
 local function spawnFragments(projectile, payload, config)
-    local world = (payload and payload.world) or State.world
+    local world = payload and payload.world
     if not world then return end
 
     local count = config.count or config.fragments or 3

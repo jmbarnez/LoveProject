@@ -18,7 +18,8 @@ function ExperiencePickup.new(x, y, amount, sizeScale, vx, vy)
         }
     })
     self.components.xp_pickup = { amount = amount or 0 }
-    self.components.velocity = { vx = vx or 0, vy = vy or 0 }
+    local Velocity = require("src.components.velocity")
+    self.components.velocity = Velocity.new({ x = vx or 0, y = vy or 0 })
     self.components.timed_life = TimedLife.new(DEFAULT_LIFETIME)
 
     self.amount = amount or 0

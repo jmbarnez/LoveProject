@@ -7,10 +7,8 @@
     emitting the same projectile events before entities are marked as dead.
 ]]
 
-local tiny = require("src.libs.tiny")
 local ProjectileEvents = require("src.systems.projectile.event_dispatcher").EVENTS
 local Effects = require("src.systems.effects")
-local State = require("src.game.state")
 
 local LifetimeSystem = {}
 
@@ -36,7 +34,6 @@ local function update_timed_life(entity, timed_life, dt)
         emit_projectile_event(entity, ProjectileEvents.EXPIRE, {
             projectile = entity,
             reason = "timed_out",
-            world = State.world,
         })
         entity.dead = true
     end
@@ -75,7 +72,6 @@ local function update_max_range(entity, max_range)
         reason = "max_range",
         distance = distance,
         maxDistance = max_range.maxDistance,
-        world = State.world,
     })
 
     max_range.expired = true
@@ -102,15 +98,16 @@ local function process_entity(entity, dt)
     end
 end
 
-function LifetimeSystem.create()
-    local system = tiny.processingSystem()
-    system.filter = tiny.requireAny("timed_life", "max_range")
-
-    function system:process(entity, dt)
-        process_entity(entity, dt)
+function LifetimeSystem.update(dt, world)
+    if not world then return end
+    
+    local entities = world:getEntities()
+    for _, entity in pairs(entities) do
+        -- Only process entities with timed_life or max_range components
+        if entity.components and (entity.components.timed_life or entity.components.max_range) then
+            process_entity(entity, dt)
+        end
     end
-
-    return system
 end
 
 return LifetimeSystem

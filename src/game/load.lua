@@ -38,7 +38,6 @@ function Load.load(Game, fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   local collisionSystem
   local windfieldManager
   local refreshDockingState
-  local ecsManager
   local networkManager
 
   local pendingConnection = nil
@@ -108,14 +107,13 @@ function Load.load(Game, fromSave, saveSlot, loadingScreen, multiplayer, isHost)
     end
   end
 
-  local builtWorld, builtCamera, builtHub, builtEcsManager, worldError = WorldBuilder.build(Game, updateProgress)
+  local builtWorld, builtCamera, builtHub, worldError = WorldBuilder.build(Game, updateProgress)
   if not builtWorld then
     return false, worldError or "Failed to create world"
   end
   world = builtWorld
   camera = builtCamera
   hub = builtHub
-  ecsManager = builtEcsManager
 
   updateProgress(0.8, "Creating warp gate...")
 
@@ -205,7 +203,6 @@ function Load.load(Game, fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   State.collisionSystem = collisionSystem
   State.windfieldManager = windfieldManager
   State.refreshDockingState = refreshDockingState
-  State.ecsManager = ecsManager
   State.networkManager = networkManager
   State.systemContext = {}
 

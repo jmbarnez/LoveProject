@@ -1,6 +1,11 @@
 local Util = require("src.core.util")
 local Content = require("src.content.content")
 local Log = require("src.core.log")
+local Position = require("src.components.position")
+local Collidable = require("src.components.collidable")
+local Velocity = require("src.components.velocity")
+local Health = require("src.components.health")
+local Equipment = require("src.components.equipment")
 local Renderable = require("src.components.renderable")
 local PhysicsComponent = require("src.components.physics")
 local ModelUtil = require("src.core.model_util")
@@ -116,17 +121,15 @@ function Ship.new(x, y, angle, friendly, shipConfig)
   
   self.components = {
       position = Position.new({ x = x, y = y, angle = 0 }),
-      collidable = {
+      collidable = Collidable.new({
         radius = physics.body.radius,
         shape = shipConfig.collisionShape or "circle",
         vertices = shipConfig.collisionVertices
-      },
+      }),
       physics = physics,
-      velocity = { x = 0, y = 0 },
-      health = { maxHP = maxHP, maxShield = maxShield, maxEnergy = maxEnergy, hp = hp, shield = shield, energy = energy },
-      equipment = {
-          grid = {}
-      },
+      velocity = Velocity.new({ x = 0, y = 0 }),
+      health = Health.new({ maxHP = maxHP, maxShield = maxShield, maxEnergy = maxEnergy, hp = hp, shield = shield, energy = energy }),
+      equipment = Equipment.new({ grid = {} }),
       renderable = Renderable.new(
           "enemy", -- Use the 'enemy' renderer by default
           { visuals = self.visuals }
@@ -145,7 +148,8 @@ function Ship.new(x, y, angle, friendly, shipConfig)
 
   -- Attach loot drop definition if provided by content
   if shipConfig.loot and shipConfig.loot.drops then
-    self.components.lootable = { drops = shipConfig.loot.drops }
+    local Lootable = require("src.components.lootable")
+    self.components.lootable = Lootable.new({ drops = shipConfig.loot.drops })
   end
 
   -- Add AI component if this is an enemy
@@ -169,7 +173,7 @@ function Ship.new(x, y, angle, friendly, shipConfig)
     self.components.ai = AIComponent.new(aiConfig)
     
     -- Add velocity component for movement
-    self.components.velocity = { x = 0, y = 0 }
+    self.components.velocity = Velocity.new({ x = 0, y = 0 })
   end
   
   -- Add player component if this is a player

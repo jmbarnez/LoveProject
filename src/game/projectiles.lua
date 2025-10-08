@@ -4,7 +4,7 @@ local State = require("src.game.state")
 
 local Projectiles = {}
 
-function Projectiles.spawn(x, y, angle, friendly, opts)
+function Projectiles.spawn(x, y, angle, friendly, opts, world)
     local Settings = require("src.core.settings")
     local networkingSettings = Settings.getNetworkingSettings()
     local manager = State.networkManager or NetworkSession.getManager()
@@ -68,9 +68,9 @@ function Projectiles.spawn(x, y, angle, friendly, opts)
         extra_config.speedOverride = math.sqrt(opts.vx * opts.vx + opts.vy * opts.vy)
     end
 
-    local projectile = Projectile.new(x, y, angle, friendly, extra_config)
-    if projectile and State.world then
-        State.world:addEntity(projectile)
+    local projectile = Projectile.new(x, y, angle, friendly, extra_config, world)
+    if projectile and world then
+        world:addEntity(projectile)
     end
 end
 
