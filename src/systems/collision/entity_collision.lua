@@ -6,6 +6,8 @@ local Geometry = require("src.systems.collision.geometry")
 local StationShields = require("src.systems.collision.station_shields")
 local CollisionEffects = require("src.systems.collision.effects")
 
+--- EntityCollision resolves entity-to-entity overlap, applying physical
+--- pushes, shield handling, and impact effects.
 local EntityCollision = {}
 
 local combatOverrides = Config.COMBAT or {}
@@ -15,11 +17,6 @@ local function getCombatValue(key)
     local value = combatOverrides[key]
     if value ~= nil then return value end
     return combatConstants[key]
-end
-
-local function hasActiveShield(entity)
-    local health = entity.components and entity.components.health
-    return (health and (health.shield or 0) > 0) or StationShields.hasActiveShield(entity)
 end
 
 local function worldPolygon(entity)
@@ -66,7 +63,7 @@ end
 local function getCollisionShape(entity)
     local pos = entity.components.position
 
-    if hasActiveShield(entity) then
+    if StationShields.hasActiveShield(entity) then
         return {
             type = "circle",
             x = pos.x,
@@ -331,8 +328,8 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
         -- Choose restitution based on shields (make shields bouncier)
         local HULL_REST = getCombatValue("HULL_RESTITUTION") or 0.28
         local SHIELD_REST = getCombatValue("SHIELD_RESTITUTION") or 0.88
-        local e1Rest = hasActiveShield(entity1) and SHIELD_REST or HULL_REST
-        local e2Rest = hasActiveShield(entity2) and SHIELD_REST or HULL_REST
+        local e1Rest = StationShields.hasActiveShield(entity1) and SHIELD_REST or HULL_REST
+        local e2Rest = StationShields.hasActiveShield(entity2) and SHIELD_REST or HULL_REST
 
         -- Push entities apart based on their mobility
         -- Normal points from entity1 to entity2, so we need to negate it for entity1
@@ -400,7 +397,9 @@ function EntityCollision.handleEntityCollisions(collisionSystem, entity, world, 
     local ey = entity.components.position.y
 
     -- Use effective radius for quadtree query (accounts for shields)
-    local entityRadius = Radius.calculateEffectiveRadius(entity)
+    local radius_cache = collisionSystem and collisionSystem.radius_cache
+    local entityRadius = radius_cache and radius_cache:getEffectiveRadius(entity)
+        or Radius.calculateEffectiveRadius(entity)
 
     -- Get potential collision targets from quadtree
     local candidates = collisionSystem.quadtree:query({
