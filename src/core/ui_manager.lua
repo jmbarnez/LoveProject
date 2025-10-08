@@ -214,15 +214,11 @@ local unpack = table.unpack or unpack
 componentFallbacks = {
   inventory = {
     module = Inventory,
-    onClose = function()
-      UIManager.close("inventory")
-    end,
+    -- onClose removed to prevent infinite recursion
   },
   ship = {
     module = Ship,
-    onClose = function()
-      UIManager.close("ship")
-    end,
+    -- onClose removed to prevent infinite recursion
     useSelf = true,
   },
   docked = {
@@ -232,24 +228,19 @@ componentFallbacks = {
       if player then
         local PlayerSystem = require("src.systems.player")
         PlayerSystem.undock(player)
-      else
-        UIManager.close("docked")
       end
+      -- Don't call UIManager.close("docked") here to prevent recursion
     end,
   },
   skills = {
     module = SkillsPanel,
-    onClose = function()
-      UIManager.close("skills")
-    end,
+    -- onClose removed to prevent infinite recursion
   },
   map = { module = Map },
   warp = { module = warpInstance, useSelf = true },
   escape = {
     module = EscapeMenu,
-    onClose = function()
-      UIManager.close("escape")
-    end,
+    -- onClose removed to prevent infinite recursion
   },
   settings = { module = SettingsPanel },
   rewardWheel = { module = RewardWheelPanel },
