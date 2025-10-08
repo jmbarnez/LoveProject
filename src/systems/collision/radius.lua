@@ -2,7 +2,7 @@ local Config = require("src.content.config")
 
 local Radius = {}
 
-local HIT_BUFFER = (Config.BULLET and Config.BULLET.HIT_BUFFER) or 1.5
+local HIT_BUFFER = (Config.BULLET and Config.BULLET.HIT_BUFFER) or 0.5  -- Reduced for more precise collisions
 local SHIELD_PADDING = 4
 local DEFAULT_PLAYER_RADIUS = 12
 local DEFAULT_ENTITY_RADIUS = 10
@@ -202,6 +202,17 @@ end
 function Radius.calculateEffectiveRadius(entity)
     local effective = Radius.getHullRadius(entity)
     local health = entity.components and entity.components.health
+    
+    -- For players with polygon collision shapes, use more precise radius calculation
+    local collidable = entity.components and entity.components.collidable
+    if entity.isPlayer and collidable and collidable.shape == "polygon" and collidable.vertices then
+        -- For polygon shapes, use a smaller buffer for more precise collisions
+        local polygonRadius = extentFromVertices(collidable.vertices)
+        effective = math.max(effective, polygonRadius)
+        -- Use reduced buffer for polygon collision shapes
+        return effective + (HIT_BUFFER * 0.5)
+    end
+    
     -- For players, always use shield radius if they have shield capacity
     -- This ensures consistent collision detection for remote projectiles
     if health and (health.maxShield or 0) > 0 then

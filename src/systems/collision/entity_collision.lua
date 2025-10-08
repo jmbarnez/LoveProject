@@ -81,7 +81,7 @@ local function getCollisionShape(entity)
         local pos = entity.components.position
         local angle = (pos and pos.angle) or 0
         local verts = Geometry.transformPolygon(pos.x, pos.y, angle, collidable.vertices)
-        if verts then
+        if verts and #verts >= 6 then  -- Ensure we have at least 3 vertices (6 coordinates)
             return { type = "polygon", vertices = verts }
         end
     end
@@ -109,6 +109,7 @@ local function checkEntityCollision(entity1, entity2)
         return false
     end
 
+    -- Enhanced collision detection for more precision
     if shape1.type == "polygon" and shape2.type == "polygon" then
         local collided, overlap, nx, ny = Geometry.polygonPolygonMTV(shape1.vertices, shape2.vertices)
         if not collided then
@@ -132,10 +133,12 @@ local function checkEntityCollision(entity1, entity2)
         local dy = shape2.y - shape1.y
         local distanceSq = dx * dx + dy * dy
         local minDistance = shape1.radius + shape2.radius
+        
+        -- Use more precise collision detection for circular shapes
         if distanceSq < (minDistance * minDistance) then
             local distance = math.sqrt(distanceSq)
             local nx, ny
-            if distance > 0 then
+            if distance > 0.001 then  -- More precise threshold to avoid division by very small numbers
                 nx = dx / distance  -- Normal points from shape1 to shape2 (entity1 to entity2)
                 ny = dy / distance
             else
@@ -305,7 +308,20 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
         local isStationCollision = (entity1.tag == "station" or entity2.tag == "station") or 
                                    (entity1.components and entity1.components.station) or 
                                    (entity2.components and entity2.components.station)
-        local pushDistance = overlap * (isStationCollision and 0.8 or 0.55) -- More aggressive push for stations
+        
+        -- More precise collision resolution for polygon shapes
+        local e1HasPolygon = entity1.components and entity1.components.collidable and 
+                            entity1.components.collidable.shape == "polygon"
+        local e2HasPolygon = entity2.components and entity2.components.collidable and 
+                            entity2.components.collidable.shape == "polygon"
+        
+        local pushDistance
+        if e1HasPolygon or e2HasPolygon then
+            -- For polygon collisions, use more precise push distance
+            pushDistance = overlap * (isStationCollision and 0.9 or 0.7) -- More precise for polygon shapes
+        else
+            pushDistance = overlap * (isStationCollision and 0.8 or 0.55) -- Standard push for circular shapes
+        end
         
         -- Ensure minimum push distance for station collisions
         if isStationCollision then

@@ -116,14 +116,22 @@ function ShieldEffects.drawShieldBubble(entity)
     local h = entity.components.health
     local col = entity.components.collidable
     
-    -- Draw only on recent impact or special cases (channeling, disabled)
+    -- Draw only on recent impact or when shields are actually active
     local currentTime = love.timer.getTime()
     local hasRecentImpact = entity.shieldImpactTime and currentTime < entity.shieldImpactTime
     local playerState = entity.components and entity.components.player_state
     local weaponsDisabled = (playerState and playerState.weapons_disabled) or entity.weaponsDisabled
-    local isSpecialCase = entity.shieldChannel or weaponsDisabled
+    
+    -- Check if shields are actually active and if ship has shield capacity
+    local hasActiveShield = h and h.shield and h.shield > 0
+    local hasShieldCapacity = h and h.maxShield and h.maxShield > 0
+    local isAtFullShield = h and h.shield and h.maxShield and h.shield >= h.maxShield
+    
+    -- Only draw if ship has shield capacity AND (recent impact, shields are active, or in station with full shields)
+    local shouldDraw = hasShieldCapacity and (hasRecentImpact or (hasActiveShield and entity.shieldChannel) or (weaponsDisabled and isAtFullShield))
+    
     if not col then return end
-    if not (hasRecentImpact or isSpecialCase) then return end
+    if not shouldDraw then return end
     
     local shieldRadius
     -- Recompute if visuals.size changed or cache missing

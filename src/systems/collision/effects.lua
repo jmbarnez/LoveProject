@@ -6,6 +6,60 @@ local Radius = require("src.systems.collision.radius")
 
 local CollisionEffects = {}
 
+-- Find the closest point on a polygon to a given direction
+function CollisionEffects.findClosestPointOnPolygon(centerX, centerY, dirX, dirY, vertices, angle)
+    if not vertices or #vertices < 6 then
+        -- Fallback to center if no valid vertices
+        return { x = centerX, y = centerY }
+    end
+    
+    local Geometry = require("src.systems.collision.geometry")
+    
+    -- Transform polygon vertices to world coordinates
+    local worldVertices = Geometry.transformPolygon(centerX, centerY, angle, vertices)
+    if not worldVertices then
+        return { x = centerX, y = centerY }
+    end
+    
+    local closestPoint = { x = centerX, y = centerY }
+    local closestDistance = math.huge
+    
+    -- Check each edge of the polygon
+    for i = 1, #worldVertices, 2 do
+        local nextI = i + 2
+        if nextI > #worldVertices then nextI = 1 end
+        
+        local x1, y1 = worldVertices[i], worldVertices[i + 1]
+        local x2, y2 = worldVertices[nextI], worldVertices[nextI + 1]
+        
+        -- Find the closest point on this edge to the direction vector
+        local edgeDx = x2 - x1
+        local edgeDy = y2 - y1
+        local edgeLength = math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy)
+        
+        if edgeLength > 0 then
+            -- Project the direction vector onto the edge
+            local t = ((dirX * edgeDx + dirY * edgeDy) / (edgeLength * edgeLength))
+            t = math.max(0, math.min(1, t)) -- Clamp to edge bounds
+            
+            local pointX = x1 + t * edgeDx
+            local pointY = y1 + t * edgeDy
+            
+            -- Calculate distance from center to this point
+            local dx = pointX - centerX
+            local dy = pointY - centerY
+            local distance = math.sqrt(dx * dx + dy * dy)
+            
+            if distance < closestDistance then
+                closestDistance = distance
+                closestPoint = { x = pointX, y = pointY }
+            end
+        end
+    end
+    
+    return closestPoint
+end
+
 -- Check if entity is a player with active shields
 local function get_health(entity)
     if not entity or not entity.components then
@@ -66,10 +120,36 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
     if not Effects then return end
 
     -- Calculate collision points for each entity
-    local e1CollisionX = e1x - nx * e1Radius
-    local e1CollisionY = e1y - ny * e1Radius
-    local e2CollisionX = e2x + nx * e2Radius
-    local e2CollisionY = e2y + ny * e2Radius
+    -- For more accurate collision points, especially with polygon shapes
+    local e1CollisionX, e1CollisionY, e2CollisionX, e2CollisionY
+    
+    -- Check if entities have polygon collision shapes for more precise collision points
+    local e1Collidable = entity1.components and entity1.components.collidable
+    local e2Collidable = entity2.components and entity2.components.collidable
+    
+    -- Calculate collision points - use midpoint between entities for more accurate positioning
+    local midX = (e1x + e2x) * 0.5
+    local midY = (e1y + e2y) * 0.5
+    
+    if e1Collidable and e1Collidable.shape == "polygon" and e1Collidable.vertices then
+        -- For polygon shapes, find the closest point on the polygon to the collision normal
+        local closestPoint = CollisionEffects.findClosestPointOnPolygon(e1x, e1y, nx, ny, e1Collidable.vertices, entity1.components.position.angle or 0)
+        e1CollisionX, e1CollisionY = closestPoint.x, closestPoint.y
+    else
+        -- For circular shapes, use the midpoint approach for better accuracy
+        e1CollisionX = midX - nx * (e1Radius * 0.3)  -- Reduced offset for more accurate positioning
+        e1CollisionY = midY - ny * (e1Radius * 0.3)
+    end
+    
+    if e2Collidable and e2Collidable.shape == "polygon" and e2Collidable.vertices then
+        -- For polygon shapes, find the closest point on the polygon to the collision normal
+        local closestPoint = CollisionEffects.findClosestPointOnPolygon(e2x, e2y, -nx, -ny, e2Collidable.vertices, entity2.components.position.angle or 0)
+        e2CollisionX, e2CollisionY = closestPoint.x, closestPoint.y
+    else
+        -- For circular shapes, use the midpoint approach for better accuracy
+        e2CollisionX = midX + nx * (e2Radius * 0.3)  -- Reduced offset for more accurate positioning
+        e2CollisionY = midY + ny * (e2Radius * 0.3)
+    end
 
     -- Determine if each entity has shields active
     local e1HasShield = CollisionEffects.hasShield(entity1)

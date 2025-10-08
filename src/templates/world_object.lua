@@ -55,13 +55,6 @@ function WorldObject.new(x, y, angle, friendly, config)
                 -- Reset intra-cycle progress slowly handled by system; do not zero here
             end
         end
-        if self.components.collidable then
-            local radius = self.components.collidable.radius or 24
-            local mineable = self.components.mineable
-            if mineable then
-                mineable.hotspotRadius = mineable.hotspotRadius or radius * (mineable.hotspotRadiusScale or 0.28)
-            end
-        end
     end
 
     -- Special procedural generation for asteroid vertices

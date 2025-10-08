@@ -29,7 +29,7 @@ return {
     mineable = {
         resourceType = "ore_tritanium",
         resources = 15,
-        durability = 1.5,  -- Reduced from 3.0 to 1.5 (50% reduction)
+        durability = 8.0,  -- Increased significantly for longer mining sessions
     },
 
     visuals = {

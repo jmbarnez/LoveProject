@@ -273,6 +273,7 @@ function TurretEffects.renderWavyBeam(startX, startY, endX, endY, color, width, 
     local waveAmplitude = 8  -- How wavy the beam is
     local waveFrequency = 0.02  -- How many waves per pixel
     local waveSpeed = 3  -- How fast the waves move
+    local straightLength = 30  -- Length of straight section from muzzle
     
     -- Calculate number of segments for smooth wave
     local segments = math.max(20, math.floor(distance / 10))
@@ -284,11 +285,20 @@ function TurretEffects.renderWavyBeam(startX, startY, endX, endY, color, width, 
         local x = startX + (endX - startX) * t
         local y = startY + (endY - startY) * t
         
-        -- Add wave offset perpendicular to beam direction
-        local perpAngle = angle + math.pi / 2
-        local waveOffset = math.sin(t * distance * waveFrequency + time * waveSpeed) * waveAmplitude
-        local waveX = x + math.cos(perpAngle) * waveOffset
-        local waveY = y + math.sin(perpAngle) * waveOffset
+        -- Calculate distance from start point
+        local currentDistance = t * distance
+        
+        -- Only apply wave offset after the straight section
+        local waveOffset = 0
+        if currentDistance > straightLength then
+            -- Gradually increase wave amplitude from 0 to full amplitude
+            local waveProgress = (currentDistance - straightLength) / (distance - straightLength)
+            local perpAngle = angle + math.pi / 2
+            waveOffset = math.sin(t * distance * waveFrequency + time * waveSpeed) * waveAmplitude * waveProgress
+        end
+        
+        local waveX = x + math.cos(angle + math.pi / 2) * waveOffset
+        local waveY = y + math.sin(angle + math.pi / 2) * waveOffset
         
         table.insert(points, waveX)
         table.insert(points, waveY)
@@ -332,6 +342,7 @@ function TurretEffects.renderTazerBeam(startX, startY, endX, endY, color, width,
     local time = love.timer.getTime()
     local segments = math.max(30, math.floor(distance / 8))  -- More segments for jagged effect
     local perpAngle = angle + math.pi / 2
+    local straightLength = 25  -- Length of straight section from muzzle
     
     -- Create jagged electrical points
     local points = {}
@@ -340,14 +351,24 @@ function TurretEffects.renderTazerBeam(startX, startY, endX, endY, color, width,
         local x = startX + (endX - startX) * t
         local y = startY + (endY - startY) * t
         
-        -- Add random electrical crackling perpendicular to beam
-        local crackleAmplitude = 12 + math.random() * 8  -- Variable crackle intensity
-        local crackleFreq = 0.05 + math.random() * 0.03  -- Random frequency variation
-        local crackleOffset = math.sin(t * distance * crackleFreq + time * 8 + math.random() * 10) * crackleAmplitude
+        -- Calculate distance from start point
+        local currentDistance = t * distance
         
-        -- Add some randomness for electrical effect
-        local randomOffset = (math.random() - 0.5) * 6
-        crackleOffset = crackleOffset + randomOffset
+        -- Only apply electrical crackling after the straight section
+        local crackleOffset = 0
+        if currentDistance > straightLength then
+            -- Gradually increase crackle amplitude from 0 to full amplitude
+            local crackleProgress = (currentDistance - straightLength) / (distance - straightLength)
+            
+            -- Add random electrical crackling perpendicular to beam
+            local crackleAmplitude = (12 + math.random() * 8) * crackleProgress  -- Variable crackle intensity
+            local crackleFreq = 0.05 + math.random() * 0.03  -- Random frequency variation
+            crackleOffset = math.sin(t * distance * crackleFreq + time * 8 + math.random() * 10) * crackleAmplitude
+            
+            -- Add some randomness for electrical effect
+            local randomOffset = (math.random() - 0.5) * 6 * crackleProgress
+            crackleOffset = crackleOffset + randomOffset
+        end
         
         local crackleX = x + math.cos(perpAngle) * crackleOffset
         local crackleY = y + math.sin(perpAngle) * crackleOffset

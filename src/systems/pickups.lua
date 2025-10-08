@@ -2,10 +2,11 @@ local Pickups = {}
 local Sound = require("src.core.sound")
 local Notifications = require("src.ui.notifications")
 local Content = require("src.content.content")
+local Effects = require("src.systems.effects")
 
-local ATTRACT_RADIUS = 600  -- Increased from 400 to 600 for better item collection
-local CAPTURE_RADIUS = 35  -- Increased to ensure items are collected when they get under the ship
-local BASE_PULL = 180
+local ATTRACT_RADIUS = 800  -- Increased from 600 to 800 for better item collection
+local CAPTURE_RADIUS = 40  -- Increased to ensure items are collected when they get under the ship
+local BASE_PULL = 540  -- Increased by 3x from 180 to 540
 
 local function formatAmount(value)
   if math.abs(value - math.floor(value + 0.5)) < 0.05 then
@@ -216,12 +217,39 @@ function Pickups.update(dt, world, player)
         end
       end
     else
-      -- Pull the item towards the player
+      -- Pull the item towards the player with improved falloff
       local dirx, diry = dx / math.max(1e-6, d), dy / math.max(1e-6, d)
-      local speed = BASE_PULL * (0.4 + 0.6 * (1 - d / ATTRACT_RADIUS)) -- Stronger pull when closer
+      
+      -- Calculate distance-based falloff with smooth curve
+      local distanceRatio = d / ATTRACT_RADIUS
+      local falloffCurve = math.pow(1 - distanceRatio, 2) -- Quadratic falloff for smoother transition
+      local minPull = 0.1 -- Minimum pull strength at max distance
+      local maxPull = 1.0 -- Maximum pull strength at close distance
+      
+      -- Apply falloff curve with minimum threshold
+      local pullStrength = math.max(minPull, maxPull * falloffCurve)
+      local speed = BASE_PULL * pullStrength
+      
       local vel = e.components.velocity
       vel.vx = vel.vx + dirx * speed * dt
       vel.vy = vel.vy + diry * speed * dt
+      
+      -- Add visual feedback for magnetic pull (occasional particles)
+      if math.random() < 0.02 * pullStrength then -- More particles when pull is stronger
+        local midX = (ex + px) * 0.5
+        local midY = (ey + py) * 0.5
+        Effects.add({
+          type = 'spark',
+          x = midX,
+          y = midY,
+          vx = dirx * 20,
+          vy = diry * 20,
+          t = 0,
+          life = 0.3,
+          color = {0.3, 0.7, 1.0, 0.6}, -- Blue magnetic effect
+          size = 1
+        })
+      end
     end
   end
 

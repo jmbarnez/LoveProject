@@ -30,7 +30,7 @@ return {
     mineable = {
         resourceType = "ore_palladium",
         resources = 15,  -- Medium amount of palladium
-        durability = 2.5,
+        durability = 18.0,  -- Increased significantly for longer mining sessions
     },
 
     visuals = {

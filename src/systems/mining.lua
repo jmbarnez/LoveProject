@@ -17,18 +17,6 @@ local function getEntityRadius(entity)
     return entity.radius or 24
 end
 
-local function ensureHotspotDefaults(entity, mineable)
-    local radius = getEntityRadius(entity)
-    if not mineable.hotspotRadius then
-        local scale = mineable.hotspotRadiusScale or 0.28
-        mineable.hotspotRadius = math.max(6, radius * scale)
-    end
-    
-    if mineable.hotspots and mineable.hotspots.setRadius then
-        mineable.hotspots:setRadius(mineable.hotspotRadius)
-    end
-    return radius
-end
 
 
 
@@ -39,12 +27,7 @@ function MiningSystem.update(dt, world, player)
     for _, e in ipairs(entities) do
         local m = e.components and e.components.mineable
         if m then
-            ensureHotspotDefaults(e, m)
-
             local isBeingMined = m.isBeingMined and (m.resources or 0) > 0
-            if m.hotspots and m.hotspots.update then
-                m.hotspots:update(dt, e, isBeingMined)
-            end
 
             if isBeingMined then
                 m.mineProgress = (m.mineProgress or 0) + dt

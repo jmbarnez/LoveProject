@@ -31,9 +31,20 @@ function Docking.dock(player, station)
     player.components.physics.body.vy = 0
   end
 
+  -- Instant shield recharge when docking
   if player.components and player.components.health then
     local h = player.components.health
-    h.shield = h.maxShield or h.shield
+    if h.maxShield and h.maxShield > 0 then
+      h.shield = h.maxShield  -- Full shield recharge
+      
+      -- Trigger shield recharge visual effect
+      local Effects = require("src.systems.effects")
+      local pos = player.components.position
+      if pos and Effects.spawnImpact then
+        local shieldRadius = require("src.systems.collision.radius").getShieldRadius(player)
+        Effects.spawnImpact('shield', pos.x, pos.y, shieldRadius, pos.x, pos.y, 0, nil, 'recharge', player, true)
+      end
+    end
   end
 
   DockedUI.show(player, station)

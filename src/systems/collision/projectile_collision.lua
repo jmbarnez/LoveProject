@@ -113,9 +113,14 @@ local function perform_collision_check(x1, y1, x2, y2, target, target_radius)
     if hasPolygon and (collidable.shape == "polygon" or components.mineable) then
         local angle = position.angle or 0
         local wverts = Geometry.transformPolygon(ex, ey, angle, collidable.vertices)
-        return Geometry.segPolygonHit(x1, y1, x2, y2, wverts)
+        -- Use more precise polygon collision detection
+        local hit, hitX, hitY = Geometry.segPolygonHit(x1, y1, x2, y2, wverts)
+        if hit then
+            return hit, hitX, hitY
+        end
     end
 
+    -- Use more precise circular collision detection
     return Physics.segCircleHit(x1, y1, x2, y2, ex, ey, target_radius)
 end
 

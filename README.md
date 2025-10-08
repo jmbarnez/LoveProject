@@ -36,7 +36,6 @@ A 2D space exploration game built with LÖVE2D featuring mining, combat, trading
 
 ### Mining
 - Use **Mining Lasers** to extract resources from asteroids
-- Look for **hotspots** on asteroids for bonus resources
 - Different asteroids yield different materials
 - Higher mining skill = better efficiency and more resources
 
@@ -106,7 +105,6 @@ love .
 
 ### Current Version (0.35)
 - **Turret Telemetry & Mining Polish**: Enhanced turret systems and mining mechanics
-- **Reactive Asteroid Fields**: Dynamic hotspots that respond to mining activity
 - **Persistent Equipment**: Ship equipment saves across sessions
 - **Quest System**: Procedural contracts and mission tracking
 - **Ship Customization**: Modular equipment and weapon systems

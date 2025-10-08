@@ -230,7 +230,7 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     if hitTarget then
         if hitTarget.components and hitTarget.components.mineable then
-            -- Set mining flag to enable hotspot generation
+            -- Set mining flag
             hitTarget.components.mineable.isBeingMined = true
             
             local damageValue = damageRate * dt
@@ -290,16 +290,8 @@ function UtilityBeams.applyMiningDamage(target, damage, source, world, impactX, 
         mineable.maxDurability = oldDurability
     end
 
-    -- Check for hotspot burst damage (only if hotspots exist)
-    local burstDamage = 0
-    local hotspotConsumed = false
-    if mineable.hotspots and mineable.hotspots.activateAt and impactX and impactY then
-        burstDamage = mineable.hotspots:activateAt(target, world, impactX, impactY)
-        hotspotConsumed = (burstDamage > 0)
-    end
-
-    -- Apply base damage plus burst damage
-    local finalDamage = damage + burstDamage
+    -- Apply base damage
+    local finalDamage = damage
 
     -- Play asteroid impact sound based on damage amount
     local Sound = require("src.core.sound")
@@ -311,14 +303,6 @@ function UtilityBeams.applyMiningDamage(target, damage, source, world, impactX, 
         Sound.triggerEventAt('impact_asteroid_light', x, y)
     end
 
-    -- Create visual effect for hotspot consumption
-    if hotspotConsumed then
-        local effectX = impactX or (source and source.cursorWorldPos and source.cursorWorldPos.x)
-        local effectY = impactY or (source and source.cursorWorldPos and source.cursorWorldPos.y)
-        if effectX and effectY and TurretEffects and TurretEffects.createImpactEffect then
-            TurretEffects.createImpactEffect(nil, effectX, effectY, target, "hotspot_burst")
-        end
-    end
     mineable.durability = math.max(0, mineable.durability - finalDamage)
 
     -- Update progress for cracking visual effects
@@ -326,10 +310,6 @@ function UtilityBeams.applyMiningDamage(target, damage, source, world, impactX, 
 
     -- Check if asteroid is completely mined
     if mineable.durability <= 0 then
-        if mineable.hotspots and mineable.hotspots.clear then
-            mineable.hotspots:clear()
-        end
-        
         -- Play asteroid pop sound immediately when destroyed
         local Sound = require("src.core.sound")
         local x = target.components.position.x
@@ -348,16 +328,10 @@ function UtilityBeams.completeMining(turret, target, world)
     end
 
     local mineable = target.components.mineable
-    if mineable.hotspots and mineable.hotspots.clear then
-        mineable.hotspots:clear()
-    else
-        mineable.hotspots = {}
-    end
     -- Create resource pickups based on asteroid type
     local ItemPickup = require("src.entities.item_pickup")
     
     -- Drop ore based on asteroid type
-    local mineable = target.components.mineable
     local resourceType = mineable and mineable.resourceType or "ore_tritanium"
     local oreCount = 2 + math.random(1)
     for i = 1, oreCount do
