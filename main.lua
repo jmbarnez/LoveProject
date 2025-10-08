@@ -11,22 +11,20 @@ local Input = require("src.core.input")
 local Viewport = require("src.core.viewport")
 local WindowMode = require("src.core.window_mode")
 local Sound = require("src.core.sound")
+local ModuleRegistry = require("src.core.module_registry")
 
 -- =============================================================================
 -- LAZY-LOADED MODULES - Loaded on demand to reduce startup time
 -- =============================================================================
-local lazyModules = {
+ModuleRegistry.registerMany({
     Game = function() return require("src.game") end,
     StartScreen = function() return require("src.ui.start_screen") end,
     SettingsPanel = function() return require("src.ui.settings_panel") end,
     DebugPanel = function() return require("src.ui.debug_panel") end,
     LoadingScreen = function() return require("src.ui.loading_screen") end,
     UIManager = function() return require("src.core.ui_manager") end,
-    Theme = function() return require("src.core.theme") end
-}
-
--- Cache for loaded lazy modules
-local loadedModules = {}
+    Theme = function() return require("src.core.theme") end,
+})
 
 -- =============================================================================
 -- PERFORMANCE PROFILING - Track startup and runtime performance
@@ -47,21 +45,16 @@ end
 -- LAZY LOADING HELPER - Load modules on first access with profiling
 -- =============================================================================
 local function getModule(name)
-    if loadedModules[name] then
-        return loadedModules[name]
-    end
+    local module = ModuleRegistry.get(name, function(loadTime)
+        if not loadTime then
+            return
+        end
 
-    if lazyModules[name] then
-        local loadStart = love.timer.getTime()
-        loadedModules[name] = lazyModules[name]()
-        local loadTime = (love.timer.getTime() - loadStart) * 1000
         startupProfile.lazyLoadTimes[name] = loadTime
         Log.debug(string.format("Lazy-loaded module '%s': %.3fms", name, loadTime))
-        return loadedModules[name]
-    end
+    end)
 
-    Log.error("Attempted to load unknown lazy module: " .. name)
-    return nil
+    return module
 end
 
 local function logStartupProfile()
@@ -145,7 +138,7 @@ function love.setScreen(newScreen)
             love.mouse.setRelativeMode(false)
         end
         Sound.playMusic("adrift")
-        loadedModules.UIManager = nil  -- Clear cached UIManager
+        ModuleRegistry.clear("UIManager")  -- Clear cached UIManager
     elseif newScreen == "game" then
         UIManager = getModule("UIManager")
         if love.mouse and love.mouse.setVisible then
