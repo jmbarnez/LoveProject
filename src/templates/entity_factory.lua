@@ -4,7 +4,7 @@ local Normalizer = require("src.content.normalizer")
 local Builder = require("src.templates.builder")
 local Log = require("src.core.log")
 local Util = require("src.core.util")
-local TurretCore = require("src.systems.turret.core")
+local TurretSystem = require("src.systems.turret.system")
 
 local function random_choice(options)
     if type(options) ~= "table" or #options == 0 then
@@ -232,7 +232,7 @@ function EntityFactory.createEnemy(shipId, x, y)
                     if turretDef then
                         local turretParams = Util.deepCopy(turretDef)
                         turretParams.fireMode = turretParams.fireMode or defaultFireMode
-                        local turretInstance = TurretCore.new(enemy, turretParams)
+                        local turretInstance = TurretSystem.spawn(enemy, turretParams)
 
                         turretInstance.fireMode = turretInstance.fireMode or defaultFireMode
                         if turretInstance.fireMode == "automatic" then

@@ -1,18 +1,8 @@
 local Util = require("src.core.util")
-local ModifierSystem = require("src.systems.turret.modifier_system")
-local UpgradeSystem = require("src.systems.turret.upgrade_system")
 local Notifications = require("src.ui.notifications")
 local Log = require("src.core.log")
 local TurretRegistry = require("src.systems.turret.registry")
 
--- Ensure all built-in turret handlers are registered before instances are created.
-require("src.systems.turret.types.projectile")
-require("src.systems.turret.types.gun")
-require("src.systems.turret.types.missile")
-require("src.systems.turret.types.laser")
-require("src.systems.turret.types.mining_laser")
-require("src.systems.turret.types.salvaging_laser")
-require("src.systems.turret.types.plasma_torch")
 local Turret = {}
 Turret.__index = Turret
 
@@ -139,13 +129,9 @@ function Turret.new(owner, params)
     -- beams, and projectiles share the same muzzle origin.
     self.currentAimAngle = nil
 
-    self.modifierSystem = ModifierSystem.new(self, params.modifiers or {})
-    self.modifiers = self.modifierSystem:getSummaries()
-    if params.upgrades then
-        self.upgradeEntry = UpgradeSystem.attach(self, params.upgrades)
-    else
-        self.upgradeEntry = nil
-    end
+    self.modifierSystem = nil
+    self.modifiers = {}
+    self.upgradeEntry = nil
 
     -- Set default tracer colors if not specified
     if self.kind == 'gun' or self.kind == 'projectile' or not self.kind then
