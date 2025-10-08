@@ -3,6 +3,14 @@ local Content = require("src.content.content")
 local Log = require("src.core.log")
 local Renderable = require("src.components.renderable")
 local PhysicsComponent = require("src.components.physics")
+local Collidable = require("src.components.collidable")
+local Health = require("src.components.health")
+local Equipment = require("src.components.equipment")
+local Velocity = require("src.components.velocity")
+local Lootable = require("src.components.lootable")
+local PlayerComponent = require("src.components.player")
+local Position = require("src.components.position")
+local EngineTrail = require("src.components.engine_trail")
 local ModelUtil = require("src.core.model_util")
 local CargoComponent = require("src.components.cargo")
 local ProgressionComponent = require("src.components.progression")
@@ -102,36 +110,33 @@ function Ship.new(x, y, angle, friendly, shipConfig)
     self.visuals.engineColor = {1.0, 0.0, 0.0}  -- Red for enemies
   end
 
-  -- Create the component table
-  local Position = require("src.components.position")
-  local EngineTrail = require("src.components.engine_trail")
-  
   -- Configure engine trail colors based on ship visuals - more subtle
+  local equipment = Equipment.new()
   local engineColors = {
     color1 = (self.visuals.engineColor and {self.visuals.engineColor[1], self.visuals.engineColor[2], self.visuals.engineColor[3], 0.8}) or {0.0, 0.0, 1.0, 0.8},
     color2 = (self.visuals.engineColor and {self.visuals.engineColor[1] * 0.5, self.visuals.engineColor[2] * 0.5, self.visuals.engineColor[3], 0.4}) or {0.0, 0.0, 0.5, 0.4},
     size = (self.visuals.size or 1.0) * 0.8,  -- Smaller size for minimal effect
     offset = ModelUtil.calculateModelWidth(shipConfig.visuals) * 0.3  -- Slightly smaller offset
   }
-  
+
   self.components = {
-      position = Position.new({ x = x, y = y, angle = 0 }),
-      collidable = {
+      position = Position.new({ x = x, y = y, angle = angle or 0 }),
+      collidable = Collidable.new({
         radius = physics.body.radius,
         shape = shipConfig.collisionShape or "circle",
-        vertices = shipConfig.collisionVertices
-      },
+        vertices = shipConfig.collisionVertices,
+        friendly = friendly,
+        signature = self.sig,
+      }),
       physics = physics,
-      velocity = { x = 0, y = 0 },
-      health = { maxHP = maxHP, maxShield = maxShield, maxEnergy = maxEnergy, hp = hp, shield = shield, energy = energy },
-      equipment = {
-          grid = {}
-      },
+      velocity = Velocity.new({ x = 0, y = 0 }),
+      health = Health.new({ maxHP = maxHP, maxShield = maxShield, maxEnergy = maxEnergy, hp = hp, shield = shield, energy = energy }),
+      equipment = equipment,
       renderable = Renderable.new(
           "enemy", -- Use the 'enemy' renderer by default
           { visuals = self.visuals }
       ),
-      cargo = CargoComponent.new({ 
+      cargo = CargoComponent.new({
         capacity = (shipConfig.cargo and shipConfig.cargo.capacity) or 100,
         volumeLimit = (shipConfig.cargo and shipConfig.cargo.volumeLimit) or math.huge
       }),
@@ -145,7 +150,7 @@ function Ship.new(x, y, angle, friendly, shipConfig)
 
   -- Attach loot drop definition if provided by content
   if shipConfig.loot and shipConfig.loot.drops then
-    self.components.lootable = { drops = shipConfig.loot.drops }
+    self.components.lootable = Lootable.new({ drops = shipConfig.loot.drops })
   end
 
   -- Add AI component if this is an enemy
@@ -168,13 +173,11 @@ function Ship.new(x, y, angle, friendly, shipConfig)
     -- Create proper AI component with intelligence levels
     self.components.ai = AIComponent.new(aiConfig)
     
-    -- Add velocity component for movement
-    self.components.velocity = { x = 0, y = 0 }
   end
-  
+
   -- Add player component if this is a player
   if extraConfig.isPlayer then
-    self.components.player = {}
+    self.components.player = PlayerComponent.new({ id = shipConfig.id, faction = shipConfig.faction, isPlayer = true })
   end
 
   -- Equipment grid setup
@@ -192,7 +195,7 @@ function Ship.new(x, y, angle, friendly, shipConfig)
   for i = 1, gridSize do
     local slotDef = layoutBySlot[i]
     local baseType = slotDef and slotDef.type or nil
-    table.insert(self.components.equipment.grid, {
+    equipment:addSlot({
       id = nil,
       module = nil,
       enabled = false,

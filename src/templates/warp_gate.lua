@@ -1,8 +1,8 @@
 -- Warp Gate Template: Creates interactive warp gate entities
 local Position = require("src.components.position")
 local Renderable = require("src.components.renderable")
-local Collidable = require("src.components.collidable")
 local WarpGate = require("src.components.warp_gate")
+local Interactable = require("src.components.interactable")
 
 local WarpGateTemplate = {}
 WarpGateTemplate.__index = WarpGateTemplate
@@ -74,7 +74,7 @@ function WarpGateTemplate.new(x, y, config)
     -- No collidable for warp gates (no physics collisions, interaction via distance checks)
 
     -- Add interaction component for tooltip/UI hints
-    self.components.interactable = {
+    self.components.interactable = Interactable.new({
         range = effectiveRange,
         hint = function()
             return self.components.warp_gate:getInteractionHint()
@@ -85,7 +85,7 @@ function WarpGateTemplate.new(x, y, config)
             UIManager.open("warp")
             return true
         end
-    }
+    })
 
     return self
 end

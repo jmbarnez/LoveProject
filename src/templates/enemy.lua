@@ -1,3 +1,13 @@
+local Position = require("src.components.position")
+local Collidable = require("src.components.collidable")
+local Health = require("src.components.health")
+local PhysicsComponent = require("src.components.physics")
+local Renderable = require("src.components.renderable")
+local AI = require("src.components.ai")
+local EngineTrail = require("src.components.engine_trail")
+local Equipment = require("src.components.equipment")
+local Velocity = require("src.components.velocity")
+
 local Enemy = {}
 Enemy.__index = Enemy
 
@@ -34,7 +44,7 @@ function Enemy.new(x, y, options)
 
     self.components = {
         position   = Position.new({ x = x, y = y, angle = 0 }),
-        collidable = Collidable.new({ radius = physics.body.radius }),
+        collidable = Collidable.new({ radius = physics.body.radius, friendly = options.friendly, signature = self.sig }),
         health     = Health.new({ hp = 5, maxHP = 5, shield = 3, maxShield = 3, energy = 0, maxEnergy = 0 }),
         physics    = physics,
         renderable = Renderable.new("enemy", { visuals = self.visuals }),
@@ -42,7 +52,8 @@ function Enemy.new(x, y, options)
             spawnPos = {x = x, y = y},
             patrolCenter = {x = x, y = y}
         }),
-        equipment  = { grid = {} },
+        equipment  = Equipment.new(),
+        velocity   = Velocity.new({ x = 0, y = 0 }),
         engine_trail = EngineTrail.new({
             size = 0.6,
             offset = 10,

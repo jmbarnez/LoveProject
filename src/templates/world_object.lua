@@ -3,6 +3,7 @@ local Position = require("src.components.position")
 local Renderable = require("src.components.renderable")
 local Collidable = require("src.components.collidable")
 local Mineable = require("src.components.mineable")
+local Interactable = require("src.components.interactable")
 local Util = require("src.core.util")
 
 local WorldObject = {}
@@ -32,11 +33,11 @@ function WorldObject.new(x, y, angle, friendly, config)
     end
 
     if config.interactable then
-        self.components.interactable = {
+        self.components.interactable = Interactable.new({
             range = config.interactable.range or 50,
             prompt = config.interactable.prompt or "Click to interact",
             requiresKey = config.interactable.requiresKey
-        }
+        })
     end
 
     if config.mineable then
