@@ -11,7 +11,6 @@ local State = {
     refreshDockingState = nil,
     systemPipeline = nil,
     systemContext = {},
-    ecsManager = nil,
     networkManager = nil,
 }
 
@@ -28,7 +27,6 @@ function State.reset()
     State.refreshDockingState = nil
     State.systemPipeline = nil
     State.systemContext = {}
-    State.ecsManager = nil
     State.networkManager = nil
 end
 

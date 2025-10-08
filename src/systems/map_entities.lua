@@ -18,18 +18,10 @@ MapEntities.defaultFilters = {
   remote_players = true
 }
 
--- Filter entities by discovery state
+-- Filter entities by discovery state (disabled - no fog of war)
 function MapEntities.filterByDiscovery(entities, discovery)
-  if not entities or not discovery then return entities end
-  
-  local filtered = {}
-  for _, entity in ipairs(entities) do
-    local pos = entity.components and entity.components.position
-    if pos and discovery.isDiscovered(pos.x, pos.y) then
-      table.insert(filtered, entity)
-    end
-  end
-  return filtered
+  -- Return all entities since fog of war is disabled
+  return entities or {}
 end
 
 -- Filter entities by type and other criteria
@@ -113,19 +105,17 @@ function MapEntities.getMinimapEntities(world, discovery, additionalEntities)
   -- Add additional entities (loot drops, remote players, etc.)
   if additionalEntities.lootDrops then
     for _, drop in ipairs(additionalEntities.lootDrops) do
-      if discovery.isDiscovered(drop.x, drop.y) then
-        table.insert(entities, { 
-          entity = { components = { position = { x = drop.x, y = drop.y } } }, 
-          type = "loot" 
-        })
-      end
+      table.insert(entities, { 
+        entity = { components = { position = { x = drop.x, y = drop.y } } }, 
+        type = "loot" 
+      })
     end
   end
   
   if additionalEntities.remotePlayers then
     for id, remotePlayer in pairs(additionalEntities.remotePlayers) do
       local pos = remotePlayer and remotePlayer.components and remotePlayer.components.position
-      if pos and discovery.isDiscovered(pos.x, pos.y) then
+      if pos then
         table.insert(entities, { 
           entity = remotePlayer, 
           type = "remote_player",
@@ -138,7 +128,7 @@ function MapEntities.getMinimapEntities(world, discovery, additionalEntities)
   if additionalEntities.remotePlayerSnapshots then
     for id, snapshot in pairs(additionalEntities.remotePlayerSnapshots) do
       local pos = snapshot and (snapshot.position or (snapshot.data and snapshot.data.position))
-      if pos and discovery.isDiscovered(pos.x, pos.y) then
+      if pos then
         table.insert(entities, { 
           entity = { components = { position = pos } }, 
           type = "remote_player",

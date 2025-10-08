@@ -1,7 +1,6 @@
 local BehaviorRegistry = require("src.systems.projectile.behavior_registry")
 local ProjectileEvents = require("src.systems.projectile.event_dispatcher").EVENTS
 local TargetUtils = require("src.core.target_utils")
-local State = require("src.game.state")
 
 local function clamp(value, minValue, maxValue)
     if value < minValue then return minValue end
@@ -18,7 +17,6 @@ local function vector_length(x, y)
 end
 
 local function acquire_target(projectile, world, maxRangeSq, preferNearest)
-    world = world or State.world
     if not world or not world.get_entities_with_components then
         return nil
     end
@@ -136,25 +134,29 @@ local function factory(context, config)
     local events = {}
 
     events[ProjectileEvents.SPAWN] = function(payload)
-        local world = (payload and payload.world) or State.world
-        state.reacquireTimer = state.reacquireDelay
-        update_target(world, true)
+        local world = payload and payload.world
+        if world then
+            state.reacquireTimer = state.reacquireDelay
+            update_target(world, true)
+        end
     end
 
     events[ProjectileEvents.UPDATE] = function(payload)
         local dt = (payload and payload.dt) or 0
         if dt < 0 then dt = 0 end
-        local world = (payload and payload.world) or State.world
+        local world = payload and payload.world
 
-        state.reacquireTimer = state.reacquireTimer - dt
-        if state.reacquireTimer <= 0 then
-            state.reacquireTimer = state.reacquireDelay
-            update_target(world, true)
-        elseif state.maintainNearest then
-            update_target(world, false)
+        if world then
+            state.reacquireTimer = state.reacquireTimer - dt
+            if state.reacquireTimer <= 0 then
+                state.reacquireTimer = state.reacquireDelay
+                update_target(world, true)
+            elseif state.maintainNearest then
+                update_target(world, false)
+            end
+
+            steer(dt, world)
         end
-
-        steer(dt, world)
     end
 
     events[ProjectileEvents.HIT] = function()

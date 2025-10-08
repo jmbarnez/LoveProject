@@ -35,7 +35,7 @@ function Unload.unload(Game)
 
     local world = State.world
     if world then
-        world:setECSWorld(nil)
+        -- World cleanup (ECS methods removed)
     end
 
     if State.windfieldManager and State.windfieldManager.destroy then

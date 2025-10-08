@@ -8,7 +8,7 @@
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local Window = require("src.ui.common.window")
-local Discovery = require("src.systems.discovery")
+-- Discovery system removed - no fog of war
 local MapEntities = require("src.systems.map_entities")
 local MapRenderer = require("src.systems.map_renderer")
 local Sound = require("src.core.sound")
@@ -170,10 +170,8 @@ function Map.update(dt, player)
     Map.lastPlayerPos.x = pos.x
     Map.lastPlayerPos.y = pos.y
 
-    local State = require("src.game.state")
-    local world = State.world
+    local world = world or Map._drawWorld
     Map._drawWorld = world
-    Discovery.update(player, world)
 
     if Map.showTrails then
         table.insert(Map.playerTrail, { x = pos.x, y = pos.y, time = love.timer.getTime() })
@@ -189,8 +187,7 @@ function Map.draw(player, world)
     end
 
     local window = ensureWindow()
-    local State = require("src.game.state")
-    local activeWorld = world or Map._drawWorld or State.world
+    local activeWorld = world or Map._drawWorld
     if not activeWorld then
         return
     end
@@ -241,9 +238,9 @@ function Map.drawContent(x, y, w, h)
         remote_players = true,
     }
 
-    local entities = MapEntities.getVisibleEntities(world, Discovery, filters)
+    local entities = MapEntities.getVisibleEntities(world, nil, filters)
 
-    MapRenderer.drawFullMap(player, world, entities, Discovery, viewport)
+    MapRenderer.drawFullMap(player, world, entities, nil, viewport)
     Map.drawUI(mapX, mapY, mapW, mapH)
 end
 
@@ -461,30 +458,29 @@ function Map.keypressed(key)
     return false
 end
 
--- Expose discovery functions for minimap
+-- Discovery functions removed - no fog of war
 function Map.ensureDiscovery(world)
-    Discovery.init(world)
+    -- No-op: fog of war disabled
 end
 
 function Map.isDiscovered(wx, wy)
-    return Discovery.isDiscovered(wx, wy)
+    return true -- All areas are always discovered
 end
 
 function Map.getDiscovery()
-    return Discovery
+    return nil -- No discovery system
 end
 
 function Map.revealAt(wx, wy, radius)
-    Discovery.revealAt(wx, wy, radius)
+    -- No-op: fog of war disabled
 end
 
 function Map.getDiscoveryForSave()
-    return Discovery.serialize()
+    return nil -- No discovery data to save
 end
 
 function Map.setDiscoveryFromSave(data)
-    local world = require("src.core.world")
-    Discovery.deserialize(data, world)
+    -- No-op: fog of war disabled
 end
 
 return Map
