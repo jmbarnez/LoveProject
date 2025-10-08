@@ -44,6 +44,7 @@ local Log = require("src.core.log")
 
 local UIManager = {}
 local panelRecords = {}
+local componentFallbacks = {}
 
 local DEFAULT_Z_INDEX = {
   inventory = 10,
@@ -210,7 +211,7 @@ local unpack = table.unpack or unpack
     continue functioning (particularly useful in development when a panel might
     be mid-refactor).
 ]]
-local componentFallbacks = {
+componentFallbacks = {
   inventory = {
     module = Inventory,
     onClose = function()
