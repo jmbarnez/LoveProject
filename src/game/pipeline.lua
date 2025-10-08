@@ -157,8 +157,8 @@ function Pipeline.build()
             HotbarSystem.update(ctx.dt)
         end,
         function(ctx)
-            local TurretEffects = require("src.systems.turret.effects")
-            TurretEffects.cleanupOrphanedSounds()
+            local TurretSystem = require("src.systems.turret.system")
+            TurretSystem.cleanupEffects()
         end,
         function(ctx)
             local ConstructionSystem = require("src.systems.construction")

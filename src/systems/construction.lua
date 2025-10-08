@@ -231,8 +231,8 @@ function ConstructionSystem.equipTurret(entity, turretType)
     end
     
     -- Create turret module
-    local Turret = require("src.systems.turret.core")
-    local turretModule = Turret.new(entity, {
+    local TurretSystem = require("src.systems.turret.system")
+    local turretModule = TurretSystem.spawn(entity, {
         type = turretDef.type or turretType,
         damage_range = turretDef.damage_range or {20, 20},
         damagePerSecond = turretDef.damagePerSecond or 20,

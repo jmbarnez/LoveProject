@@ -537,8 +537,8 @@ function PlayerSystem.update(dt, player, input, world, hub)
             
             -- Force stop utility beam sounds if not allowed to fire
             if not allow and (t.kind == "mining_laser" or t.kind == "salvaging_laser") then
-                local TurretEffects = require("src.systems.turret.effects")
-                TurretEffects.stopAllTurretSounds(t)
+                local TurretSystem = require("src.systems.turret.system")
+                TurretSystem.stopEffects(t)
             end
         end
     end
