@@ -66,21 +66,18 @@ local function isUiTextInputFocused()
         return false
     end
 
-    local ui = mainState.UIManager
-    if not ui then
-        return false
-    end
-
-    if ui.isOpen and ui.isOpen("inventory") then
-        local Inventory = getInventoryModule()
-        if Inventory.isSearchInputActive and Inventory.isSearchInputActive() then
-            return true
+    local uiManager = mainState.UIManager
+    if not uiManager or type(uiManager.isTextInputActive) ~= "function" then
+        local ok, manager = pcall(require, "src.core.ui_manager")
+        if not ok then
+            return false
         end
+        uiManager = manager
     end
 
-    local DockedUI = require("src.ui.docked")
-    if ui.isOpen and ui.isOpen("docked") and DockedUI.isSearchActive and DockedUI.isSearchActive() then
-        return true
+    local ok, captured = pcall(uiManager.isTextInputActive)
+    if ok then
+        return captured and true or false
     end
 
     return false
