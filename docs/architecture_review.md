@@ -16,3 +16,8 @@
 - **Decouple input handling from UI specifics** – Move UI-specific checks (inventory search boxes, docking screens) behind small interfaces that the UI layer exposes. The input system should query a high-level capability like `UIManager:isTextInputCaptured()` instead of reaching into concrete panels. That keeps gameplay input modular and easier to extend. 【F:src/core/input.lua†L64-L86】
 
 Implementing these changes incrementally will preserve the existing simplicity while giving you a clearer extension surface for future modules.
+
+## Follow-Up Progress
+- Introduced metadata-aware module registration so callers can resolve modules by tag and access declarative attributes (default z-index, modal state, etc.) without touching central bootstrap files. 【F:src/core/module_registry.lua†L1-L132】
+- Added a discovery-driven UI panel registry that loads panel descriptors from `src/ui/panels/registry`, registers them with the module registry, and exposes capture hooks for text input checks. 【F:src/ui/core/panel_registry.lua†L1-L120】【F:src/ui/panels/init.lua†L1-L42】
+- Updated `UIManager` and the input pipeline to consume the registry, letting new panels plug in by dropping a registration file instead of editing `UIManager` directly. 【F:src/core/ui_manager.lua†L1-L884】【F:src/core/input.lua†L1-L120】

@@ -10,6 +10,7 @@
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local Registry = require("src.ui.core.registry")
+local PanelRegistry = require("src.ui.panels.init")
 -- SciFiCursor removed - using simple reticle
 
 -- UI components
@@ -42,6 +43,7 @@ end
 local Log = require("src.core.log")
 
 local UIManager = {}
+local panelRecords = {}
 
 local DEFAULT_Z_INDEX = {
   inventory = 10,
@@ -60,6 +62,7 @@ local DEFAULT_Z_INDEX = {
 
 -- Create warp instance
 local warpInstance = Warp:new()
+PanelRegistry.register({ id = "warp", module = warpInstance, defaultZ = DEFAULT_Z_INDEX.warp, useSelf = true })
 
 -- Central UI state
 UIManager.state = {
@@ -94,38 +97,103 @@ UIManager.layerOrder = {
   "debug"
 }
 
+local function bootstrapDynamicPanels()
+  local existingOrder = {}
+  for _, id in ipairs(UIManager.layerOrder) do
+    existingOrder[id] = true
+  end
+
+  for _, record in ipairs(PanelRegistry.list()) do
+    panelRecords[record.id] = record
+
+    DEFAULT_Z_INDEX[record.id] = DEFAULT_Z_INDEX[record.id] or record.defaultZ or 0
+
+    if not UIManager.state[record.id] then
+      local isVisible = false
+      if record.isVisible then
+        local ok, visible = pcall(record.isVisible, record.module)
+        if ok then
+          isVisible = visible and true or false
+        end
+      elseif record.module and record.module.visible ~= nil then
+        isVisible = record.module.visible == true
+      end
+
+      UIManager.state[record.id] = { open = isVisible, zIndex = DEFAULT_Z_INDEX[record.id] }
+      if record.id == "escape" then
+        UIManager.state[record.id].showingSaveSlots = false
+      end
+    end
+
+    if not componentFallbacks[record.id] then
+      local fallback = {
+        module = record.module,
+        useSelf = record.useSelf,
+      }
+
+      if record.onClose then
+        fallback.onClose = function()
+          record.onClose(record.module)
+        end
+      end
+
+      if record.onOpen then
+        fallback.onOpen = function()
+          record.onOpen(record.module)
+        end
+      end
+
+      componentFallbacks[record.id] = fallback
+    else
+      if not componentFallbacks[record.id].module then
+        componentFallbacks[record.id].module = record.module
+      end
+
+      if not componentFallbacks[record.id].onClose and record.onClose then
+        componentFallbacks[record.id].onClose = function()
+          record.onClose(record.module)
+        end
+      end
+
+      if not componentFallbacks[record.id].onOpen and record.onOpen then
+        componentFallbacks[record.id].onOpen = function()
+          record.onOpen(record.module)
+        end
+      end
+    end
+
+    if not existingOrder[record.id] then
+      table.insert(UIManager.layerOrder, record.id)
+      existingOrder[record.id] = true
+    end
+  end
+
+  table.sort(UIManager.layerOrder, function(a, b)
+    local za = DEFAULT_Z_INDEX[a] or 0
+    local zb = DEFAULT_Z_INDEX[b] or 0
+    if za == zb then
+      return a < b
+    end
+    return za < zb
+  end)
+end
+
 local function isTextInputFocused()
-    if UIManager.state.inventory.open and Inventory.isSearchInputActive and Inventory.isSearchInputActive() then
+  for id, record in pairs(panelRecords) do
+    local state = UIManager.state[id]
+    if state and state.open and record.captureTextInput then
+      local ok, captured = pcall(record.captureTextInput, record.module)
+      if ok and captured then
         return true
+      end
     end
+  end
 
-    if UIManager.state.ship.open then
-        return false
-    end
-
-    if UIManager.state.docked.open and DockedUI.isSearchActive and DockedUI.isSearchActive() then
-        return true
-    end
-
-    return false
+  return false
 end
 
 function UIManager.isTextInputActive()
-    if UIManager.state.inventory.open then
-        local Inventory = require("src.ui.inventory")
-        if Inventory.isSearchInputActive and Inventory.isSearchInputActive() then
-            return true
-        end
-    end
-
-    if UIManager.state.docked.open then
-        local DockedUI = require("src.ui.docked")
-        if DockedUI.isSearchActive and DockedUI.isSearchActive() then
-            return true
-        end
-    end
-
-    return false
+  return isTextInputFocused()
 end
 
 -- Modal state - when true, blocks input to lower layers
@@ -190,6 +258,14 @@ local componentFallbacks = {
 
 local EMPTY_ARGS = {}
 
+bootstrapDynamicPanels()
+
+for component, defaultZ in pairs(DEFAULT_Z_INDEX) do
+  if defaultZ > UIManager.topZ then
+    UIManager.topZ = defaultZ
+  end
+end
+
 --[[
     callComponentMethod
 
@@ -250,6 +326,7 @@ end
 
 -- Initialize UI Manager
 function UIManager.init()
+  bootstrapDynamicPanels()
   -- Initialize all UI components
   if Inventory.init then Inventory.init() end
   if DockedUI.init then DockedUI.init() end
@@ -367,6 +444,51 @@ function UIManager.init()
       end,
     })
     UIManager._registryInitialized = true
+  end
+
+  for id, record in pairs(panelRecords) do
+    if not Registry.get(id) then
+      Registry.register({
+        id = id,
+        isVisible = function()
+          return UIManager.state[id] and UIManager.state[id].open or false
+        end,
+        getZ = function()
+          return (UIManager.state[id] and UIManager.state[id].zIndex) or (DEFAULT_Z_INDEX[id] or 0)
+        end,
+        getRect = function()
+          if record.getRect then
+            local ok, rect = pcall(record.getRect, record.module)
+            if ok then
+              return rect
+            end
+          end
+
+          local module = record.module
+          if not module then
+            return nil
+          end
+
+          local getter = module.getRect
+          if type(getter) ~= "function" then
+            return nil
+          end
+
+          local ok, rect
+          if record.useSelf then
+            ok, rect = pcall(getter, module)
+          else
+            ok, rect = pcall(getter)
+          end
+
+          if ok then
+            return rect
+          end
+
+          return nil
+        end,
+      })
+    end
   end
 end
 
@@ -653,12 +775,17 @@ function UIManager.open(component)
     elseif component == "warp" then
       warpInstance:show()
     end
-    
+
     -- Handle special cases
     if component == "docked" then
       UIManager.closeAll({"docked", "escape"}) -- Close other modals
     elseif component == "escape" then
       UIManager.closeAll({"docked", "escape"}) -- Close other modals
+    end
+
+    local fallback = componentFallbacks[component]
+    if fallback and fallback.onOpen then
+      fallback.onOpen()
     end
   end
 end
@@ -694,6 +821,11 @@ function UIManager.close(component)
       Map.hide()
     elseif component == "warp" then
       warpInstance:hide()
+    end
+
+    local fallback = componentFallbacks[component]
+    if fallback and fallback.onClose then
+      fallback.onClose()
     end
   end
 end
