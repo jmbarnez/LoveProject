@@ -28,24 +28,6 @@ function EffectManager:getContext()
     }
 end
 
-local function attach_components(manager, effect)
-    if not effect.components then return end
-
-    for _, descriptor in ipairs(effect.components) do
-        local name = descriptor.name
-        local component = descriptor.component or descriptor.instance
-        local force = descriptor.force or descriptor.overwrite
-
-        if name and component then
-            if manager.projectile.components[name] and not force then
-                Log.warn(string.format("Projectile component '%s' already exists; skipping effect attachment", name))
-            else
-                manager.projectile.components[name] = component
-            end
-        end
-    end
-end
-
 local function attach_events(manager, effect)
     if not effect.events then return end
 
@@ -56,10 +38,14 @@ local function attach_events(manager, effect)
     end
 end
 
-function EffectManager:store(effect)
+function EffectManager:store(effect, effectType)
     if not effect then return end
     table.insert(self.effects, effect)
-    attach_components(self, effect)
+    if effect.components then
+        self.projectile:applyComponentDefinitions(effect.components, {
+            source = string.format("effect:%s", tostring(effectType or "unknown")),
+        })
+    end
     attach_events(self, effect)
 end
 
@@ -87,7 +73,7 @@ function EffectManager:addEffect(definition)
     local effect = EffectRegistry.create(effectType, context, definition)
     if not effect then return nil end
 
-    self:store(effect)
+    self:store(effect, effectType)
     return effect
 end
 
