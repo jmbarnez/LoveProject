@@ -2,7 +2,7 @@
 local Position = require("src.components.position")
 local Renderable = require("src.components.renderable")
 local Collidable = require("src.components.collidable")
-local Health = require("src.components.health")
+local StationComponent = require("src.components.station")
 local Repairable = require("src.components.repairable")
 local ModelUtil = require("src.core.model_util")
 
@@ -23,12 +23,12 @@ function Station.new(x, y, config)
 
     self.components = {
         position = Position.new({ x = x, y = y }),
-        station = {
+        station = StationComponent.new({
             type = config.id,
             name = config.name or "Station",
             services = config.station_services,
             description = config.description,
-        }
+        })
     }
 
     -- Store descriptive fields on the entity for UI helpers

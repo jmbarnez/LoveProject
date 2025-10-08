@@ -2,8 +2,8 @@ local Lootable = {}
 Lootable.__index = Lootable
 
 function Lootable.new(args)
-    local lootable = {}
-    setmetatable(lootable, Lootable)
+    args = args or {}
+    local lootable = setmetatable({}, Lootable)
     lootable.drops = args.drops or {}
     return lootable
 end

@@ -10,7 +10,7 @@ function Renderable.new(typeOrValues, props)
         instance.props = props or {}
         instance.visuals = props
     else
-        local values = typeOrValues
+        local values = typeOrValues or {}
         instance.type = values.type or "asteroid"
         instance.shape = values.shape or "asteroid"
         instance.size = values.size or 1

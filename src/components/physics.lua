@@ -4,25 +4,26 @@ local Physics = {}
 Physics.__index = Physics
 
 function Physics.new(values)
+    values = values or {}
     local instance = setmetatable({}, Physics)
-    
+
     -- Create a newton physics body for actual physics simulation
     instance.body = CorePhysics.createBody(
-        values.mass or 1000, 
-        values.x or 0, 
+        values.mass or 1000,
+        values.x or 0,
         values.y or 0
     )
-    
+
     -- Legacy compatibility properties
     instance.rotation = values.rotation or 0
     instance.rotSpeed = values.rotSpeed or 0
     instance.mass = values.mass or 1000
-    
+
     -- Copy thruster properties if provided
     if values.thrusterPower then
         instance.body.thrusterPower = values.thrusterPower
     end
-    
+
     return instance
 end
 

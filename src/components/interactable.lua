@@ -2,11 +2,13 @@ local Interactable = {}
 Interactable.__index = Interactable
 
 function Interactable.new(values)
-    local instance = setmetatable({}, Interactable)
     values = values or {}
-    instance.range = values.range or 50
-    instance.prompt = values.prompt or "Click to interact"
+    local instance = setmetatable({}, Interactable)
+    instance.range = values.range or 0
+    instance.prompt = values.prompt
     instance.requiresKey = values.requiresKey
+    instance.hint = values.hint
+    instance.activate = values.activate
     return instance
 end
 
