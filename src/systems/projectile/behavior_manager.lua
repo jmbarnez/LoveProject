@@ -12,24 +12,6 @@ local function shallow_copy(tbl)
     return copy
 end
 
-local function attach_components(manager, behavior)
-    if not behavior.components then return end
-
-    for _, descriptor in ipairs(behavior.components) do
-        local name = descriptor.name
-        local component = descriptor.component or descriptor.instance
-        local force = descriptor.force or descriptor.overwrite
-
-        if name and component then
-            if manager.projectile.components[name] and not force then
-                Log.warn(string.format("Projectile component '%s' already exists; skipping behavior attachment", name))
-            else
-                manager.projectile.components[name] = component
-            end
-        end
-    end
-end
-
 local function attach_events(manager, behavior)
     if not behavior.events then return end
 
@@ -56,10 +38,14 @@ function BehaviorManager:getContext()
     }
 end
 
-function BehaviorManager:store(behavior)
+function BehaviorManager:store(behavior, behaviorType)
     if not behavior then return end
     table.insert(self.behaviors, behavior)
-    attach_components(self, behavior)
+    if behavior.components then
+        self.projectile:applyComponentDefinitions(behavior.components, {
+            source = string.format("behavior:%s", tostring(behaviorType or "unknown")),
+        })
+    end
     attach_events(self, behavior)
 end
 
@@ -87,7 +73,7 @@ function BehaviorManager:addBehavior(definition)
     local behavior = BehaviorRegistry.create(behaviorType, context, definition)
     if not behavior then return nil end
 
-    self:store(behavior)
+    self:store(behavior, behaviorType)
     return behavior
 end
 

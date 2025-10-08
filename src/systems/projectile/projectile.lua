@@ -1,9 +1,11 @@
+local Log = require("src.core.log")
 local Position = require("src.components.position")
 local Velocity = require("src.components.velocity")
 local Renderable = require("src.components.renderable")
 local Collidable = require("src.components.collidable")
 local Damage = require("src.components.damage")
 local TimedLife = require("src.components.timed_life")
+local ProjectileComponents = require("src.components.projectile.registry")
 local EventDispatcher = require("src.systems.projectile.event_dispatcher")
 local EffectManager = require("src.systems.projectile.effect_manager")
 local BehaviorManager = require("src.systems.projectile.behavior_manager")
@@ -19,6 +21,128 @@ require("src.systems.projectile.renderers.init")
 local Projectile = {}
 Projectile.__index = Projectile
 local ProjectileEvents = EventDispatcher.EVENTS
+
+local function merge_options(base, overrides)
+    if type(base) ~= "table" then
+        base = {}
+    end
+
+    if type(overrides) ~= "table" then
+        return base
+    end
+
+    local merged = {}
+    for key, value in pairs(base) do
+        merged[key] = value
+    end
+
+    for key, value in pairs(overrides) do
+        if value ~= nil then
+            merged[key] = value
+        elseif merged[key] == nil then
+            merged[key] = value
+        end
+    end
+
+    return merged
+end
+
+function Projectile:addComponent(name, config, options)
+    if type(name) ~= "string" or name == "" then
+        return nil, false
+    end
+
+    options = options or {}
+    local force = options.force or options.overwrite
+    local existing = self.components[name]
+
+    if existing and not force then
+        local sourceLabel = options.source and (" (" .. tostring(options.source) .. ")") or ""
+        Log.warn(string.format("Projectile component '%s'%s already exists; skipping attachment", name, sourceLabel))
+        return existing, false
+    end
+
+    local component, err = ProjectileComponents.create(name, config or {}, {
+        projectile = self,
+        options = options,
+    })
+
+    if not component then
+        local sourceLabel = options.source and (" from " .. tostring(options.source)) or ""
+        Log.warn(err or string.format("Unable to create projectile component '%s'%s", name, sourceLabel))
+        return nil, false
+    end
+
+    self.components[name] = component
+    return component, true
+end
+
+local function normalize_component_definitions(definitions)
+    if type(definitions) ~= "table" then
+        return {}
+    end
+
+    local normalized = {}
+
+    if #definitions > 0 then
+        for _, descriptor in ipairs(definitions) do
+            if type(descriptor) == "table" then
+                normalized[#normalized + 1] = descriptor
+            end
+        end
+    else
+        for name, config in pairs(definitions) do
+            normalized[#normalized + 1] = {
+                name = name,
+                config = config,
+            }
+        end
+    end
+
+    return normalized
+end
+
+function Projectile:applyComponentDefinitions(definitions, options)
+    local normalized = normalize_component_definitions(definitions)
+    if #normalized == 0 then
+        return
+    end
+
+    for _, descriptor in ipairs(normalized) do
+        local name = descriptor.name or descriptor.type or descriptor.id
+        if type(name) ~= "string" then
+            Log.warn("Encountered projectile component descriptor without a valid name")
+        elseif descriptor.component or descriptor.instance then
+            Log.warn(string.format("Direct projectile component injection for '%s' is no longer supported; register a constructor", name))
+        else
+            local config = descriptor.config
+            if config == nil then
+                if descriptor.value ~= nil then
+                    if type(descriptor.value) == "table" then
+                        config = descriptor.value
+                    else
+                        config = { value = descriptor.value }
+                    end
+                elseif descriptor.options ~= nil then
+                    config = descriptor.options
+                elseif descriptor.args ~= nil then
+                    config = descriptor.args
+                elseif descriptor.data ~= nil then
+                    config = descriptor.data
+                end
+            end
+
+            local mergedOptions = merge_options(options, {
+                force = descriptor.force or descriptor.overwrite,
+            })
+            mergedOptions = merge_options(mergedOptions, {
+                source = mergedOptions and mergedOptions.source or descriptor.source,
+            })
+
+            self:addComponent(name, config, mergedOptions)
+        end
+    end
+end
 
 function Projectile.new(x, y, angle, friendly, config)
     local self = setmetatable({}, Projectile)
@@ -100,29 +224,7 @@ function Projectile.new(x, y, angle, friendly, config)
     }
 
 
-    local function attach_custom_components(definitions)
-        if type(definitions) ~= "table" then return end
-
-        if #definitions > 0 then
-            for _, descriptor in ipairs(definitions) do
-                if type(descriptor) == "table" then
-                    local name = descriptor.name
-                    local component = descriptor.component or descriptor.instance or descriptor.value
-                    if type(name) == "string" and component ~= nil then
-                        self.components[name] = component
-                    end
-                end
-            end
-        else
-            for name, component in pairs(definitions) do
-                if type(name) == "string" then
-                    self.components[name] = component
-                end
-            end
-        end
-    end
-
-    attach_custom_components(config.components)
+    self:applyComponentDefinitions(config.components, { source = "config" })
 
 
     local dispatcher = EventDispatcher.new()
@@ -163,14 +265,19 @@ function Projectile.new(x, y, angle, friendly, config)
     
     -- Load effects from components field (for embedded effects like bomb_explosion)
     if config.components then
-        for _, component in ipairs(config.components) do
-            if component.name and component.value then
-                -- Create effect definition from component
-                local effectDef = {
+        local normalizedComponents = normalize_component_definitions(config.components)
+        for _, component in ipairs(normalizedComponents) do
+            local effectConfig = component.value or component.effect_config
+            if component.effect and effectConfig then
+                effectManager:addEffect({
+                    type = component.effect,
+                    config = effectConfig,
+                })
+            elseif component.name and component.value then
+                effectManager:addEffect({
                     type = component.name,
-                    value = component.value
-                }
-                effectManager:addEffect(effectDef)
+                    value = component.value,
+                })
             end
         end
     end
