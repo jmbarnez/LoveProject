@@ -2,6 +2,7 @@ local Events = require("src.core.events")
 local Log = require("src.core.log")
 local PortfolioManager = require("src.managers.portfolio")
 local PlayerHotbar = require("src.systems.player.hotbar")
+local TurretSystem = require("src.systems.turret.system")
 
 local StateManager = {}
 
@@ -105,6 +106,9 @@ local function restoreEquipment(player, equipmentState)
   local grid = equipment.grid or {}
 
   for _, slot in ipairs(grid) do
+    if slot.type == "turret" and slot.module then
+      TurretSystem.teardown(slot.module)
+    end
     slot.id = nil
     slot.module = nil
     slot.enabled = false
@@ -114,7 +118,6 @@ local function restoreEquipment(player, equipmentState)
 
   local Content = require("src.content.content")
   local Util = require("src.core.util")
-  local Turret = require("src.systems.turret.core")
 
   for _, savedSlot in ipairs(equipmentState.grid or {}) do
     local slotIndex = savedSlot.slot and tonumber(savedSlot.slot) or nil
@@ -132,7 +135,7 @@ local function restoreEquipment(player, equipmentState)
           local turretDef = source or Content.getTurret(savedSlot.id)
           if turretDef then
             local params = Util.deepCopy(turretDef)
-            local turretInstance = Turret.new(player, params)
+            local turretInstance = TurretSystem.spawn(player, params)
             turretInstance.id = savedSlot.id
             turretInstance.slot = slotIndex
             turretInstance.baseId = (savedSlot.turret and savedSlot.turret.baseId) or params.baseId or params.id or savedSlot.id
@@ -322,13 +325,7 @@ local function getGameState()
     world = {
       width = currentWorld.width or 15000,
       height = currentWorld.height or 15000,
-      discovery = (function()
-        local ok, Discovery = pcall(require, "src.systems.discovery")
-        if ok and Discovery and Discovery.serialize then
-          return Discovery.serialize()
-        end
-        return nil
-      end)()
+      discovery = nil -- Fog of war disabled
     },
     
     -- Game progression
@@ -440,13 +437,7 @@ local function applyGameState(state, player, world)
     currentPlayer.components.questLog = require("src.components.quest_log").deserialize(state.player.questLog)
   end
 
-  -- Restore world discovery (fog-of-war)
-  if state.world and state.world.discovery then
-    local ok, Discovery = pcall(require, "src.systems.discovery")
-    if ok and Discovery and Discovery.deserialize then
-      Discovery.deserialize(state.world.discovery, world)
-    end
-  end
+  -- Fog of war disabled - no discovery data to restore
 
   -- TODO: Restore world entities (asteroids, wreckage, etc.)
   -- This would require more complex entity recreation logic

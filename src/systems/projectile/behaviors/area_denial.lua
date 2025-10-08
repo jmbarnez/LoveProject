@@ -1,12 +1,11 @@
 local BehaviorRegistry = require("src.systems.projectile.behavior_registry")
 local ProjectileEvents = require("src.systems.projectile.event_dispatcher").EVENTS
-local State = require("src.game.state")
 
 local function spawn_field(projectile, payload, config)
     local position = projectile.components and projectile.components.position
     if not position then return end
 
-    local world = (payload and payload.world) or State.world
+    local world = payload and payload.world
     if not world then return end
 
     local radius = config.radius or 140

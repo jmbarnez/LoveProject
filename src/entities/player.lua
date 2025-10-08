@@ -1,5 +1,5 @@
 local Util = require("src.core.util")
-local Turret = require("src.systems.turret.core")
+local TurretSystem = require("src.systems.turret.system")
 local Content = require("src.content.content")
 local Config = require("src.content.config")
 local EntityFactory = require("src.templates.entity_factory")
@@ -99,12 +99,12 @@ function Player.new(x, y, shipId)
       end
 
       -- Equip starting combat turrets
-      if not equipStartingModule(1, "kinetic_turret") and self.components and self.components.cargo then
-          self:addItem("kinetic_turret", 1)
+      if not equipStartingModule(1, "low_power_laser") and self.components and self.components.cargo then
+          self:addItem("low_power_laser", 1)
       end
 
-      if not equipStartingModule(2, "low_power_laser") and self.components and self.components.cargo then
-          self:addItem("low_power_laser", 1)
+      if not equipStartingModule(2, "railgun_turret") and self.components and self.components.cargo then
+          self:addItem("railgun_turret", 1)
       end
 
       if not equipStartingModule(3, "missile_launcher_mk1") and self.components and self.components.cargo then
@@ -169,6 +169,7 @@ function Player:equipTurret(slotNum, turretId)
                     if oldId then
                         self:addItem(oldId, 1)
                     end
+                    TurretSystem.teardown(turretData.turret)
                 end
 
             local cargo = self.components.cargo
@@ -181,7 +182,7 @@ function Player:equipTurret(slotNum, turretId)
             end
 
             if turretDef then
-                local newTurret = Turret.new(self, turretDef)
+                local newTurret = TurretSystem.spawn(self, turretDef)
                 newTurret.id = turretId
                 newTurret.slot = slotNum
                 self.components.equipment.turrets[i] = {
@@ -219,6 +220,8 @@ function Player:unequipTurret(slotNum)
                     self:addItem(turretId, 1)
                 end
             end
+
+            TurretSystem.teardown(turretData.turret)
 
             -- Remove turret from slot
             self.components.equipment.turrets[i] = {
@@ -272,7 +275,7 @@ function Player:equipModule(slotNum, moduleId, turretData)
     local function instantiateTurret(def, instanceId, baseId)
         if not def then return nil end
         local turretBlueprint = Util.deepCopy(def)
-        local turretInstance = Turret.new(self, turretBlueprint)
+        local turretInstance = TurretSystem.spawn(self, turretBlueprint)
         turretInstance.id = instanceId
         turretInstance.baseId = baseId or turretBlueprint.baseId or turretBlueprint.id or instanceId
         turretInstance.slot = slotNum
@@ -380,6 +383,7 @@ function Player:unequipModule(slotNum)
                     else
                         cargo:add(moduleId, 1, Content.getTurret(baseId))
                     end
+                    TurretSystem.teardown(turretObj)
                 end
             end
 

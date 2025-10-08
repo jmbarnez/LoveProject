@@ -4,7 +4,7 @@ local Normalizer = require("src.content.normalizer")
 local Builder = require("src.templates.builder")
 local Log = require("src.core.log")
 local Util = require("src.core.util")
-local TurretCore = require("src.systems.turret.core")
+local TurretSystem = require("src.systems.turret.system")
 
 local function random_choice(options)
     if type(options) ~= "table" or #options == 0 then
@@ -33,7 +33,7 @@ local EntityFactory = {}
 -- Creates a base entity instance from a template and a configuration.
 -- This is the core, generic creation function.
 ---
-function EntityFactory.create(entityType, entityId, x, y, extraConfig)
+function EntityFactory.create(entityType, entityId, x, y, extraConfig, world)
     local template = entity_templates[entityType]
     if not template then
         Log.warn("EntityFactory - No template for type", tostring(entityType))
@@ -97,7 +97,7 @@ function EntityFactory.create(entityType, entityId, x, y, extraConfig)
     if entityType == "ship" then
         entity = Builder.buildShip(config, x, y, { angle = angle, friendly = friendly })
     elseif entityType == "projectile" then
-        entity = Builder.buildProjectile(config, x, y, angle, friendly, extraConfig)
+        entity = Builder.buildProjectile(config, x, y, angle, friendly, extraConfig, world)
     elseif entityType == "world_object" then
         entity = Builder.buildWorldObject(config, x, y, { angle = angle, friendly = friendly })
     elseif entityType == "station" then
@@ -232,7 +232,7 @@ function EntityFactory.createEnemy(shipId, x, y)
                     if turretDef then
                         local turretParams = Util.deepCopy(turretDef)
                         turretParams.fireMode = turretParams.fireMode or defaultFireMode
-                        local turretInstance = TurretCore.new(enemy, turretParams)
+                        local turretInstance = TurretSystem.spawn(enemy, turretParams)
 
                         turretInstance.fireMode = turretInstance.fireMode or defaultFireMode
                         if turretInstance.fireMode == "automatic" then

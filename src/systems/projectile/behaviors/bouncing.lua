@@ -1,6 +1,5 @@
 local BehaviorRegistry = require("src.systems.projectile.behavior_registry")
 local ProjectileEvents = require("src.systems.projectile.event_dispatcher").EVENTS
-local State = require("src.game.state")
 
 local function reflect_velocity(vx, vy, nx, ny)
     local dot = (vx * nx) + (vy * ny)
@@ -22,18 +21,22 @@ local function factory(context, config)
     local maxBounces = config.bounces or config.maxBounces or 1
     if maxBounces < 0 then maxBounces = 0 end
 
-    local bounceComponent = {
-        remaining = maxBounces,
-        maxBounces = maxBounces,
-    }
-
     local state = {
         remaining = maxBounces,
+        maxBounces = maxBounces,
         speedMultiplier = config.speedMultiplier or 1.0,
         minimumSpeed = config.minimumSpeed or 0,
         immunityDuration = config.immunityDuration or 0.05,
         immunityTimer = 0,
     }
+
+    local function sync_component()
+        local component = projectile.components and projectile.components.bouncing
+        if component then
+            component.remaining = state.remaining
+            component.maxBounces = state.maxBounces
+        end
+    end
 
     local events = {}
 
@@ -96,7 +99,7 @@ local function factory(context, config)
         end
 
         state.remaining = state.remaining - 1
-        bounceComponent.remaining = state.remaining
+        sync_component()
         state.immunityTimer = state.immunityDuration
 
         payload.keepAlive = true
@@ -117,8 +120,10 @@ local function factory(context, config)
         components = {
             {
                 name = "bouncing",
-                component = bounceComponent,
-                force = true,
+                config = {
+                    maxBounces = maxBounces,
+                },
+                overwrite = true,
             }
         }
     }

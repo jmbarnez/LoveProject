@@ -7,7 +7,7 @@ return {
   -- Sound Effects
   sfx = {
     -- Weapon sounds - specific to each weapon type
-    kinetic_turret_fire = "kinetic_turret_fire",
+    railgun_turret_fire = "railgun_turret_fire",
     low_power_laser_fire = "low_power_laser_fire", 
     missile_launcher_fire = "missile_launcher_fire",
     
@@ -66,7 +66,7 @@ return {
   -- Event Sound Mappings
   events = {
     -- Specific weapon events
-    weapon_kinetic_turret_fire = {type = "sfx", sound = "kinetic_turret_fire", volume = 0.4},
+    weapon_railgun_turret_fire = {type = "sfx", sound = "railgun_turret_fire", volume = 0.5},
     weapon_low_power_laser_fire = {type = "sfx", sound = "low_power_laser_fire", volume = 0.3},
     weapon_missile_launcher_fire = {type = "sfx", sound = "missile_launcher_fire", volume = 0.8},
     

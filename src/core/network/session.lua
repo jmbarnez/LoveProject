@@ -780,7 +780,8 @@ local function handleProjectileRequest(request, playerId)
         projectileId,
         startX,
         startY,
-        extraConfig
+        extraConfig,
+        world
     )
 
     if projectile then

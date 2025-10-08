@@ -165,7 +165,7 @@ function Sound.loadSFX(name, path)
     -- Try procedural generation as fallback
     local proceduralSound = nil
     local targetName = resolvedName
-    if targetName == "kinetic_turret_fire" then
+    if targetName == "railgun_turret_fire" then
         proceduralSound = SoundGenerator.generateKineticTurretFire()
     elseif targetName == "low_power_laser_fire" then
         proceduralSound = SoundGenerator.generateLowPowerLaserFire()
