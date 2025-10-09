@@ -145,29 +145,95 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     local beamEndY = hitY or endY
 
     local energyStarved = false
+    local energyLevel = 1.0 -- Full energy by default
+    
     if turret.energyPerSecond and turret.energyPerSecond > 0 and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
         local currentEnergy = turret.owner.components.health.energy or 0
+        local maxEnergy = turret.owner.components.health.maxEnergy or 100
         local energyCost = turret.energyPerSecond * dt
         local resumeMultiplier = turret.resumeEnergyMultiplier or 2
         local resumeThreshold = turret.minResumeEnergy or (resumeMultiplier * energyCost)
         resumeThreshold = math.max(resumeThreshold, energyCost)
 
+        -- Calculate energy level (0.0 to 1.0)
+        energyLevel = math.max(0, currentEnergy / maxEnergy)
+        
+        -- Initialize energy smoothing variables
+        if not turret._energySmoothing then
+            turret._energySmoothing = {
+                gracePeriod = 0.3, -- 300ms grace period before cutting off
+                graceTimer = 0,
+                lowEnergyThreshold = 0.15, -- Start dimming at 15% energy
+                criticalEnergyThreshold = 0.05, -- Critical at 5% energy
+                lastEnergyLevel = 1.0
+            }
+        end
+        
+        local smoothing = turret._energySmoothing
+        
+        -- Update grace timer
+        if currentEnergy < energyCost then
+            smoothing.graceTimer = smoothing.graceTimer + dt
+        else
+            smoothing.graceTimer = 0
+        end
+        
+        -- Determine if we should cut off the beam
+        local shouldCutOff = false
         if turret._energyStarved then
             if currentEnergy >= resumeThreshold then
                 turret._energyStarved = false
+                smoothing.graceTimer = 0
             else
-                energyStarved = true
+                shouldCutOff = true
             end
-        end
-
-        if not energyStarved then
-            if currentEnergy >= energyCost then
+        else
+            if currentEnergy < energyCost then
+                if smoothing.graceTimer >= smoothing.gracePeriod then
+                    turret._energyStarved = true
+                    shouldCutOff = true
+                end
+            else
+                -- We have enough energy, consume it
                 turret.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
-            else
-                turret._energyStarved = true
-                energyStarved = true
             end
         end
+        
+        -- Energy warning notifications (only show once per energy state)
+        local currentTime = love.timer.getTime()
+        local lastEnergyWarning = turret._lastEnergyWarning or 0
+        local energyWarningCooldown = 3.0 -- 3 seconds between warnings
+        local lastWarningLevel = turret._lastWarningLevel or "none"
+        
+        if currentTime - lastEnergyWarning > energyWarningCooldown then
+            local currentWarningLevel = "none"
+            if energyLevel <= smoothing.criticalEnergyThreshold and not turret._energyStarved then
+                currentWarningLevel = "critical"
+            elseif energyLevel <= smoothing.lowEnergyThreshold and not turret._energyStarved then
+                currentWarningLevel = "low"
+            end
+            
+            -- Only show notification if warning level changed
+            if currentWarningLevel ~= "none" and currentWarningLevel ~= lastWarningLevel then
+                local Notifications = require("src.ui.notifications")
+                if Notifications and Notifications.add then
+                    if currentWarningLevel == "critical" then
+                        Notifications.add("Critical energy! Laser power failing!", "warning")
+                    elseif currentWarningLevel == "low" then
+                        Notifications.add("Low energy - laser power reduced", "info")
+                    end
+                end
+                turret._lastEnergyWarning = currentTime
+                turret._lastWarningLevel = currentWarningLevel
+            end
+        end
+        
+        -- Reset warning level when energy is restored
+        if energyLevel > smoothing.lowEnergyThreshold then
+            turret._lastWarningLevel = "none"
+        end
+        
+        energyStarved = shouldCutOff
     end
 
     if energyStarved then
@@ -190,6 +256,9 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     turret.beamEndY = beamEndY
     turret.beamTarget = hitTarget
     turret.has_hit = hitTarget ~= nil
+    
+    -- Store energy level for rendering system
+    turret._currentEnergyLevel = energyLevel
 
     -- Try to send beam weapon fire request first (for clients)
     local damageConfig

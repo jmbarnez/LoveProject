@@ -232,6 +232,39 @@ function TurretEffects.renderBeam(turret, startX, startY, endX, endY, hitTarget)
     local color = turret.tracer.color
     local width = turret.tracer.width
     local coreRadius = turret.tracer.coreRadius
+    
+    -- Apply energy-based visual effects
+    local energyLevel = turret._currentEnergyLevel or 1.0
+    local smoothing = turret._energySmoothing
+    
+    if energyLevel < 1.0 and smoothing then
+        -- Calculate visual intensity based on energy level
+        local visualIntensity = 1.0
+        
+        if energyLevel <= smoothing.criticalEnergyThreshold then
+            -- Critical energy: pulsing effect
+            local time = love.timer.getTime()
+            visualIntensity = 0.3 + 0.4 * math.sin(time * 8) -- Pulse between 0.3 and 0.7
+        elseif energyLevel <= smoothing.lowEnergyThreshold then
+            -- Low energy: dimmed
+            visualIntensity = 0.4 + (energyLevel / smoothing.lowEnergyThreshold) * 0.4 -- 0.4 to 0.8
+        else
+            -- Normal energy: slight dimming
+            visualIntensity = 0.8 + (energyLevel - smoothing.lowEnergyThreshold) / (1.0 - smoothing.lowEnergyThreshold) * 0.2 -- 0.8 to 1.0
+        end
+        
+        -- Apply intensity to color
+        color = {
+            color[1] * visualIntensity,
+            color[2] * visualIntensity,
+            color[3] * visualIntensity,
+            color[4] * visualIntensity
+        }
+        
+        -- Reduce width for low energy
+        width = width * (0.5 + 0.5 * visualIntensity)
+        coreRadius = coreRadius * (0.5 + 0.5 * visualIntensity)
+    end
 
     -- Calculate beam properties
     local dx = endX - startX
