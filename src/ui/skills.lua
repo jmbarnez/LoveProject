@@ -80,6 +80,7 @@ function SkillsPanel.init()
         useLoadPanelTheme = true,
         draggable = true,
         closable = true,
+        panelId = "skills",
         drawContent = SkillsPanel.drawContent,
         onClose = function()
             SkillsPanel.visible = false

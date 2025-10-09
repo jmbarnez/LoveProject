@@ -31,6 +31,7 @@ function DebugPanel.init()
         draggable = true,
         closable = true,
         resizable = false,
+        panelId = "debug",
         drawContent = DebugPanel.drawContent,
         onClose = function()
             DebugPanel.visible = false

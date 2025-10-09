@@ -14,6 +14,7 @@ function ShipWindow.ensure(state, drawCallback)
         useLoadPanelTheme = true,
         draggable = true,
         closable = true,
+        panelId = "ship",
         drawContent = function(window, x, y, w, h)
             if drawCallback then
                 drawCallback(state, window, x, y, w, h)
