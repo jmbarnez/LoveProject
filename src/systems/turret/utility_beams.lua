@@ -198,6 +198,23 @@ local function applyBeamState(turret, sx, sy, beamEndX, beamEndY, hitTarget, ene
     turret._currentEnergyLevel = energyLevel
 end
 
+local function isTurretInputActive(turret)
+    if not turret then
+        return false
+    end
+
+    if turret.fireMode == "automatic" then
+        return turret.autoFire == true
+    end
+
+    if turret.firing ~= nil then
+        return turret.firing == true
+    end
+
+    -- For manual turrets, if firing is nil, there's no active input
+    return false
+end
+
 local function updateBeamSound(turret, wasActive, stopSoundFn)
     if not wasActive then
         if isTurretInputActive(turret) then
@@ -238,22 +255,6 @@ local function sendUtilityBeamWeaponFireRequest(turret, sx, sy, angle, beamLengt
     return false
 end
 
-local function isTurretInputActive(turret)
-    if not turret then
-        return false
-    end
-
-    if turret.fireMode == "automatic" then
-        return turret.autoFire == true
-    end
-
-    if turret.firing ~= nil then
-        return turret.firing == true
-    end
-
-    -- For manual turrets, if firing is nil, there's no active input
-    return false
-end
 
 local function spawnSalvagePickup(target, amount, world)
     if not world or amount <= 0 then
