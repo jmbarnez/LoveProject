@@ -25,9 +25,6 @@ local function render(entity, player)
         elseif kind == 'mining_laser' then
             baseColor = util.copy(props.color or {1.0, 0.7, 0.2, 0.8}) -- Orange
             baseWidth = props.tracerWidth or 2.0
-        elseif kind == 'plasma_torch' then
-            baseColor = util.copy(props.color or {1.0, 0.4, 0.1, 0.9}) -- Orange-red plasma
-            baseWidth = props.tracerWidth or 8.0
         else
             baseColor = util.copy(props.color or {0.3, 0.7, 1.0, 0.8}) -- Blue (combat)
             baseWidth = props.tracerWidth or 1.5

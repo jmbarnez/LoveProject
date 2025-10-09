@@ -24,7 +24,7 @@ function Turret.new(owner, params)
     -- Skill progression tag used when this turret deals the killing blow
     self.skillId = params.skillId
     if not self.skillId then
-        if self.kind == 'gun' or self.kind == 'projectile' or self.kind == 'laser' or self.kind == 'missile' or self.kind == 'plasma_torch' then
+        if self.kind == 'gun' or self.kind == 'projectile' or self.kind == 'laser' or self.kind == 'missile' then
             self.skillId = "gunnery"
         end
     end
@@ -150,10 +150,6 @@ function Turret.new(owner, params)
         self.tracer.width = self.tracer.width
         self.tracer.coreRadius = self.tracer.coreRadius
     elseif self.kind == 'salvaging_laser' then
-        self.tracer.color = self.tracer.color
-        self.tracer.width = self.tracer.width
-        self.tracer.coreRadius = self.tracer.coreRadius
-    elseif self.kind == 'plasma_torch' then
         self.tracer.color = self.tracer.color
         self.tracer.width = self.tracer.width
         self.tracer.coreRadius = self.tracer.coreRadius
