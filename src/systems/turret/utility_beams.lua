@@ -643,7 +643,7 @@ function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, w
                         local beamRadius = 1 -- Beams are line segments
                         
                         -- Use the precise hit position for collision effects
-                        CollisionEffects.createCollisionEffects(turret, entity, hx, hy, hx, hy, 0, 0, beamRadius, targetRadius, nil, nil)
+                        CollisionEffects.createCollisionEffects(turret, entity, hx, hy, hx, hy, 0, 0, beamRadius, targetRadius, nil, nil, true)
                     end
                 end
             end
