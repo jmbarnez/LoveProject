@@ -246,6 +246,15 @@ function UIInputRouter.keypressed(key, scancode, isrepeat, player)
     -- Special handling for escape key
     if key == "escape" then
         local state = require("src.core.ui.state")
+
+        if state.isOpen("escape") and type(state.isShowingSaveSlots) == "function" and state.isShowingSaveSlots() then
+            local ok, escapeMenu = pcall(require, "src.ui.escape_menu")
+            if ok and escapeMenu and type(escapeMenu.closeSaveLoadPanel) == "function" then
+                escapeMenu.closeSaveLoadPanel()
+                return true
+            end
+        end
+
         local sortedPanels = {}
         for _, record in ipairs(PanelRegistry.list()) do
             if state.isOpen(record.id) then
