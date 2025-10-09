@@ -349,12 +349,7 @@ function UI.drawHelpers(player, world, hub, camera)
 
               local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
               local previousFont = love.graphics.getFont()
-              dockPromptState.dockRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "Dock", hover, false, {
-                font = buttonFont,
-                bg = {0, 0, 0, 1}, -- Black background
-                hoverBg = {0.1, 0.1, 0.1, 1}, -- Dark gray on hover
-                activeBg = {0.2, 0.2, 0.2, 1}, -- Lighter gray when active
-              })
+               dockPromptState.dockRect = Theme.drawMenuButton(buttonX, buttonY, buttonW, buttonH, "Dock", hover, love.timer.getTime())
               dockPromptState.toggleRect = nil
 
               local triCx = math.floor(screenX + 0.5)
@@ -396,12 +391,7 @@ function UI.drawHelpers(player, world, hub, camera)
 
               local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
               local previousFont = love.graphics.getFont()
-              dockPromptState.dockRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "Dock", hover, false, {
-                font = buttonFont,
-                bg = {0, 0, 0, 1}, -- Black background
-                hoverBg = {0.1, 0.1, 0.1, 1}, -- Dark gray on hover
-                activeBg = {0.2, 0.2, 0.2, 1}, -- Lighter gray when active
-              })
+               dockPromptState.dockRect = Theme.drawMenuButton(buttonX, buttonY, buttonW, buttonH, "Dock", hover, love.timer.getTime())
               dockPromptState.toggleRect = nil
 
               local triCx = math.floor(screenX + 0.5)
@@ -522,12 +512,7 @@ function UI.drawHelpers(player, world, hub, camera)
 
           local buttonFont = (Theme.fonts and Theme.fonts.normal) or love.graphics.getFont()
           local previousFont = love.graphics.getFont()
-          warpPromptState.warpRect = UIUtils.drawButton(buttonX, buttonY, buttonW, buttonH, "Warp", hover, false, {
-            font = buttonFont,
-            bg = {0, 0, 0, 1}, -- Black background
-            hoverBg = {0.1, 0.1, 0.1, 1}, -- Dark gray on hover
-            activeBg = {0.2, 0.2, 0.2, 1}, -- Lighter gray when active
-          })
+           warpPromptState.warpRect = Theme.drawMenuButton(buttonX, buttonY, buttonW, buttonH, "Warp", hover, love.timer.getTime())
 
           local triCx = math.floor(screenX + 0.5)
           local triY = warpPromptState.warpRect.y + warpPromptState.warpRect.h

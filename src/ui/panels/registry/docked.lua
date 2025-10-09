@@ -38,7 +38,11 @@ PanelRegistry.register({
         end
     end,
     onClose = function(panel)
-        local player = panel.player
+        -- Get the player from the docked state instead of panel.player
+        local DockedUI = require("src.ui.docked")
+        local state = DockedUI.state
+        local player = state and state.player
+        
         if player then
             local PlayerSystem = require("src.systems.player")
             PlayerSystem.undock(player)
