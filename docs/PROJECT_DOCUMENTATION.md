@@ -110,6 +110,8 @@ content/
 
 The UI layer combines HUD overlays with modal panels managed by `UIManager`.
 
+> **Note:** The HUD root module now lives at `src/ui/hud/root.lua`. Legacy code should migrate away from `require("src.core.ui")` to the new path; a thin shim remains for backward compatibility and will be removed in a future cleanup.
+
 ### Start Screen (`src/ui/start_screen.lua`)
 
 - **Start Game** – Launches a new session.
