@@ -16,7 +16,7 @@ This guide outlines expectations for autonomous and semi-autonomous contributors
    - Highlight risky modifications for human review.
 3. **Implement Carefully**
    - Respect Lua style conventions: 4-space indent, snake_case locals, PascalCase modules.
-   - Keep data changes consistent with loader expectations documented in `SYSTEMS_GUIDE.md` and `CONTENT_GUIDE.md`.
+   - Keep data changes consistent with loader expectations documented in `docs/SYSTEMS_GUIDE.md` and `docs/CONTENT_GUIDE.md`.
 4. **Validate**
    - Run available scripts (e.g., `love .`) when possible or document why not.
    - Describe manual verification steps if automation is unavailable.
