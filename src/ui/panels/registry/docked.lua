@@ -4,14 +4,12 @@ PanelRegistry.register({
     id = "docked",
     defaultZ = 40,
     modal = true,
-    useSelf = true, -- Docked module methods use self (defined with :)
+    useSelf = false, -- Docked module methods don't use self
     loader = function()
-        local Docked = require("src.ui.docked")
-        local instance = Docked:new()
-        return instance
+        return require("src.ui.docked")
     end,
     isVisible = function(panel)
-        return panel.visible == true
+        return panel.isVisible and panel.isVisible()
     end,
     setVisible = function(panel, open)
         panel.visible = open == true
@@ -22,7 +20,7 @@ PanelRegistry.register({
         -- The docking system handles this directly
     end,
     captureTextInput = function(panel)
-        return panel.state and panel.state:isSearchActive()
+        return panel.isSearchActive and panel.isSearchActive()
     end,
     getRect = function()
         local Viewport = require("src.core.viewport")
