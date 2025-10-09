@@ -68,6 +68,7 @@ function DockedUI.init()
         closable = true,
         draggable = true,
         resizable = false,
+        panelId = "docked",
         drawContent = function(window, cx, cy, cw, ch)
             DockedUI.drawContent(window, cx, cy, cw, ch)
         end,

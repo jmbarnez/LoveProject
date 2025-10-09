@@ -67,15 +67,8 @@ local strings = {
             -- Main menu
             new_game = "NEW GAME",
             load_game = "LOAD GAME",
-            version_log_button = "VERSION LOG",
             game_title = "NOVUS",
             version = "v0.35",
-            version_log_title = "Version Log",
-            version_log_loading = "Loading recent changes...",
-            version_log_git_missing = "Git history unavailable. Ensure Git is installed and accessible.",
-            version_log_error = "Unable to read commit history.",
-            version_log_empty = "No commits found.",
-            version_log_fallback_missing = "No bundled changelog available.",
 
             -- Common UI elements
             close = "Close",

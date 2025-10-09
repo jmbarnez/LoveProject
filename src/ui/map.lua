@@ -59,6 +59,7 @@ local function ensureWindow()
         minHeight = 480,
         resizable = true,
         maximizable = true,
+        panelId = "map",
         drawContent = function(_, x, y, w, h)
             Map.drawContent(x, y, w, h)
         end,

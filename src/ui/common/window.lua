@@ -65,6 +65,9 @@ function Window.new(options)
   -- Content area callback
   self.drawContent = options.drawContent
   
+  -- Panel ID for UIManager integration
+  self.panelId = options.panelId
+  
   -- Event callbacks
   self.onClose = options.onClose
   self.onResize = options.onResize
@@ -310,7 +313,14 @@ function Window:mousepressed(x, y, button)
       -- Play click sound
       local Sound = require("src.core.sound")
       Sound.triggerEvent('ui_button_click')
-      self:hide()
+      
+      -- Use UIManager if panelId is provided, otherwise use direct hide
+      if self.panelId then
+        local UIManager = require("src.core.ui_manager")
+        UIManager.close(self.panelId)
+      else
+        self:hide()
+      end
       return true
     end
     
