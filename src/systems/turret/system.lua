@@ -10,7 +10,6 @@ require("src.systems.turret.types.missile")
 require("src.systems.turret.types.laser")
 require("src.systems.turret.types.mining_laser")
 require("src.systems.turret.types.salvaging_laser")
-require("src.systems.turret.types.plasma_torch")
 
 local TurretSystem = {}
 
