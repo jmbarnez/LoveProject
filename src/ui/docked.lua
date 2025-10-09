@@ -88,6 +88,11 @@ function DockedUI.show(player, station)
     local state = DockedUI.state
     DockedState.prepareForShow(state, player, station)
 
+    -- Ensure UI is initialized before setting station
+    if not state.window then
+        DockedUI.init()
+    end
+
     if state.window then
         applyWindowBounds(state.window)
         if isFurnaceStation(state) then

@@ -168,6 +168,7 @@ end
 function Session.resetEventHandlers()
     SessionWorldSync.clearEventHandlers(state)
     state.networkManagerListenersRegistered = false
+    state.worldSyncHandlersRegistered = false
 end
 
 function Session.teardown()
