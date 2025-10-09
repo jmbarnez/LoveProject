@@ -821,12 +821,21 @@ function EntityCollision.handleEntityCollisions(collisionSystem, entity, world, 
     local entityRadius = radius_cache and radius_cache:getEffectiveRadius(entity)
         or Radius.calculateEffectiveRadius(entity)
 
+    -- For projectiles, expand the query area to account for their speed
+    local queryRadius = entityRadius
+    if entity.components.bullet then
+        local vel = entity.components.velocity or {x = 0, y = 0}
+        local speed = math.sqrt((vel.x or 0)^2 + (vel.y or 0)^2)
+        -- Add extra radius based on speed to catch fast-moving projectiles
+        queryRadius = entityRadius + (speed * dt * 1.5)
+    end
+
     -- Get potential collision targets from quadtree
     local candidates = collisionSystem.quadtree:query({
-        x = ex - entityRadius,
-        y = ey - entityRadius,
-        width = entityRadius * 2,
-        height = entityRadius * 2
+        x = ex - queryRadius,
+        y = ey - queryRadius,
+        width = queryRadius * 2,
+        height = queryRadius * 2
     })
 
     for _, candidate in ipairs(candidates) do
@@ -962,13 +971,9 @@ function EntityCollision.checkProjectileCollision(projectile, target, dt)
     local x2 = pos.x
     local y2 = pos.y
     
-    -- For polygon shapes, don't pass targetRadius to use precise polygon collision
-    -- For circular shapes, calculate the exact radius from collision shape
-    local targetRadius = nil
-    local collidable = target.components and target.components.collidable
-    if collidable and collidable.shape == "circle" and collidable.radius then
-        targetRadius = collidable.radius
-    end
+    -- Use effective radius for all targets to include HIT_BUFFER
+    local Radius = require("src.systems.collision.radius")
+    local targetRadius = Radius.calculateEffectiveRadius(target)
     
     -- Use the same collision detection as laser beams (line-segment detection)
     -- Use ProjectileUtils for consistency with the projectile handler

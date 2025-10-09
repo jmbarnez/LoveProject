@@ -6,6 +6,9 @@ local Log = require("src.core.log")
 
 local ProjectileUtils = {}
 
+-- Debug flag for projectile collision detection
+local DEBUG_PROJECTILE_COLLISION = false
+
 function ProjectileUtils.emit_event(projectile, event, payload)
     if not projectile or not projectile.components then return end
     local eventsComp = projectile.components.projectile_events
@@ -109,7 +112,27 @@ function ProjectileUtils.circleToCircleHit(x1, y1, x2, y2, cx, cy, target_radius
     -- Calculate the total radius (projectile + target)
     local total_radius = projectile_radius + target_radius
     
-    -- Use the existing line-segment to circle collision, but with the combined radius
+    -- Debug logging to help identify collision issues
+    if DEBUG_PROJECTILE_COLLISION then
+        local distance = math.sqrt((x2 - cx)^2 + (y2 - cy)^2)
+        Log.debug(string.format("Projectile collision check: proj_radius=%.2f, target_radius=%.2f, total_radius=%.2f, distance=%.2f", 
+            projectile_radius, target_radius, total_radius, distance))
+    end
+    
+    -- Check if projectile is already overlapping with target at start position
+    local start_distance = math.sqrt((x1 - cx)^2 + (y1 - cy)^2)
+    if start_distance <= total_radius then
+        return true, x1, y1, 0
+    end
+    
+    -- Check if projectile is overlapping with target at end position
+    local end_distance = math.sqrt((x2 - cx)^2 + (y2 - cy)^2)
+    if end_distance <= total_radius then
+        return true, x2, y2, 1
+    end
+    
+    -- Use line-segment to circle collision with the combined radius
+    -- This handles the case where the projectile passes through the target
     return Physics.segCircleHit(x1, y1, x2, y2, cx, cy, total_radius)
 end
 
@@ -117,6 +140,11 @@ function ProjectileUtils.is_station_shield_hit(projectile, target)
     return StationShields.isStation(target)
         and not projectile.friendly
         and StationShields.hasActiveShield(target)
+end
+
+-- Function to enable/disable debug logging
+function ProjectileUtils.setDebugEnabled(enabled)
+    DEBUG_PROJECTILE_COLLISION = enabled
 end
 
 return ProjectileUtils
