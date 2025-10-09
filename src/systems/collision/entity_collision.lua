@@ -567,7 +567,7 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
             -- Create visual effects for both entities
             local e1Radius = getEntityCollisionRadius(entity1)
             local e2Radius = getEntityCollisionRadius(entity2)
-            CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x, e2y, nx, ny, e1Radius, e2Radius)
+            CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x, e2y, nx, ny, e1Radius, e2Radius, collision.shape1, collision.shape2)
         end
     end
 end
