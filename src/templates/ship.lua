@@ -128,8 +128,8 @@ function Ship.new(x, y, angle, friendly, shipConfig)
       position = Position.new({ x = x, y = y, angle = angle or 0 }),
       collidable = Collidable.new({
         radius = physics.body.radius,
-        shape = shipConfig.collisionShape or "circle",
-        vertices = shipConfig.collisionVertices,
+        shape = (shipConfig.collidable and shipConfig.collidable.shape) or shipConfig.collisionShape or "circle",
+        vertices = (shipConfig.collidable and shipConfig.collidable.vertices) or shipConfig.collisionVertices,
         friendly = friendly,
         signature = self.sig,
       }),

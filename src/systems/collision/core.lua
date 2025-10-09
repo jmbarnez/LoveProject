@@ -1,6 +1,5 @@
 local Quadtree = require("src.core.quadtree")
 local EntityCollision = require("src.systems.collision.entity_collision")
-local ProjectileCollision = require("src.systems.collision.projectile_collision")
 local WindfieldWorld = require("src.core.windfield_world")
 local RadiusCache = require("src.systems.collision.helpers.radius_cache")
 
@@ -156,26 +155,15 @@ function CollisionSystem:syncWindfield(world, dt)
 end
 
 function CollisionSystem:processProjectiles(world, dt)
-    for _, projectile in ipairs(world:get_entities_with_components("bullet", "collidable", "position")) do
-        local renderable = projectile.components.renderable
-        if not renderable or not renderable.props then
-            goto continue
-        end
-
-        local kind = renderable.props.kind
-        if kind == "laser" or kind == "salvaging_laser" or kind == "mining_laser" then
-            ProjectileCollision.handle_beam_collision(self, projectile, world, dt)
-        else
-            ProjectileCollision.handle_projectile_collision(self, projectile, world, dt)
-        end
-
-        ::continue::
-    end
+    -- Projectiles now use unified collision system via processEntities
+    -- This function is kept for compatibility but no longer processes projectiles separately
 end
 
 function CollisionSystem:processEntities(world, dt)
     for _, entity in ipairs(world:get_entities_with_components("collidable", "position")) do
         if not entity.components.item_pickup then
+            -- Store world reference on entity for projectile collision handling
+            entity._world = world
             EntityCollision.handleEntityCollisions(self, entity, world, dt)
         end
     end

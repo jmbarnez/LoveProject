@@ -21,92 +21,68 @@ return {
         shape = "polygon",
         friendly = true,
         vertices = {
-            -156, 48,
-            -156, -48,
-            -126, -48,
-            -126, -96,
-            -84, -96,
-            -84, -144,
-            -36, -144,
-            -36, -180,
-            36, -180,
-            36, -144,
-            84, -144,
-            84, -96,
-            126, -96,
-            126, -48,
-            156, -48,
-            156, 48,
-            126, 48,
-            126, 96,
-            84, 96,
-            84, 144,
-            36, 144,
-            36, 180,
-            -36, 180,
-            -36, 144,
-            -84, 144,
-            -84, 96,
-            -126, 96,
-            -126, 48,
+            -30, -20,  -- Top-left
+            -25, -25,  -- Left
+            -20, -25,  -- Left-bottom
+            -15, -30,  -- Bottom-left
+            15, -30,   -- Bottom
+            20, -25,   -- Bottom-right
+            25, -25,   -- Right
+            30, -20,   -- Top-right
+            30, 20,    -- Right
+            25, 25,    -- Right-bottom
+            20, 25,    -- Bottom-right
+            15, 30,    -- Bottom
+            -15, 30,   -- Bottom-left
+            -20, 25,   -- Bottom-left
+            -25, 25,   -- Left
+            -30, 20,   -- Left-top
         }
     },
 
-    description = "A sprawling refinery that superheats ore shipments into refined alloys.",
+    -- Station properties
+    weapon_disable_radius = 100,  -- Weapons disabled within this radius
+    shield_radius = 150,  -- Shield protection radius
+    radius = 40,  -- Station radius for calculations
+
+    description = "A compact refinery that processes ore into refined alloys.",
 
     visuals = {
-        size = 6.0,
+        size = 2.5,
         shapes = {
-            -- Outer furnace superstructure aligned with collider
+            -- Main hull matching collision shape
             { type = "polygon", mode = "fill", color = {0.44, 0.46, 0.52, 0.95}, points = {
-                -156, 48,  -156, -48,  -126, -48,  -126, -94,
-                -86, -94,  -86, -140,  -40, -140,  -40, -176,
-                40, -176,  40, -140,  86, -140,  86, -94,
-                126, -94,  126, -48,  156, -48,  156, 48,
-                126, 48,  126, 94,  86, 94,  86, 140,
-                40, 140,  40, 176,  -40, 176,  -40, 140,
-                -86, 140,  -86, 94,  -126, 94,  -126, 48,
+                -30, -20,  -25, -25,  -20, -25,  -15, -30,
+                15, -30,  20, -25,  25, -25,  30, -20,
+                30, 20,  25, 25,  20, 25,  15, 30,
+                -15, 30,  -20, 25,  -25, 25,  -30, 20,
             } },
-            { type = "polygon", mode = "line", color = {0.20, 0.22, 0.26, 0.95}, width = 4, points = {
-                -156, 48,  -156, -48,  -126, -48,  -126, -96,
-                -84, -96,  -84, -144,  -36, -144,  -36, -180,
-                36, -180,  36, -144,  84, -144,  84, -96,
-                126, -96,  126, -48,  156, -48,  156, 48,
-                126, 48,  126, 96,  84, 96,  84, 144,
-                36, 144,  36, 180,  -36, 180,  -36, 144,
-                -84, 144,  -84, 96,  -126, 96,  -126, 48,
+            { type = "polygon", mode = "line", color = {0.20, 0.22, 0.26, 0.95}, width = 2, points = {
+                -30, -20,  -25, -25,  -20, -25,  -15, -30,
+                15, -30,  20, -25,  25, -25,  30, -20,
+                30, 20,  25, 25,  20, 25,  15, 30,
+                -15, 30,  -20, 25,  -25, 25,  -30, 20,
             } },
 
-            -- Inner pressure vessel
-            { type = "circle", mode = "fill", color = {0.92, 0.54, 0.12, 0.95}, x = 0, y = 0, r = 44 },
-            { type = "circle", mode = "fill", color = {0.32, 0.12, 0.06, 0.9}, x = 0, y = 0, r = 26 },
-            { type = "circle", mode = "line", color = {1.0, 0.78, 0.32, 0.9}, width = 5, x = 0, y = 0, r = 26 },
+            -- Central furnace core
+            { type = "circle", mode = "fill", color = {0.92, 0.54, 0.12, 0.95}, x = 0, y = 0, r = 12 },
+            { type = "circle", mode = "fill", color = {0.32, 0.12, 0.06, 0.9}, x = 0, y = 0, r = 8 },
+            { type = "circle", mode = "line", color = {1.0, 0.78, 0.32, 0.9}, width = 2, x = 0, y = 0, r = 8 },
 
-            -- Ore feed conveyors
-            { type = "rectangle", mode = "fill", color = {0.28, 0.30, 0.36, 0.95}, x = 120, y = -16, w = 52, h = 32, rx = 6 },
-            { type = "rectangle", mode = "fill", color = {0.28, 0.30, 0.36, 0.95}, x = -172, y = -16, w = 52, h = 32, rx = 6 },
-            { type = "rectangle", mode = "fill", color = {0.28, 0.30, 0.36, 0.95}, x = -16, y = 120, w = 32, h = 52, rx = 6 },
-            { type = "rectangle", mode = "fill", color = {0.28, 0.30, 0.36, 0.95}, x = -16, y = -172, w = 32, h = 52, rx = 6 },
+            -- Ore processing equipment
+            { type = "rectangle", mode = "fill", color = {0.28, 0.30, 0.36, 0.95}, x = 20, y = -8, w = 15, h = 16, rx = 3 },
+            { type = "rectangle", mode = "fill", color = {0.28, 0.30, 0.36, 0.95}, x = -35, y = -8, w = 15, h = 16, rx = 3 },
 
-            -- Radiator fins on diagonals
-            { type = "rectangle", mode = "fill", color = {0.36, 0.40, 0.46, 0.85}, x = -92, y = -92, w = 140, h = 22, rotation = 0.785 },
-            { type = "rectangle", mode = "fill", color = {0.36, 0.40, 0.46, 0.85}, x = -92, y = 92, w = 140, h = 22, rotation = -0.785 },
+            -- Heat vents
+            { type = "circle", mode = "fill", color = {1.0, 0.3, 0.0, 0.8}, x = 0, y = 18, r = 3 },
+            { type = "circle", mode = "fill", color = {1.0, 0.3, 0.0, 0.8}, x = 0, y = -18, r = 3 },
 
-            -- Exhaust stacks with glowing vents
-            { type = "rectangle", mode = "fill", color = {0.18, 0.20, 0.26, 0.95}, x = 142, y = -20, w = 32, h = 60, rx = 6 },
-            { type = "rectangle", mode = "fill", color = {0.18, 0.20, 0.26, 0.95}, x = -190, y = -20, w = 32, h = 60, rx = 6 },
-            { type = "rectangle", mode = "fill", color = {0.18, 0.20, 0.26, 0.95}, x = -20, y = 142, w = 60, h = 32, rx = 6 },
-            { type = "rectangle", mode = "fill", color = {0.18, 0.20, 0.26, 0.95}, x = -20, y = -190, w = 60, h = 32, rx = 6 },
-            { type = "rectangle", mode = "fill", color = {0.98, 0.42, 0.08, 0.8}, x = 144, y = -8, w = 24, h = 18 },
-            { type = "rectangle", mode = "fill", color = {0.98, 0.42, 0.08, 0.8}, x = -184, y = -8, w = 24, h = 18 },
-            { type = "rectangle", mode = "fill", color = {0.98, 0.42, 0.08, 0.8}, x = -8, y = 144, w = 18, h = 24 },
-            { type = "rectangle", mode = "fill", color = {0.98, 0.42, 0.08, 0.8}, x = -8, y = -184, w = 18, h = 24 },
+            -- Docking ports
+            { type = "circle", mode = "fill", color = {0.62, 0.88, 1.0, 0.92}, x = 25, y = 0, r = 4 },
+            { type = "circle", mode = "fill", color = {0.62, 0.88, 1.0, 0.92}, x = -25, y = 0, r = 4 },
 
-            -- Docking pylons for freighters
-            { type = "circle", mode = "fill", color = {0.62, 0.88, 1.0, 0.92}, x = 134, y = 0, r = 10 },
-            { type = "circle", mode = "fill", color = {0.62, 0.88, 1.0, 0.92}, x = -134, y = 0, r = 10 },
-            { type = "circle", mode = "fill", color = {0.62, 0.88, 1.0, 0.92}, x = 0, y = 134, r = 10 },
-            { type = "circle", mode = "fill", color = {0.62, 0.88, 1.0, 0.92}, x = 0, y = -134, r = 10 },
+            -- Weapon disabled ring
+            { type = "circle", mode = "line", color = {1.0, 0.0, 0.0, 0.6}, x = 0, y = 0, r = 100, lineWidth = 2 },
         }
     },
 }

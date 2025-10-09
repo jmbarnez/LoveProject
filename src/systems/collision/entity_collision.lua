@@ -110,13 +110,19 @@ local function getCollisionShape(entity)
         return nil
     end
 
-    -- Only allow circular collision for small items, projectiles, and decorative objects
-    return {
-        type = "circle",
-        x = pos.x,
-        y = pos.y,
-        radius = Radius.getHullRadius(entity)
-    }
+    -- Only allow circular collision for projectiles and items that are explicitly circular
+    if entity.components and entity.components.bullet then
+        -- Projectiles can use circular collision
+        return {
+            type = "circle",
+            x = pos.x,
+            y = pos.y,
+            radius = Radius.getHullRadius(entity)
+        }
+    end
+
+    -- For all other entities without proper collision shapes, return nil (no collision)
+    return nil
 end
 
 local function checkEntityCollision(entity1, entity2)
@@ -541,10 +547,7 @@ function EntityCollision.handleEntityCollisions(collisionSystem, entity, world, 
         end
     end
 
-    -- Skip bullets - they have their own collision handling
-    if entity.components.bullet then
-        return
-    end
+    -- Projectiles now use unified collision system
 
     local ex = entity.components.position.x
     local ey = entity.components.position.y
@@ -565,10 +568,7 @@ function EntityCollision.handleEntityCollisions(collisionSystem, entity, world, 
     for _, candidate in ipairs(candidates) do
         local other = candidate.entity
         if other ~= entity and not other.dead and other.components.collidable and other.components.position then
-            -- Skip bullets - they have their own collision handling
-            if other.components.bullet then
-                goto continue
-            end
+            -- Projectiles now use unified collision system
 
             if other._collisionGrace and other._collisionGrace > 0 then
                 goto continue
@@ -591,13 +591,116 @@ function EntityCollision.handleEntityCollisions(collisionSystem, entity, world, 
             end
 
             -- Check for collision
-            local collided, collision = checkEntityCollision(entity, other)
-            if collided then
-                EntityCollision.resolveEntityCollision(entity, other, dt, collision)
+            if entity.components.bullet then
+                -- Use projectile-specific collision detection for bullets
+                if EntityCollision.shouldIgnoreProjectileCollision(entity, other) then
+                    goto continue
+                end
+                
+                local hit, hitX, hitY = EntityCollision.checkProjectileCollision(entity, other, dt)
+                if hit then
+                    EntityCollision.handleProjectileCollision(entity, other, dt, nil, hitX, hitY)
+                end
+            else
+                -- Use standard collision detection for other entities
+                local collided, collision = checkEntityCollision(entity, other)
+                if collided then
+                    EntityCollision.resolveEntityCollision(entity, other, dt, collision)
+                end
             end
 
             ::continue::
         end
+    end
+end
+
+-- Check if projectile collision should be ignored
+function EntityCollision.shouldIgnoreProjectileCollision(projectile, target)
+    if not projectile or not target or not projectile.components.bullet then
+        return true
+    end
+
+    local source = projectile.components.bullet and projectile.components.bullet.source
+    if target == projectile or target == source then
+        return true
+    end
+
+    local projectileComponent = projectile.components.bullet ~= nil
+    local targetIsProjectile = target.components.bullet ~= nil
+    if projectileComponent and targetIsProjectile then
+        local targetSource = target.components.bullet and target.components.bullet.source
+        if targetSource == source then
+            return true
+        end
+        return false
+    end
+
+    local isFriendlyBullet = (projectile.components.collidable and projectile.components.collidable.friendly) or false
+    if isFriendlyBullet then
+        local isFriendlyEntity = target.isFreighter or target.isFriendly
+        local isPlayerEntity = target.isPlayer or target.isRemotePlayer or (target.components and target.components.player)
+        if isFriendlyEntity and not isPlayerEntity then
+            return true
+        end
+    end
+
+    return false
+end
+
+-- Check projectile collision using line-segment detection
+function EntityCollision.checkProjectileCollision(projectile, target, dt)
+    if not projectile or not target or not projectile.components.bullet then
+        return false
+    end
+
+    -- Use the same collision detection as laser beams for consistency
+    local CollisionHelpers = require("src.systems.turret.collision_helpers")
+    
+    -- Calculate projectile trajectory
+    local pos = projectile.components.position
+    local vel = projectile.components.velocity or {x = 0, y = 0}
+    
+    -- Previous position (where projectile was last frame)
+    local x1 = pos.x - ((vel.x or 0) * dt)
+    local y1 = pos.y - ((vel.y or 0) * dt)
+    
+    -- Current position
+    local x2 = pos.x
+    local y2 = pos.y
+    
+    -- For polygon shapes, don't pass targetRadius to use precise polygon collision
+    -- For circular shapes, calculate the exact radius from collision shape
+    local targetRadius = nil
+    local collidable = target.components and target.components.collidable
+    if collidable and collidable.shape == "circle" and collidable.radius then
+        targetRadius = collidable.radius
+    end
+    
+    -- Use the same collision detection as laser beams (line-segment detection)
+    return CollisionHelpers.performCollisionCheck(x1, y1, x2, y2, target, targetRadius)
+end
+
+-- Handle projectile-specific collision behavior
+function EntityCollision.handleProjectileCollision(projectile, target, dt, collision, hitX, hitY)
+    if not projectile or not target or not projectile.components.bullet then
+        return
+    end
+
+    -- Import projectile collision handler
+    local ProjectileHandler = require("src.systems.collision.handlers.projectile")
+    
+    -- Get target radius for effects
+    local Radius = require("src.systems.collision.radius")
+    local targetRadius = Radius.calculateEffectiveRadius(target)
+
+    -- Process the hit using the existing projectile handler logic
+    local world = projectile._world
+    
+    if world then
+        ProjectileHandler.process_hit(nil, projectile, target, world, dt, hitX, hitY, targetRadius)
+    else
+        -- Fallback: just mark projectile as dead
+        projectile.dead = true
     end
 end
 

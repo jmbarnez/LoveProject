@@ -15,36 +15,29 @@ return {
         shape = "polygon",
         friendly = true,
         vertices = {
-            -72, 8,
-            -48, 8,
-            -48, 28,
-            -20, 28,
-            -20, 56,
-            -8, 56,
-            -8, 72,
-            8, 72,
-            8, 56,
-            20, 56,
-            20, 28,
-            48, 28,
-            48, 8,
-            72, 8,
-            72, -8,
-            48, -8,
-            48, -28,
-            20, -28,
-            20, -56,
-            8, -56,
-            8, -72,
-            -8, -72,
-            -8, -56,
-            -20, -56,
-            -20, -28,
-            -48, -28,
-            -48, -8,
-            -72, -8,
+            -25, -15,  -- Top-left
+            -20, -20,  -- Left
+            -15, -20,  -- Left-bottom
+            -10, -25,  -- Bottom-left
+            10, -25,   -- Bottom
+            15, -20,   -- Bottom-right
+            20, -20,   -- Right
+            25, -15,   -- Top-right
+            25, 15,    -- Right
+            20, 20,    -- Right-bottom
+            15, 20,    -- Bottom-right
+            10, 25,    -- Bottom
+            -10, 25,   -- Bottom-left
+            -15, 20,   -- Bottom-left
+            -20, 20,   -- Left
+            -25, 15,   -- Left-top
         }
     },
+
+    -- Station properties
+    weapon_disable_radius = 80,  -- Weapons disabled within this radius
+    shield_radius = 120,  -- Shield protection radius
+    radius = 30,  -- Station radius for calculations
 
     -- Repair system properties
     repairable = true,
@@ -58,58 +51,39 @@ return {
     -- Special property: large no-spawn radius (only when repaired)
     no_spawn_radius = 2500,  -- Large radius around beacon when repaired
 
-    -- Beacon Station Design - looks like a communications/defense array
+    -- Basic Beacon Station Design
     visuals = {
-        size = 6.5,
+        size = 2.0,
         shapes = {
-            -- Compact emitter lattice matching collider outline
+            -- Main hull matching collision shape
             { type = "polygon", mode = "fill", color = {0.12, 0.62, 0.92, 0.92}, points = {
-                -72, 8,  -48, 8,  -48, 26,  -20, 26,
-                -20, 56,  -6, 56,  -6, 70,  6, 70,
-                6, 56,  20, 56,  20, 26,  48, 26,
-                48, 8,  72, 8,  72, -8,  48, -8,
-                48, -26,  20, -26,  20, -56,  6, -56,
-                6, -70,  -6, -70,  -6, -56,  -20, -56,
-                -20, -26,  -48, -26,  -48, -8,  -72, -8,
+                -25, -15,  -20, -20,  -15, -20,  -10, -25,
+                10, -25,  15, -20,  20, -20,  25, -15,
+                25, 15,  20, 20,  15, 20,  10, 25,
+                -10, 25,  -15, 20,  -20, 20,  -25, 15,
             } },
-            { type = "polygon", mode = "line", color = {0.05, 0.36, 0.58, 0.95}, width = 3, points = {
-                -72, 8,  -48, 8,  -48, 28,  -20, 28,
-                -20, 56,  -8, 56,  -8, 72,  8, 72,
-                8, 56,  20, 56,  20, 28,  48, 28,
-                48, 8,  72, 8,  72, -8,  48, -8,
-                48, -28,  20, -28,  20, -56,  8, -56,
-                8, -72,  -8, -72,  -8, -56,  -20, -56,
-                -20, -28,  -48, -28,  -48, -8,  -72, -8,
+            { type = "polygon", mode = "line", color = {0.05, 0.36, 0.58, 0.95}, width = 2, points = {
+                -25, -15,  -20, -20,  -15, -20,  -10, -25,
+                10, -25,  15, -20,  20, -20,  25, -15,
+                25, 15,  20, 20,  15, 20,  10, 25,
+                -10, 25,  -15, 20,  -20, 20,  -25, 15,
             } },
 
-            -- Glowing transmitter core
-            { type = "circle", mode = "fill", color = {0.10, 0.90, 0.50, 0.95}, x = 0, y = 0, r = 18 },
-            { type = "circle", mode = "line", color = {0.12, 0.40, 0.65, 0.9}, width = 3, x = 0, y = 0, r = 24 },
-            { type = "circle", mode = "fill", color = {1.0, 1.0, 1.0, 0.82}, x = 0, y = 0, r = 10 },
+            -- Central transmitter core
+            { type = "circle", mode = "fill", color = {0.10, 0.90, 0.50, 0.95}, x = 0, y = 0, r = 8 },
+            { type = "circle", mode = "line", color = {0.12, 0.40, 0.65, 0.9}, width = 2, x = 0, y = 0, r = 12 },
+            { type = "circle", mode = "fill", color = {1.0, 1.0, 1.0, 0.82}, x = 0, y = 0, r = 4 },
 
-            -- Rotational emitters and antennae
-            { type = "rectangle", mode = "fill", color = {0.16, 0.78, 1.0, 0.88}, x = -46, y = -4, w = 92, h = 8, rx = 3 },
-            { type = "rectangle", mode = "fill", color = {0.16, 0.78, 1.0, 0.88}, x = -4, y = -46, w = 8, h = 92, rx = 3 },
-            { type = "rectangle", mode = "fill", color = {0.20, 0.86, 1.0, 0.75}, x = -26, y = -26, w = 52, h = 5, rotation = 0.785 },
-            { type = "rectangle", mode = "fill", color = {0.20, 0.86, 1.0, 0.75}, x = -26, y = 21, w = 52, h = 5, rotation = -0.785 },
+            -- Communication arrays
+            { type = "rectangle", mode = "fill", color = {0.16, 0.78, 1.0, 0.88}, x = -15, y = -3, w = 30, h = 6, rx = 2 },
+            { type = "rectangle", mode = "fill", color = {0.16, 0.78, 1.0, 0.88}, x = -3, y = -15, w = 6, h = 30, rx = 2 },
 
-            -- Beacon flashers
-            { type = "circle", mode = "fill", color = {0.0, 1.0, 0.3, 0.9}, x = 56, y = 0, r = 6 },
-            { type = "circle", mode = "fill", color = {0.0, 1.0, 0.3, 0.9}, x = -56, y = 0, r = 6 },
-            { type = "circle", mode = "fill", color = {0.0, 1.0, 0.3, 0.9}, x = 0, y = 56, r = 6 },
-            { type = "circle", mode = "fill", color = {0.0, 1.0, 0.3, 0.9}, x = 0, y = -56, r = 6 },
+            -- Status indicators
+            { type = "circle", mode = "fill", color = {1.0, 0.0, 0.0, 0.8}, x = 0, y = 18, r = 2 },
+            { type = "circle", mode = "fill", color = {1.0, 0.0, 0.0, 0.8}, x = 0, y = -18, r = 2 },
 
-            -- Status indicator bars
-            { type = "rectangle", mode = "fill", color = {1.0, 0.38, 0.18, 0.9}, x = -18, y = -10, w = 36, h = 3 },
-            { type = "rectangle", mode = "fill", color = {1.0, 0.38, 0.18, 0.9}, x = -18, y = -4, w = 36, h = 3 },
-            { type = "rectangle", mode = "fill", color = {1.0, 0.38, 0.18, 0.9}, x = -18, y = 2, w = 36, h = 3 },
-            { type = "rectangle", mode = "fill", color = {1.0, 0.38, 0.18, 0.9}, x = -18, y = 8, w = 36, h = 3 },
-
-            -- Structural braces
-            { type = "rectangle", mode = "fill", color = {0.30, 0.36, 0.44, 0.85}, x = -2, y = -60, w = 4, h = 24 },
-            { type = "rectangle", mode = "fill", color = {0.30, 0.36, 0.44, 0.85}, x = -2, y = 36, w = 4, h = 24 },
-            { type = "rectangle", mode = "fill", color = {0.30, 0.36, 0.44, 0.85}, x = -60, y = -2, w = 24, h = 4 },
-            { type = "rectangle", mode = "fill", color = {0.30, 0.36, 0.44, 0.85}, x = 36, y = -2, w = 24, h = 4 },
+            -- Weapon disabled ring
+            { type = "circle", mode = "line", color = {1.0, 0.0, 0.0, 0.6}, x = 0, y = 0, r = 80, lineWidth = 2 },
         }
     },
 }

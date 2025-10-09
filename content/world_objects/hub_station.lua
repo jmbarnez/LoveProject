@@ -16,90 +16,67 @@ return {
         friendly = true,
         friction = 0.3, -- Smooth metal surface
         vertices = {
-            -132, 12,
-            -120, 24,
-            -84, 24,
-            -84, 72,
-            -36, 72,
-            -36, 108,
-            36, 108,
-            36, 72,
-            84, 72,
-            120, 24,
-            132, 12,
-            132, -12,
-            120, -24,
-            84, -24,
-            84, -72,
-            36, -72,
-            36, -108,
-            -36, -108,
-            -36, -72,
-            -84, -72,
-            -120, -24,
-            -132, -12,
+            -40, -20,  -- Top-left
+            -30, -30,  -- Left
+            -20, -30,  -- Left-bottom
+            -10, -40,  -- Bottom-left
+            10, -40,   -- Bottom
+            20, -30,   -- Bottom-right
+            30, -30,   -- Right
+            40, -20,   -- Top-right
+            40, 20,    -- Right
+            30, 30,    -- Right-bottom
+            20, 30,    -- Bottom-right
+            10, 40,    -- Bottom
+            -10, 40,   -- Bottom-left
+            -20, 30,   -- Bottom-left
+            -30, 30,   -- Left
+            -40, 20,   -- Left-top
         }
     },
 
-    -- Orbital nexus with articulated solar trusses
+    -- Station properties
+    weapon_disable_radius = 120,  -- Weapons disabled within this radius
+    shield_radius = 200,  -- Shield protection radius
+    radius = 50,  -- Station radius for calculations
+
+    -- Basic orbital station
     visuals = {
-        size = 8.5,
+        size = 3.0,
         shapes = {
-            -- Outer hull silhouette matching the collider
+            -- Main hull matching collision shape
             { type = "polygon", mode = "fill", color = {0.72, 0.78, 0.84, 0.92}, points = {
-                -132, 12,  -120, 24,  -84, 24,  -84, 70,
-                -38, 70,  -38, 104,  38, 104,  38, 70,
-                84, 70,  120, 24,  132, 12,  132, -12,
-                120, -24,  84, -24,  84, -70,  38, -70,
-                38, -104,  -38, -104,  -38, -70,  -84, -70,
-                -120, -24,  -132, -12,
+                -40, -20,  -30, -30,  -20, -30,  -10, -40,
+                10, -40,  20, -30,  30, -30,  40, -20,
+                40, 20,  30, 30,  20, 30,  10, 40,
+                -10, 40,  -20, 30,  -30, 30,  -40, 20,
             } },
-            { type = "polygon", mode = "line", color = {0.34, 0.38, 0.46, 0.9}, width = 3, points = {
-                -132, 12,  -120, 24,  -84, 24,  -84, 72,
-                -36, 72,  -36, 108,  36, 108,  36, 72,
-                84, 72,  120, 24,  132, 12,  132, -12,
-                120, -24,  84, -24,  84, -72,  36, -72,
-                36, -108,  -36, -108,  -36, -72,  -84, -72,
-                -120, -24,  -132, -12,
+            { type = "polygon", mode = "line", color = {0.34, 0.38, 0.46, 0.9}, width = 2, points = {
+                -40, -20,  -30, -30,  -20, -30,  -10, -40,
+                10, -40,  20, -30,  30, -30,  40, -20,
+                40, 20,  30, 30,  20, 30,  10, 40,
+                -10, 40,  -20, 30,  -30, 30,  -40, 20,
             } },
 
-            -- Reinforced inner cruciform core
-            { type = "polygon", mode = "fill", color = {0.60, 0.64, 0.70, 0.95}, points = {
-                -96, 10,  -60, 10,  -60, 54,  -18, 54,
-                -18, 92,  18, 92,  18, 54,  60, 54,
-                60, 10,  96, 10,  96, -10,  60, -10,
-                60, -54,  18, -54,  18, -92,  -18, -92,
-                -18, -54,  -60, -54,  -60, -10,  -96, -10,
-            } },
+            -- Central command core
+            { type = "circle", mode = "fill", color = {0.86, 0.89, 0.96, 0.95}, x = 0, y = 0, r = 12 },
+            { type = "circle", mode = "line", color = {0.42, 0.48, 0.60, 0.85}, width = 2, x = 0, y = 0, r = 16 },
+            { type = "circle", mode = "fill", color = {0.32, 0.58, 0.92, 0.7}, x = 0, y = 0, r = 8 },
 
-            -- Command dome and docking collar
-            { type = "circle", mode = "fill", color = {0.86, 0.89, 0.96, 0.95}, x = 0, y = 0, r = 26 },
-            { type = "circle", mode = "line", color = {0.42, 0.48, 0.60, 0.85}, width = 4, x = 0, y = 0, r = 32 },
-            { type = "circle", mode = "fill", color = {0.32, 0.58, 0.92, 0.7}, x = 0, y = 0, r = 16 },
+            -- Small solar panels
+            { type = "rectangle", mode = "fill", color = {0.20, 0.55, 0.95, 0.9}, x = 25, y = -8, w = 20, h = 16, rx = 2 },
+            { type = "rectangle", mode = "fill", color = {0.20, 0.55, 0.95, 0.9}, x = -45, y = -8, w = 20, h = 16, rx = 2 },
 
-            -- Solar arrays at the cardinal directions
-            { type = "rectangle", mode = "fill", color = {0.20, 0.55, 0.95, 0.9}, x = 108, y = -18, w = 44, h = 36, rx = 4 },
-            { type = "rectangle", mode = "fill", color = {0.20, 0.55, 0.95, 0.9}, x = -152, y = -18, w = 44, h = 36, rx = 4 },
-            { type = "rectangle", mode = "fill", color = {0.20, 0.55, 0.95, 0.9}, x = -18, y = 108, w = 36, h = 44, rx = 4 },
-            { type = "rectangle", mode = "fill", color = {0.20, 0.55, 0.95, 0.9}, x = -18, y = -152, w = 36, h = 44, rx = 4 },
+            -- Docking ports
+            { type = "circle", mode = "fill", color = {0.55, 0.85, 1.0, 0.92}, x = 35, y = 0, r = 6 },
+            { type = "circle", mode = "fill", color = {0.55, 0.85, 1.0, 0.92}, x = -35, y = 0, r = 6 },
 
-            -- Docking spines extending toward the panels
-            { type = "rectangle", mode = "fill", color = {0.55, 0.60, 0.68, 0.95}, x = 82, y = -8, w = 64, h = 16 },
-            { type = "rectangle", mode = "fill", color = {0.55, 0.60, 0.68, 0.95}, x = -146, y = -8, w = 64, h = 16 },
-            { type = "rectangle", mode = "fill", color = {0.55, 0.60, 0.68, 0.95}, x = -8, y = 82, w = 16, h = 64 },
-            { type = "rectangle", mode = "fill", color = {0.55, 0.60, 0.68, 0.95}, x = -8, y = -146, w = 16, h = 64 },
+            -- Status lights
+            { type = "circle", mode = "fill", color = {0.0, 1.0, 0.0, 0.8}, x = 0, y = 25, r = 3 },
+            { type = "circle", mode = "fill", color = {0.0, 1.0, 0.0, 0.8}, x = 0, y = -25, r = 3 },
 
-            -- Docking ports at the extremities
-            { type = "circle", mode = "fill", color = {0.55, 0.85, 1.0, 0.92}, x = 130, y = 0, r = 10 },
-            { type = "circle", mode = "fill", color = {0.55, 0.85, 1.0, 0.92}, x = -130, y = 0, r = 10 },
-            { type = "circle", mode = "fill", color = {0.55, 0.85, 1.0, 0.92}, x = 0, y = 130, r = 10 },
-            { type = "circle", mode = "fill", color = {0.55, 0.85, 1.0, 0.92}, x = 0, y = -130, r = 10 },
-
-            -- Guidance beacons around the central collar
-            { type = "circle", mode = "fill", color = {1.0, 0.75, 0.25, 0.85}, x = 40, y = 0, r = 6 },
-            { type = "circle", mode = "fill", color = {1.0, 0.75, 0.25, 0.85}, x = -40, y = 0, r = 6 },
-            { type = "circle", mode = "fill", color = {1.0, 0.75, 0.25, 0.85}, x = 0, y = 40, r = 6 },
-            { type = "circle", mode = "fill", color = {1.0, 0.75, 0.25, 0.85}, x = 0, y = -40, r = 6 },
+            -- Weapon disabled ring
+            { type = "circle", mode = "line", color = {1.0, 0.0, 0.0, 0.6}, x = 0, y = 0, r = 120, lineWidth = 2 },
         }
     },
 }

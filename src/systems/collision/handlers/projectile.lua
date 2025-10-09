@@ -364,4 +364,7 @@ function ProjectileHandler.process(collision_system, bullet, world, dt)
     end
 end
 
+-- Export process_hit for use by unified collision system
+ProjectileHandler.process_hit = process_hit
+
 return ProjectileHandler

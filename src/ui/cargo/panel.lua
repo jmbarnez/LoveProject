@@ -73,6 +73,7 @@ function Cargo.init()
         useLoadPanelTheme = true,
         draggable = true,
         closable = true,
+        panelId = "cargo",
         drawContent = Cargo.drawContent,
         onClose = function()
             Cargo.visible = false

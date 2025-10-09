@@ -252,7 +252,7 @@ function Player:equipModule(slotNum, moduleId, turretData)
     local cargo = self.components and self.components.cargo
     if cargo and cargo:has(moduleId, 1) then
         hasItem = true
-        cargoValue = cargo:get(moduleId)
+        cargoValue = cargo:getQuantity(moduleId)
     end
 
     -- Allow equipping turrets directly from content system if not in cargo
