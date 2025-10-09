@@ -22,7 +22,7 @@ A 2D space exploration game built with LÖVE2D featuring mining, combat, trading
 - **Left Click**: Fire weapons / Interact with objects
 - **Right Click**: Use secondary abilities
 - **E**: Interact with stations and objects
-- **Tab**: Open inventory
+- **Tab**: Open cargo
 - **I**: Open skills menu
 - **ESC**: Pause menu
 

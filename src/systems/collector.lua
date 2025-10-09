@@ -12,7 +12,7 @@ local function dist(x1,y1,x2,y2)
   return math.sqrt(dx*dx+dy*dy), dx, dy
 end
 
--- Adds items in a loot container to player inventory and empties the container
+-- Adds items in a loot container to the player's cargo hold and empties the container
 local function collectContainer(player, container)
   if not container or not container.items then return end
   local cargo = player.components and player.components.cargo

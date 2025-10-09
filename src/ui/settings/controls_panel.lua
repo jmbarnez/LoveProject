@@ -10,7 +10,7 @@ local buttonRects = {}
 local keymapChangedCallback
 
 local keybindOrder = {
-    "toggle_inventory", "toggle_ship", "toggle_skills",
+    "toggle_cargo", "toggle_ship", "toggle_skills",
     "toggle_map",
     "hotbar_1", "hotbar_2", "hotbar_3", "hotbar_4", "hotbar_5", "hotbar_6", "hotbar_7"
 }

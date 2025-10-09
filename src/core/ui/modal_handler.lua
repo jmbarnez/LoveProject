@@ -27,7 +27,7 @@ function UIModalHandler.update()
                   state.isOpen("warp") or 
                   state.isOpen("ship") or 
                   state.isOpen("settings") or
-                  state.isOpen("inventory") or 
+                  state.isOpen("cargo") or
                   state.isOpen("docked") or 
                   state.isOpen("skills") or 
                   state.isOpen("map") or 

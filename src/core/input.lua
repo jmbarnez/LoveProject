@@ -42,10 +42,10 @@ local mouseState = {
   leftButtonDown = false
 }
 
--- Safe inventory require helper
-local function getInventoryModule()
-  local ok, inv = pcall(require, "src.ui.inventory")
-  if not ok or type(inv) ~= "table" then
+-- Safe cargo require helper
+local function getCargoModule()
+  local ok, cargo = pcall(require, "src.ui.cargo")
+  if not ok or type(cargo) ~= "table" then
     return {
       visible = false,
       init = function() end,
@@ -58,7 +58,7 @@ local function getInventoryModule()
       getRect = function() return nil end,
     }
   end
-  return inv
+  return cargo
 end
 
 local function isUiTextInputFocused()
@@ -253,7 +253,7 @@ function Input.update(dt)
     end
     
     if mainState.UIManager then
-        if mainState.UIManager.isOpen("inventory")
+        if mainState.UIManager.isOpen("cargo")
             or mainState.UIManager.isOpen("skills")
             or mainState.UIManager.isOpen("escape")
             or mainState.UIManager.isModalActive() then
@@ -316,15 +316,15 @@ function Input.love_keypressed(key)
           end
         end
         
-        -- Check if any other UI components are open (inventory, ship, map, etc.)
+        -- Check if any other UI components are open (cargo, ship, map, etc.)
         local hasOpenWindows = false
         local layerOrder = mainState.UIManager.layerOrder or {}
         for _, component in ipairs(layerOrder) do
           if mainState.UIManager.state[component] and mainState.UIManager.state[component].open then
             hasOpenWindows = true
             -- Close the topmost open window
-            if component == "inventory" then
-              mainState.UIManager.close("inventory")
+            if component == "cargo" then
+              mainState.UIManager.close("cargo")
             elseif component == "ship" then
               mainState.UIManager.close("ship")
             elseif component == "map" then
@@ -507,9 +507,9 @@ end
 
 
 function Input.textinput(text)
-    if mainState.UIManager.isOpen("inventory") then
-        local Inventory = getInventoryModule()
-        if Inventory.textinput and Inventory.textinput(text) then
+    if mainState.UIManager.isOpen("cargo") then
+        local CargoUI = getCargoModule()
+        if CargoUI.textinput and CargoUI.textinput(text) then
             return
         end
     end
