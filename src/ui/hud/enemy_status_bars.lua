@@ -12,6 +12,56 @@ local function getCombatValue(key)
 end
 local EnemyStatusBars = {}
 
+local function drawLevelBadge(x, y, enemyLevel)
+  if not enemyLevel then return end
+  
+  local threatColor = enemyLevel:getThreatColor()
+  local displayText = enemyLevel:getDisplayText()
+  
+  -- Get font and calculate text dimensions
+  local oldFont = love.graphics.getFont()
+  if Theme.fonts and Theme.fonts.small then 
+    love.graphics.setFont(Theme.fonts.small) 
+  end
+  local font = love.graphics.getFont()
+  local textWidth = font:getWidth(displayText)
+  local textHeight = font:getHeight()
+  
+  -- Calculate badge size based on text with padding
+  local padding = 6 -- Horizontal padding
+  local badgeW = textWidth + padding
+  local badgeH = textHeight + 4 -- Vertical padding
+  local badgeX = x - badgeW / 2 -- Center the badge
+  local badgeY = y
+  
+  -- Badge background with subtle glow
+  love.graphics.setColor(0, 0, 0, 0.6)
+  love.graphics.rectangle("fill", badgeX - 1, badgeY - 1, badgeW + 2, badgeH + 2, 3, 3)
+  
+  -- Main badge background
+  love.graphics.setColor(threatColor[1], threatColor[2], threatColor[3], 0.9)
+  love.graphics.rectangle("fill", badgeX, badgeY, badgeW, badgeH, 2, 2)
+  
+  -- Badge border
+  love.graphics.setColor(threatColor[1], threatColor[2], threatColor[3], 1.0)
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("line", badgeX, badgeY, badgeW, badgeH, 2, 2)
+  
+  -- Center text in badge
+  local textX = badgeX + badgeW / 2 - textWidth / 2
+  local textY = badgeY + badgeH / 2 - textHeight / 2
+  
+  -- Text shadow for readability
+  love.graphics.setColor(0, 0, 0, 0.8)
+  love.graphics.print(displayText, textX + 1, textY + 1)
+  
+  -- Main text
+  love.graphics.setColor(1, 1, 1, 1)
+  love.graphics.print(displayText, textX, textY)
+  
+  if oldFont then love.graphics.setFont(oldFont) end
+end
+
 local function drawOverheadBar(x, y, w, h, hullPct, shieldPct)
   hullPct = math.max(0, math.min(1, hullPct or 0))
   shieldPct = math.max(0, math.min(1, shieldPct or 0))
@@ -181,6 +231,14 @@ function EnemyStatusBars.drawMiniBars(entity)
   -- Combined hull + shield bar (like player) - shield overlays hull
   local hpPct = math.max(0, math.min(1, hp / math.max(1, maxHP)))
   local shieldPct = maxShield > 0 and math.max(0, math.min(1, shield / math.max(1, maxShield))) or 0
+
+  -- Draw level badge above health bar
+  local enemyLevel = entity.components.enemy_level
+  if enemyLevel then
+    local badgeY = baseY - 16 -- Position above health bar
+    local badgeX = x0 + barW / 2 -- Center the badge (function will center it properly)
+    drawLevelBadge(badgeX, badgeY, enemyLevel)
+  end
 
   drawOverheadBar(x0, baseY, barW, barH, hpPct, shieldPct)
 

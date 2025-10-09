@@ -277,6 +277,30 @@ function EntityFactory.createEnemy(shipId, x, y)
             end
         end
     end
+
+    -- Add enemy level component
+    local EnemyLevel = require("src.components.enemy_level")
+    if enemy and enemy.components then
+        local level = enemySettings.level or math.random(1, 5) -- Random level 1-5 for now
+        local isBoss = enemy.isBoss or false
+        local threatLevel = "normal"
+        
+        -- Determine threat level based on level and boss status
+        if isBoss then
+            threatLevel = "boss"
+        elseif level >= 4 then
+            threatLevel = "high"
+        elseif level <= 2 then
+            threatLevel = "low"
+        end
+        
+        enemy.components.enemy_level = EnemyLevel.new({
+            level = level,
+            isBoss = isBoss,
+            threatLevel = threatLevel
+        })
+    end
+
     return enemy
 end
 
