@@ -1,6 +1,6 @@
 --[[
   Sound Configuration for DarkOrbitLove
-  Define all sound effects and music for the game
+  Define all sound effects and music for the game. Asset files now live in assets/sounds/.
 ]]
 
 return {

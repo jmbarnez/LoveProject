@@ -367,8 +367,7 @@ The system keeps the player entity authoritative for other subsystems (camera, a
 * Provides analytics and history pruning to keep save files manageable.
 
 ### Sound System (`src/core/sound.lua`)
-
-* Registers SFX/music from `content/sounds` and attaches them to gameplay events.
+* Registers SFX/music from `assets/sounds` and attaches them to gameplay events.
 * Updates listener position each frame for positional audio.
 * Supports music layering, attenuation curves, and audio settings surfaced through the options menu.
 

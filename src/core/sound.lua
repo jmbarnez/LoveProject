@@ -81,8 +81,8 @@ end
 
 -- Configuration
 local soundPaths = {
-    sfx = "content/sounds/sfx/",
-    music = "content/sounds/music/"
+    sfx = "assets/sounds/sfx/",
+    music = "assets/sounds/music/"
 }
 
 -- Supported sound formats
