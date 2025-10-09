@@ -24,6 +24,7 @@ function Player.new(x, y, shipId)
   self.ship = shipConfig -- Store the ship's definition data
   self.shipId = shipId or "starter_frigate_basic"
   self.isPlayer = true -- Ensure this flag is set.
+  self.tag = "ship" -- Ensure the ship tag is set for collision detection
     if not self.components.physics then
         self.components.physics = require("src.components.physics").new({
             mass = (shipConfig.engine and shipConfig.engine.mass) or 500,
@@ -99,26 +100,12 @@ function Player.new(x, y, shipId)
       end
 
       -- Equip starting combat turrets
-      if not equipStartingModule(1, "low_power_laser") and self.components and self.components.cargo then
-          self:addItem("low_power_laser", 1)
+      if not equipStartingModule(1, "basic_cannon") and self.components and self.components.cargo then
+          self:addItem("basic_cannon", 1)
       end
 
-      if not equipStartingModule(2, "railgun_turret") and self.components and self.components.cargo then
-          self:addItem("railgun_turret", 1)
-      end
-
-      if not equipStartingModule(3, "missile_launcher_mk1") and self.components and self.components.cargo then
-          self:addItem("missile_launcher_mk1", 1)
-      end
-
-      if not equipStartingModule(4, "shield_module_basic") and self.components and self.components.cargo then
-          self:addItem("shield_module_basic", 1)
-      end
-
-      -- Add utility turrets to cargo hold (combat turrets are already equipped)
-      if self.components and self.components.cargo then
+      if not equipStartingModule(2, "mining_laser") and self.components and self.components.cargo then
           self:addItem("mining_laser", 1)
-          self:addItem("salvaging_laser", 1)
       end
   end
 

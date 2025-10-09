@@ -55,7 +55,7 @@ return {
 
   hull = {
     hp = 50,
-    shield = 0,
+    shield = 50, -- Give basic shield HP
     cap = 0, -- No energy system for basic enemies
   },
 
@@ -68,6 +68,10 @@ return {
 
     xpReward = 10,
     cargo = { capacity = 20, volumeLimit = 8.0 }, -- 8 m^3 cargo hold for basic drone
+    equipmentSlots = 1, -- One shield slot
+    equipmentLayout = {
+        { slot = 1, type = "shield", label = "Shield Generator" },
+    },
 
     collidable = {
         shape = "polygon",
@@ -119,20 +123,20 @@ return {
             name = "Guard Drone",
             ai = { intelligenceLevel = "STANDARD", aggressiveType = "aggressive" },
             xpReward = 15,
-            hull = { hp = 80, shield = 50, cap = 0 } -- No energy system
+            hull = { hp = 80, shield = 100, cap = 0 } -- Increased shield for guard variant
         },
         elite = {
             name = "Elite Hunter Drone",
             ai = { intelligenceLevel = "ELITE", aggressiveType = "hostile" },
             xpReward = 25,
-            hull = { hp = 120, shield = 80, cap = 0 }, -- No energy system
+            hull = { hp = 120, shield = 150, cap = 0 }, -- Increased shield for elite variant
             engine = { maxSpeed = 400, accel = 650 }
         },
         ace = {
             name = "Ace Combat Drone",
             ai = { intelligenceLevel = "ACE", aggressiveType = "hostile" },
             xpReward = 40,
-            hull = { hp = 180, shield = 120, cap = 0 }, -- No energy system
+            hull = { hp = 180, shield = 200, cap = 0 }, -- Increased shield for ace variant
             engine = { maxSpeed = 420, accel = 700 },
             hardpoints = {
                 { turret = "low_power_laser" }

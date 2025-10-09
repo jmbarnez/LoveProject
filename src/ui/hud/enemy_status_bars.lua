@@ -16,58 +16,63 @@ local function drawOverheadBar(x, y, w, h, hullPct, shieldPct)
   hullPct = math.max(0, math.min(1, hullPct or 0))
   shieldPct = math.max(0, math.min(1, shieldPct or 0))
 
-  local innerPad = 2
+  -- Sleeker design inspired by player HUD
+  local innerPad = 1
   local innerX = x + innerPad
   local innerY = y + innerPad
   local innerW = w - innerPad * 2
   local innerH = h - innerPad * 2
 
-  -- Soft drop shadow similar to player's HUD style
-  love.graphics.setColor(0, 0, 0, 0.4)
-  love.graphics.rectangle("fill", x - 2, y - 2, w + 4, h + 6, innerH * 0.5, innerH * 0.5)
+  -- Subtle drop shadow with slight glow
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.rectangle("fill", x - 1, y - 1, w + 2, h + 2, 2, 2)
+  
+  -- Very subtle outer glow for high-tech feel
+  love.graphics.setColor(0.2, 0.4, 0.6, 0.1)
+  love.graphics.rectangle("fill", x - 2, y - 2, w + 4, h + 4, 3, 3)
 
-  -- Background cavity
-  Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.9))
-  Theme.drawSciFiBar(innerX, innerY, innerW, innerH, 1.0, Theme.colors.bg1)
+  -- Background - dark with subtle border
+  Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.85))
+  love.graphics.rectangle("fill", innerX, innerY, innerW, innerH, 2, 2)
+  
+  -- Border - subtle cyan accent
+  Theme.setColor(Theme.withAlpha(Theme.colors.border, 0.6))
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("line", innerX, innerY, innerW, innerH, 2, 2)
 
-  -- Hull fill uses player's sci-fi bar shape and dynamic color from green->yellow->red
+  -- Hull fill - dynamic color from green->yellow->red (like player HUD)
   if hullPct > 0 then
-    local r, g
-    if hullPct > 0.5 then
-      local t = (hullPct - 0.5) / 0.5
-      r, g = t, 1
+    local r, g, b
+    if hullPct > 0.6 then
+      -- Green to yellow transition
+      local t = (hullPct - 0.6) / 0.4
+      r, g, b = t, 1, 0.2
     else
-      local t = hullPct / 0.5
-      r, g = 1, t
+      -- Yellow to red transition
+      local t = hullPct / 0.6
+      r, g, b = 1, t, 0.1
     end
-    local hullColor = { r, g, 0.12, 0.95 }
-    Theme.drawSciFiBar(innerX, innerY, innerW, innerH, hullPct, hullColor)
+    local hullColor = { r, g, b, 0.9 }
+    love.graphics.setColor(hullColor)
+    love.graphics.rectangle("fill", innerX, innerY, innerW * hullPct, innerH, 2, 2)
   end
 
-  -- Shield overlay (right-anchored) using the same sci-fi shape with clipping
+  -- Shield overlay - blue overlay on top of hull (like player HUD)
   if shieldPct > 0 and innerW > 0 then
-    local overlayW = math.max(4, math.min(innerW, innerW * shieldPct))
-    local overlayX = innerX + innerW - overlayW
+    local shieldWidth = innerW * shieldPct
     local shieldColor = Theme.semantic.statusShield
-
-    -- Clip to the right-side region, then draw a full bar under that scissor
-    local prevScissor = { love.graphics.getScissor() }
-    love.graphics.setScissor(overlayX, innerY - 1, overlayW, innerH + 2)
-    Theme.drawSciFiBar(innerX, innerY - 1, innerW, innerH + 2, 1.0, {shieldColor[1], shieldColor[2], shieldColor[3], 0.92})
-    love.graphics.setScissor(prevScissor[1], prevScissor[2], prevScissor[3], prevScissor[4])
-
-    -- Glint accent across the shield overlay
-    local prevScissor2 = { love.graphics.getScissor() }
-    love.graphics.setScissor(overlayX, innerY - 1, overlayW, 2)
-    love.graphics.setColor(1.0, 1.0, 1.0, 0.22)
-    Theme.drawSciFiBar(innerX, innerY - 1, innerW, 2, 1.0, {1,1,1,0.22})
-    love.graphics.setScissor(prevScissor2[1], prevScissor2[2], prevScissor2[3], prevScissor2[4])
+    love.graphics.setColor({shieldColor[1], shieldColor[2], shieldColor[3], 0.85})
+    love.graphics.rectangle("fill", innerX, innerY, shieldWidth, innerH, 2, 2)
+    
+    -- Subtle highlight on shield
+    love.graphics.setColor(1.0, 1.0, 1.0, 0.15)
+    love.graphics.rectangle("fill", innerX, innerY, shieldWidth, 1, 2, 2)
   end
 
-  -- Optional segment markers for readability (retain from previous design)
-  if innerW > 0 then
-    love.graphics.setColor(0, 0, 0, 0.35)
-    local segments = math.max(3, math.floor(innerW / 28))
+  -- Clean segment dividers for readability
+  if innerW > 0 and innerW > 40 then
+    love.graphics.setColor(0, 0, 0, 0.25)
+    local segments = math.max(2, math.floor(innerW / 20))
     for i = 1, segments - 1 do
       local segX = innerX + innerW * (i / segments)
       love.graphics.line(segX, innerY + 1, segX, innerY + innerH - 1)
@@ -144,16 +149,16 @@ function EnemyStatusBars.drawMiniBars(entity)
     end
   end
   
-  -- Calculate bar size based on entity type
+  -- Calculate bar size based on entity type - sleeker proportions
   local barW, barH
   if isProjectile then
     -- Smaller bars for projectiles
-    barW = math.max(20, math.min(40, radius * 3))
-    barH = 6
+    barW = math.max(24, math.min(48, radius * 3.5))
+    barH = 4
   else
-    -- Standard bars for other entities
-    barW = math.max(60, math.min(140, radius * 2.4))
-    barH = 12
+    -- Sleeker bars for other entities - more compact and elegant
+    barW = math.max(80, math.min(160, radius * 2.8))
+    barH = 8
   end
 
   -- Position above the ship: undo rotation so bars are screen-aligned
@@ -161,15 +166,15 @@ function EnemyStatusBars.drawMiniBars(entity)
   love.graphics.push()
   love.graphics.rotate(-angle)
 
-  -- Adjust positioning based on entity type
+  -- Adjust positioning based on entity type - more elegant spacing
   local baseY, x0
   if isProjectile then
     -- Closer positioning for projectiles
-    baseY = -(radius + 8)
+    baseY = -(radius + 6)
     x0 = -barW/2
   else
-    -- Standard positioning for other entities
-    baseY = -(radius + 22)
+    -- Sleeker positioning for other entities - closer to ship
+    baseY = -(radius + 16)
     x0 = -barW/2
   end
 

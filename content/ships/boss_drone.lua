@@ -61,7 +61,7 @@ return {
 
   hull = {
     hp = 200,
-    shield = 100,
+    shield = 250, -- Increased shield for boss
     cap = 0, -- No energy system for basic enemies
   },
 
@@ -79,6 +79,11 @@ return {
 
   xpReward = 100,
   cargo = { capacity = 50, volumeLimit = 25.0 }, -- 25 m^3 cargo hold for boss drone
+  equipmentSlots = 2, -- Two shield slots for boss
+  equipmentLayout = {
+    { slot = 1, type = "shield", label = "Primary Shield Generator" },
+    { slot = 2, type = "shield", label = "Backup Shield Generator" },
+  },
 
   collidable = {
     shape = "polygon",

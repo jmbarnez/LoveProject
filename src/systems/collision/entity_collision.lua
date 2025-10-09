@@ -239,18 +239,18 @@ local function getCollisionShape(entity)
         }
     end
 
-    -- For stations, only use polygon shapes - no circular fallback
-    if entity.tag == "station" or (entity.components and entity.components.station) then
-        -- Stations must have polygon collision shapes - no circular fallback
+    -- For ships and other entities that require polygon shapes, check if they have them
+    if entity.tag == "ship" or entity.tag == "enemy" or entity.tag == "asteroid" or 
+       (entity.components and (entity.components.ship or entity.components.enemy or entity.components.mineable or entity.components.wreckage)) then
+        -- These entities must have polygon collision shapes defined
         -- If no polygon shape is available, return nil (no collision)
         return nil
     end
 
-    -- For ships and other entities, require polygon collision shapes
-    -- No more circular fallback - entities must define proper polygon shapes
-    if entity.tag == "ship" or entity.tag == "enemy" or entity.tag == "asteroid" or 
-       (entity.components and (entity.components.ship or entity.components.enemy or entity.components.mineable or entity.components.wreckage)) then
-        -- These entities must have polygon collision shapes defined
+    -- For stations, only use polygon shapes - no circular fallback
+    if entity.tag == "station" or (entity.components and entity.components.station) then
+        -- Stations must have polygon collision shapes - no circular fallback
+        -- If no polygon shape is available, return nil (no collision)
         return nil
     end
 

@@ -259,6 +259,23 @@ function EntityFactory.createEnemy(shipId, x, y)
                 end
             end
         end
+
+        -- Auto-equip shield modules for enemies
+        local equipment = enemy.components.equipment
+        if equipment and equipment.grid then
+            local grid = equipment.grid
+            for i, slot in ipairs(grid) do
+                if slot.type == "shield" and not slot.module then
+                    -- Equip basic shield module
+                    local shieldDef = Content.getItem("shield_module_basic")
+                    if shieldDef then
+                        slot.id = "shield_module_basic"
+                        slot.module = shieldDef
+                        slot.enabled = true
+                    end
+                end
+            end
+        end
     end
     return enemy
 end

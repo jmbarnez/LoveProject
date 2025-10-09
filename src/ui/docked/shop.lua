@@ -526,6 +526,7 @@ local function handleContextMenuClick(DockedUI, x, y, button, player)
     if qty > 0 and player then
       local cost = (menu.item.price or 0) * qty
       if player:getGC() >= cost then
+        local DockedUI = require("src.ui.docked")
         DockedUI.purchaseItem(menu.item, player, qty)
       end
     end
@@ -541,6 +542,7 @@ local function handleContextMenuClick(DockedUI, x, y, button, player)
     
     local qty = tonumber(menu.quantity) or 0
     if qty > 0 and player then
+      local DockedUI = require("src.ui.docked")
       DockedUI.sellItem(menu.item, player, qty)
     end
     Shop.hideContextMenu(DockedUI)
@@ -583,6 +585,7 @@ function Shop.mousepressed(DockedUI, x, y, button, player)
     for _, btn in ipairs(DockedUI._buybackButtons) do
       if x >= btn.x and x <= btn.x + btn.w and y >= btn.y and y <= btn.y + btn.h then
         if player and player:getGC() >= btn.item.price then
+          local DockedUI = require("src.ui.docked")
           DockedUI.purchaseItem(btn.item, player, 1)
           table.remove(DockedUI.buybackItems, btn.index)
           Shop.hideContextMenu(DockedUI)
@@ -660,10 +663,12 @@ function Shop.keypressed(DockedUI, key, scancode, isrepeat, player)
           if menu.type == "buy" then
             local cost = (menu.item.price or 0) * qty
             if player:getGC() >= cost then
-              DockedUI.purchaseItem(menu.item, player, qty)
+              local DockedUI = require("src.ui.docked")
+        DockedUI.purchaseItem(menu.item, player, qty)
             end
           elseif menu.type == "sell" then
-            DockedUI.sellItem(menu.item, player, qty)
+            local DockedUI = require("src.ui.docked")
+      DockedUI.sellItem(menu.item, player, qty)
           end
         end
         Shop.hideContextMenu(DockedUI)
@@ -679,10 +684,12 @@ function Shop.keypressed(DockedUI, key, scancode, isrepeat, player)
           if menu.type == "buy" then
             local cost = (menu.item.price or 0) * qty
             if player:getGC() >= cost then
-              DockedUI.purchaseItem(menu.item, player, qty)
+              local DockedUI = require("src.ui.docked")
+        DockedUI.purchaseItem(menu.item, player, qty)
             end
           elseif menu.type == "sell" then
-            DockedUI.sellItem(menu.item, player, qty)
+            local DockedUI = require("src.ui.docked")
+      DockedUI.sellItem(menu.item, player, qty)
           end
         end
         Shop.hideContextMenu(DockedUI)

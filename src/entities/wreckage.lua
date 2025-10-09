@@ -92,51 +92,49 @@ local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, si
   -- Approximate size for targeting radius (Input uses size*10)
   e.size = math.max(1, (avgR or 6) / 3)
   e.radius = e.size * 10
-  -- Keep physics collision radius aligned with visual/collidable radius
-  if e.components.physics and e.components.physics.body then
-    e.components.physics.body.radius = e.radius
-  end
   
-  -- Generate polygon collision shape from visual fragments
-  local collisionVertices = {}
-  local maxRadius = 0
+  -- Use tight circular collision for better physics interactions
+  -- Calculate a tight radius based on the visual fragments
+  local tightRadius = 0
   
-  -- Combine all fragment polygons into a single collision shape
+  -- Find the maximum distance from center to any visual element
   for _, fragment in ipairs(fragments) do
     if fragment.type == "polygon" and fragment.points then
-      -- Add vertices from this fragment to the collision shape
       for i = 1, #fragment.points, 2 do
         local vx = fragment.points[i] or 0
         local vy = fragment.points[i + 1] or 0
-        table.insert(collisionVertices, vx)
-        table.insert(collisionVertices, vy)
-        
-        -- Track maximum radius for fallback
         local distance = math.sqrt(vx * vx + vy * vy)
-        if distance > maxRadius then
-          maxRadius = distance
+        if distance > tightRadius then
+          tightRadius = distance
         end
+      end
+    elseif fragment.type == "circle" and fragment.r then
+      local distance = fragment.r
+      if distance > tightRadius then
+        tightRadius = distance
       end
     end
   end
   
-  -- If no vertices were generated, create a simple triangle as fallback
-  if #collisionVertices == 0 then
-    local fallbackRadius = avgR or 6
-    collisionVertices = {
-      fallbackRadius, 0,
-      -fallbackRadius * 0.5, fallbackRadius * 0.866,
-      -fallbackRadius * 0.5, -fallbackRadius * 0.866
-    }
-    maxRadius = fallbackRadius
+  -- Fallback radius if no fragments found
+  if tightRadius == 0 then
+    tightRadius = avgR or 6
   end
   
-  -- Provide ECS collidable with polygon shape
+  -- Make the collision radius slightly smaller than the visual radius for tighter physics
+  tightRadius = tightRadius * 0.8
+  
+  -- Provide ECS collidable with circular shape for better physics
   e.components.collidable = Collidable.new({ 
-    shape = "polygon",
-    vertices = collisionVertices,
-    radius = maxRadius -- Keep radius for broad-phase collision detection
+    shape = "circle",
+    radius = tightRadius
   })
+  
+  -- Update physics body radius to match the tight collision radius
+  if e.components.physics and e.components.physics.body then
+    e.components.physics.body.radius = tightRadius
+  end
+  
   -- Delay collisions briefly so fragments emerge before pushing each other away
   e._collisionGrace = 0.25
   -- Salvage fields and methods - scale salvage amount with ship size

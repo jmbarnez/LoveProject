@@ -57,7 +57,7 @@ return {
             }
         },
         damage = {
-            value = 15.0,
+            value = 30.0,
         },
         timed_life = {
             duration = 0.12,
@@ -77,8 +77,8 @@ return {
     
     -- Weapon stats
     optimal = 500, falloff = 200,
-    damage_range = { min = 12, max = 18 },
-    damagePerSecond = 15,
+    damage_range = { min = 24, max = 36 },
+    damagePerSecond = 30,
     cycle = 1.5, capCost = 0,
     energyPerSecond = 15,
     maxRange = 800,
