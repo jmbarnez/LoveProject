@@ -9,7 +9,7 @@ local IconSystem = require("src.core.icon_system")
 local RepairSystem = require("src.systems.repair_system")
 
 -- Import modular HUD components
-local StatusBars = require("src.ui.hud.status_bars")
+local StatusBars = require("src.ui.hud.hud_status_bars")
 local Minimap = require("src.ui.hud.minimap")
 local Hotbar = require("src.ui.hud.hotbar")
 local Crosshair = require("src.ui.hud.crosshair")

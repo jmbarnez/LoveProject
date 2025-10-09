@@ -76,7 +76,7 @@ return {
             { type = "circle", mode = "fill", color = {0.0, 1.0, 0.0, 0.8}, x = 0, y = -25, r = 3 },
 
             -- Weapon disabled ring
-            { type = "circle", mode = "line", color = {1.0, 0.0, 0.0, 0.6}, x = 0, y = 0, r = 120, lineWidth = 2 },
+            { type = "circle", mode = "line", color = {1.0, 0.5, 0.0, 0.4}, x = 0, y = 0, r = 120, lineWidth = 2 },
         }
     },
 }

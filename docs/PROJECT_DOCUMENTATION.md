@@ -110,7 +110,7 @@ content/
 
 The UI layer combines HUD overlays with modal panels managed by `UIManager`.
 
-> **Note:** The HUD root module now lives at `src/ui/hud/root.lua`. Legacy code should migrate away from `require("src.core.ui")` to the new path; a thin shim remains for backward compatibility and will be removed in a future cleanup.
+> **Note:** The HUD root module lives at `src/ui/hud/root.lua`.
 
 ### Start Screen (`src/ui/start_screen.lua`)
 
@@ -216,7 +216,7 @@ LoveProject/
 
 Automated contributors must:
 
-- Obey all relevant `AGENTS.md` instructions.
+- Follow the AI Agent Contribution Guide.
 - Plan work before editing and surface risks or ambiguities.
 - Validate builds or document why commands could not be executed.
 - Update documentation when behavior changes affect gameplay or workflows.

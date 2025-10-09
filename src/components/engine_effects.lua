@@ -1,13 +1,15 @@
 local EngineEffects = {}
-local EngineTrail = require("src.effects.engine_trail") -- Assuming this path is correct
+local EngineTrail = require("src.components.engine_trail")
 
 function EngineEffects.new(player)
     local self = {}
     self.player = player
-    -- Initialize EngineTrail with appropriate default values, or values from the player
-    -- For color, you might use player.color or default to white/blue.
-    -- For size, a default size like 5 is a good starting point.
-    self.engineTrail = EngineTrail.new(player.components.position.x, player.components.position.y, {1, 1, 1, 1}, {0.5, 0.5, 1, 0.5}, 5)
+    -- Initialize EngineTrail component with appropriate default values
+    self.engineTrail = EngineTrail.new({
+        color1 = {1, 1, 1, 1},
+        color2 = {0.5, 0.5, 1, 0.5},
+        size = 5
+    })
 
     function self:update(dt)
         local x = self.player.components.position.x
@@ -18,8 +20,10 @@ function EngineEffects.new(player)
         local isThrusting = thrusterState.isThrusting
         local intensity = (thrusterState.forward or 0) + (thrusterState.boost or 0) -- Or however intensity is calculated
         
-
-        self.engineTrail:update(dt, x, y, angle, isThrusting, intensity)
+        -- Update position and thrust state using new component API
+        self.engineTrail:updatePosition(x, y, angle)
+        self.engineTrail:updateThrustState(isThrusting, intensity)
+        self.engineTrail:update(dt)
     end
 
     function self:draw()

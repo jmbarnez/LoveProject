@@ -3,7 +3,7 @@ local Pipeline = require("src.game.pipeline")
 
 local Input = require("src.core.input")
 local UIManager = require("src.core.ui_manager")
-local StatusBars = require("src.ui.hud.status_bars")
+local StatusBars = require("src.ui.hud.hud_status_bars")
 local SkillXpPopup = require("src.ui.hud.skill_xp_popup")
 local NetworkSession = require("src.core.network.session")
 local Theme = require("src.core.theme")

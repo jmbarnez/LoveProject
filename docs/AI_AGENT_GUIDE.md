@@ -3,7 +3,7 @@
 This guide outlines expectations for autonomous and semi-autonomous contributors when working in the Novus repository. Review it before performing any automated changes.
 
 ## Core Principles
-- **Follow Repository Instructions First**: Always locate and obey every relevant `AGENTS.md` file. Local instructions override higher-level ones.
+- **Follow Repository Instructions First**: Always locate and obey every relevant instruction file. Local instructions override higher-level ones.
 - **Stay Within Scope**: Make only the changes required by the task request. Flag ambiguous asks for clarification instead of guessing.
 - **Preserve Game Stability**: Avoid experimental refactors unless explicitly requested. Favor incremental updates that keep the game bootable.
 

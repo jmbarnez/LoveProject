@@ -116,7 +116,16 @@ function Radius.computeVisualRadius(entity)
     local shapes = visualsShapes(visuals)
     if shapes and type(shapes) == "table" then
         for _, shape in ipairs(shapes) do
+            -- Skip weapon disabled rings (they are visual only, not collision shapes)
+            -- These are identified as orange line circles with large radius (80+)
+            if shape.type == "circle" and shape.mode == "line" and 
+               shape.color and shape.color[1] == 1.0 and shape.color[2] == 0.5 and shape.color[3] == 0.0 and
+               shape.color[4] == 0.4 and (shape.r or 0) >= 80 then
+                -- This is a weapon disabled ring, skip it for collision calculations
+                goto continue
+            end
             maxExtent = math.max(maxExtent, shapeExtent(shape, size))
+            ::continue::
         end
     end
 
