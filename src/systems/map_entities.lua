@@ -15,7 +15,8 @@ MapEntities.defaultFilters = {
   wrecks = true,
   loot = true,
   warp_gates = true,
-  remote_players = true
+  remote_players = true,
+  planets = true
 }
 
 -- Filter entities by discovery state (disabled - no fog of war)
@@ -85,6 +86,16 @@ function MapEntities.getVisibleEntities(world, discovery, filters)
     enemies = MapEntities.filterByDiscovery(enemies, discovery)
     for _, enemy in ipairs(enemies) do
       table.insert(entities, { entity = enemy, type = "enemy" })
+    end
+  end
+  
+  -- Planets
+  if filters.planets then
+    local allEntities = world.entities or {}
+    for _, entity in ipairs(allEntities) do
+      if entity.type == "world_object" and entity.subtype == "planet_massive" then
+        table.insert(entities, { entity = entity, type = "planet" })
+      end
     end
   end
   

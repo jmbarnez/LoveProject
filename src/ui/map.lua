@@ -237,6 +237,7 @@ function Map.drawContent(x, y, w, h)
         wrecks = Map.filterWrecks,
         warp_gates = true,
         remote_players = true,
+        planets = true,
     }
 
     local entities = MapEntities.getVisibleEntities(world, nil, filters)
@@ -269,6 +270,7 @@ function Map.drawUI(mapX, mapY, mapW, mapH)
         { label = "Wrecks", color = Theme.colors.warning },
         { label = "Warp Gates", color = Theme.colors.info },
         { label = "Remote Players", color = Theme.colors.success },
+        { label = "Planets", color = {0.4, 0.4, 0.4} },
     }
 
     local infoLines = 4 + #legend -- scale + legend title + items + help lines (2)

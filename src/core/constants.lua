@@ -161,9 +161,9 @@ Constants.COMBAT = {
     SHIELD_COOLDOWN = 5.0,
     SHIELD_ENERGY_COST = 50,
 
-    -- Collision restitution
-    HULL_RESTITUTION = 0.28,
-    SHIELD_RESTITUTION = 0.88,
+    -- Collision restitution (reduced for more realistic hull collisions)
+    HULL_RESTITUTION = 0.15,  -- Much less bouncy for realistic hull impacts
+    SHIELD_RESTITUTION = 0.75,  -- Still bouncy but less than before
 
     -- HUD visibility
     ENEMY_BAR_VIS_TIME = 2.5,

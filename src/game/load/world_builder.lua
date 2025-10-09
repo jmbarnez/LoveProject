@@ -59,6 +59,168 @@ local function createStations(world)
 	return hub
 end
 
+local function createAsteroidBelt(world)
+    -- Create a diagonal asteroid belt that cuts through the sector
+    local worldSize = 30000
+    local margin = 2000
+    
+    -- Belt parameters
+    local beltStartX = margin
+    local beltStartY = margin + math.random(0, worldSize - 2 * margin)
+    local beltEndX = worldSize - margin
+    local beltEndY = margin + math.random(0, worldSize - 2 * margin)
+    
+    -- Belt width and density
+    local beltWidth = 800  -- Width of the belt
+    local asteroidCount = 120  -- Number of asteroids in the belt
+    local minSpacing = 200  -- Minimum distance between asteroids
+    
+    -- Calculate belt direction and perpendicular
+    local beltDx = beltEndX - beltStartX
+    local beltDy = beltEndY - beltStartY
+    local beltLength = math.sqrt(beltDx * beltDx + beltDy * beltDy)
+    local beltDirX = beltDx / beltLength
+    local beltDirY = beltDy / beltLength
+    local beltPerpX = -beltDirY  -- Perpendicular to belt direction
+    local beltPerpY = beltDirX
+    
+    local asteroidPositions = {}
+    local attempts = 0
+    local maxAttempts = asteroidCount * 10
+    
+    -- Generate asteroid positions along the belt
+    for i = 1, asteroidCount do
+        local validPosition = false
+        local attempts = 0
+        
+        while not validPosition and attempts < 50 do
+            -- Random position along the belt
+            local t = math.random()  -- 0 to 1 along the belt
+            local centerX = beltStartX + t * beltDx
+            local centerY = beltStartY + t * beltDy
+            
+            -- Random offset perpendicular to belt direction
+            local perpOffset = (math.random() - 0.5) * beltWidth
+            local x = centerX + perpOffset * beltPerpX
+            local y = centerY + perpOffset * beltPerpY
+            
+            -- Clamp to world bounds
+            x = math.max(margin, math.min(worldSize - margin, x))
+            y = math.max(margin, math.min(worldSize - margin, y))
+            
+            validPosition = true
+            
+            -- Check spacing from other asteroids
+            for _, pos in ipairs(asteroidPositions) do
+                local dx = x - pos.x
+                local dy = y - pos.y
+                local distance = math.sqrt(dx * dx + dy * dy)
+                if distance < minSpacing then
+                    validPosition = false
+                    break
+                end
+            end
+            
+            -- Check distance from stations
+            local stations = world:get_entities_with_components("station") or {}
+            for _, station in ipairs(stations) do
+                local sp = station.components and station.components.position
+                if sp then
+                    local dx = x - sp.x
+                    local dy = y - sp.y
+                    local distSq = dx * dx + dy * dy
+                    local protectionRadius = station.noSpawnRadius or station.shieldRadius or station.radius or 0
+                    local buffer = 300
+                    local required = protectionRadius + buffer
+                    if required > 0 and distSq < (required * required) then
+                        validPosition = false
+                        break
+                    end
+                end
+            end
+            
+            if validPosition then
+                table.insert(asteroidPositions, {x = x, y = y})
+            end
+            
+            attempts = attempts + 1
+        end
+        
+        if not validPosition then
+            -- Fallback: place asteroid at random position along belt
+            local t = math.random()
+            local centerX = beltStartX + t * beltDx
+            local centerY = beltStartY + t * beltDy
+            local perpOffset = (math.random() - 0.5) * beltWidth
+            local x = centerX + perpOffset * beltPerpX
+            local y = centerY + perpOffset * beltPerpY
+            x = math.max(margin, math.min(worldSize - margin, x))
+            y = math.max(margin, math.min(worldSize - margin, y))
+            table.insert(asteroidPositions, {x = x, y = y})
+        end
+    end
+    
+    -- Create the asteroids
+    for i, pos in ipairs(asteroidPositions) do
+        local asteroidId = "asteroid_medium"  -- Default to medium
+        if math.random() < 0.3 then
+            asteroidId = "asteroid_large"
+        elseif math.random() < 0.6 then
+            asteroidId = "asteroid_small"
+        end
+        
+        -- 20% chance for palladium variant
+        if math.random() < 0.2 then
+            if asteroidId == "asteroid_small" then
+                asteroidId = "asteroid_small_palladium"
+            elseif asteroidId == "asteroid_medium" then
+                asteroidId = "asteroid_medium_palladium"
+            elseif asteroidId == "asteroid_large" then
+                asteroidId = "asteroid_large_palladium"
+            end
+        end
+        
+        local asteroid = EntityFactory.create("world_object", asteroidId, pos.x, pos.y)
+        if asteroid then
+            -- Apply gray coloring like other asteroids
+            local grayShades = {
+                {0.25, 0.25, 0.25, 1.0},  -- Dark gray
+                {0.35, 0.35, 0.35, 1.0},  -- Medium-dark gray
+                {0.45, 0.45, 0.45, 1.0},  -- Medium gray
+                {0.55, 0.55, 0.55, 1.0},  -- Light gray
+                {0.65, 0.65, 0.65, 1.0},  -- Very light gray
+            }
+            local grayShade = grayShades[math.random(1, #grayShades)]
+            
+            if asteroid.visuals and asteroid.visuals.colors then
+                asteroid.visuals.colors.small = grayShade
+                asteroid.visuals.colors.medium = {grayShade[1] * 0.9, grayShade[2] * 0.9, grayShade[3] * 0.9, grayShade[4]}
+                asteroid.visuals.colors.large = {grayShade[1] * 0.8, grayShade[2] * 0.8, grayShade[3] * 0.8, grayShade[4]}
+                asteroid.visuals.colors.outline = {grayShade[1] * 0.6, grayShade[2] * 0.6, grayShade[3] * 0.6, grayShade[4]}
+            end
+            
+            -- Add physics body
+            local Physics = require("src.components.physics")
+            local radius = asteroid.components.collidable and asteroid.components.collidable.radius or 30
+            local mass = radius * 2
+            asteroid.components.physics = Physics.new({
+                mass = mass,
+                x = pos.x,
+                y = pos.y
+            })
+            
+            -- Add small random velocity
+            local velX = (math.random() - 0.5) * 15
+            local velY = (math.random() - 0.5) * 15
+            asteroid.components.physics.body:setVelocity(velX, velY)
+            
+            world:addEntity(asteroid)
+        end
+    end
+    
+    Debug.info("game", "Created asteroid belt with %d asteroids", #asteroidPositions)
+end
+
 local function createWorldObjects(world)
     do
         -- Spawn planet at random position with safe distance from stations
@@ -73,6 +235,9 @@ local function createWorldObjects(world)
             Debug.warn("game", "Failed to create planet")
         end
     end
+    
+    -- Create the asteroid belt
+    createAsteroidBelt(world)
 
     local worldSize = 30000
     local margin = 2000

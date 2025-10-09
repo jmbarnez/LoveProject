@@ -397,6 +397,61 @@ local function applySurfaceFriction(entity, normalX, normalY, dt)
     end
 end
 
+-- Apply collision damage based on impact force
+local function applyCollisionDamage(entity1, entity2, collision, nx, ny)
+    if not entity1.components.health then return end
+    
+    -- Get collision velocity and mass for damage calculation
+    local physics1 = entity1.components.physics and entity1.components.physics.body
+    if not physics1 then return end
+    
+    local mass1 = getEntityMass(entity1)
+    local mass2 = getEntityMass(entity2)
+    
+    -- Calculate relative velocity along collision normal
+    local vx1, vy1 = physics1.vx, physics1.vy
+    local vx2, vy2 = 0, 0
+    if entity2.components.physics and entity2.components.physics.body then
+        vx2, vy2 = entity2.components.physics.body.vx, entity2.components.physics.body.vy
+    end
+    
+    local relVx = vx2 - vx1
+    local relVy = vy2 - vy1
+    local relVelAlongNormal = relVx * nx + relVy * ny
+    
+    -- Only apply damage if entities are approaching (not separating)
+    if relVelAlongNormal <= 0 then return end
+    
+    -- Calculate impact force based on relative velocity and masses
+    local impactForce = math.abs(relVelAlongNormal) * math.sqrt(mass1 * mass2) * 0.01
+    
+    -- Determine if hitting a hard surface (station, asteroid, planet, etc.)
+    local isHardSurface = false
+    if entity2.components.station or 
+       entity2.components.mineable or 
+       (entity2.type == "world_object" and entity2.subtype == "planet_massive") or
+       entity2.components.wreckage then
+        isHardSurface = true
+    end
+    
+    -- Calculate damage based on impact force
+    local damage = 0
+    if isHardSurface then
+        -- Hard surface impacts: more damage
+        damage = math.min(impactForce * 0.8, 25) -- Cap at 25 damage
+    else
+        -- Hull-to-hull impacts: less damage
+        damage = math.min(impactForce * 0.3, 15) -- Cap at 15 damage
+    end
+    
+    -- Apply minimum damage threshold to avoid tiny impacts
+    if damage < 2 then return end
+    
+    -- Apply the damage
+    local CollisionEffects = require("src.systems.collision.effects")
+    CollisionEffects.applyDamage(entity1, damage, entity2)
+end
+
 -- Helper function to push an entity with momentum preservation
 local function pushEntity(entity, pushX, pushY, normalX, normalY, dt, restitution)
     restitution = restitution or 0.25 -- default hull bounce if unspecified
@@ -410,13 +465,14 @@ local function pushEntity(entity, pushX, pushY, normalX, normalY, dt, restitutio
         local vy = body.vy or 0
         local vn = vx * normalX + vy * normalY
         if vn < 0 then
-            local delta = -(1 + restitution) * vn
+            -- Apply restitution more gradually for smoother physics
+            local delta = -(1 + restitution) * vn * 0.3 -- Reduced by 70% for smoother bouncing
             body.vx = vx + delta * normalX
             body.vy = vy + delta * normalY
             
-            -- Apply minimal damping to prevent infinite bouncing
-            body.vx = body.vx * 0.998
-            body.vy = body.vy * 0.998
+            -- Apply stronger damping to prevent jittering
+            body.vx = body.vx * 0.98
+            body.vy = body.vy * 0.98
             
             -- Only apply minimum velocity boost for high restitution objects (shields)
             if restitution > 0.8 then
@@ -439,13 +495,14 @@ local function pushEntity(entity, pushX, pushY, normalX, normalY, dt, restitutio
             local vy = vel.y or 0
             local vn = vx * normalX + vy * normalY
             if vn < 0 then
-                local delta = -(1 + restitution) * vn
+                -- Apply restitution more gradually for smoother physics
+                local delta = -(1 + restitution) * vn * 0.3 -- Reduced by 70% for smoother bouncing
                 vel.x = vx + delta * normalX
                 vel.y = vy + delta * normalY
                 
-                -- Apply minimal damping to prevent infinite bouncing
-                vel.x = vel.x * 0.998
-                vel.y = vel.y * 0.998
+                -- Apply stronger damping to prevent jittering
+                vel.x = vel.x * 0.98
+                vel.y = vel.y * 0.98
                 
                 -- Only apply minimum velocity boost for high restitution objects (shields)
                 if restitution > 0.8 then
@@ -583,14 +640,14 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
         local pushDistance
         if e1HasPolygon or e2HasPolygon then
             -- For polygon collisions, use more precise push distance
-            pushDistance = overlap * (isStationCollision and 0.9 or 0.7) -- More precise for polygon shapes
+            pushDistance = overlap * (isStationCollision and 0.3 or 0.2) -- Much smaller push for smoother physics
         else
-            pushDistance = overlap * (isStationCollision and 0.8 or 0.55) -- Standard push for circular shapes
+            pushDistance = overlap * (isStationCollision and 0.25 or 0.15) -- Smaller push for circular shapes
         end
         
-        -- Ensure minimum push distance for station collisions
+        -- Ensure minimum push distance for station collisions (reduced)
         if isStationCollision then
-            pushDistance = math.max(pushDistance, 5) -- Minimum 5 pixel push for stations
+            pushDistance = math.max(pushDistance, 1) -- Much smaller minimum push
         end
 
         -- Choose restitution based on shields (make shields bouncier)
@@ -614,7 +671,10 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
             pushEntity(entity1, -nx * push1, -ny * push1, -nx, -ny, dt, e1Rest)
             pushEntity(entity2, nx * push2, ny * push2, nx, ny, dt, e2Rest)
             
-            -- Apply momentum transfer between moving entities
+            -- Apply collision damage for hull-to-hull impacts
+            applyCollisionDamage(entity1, entity2, collision, nx, ny)
+            
+            -- Apply momentum transfer between moving entities (smoother)
             local e1Physics = entity1.components.physics and entity1.components.physics.body
             local e2Physics = entity2.components.physics and entity2.components.physics.body
             
@@ -626,8 +686,8 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
                 
                 -- Don't resolve if velocities are separating
                 if relVelAlongNormal < 0 then
-                    -- Calculate impulse magnitude
-                    local impulse = -(1 + math.min(e1Rest, e2Rest)) * relVelAlongNormal
+                    -- Calculate impulse magnitude with reduced strength for smoother physics
+                    local impulse = -(1 + math.min(e1Rest, e2Rest)) * relVelAlongNormal * 0.5 -- Reduced by 50%
                     impulse = impulse / (1/mass1 + 1/mass2)
                     
                     -- Apply impulse
@@ -638,6 +698,12 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
                     e1Physics.vy = e1Physics.vy - impulseY / mass1
                     e2Physics.vx = e2Physics.vx + impulseX / mass2
                     e2Physics.vy = e2Physics.vy + impulseY / mass2
+                    
+                    -- Apply additional damping to prevent jittering
+                    e1Physics.vx = e1Physics.vx * 0.95
+                    e1Physics.vy = e1Physics.vy * 0.95
+                    e2Physics.vx = e2Physics.vx * 0.95
+                    e2Physics.vy = e2Physics.vy * 0.95
                 end
             end
             
@@ -649,11 +715,15 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
             pushEntity(entity1, -nx * overlap, -ny * overlap, -nx, -ny, dt, e1Rest)
             -- Apply friction from static surface
             applySurfaceFriction(entity1, -nx, -ny, dt)
+            -- Apply collision damage for hull-to-static impacts
+            applyCollisionDamage(entity1, entity2, collision, nx, ny)
         elseif e2CanMove then
             -- Only entity2 can move - push it away from static entity1
             pushEntity(entity2, nx * overlap, ny * overlap, nx, ny, dt, e2Rest)
             -- Apply friction from static surface
             applySurfaceFriction(entity2, nx, ny, dt)
+            -- Apply collision damage for hull-to-static impacts
+            applyCollisionDamage(entity2, entity1, collision, -nx, -ny)
         end
 
         -- Enhanced momentum transfer: allow ships to push wreckage pieces around

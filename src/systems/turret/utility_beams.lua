@@ -359,11 +359,7 @@ function UtilityBeams.applyMiningDamage(target, damage, source, world, impactX, 
     local Sound = require("src.core.sound")
     local x = target.components.position.x
     local y = target.components.position.y
-    if finalDamage >= 5 then
-        Sound.triggerEventAt('impact_asteroid_heavy', x, y)
-    else
-        Sound.triggerEventAt('impact_asteroid_light', x, y)
-    end
+    -- Removed impact sounds for mining lasers - only keep the laser firing sound
 
     mineable.durability = math.max(0, mineable.durability - finalDamage)
 

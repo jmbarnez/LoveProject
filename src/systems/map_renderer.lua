@@ -28,13 +28,19 @@ function MapRenderer.drawEntity(entityData, viewport, world)
     sx, sy = Transform.worldToScreen(pos.x, pos.y, viewport.mapX, viewport.mapY, viewport.mapW, viewport.mapH, viewport.mapState, world)
   end
   
-  -- Check if within view bounds
+  -- Check if within view bounds (account for entity size)
+  local margin = 10
+  if entityType == "planet" then
+    -- Planets are large, so use a bigger margin
+    margin = 50
+  end
+  
   if viewport.type == "minimap" then
-    if sx < viewport.x - 10 or sx > viewport.x + viewport.w + 10 or sy < viewport.y - 10 or sy > viewport.y + viewport.h + 10 then
+    if sx < viewport.x - margin or sx > viewport.x + viewport.w + margin or sy < viewport.y - margin or sy > viewport.y + viewport.h + margin then
       return
     end
   else
-    if sx < viewport.mapX - 10 or sx > viewport.mapX + viewport.mapW + 10 or sy < viewport.mapY - 10 or sy > viewport.mapY + viewport.mapH + 10 then
+    if sx < viewport.mapX - margin or sx > viewport.mapX + viewport.mapW + margin or sy < viewport.mapY - margin or sy > viewport.mapY + viewport.mapH + margin then
       return
     end
   end
@@ -56,6 +62,8 @@ function MapRenderer.drawEntity(entityData, viewport, world)
     MapRenderer._drawLoot(sx, sy, viewport)
   elseif entityType == "remote_player" then
     MapRenderer._drawRemotePlayer(sx, sy, viewport)
+  elseif entityType == "planet" then
+    MapRenderer._drawPlanet(sx, sy, entity, viewport)
   end
 end
 
@@ -247,6 +255,32 @@ function MapRenderer._drawRemotePlayer(sx, sy, viewport)
   love.graphics.circle("fill", sx, sy, 6)
   Theme.setColor(Theme.colors.info)
   love.graphics.circle("fill", sx, sy, 3)
+end
+
+function MapRenderer._drawPlanet(sx, sy, entity, viewport)
+  -- Get planet radius from entity data
+  local radius = 1000  -- Default planet radius
+  if entity.components and entity.components.renderable and entity.components.renderable.props then
+    local props = entity.components.renderable.props
+    if props.visuals and props.visuals.radius then
+      radius = props.visuals.radius
+    end
+  end
+  
+  -- Scale radius for map display (much smaller than actual size)
+  local mapRadius = math.max(8, math.min(25, radius * 0.01))  -- Scale down significantly for map
+  
+  -- Draw planet as a large gray circle
+  Theme.setColor(Theme.withAlpha({0.4, 0.4, 0.4}, 0.8))  -- Gray color
+  love.graphics.circle("fill", sx, sy, mapRadius)
+  
+  -- Draw a subtle outline
+  Theme.setColor(Theme.withAlpha({0.3, 0.3, 0.3}, 0.6))
+  love.graphics.circle("line", sx, sy, mapRadius)
+  
+  -- Draw a smaller inner circle for detail
+  Theme.setColor(Theme.withAlpha({0.5, 0.5, 0.5}, 0.4))
+  love.graphics.circle("fill", sx, sy, mapRadius * 0.7)
 end
 
 -- Full map specific drawing helpers

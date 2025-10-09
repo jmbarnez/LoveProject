@@ -21,7 +21,7 @@ end
 
 local maxEnemies = getSpawnValue("MAX_ENEMIES") or 36 -- Significantly increased for relentless pressure
 local maxBosses = 3   -- Hard cap on boss drones
-local maxAsteroids = 80  -- Cap total asteroids
+local maxAsteroids = 40  -- Reduced cap since we have an asteroid belt
 local maxClusters = 12  -- Fewer clusters overall
 local clusterRadius = 420  -- Much larger cluster radius
 local clusterMinAsteroids = 6  -- Bigger clusters
@@ -495,9 +495,9 @@ local function spawnInitialEntities(player, hub, world)
     -- Don't spawn any enemies at startup - only spawn when player is nearby or explicitly needed
     -- This prevents red engine trails from appearing immediately on startup
 
-    -- Create fewer but larger asteroid clusters around the space
+    -- Create much fewer asteroid clusters since we have an asteroid belt
     local margin = 300  -- Distance from edge
-    local clustersToSpawn = 7  -- Fewer initial clusters
+    local clustersToSpawn = 2  -- Much fewer initial clusters
     
     for i = 1, clustersToSpawn do
         -- Random position across the world
@@ -593,8 +593,8 @@ function SpawningSystem.update(dt, player, hub, world)
 
   asteroidSpawnTimer = asteroidSpawnTimer - dt
   if asteroidSpawnTimer <= 0 and #asteroids < maxAsteroids then
-    -- Lower chance to spawn a new cluster (fewer clusters over time)
-    if math.random() < 0.4 then
+    -- Much lower chance to spawn new asteroids since we have an asteroid belt
+    if math.random() < 0.1 then
       local margin = 300
       local centerX = math.random(margin, world.width - margin)
       local centerY = math.random(margin, world.height - margin)
@@ -641,7 +641,7 @@ function SpawningSystem.update(dt, player, hub, world)
     else
       spawnAsteroid(hub, world)
     end
-    asteroidSpawnTimer = 15 -- spawn new asteroid/cluster every 15 seconds if below max
+    asteroidSpawnTimer = 60 -- spawn new asteroid/cluster every 60 seconds if below max (much less frequent)
   end
 end
 

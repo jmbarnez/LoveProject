@@ -11,8 +11,8 @@ return {
       visuals = {
         size = 2.0,
         radius = 1000, -- draw radius in pixels
-        baseColor = {0.18, 0.26, 0.38, 1.0},
-        accentColor = {0.26, 0.34, 0.50, 1.0},
+        baseColor = {0.35, 0.35, 0.35, 1.0},  -- Gray like asteroids
+        accentColor = {0.25, 0.25, 0.25, 1.0},  -- Darker gray accent
         atmosphere = false, -- Disable atmospheric glow rings around the planet
         atmosphereColor = {0.45, 0.85, 1.00, 0.18},
         highlightColor = {1.0, 0.95, 0.85, 0.10},
@@ -22,8 +22,8 @@ return {
         ringOuter = 1900,
         ringTilt = math.rad(28),
         ringFlatten = 0.32,
-        ringColor = {0.80, 0.76, 0.68, 0.26},
-        ringEdgeColor = {0.95, 0.92, 0.85, 0.38},
+        ringColor = {0.45, 0.45, 0.45, 0.26},  -- Gray ring
+        ringEdgeColor = {0.55, 0.55, 0.55, 0.38},  -- Lighter gray ring edge
         ringLayers = 12,
       }
     }

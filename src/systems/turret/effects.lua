@@ -217,7 +217,16 @@ function TurretEffects.createImpactEffect(turret, x, y, target, impactType)
     -- Pass through bullet kind for styling (laser/mining/missile)
     local bulletKind = turret and turret.kind
 
-    -- Collision effects are now handled exclusively by the unified collision system
+    -- Disable collision sounds for utility beams and combat lasers
+    local disableSound = false
+    if turret and turret.kind then
+        if turret.kind == "mining_laser" or turret.kind == "salvaging_laser" or turret.kind == "laser" then
+            disableSound = true
+        end
+    end
+
+    -- Create visual impact effects but disable sounds for laser weapons
+    Effects.spawnImpact(impactKind, ex, ey, targetRadius, x, y, impactAngle, nil, bulletKind, target, disableSound)
 end
 
 
