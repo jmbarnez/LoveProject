@@ -3,6 +3,7 @@ local Viewport = require("src.core.viewport")
 local SettingsPanel = require("src.ui.settings_panel")
 local SaveLoad = require("src.ui.save_load")
 local StateManager = require("src.managers.state_manager")
+local UIState = require("src.core.ui.state")
 local Window = require("src.ui.common.window")
 local UIButton = require("src.ui.common.button")
 
@@ -86,6 +87,9 @@ function EscapeMenu.show()
     if ok and UIManager and UIManager.state and UIManager.state.escape then
         UIManager.state.escape.open = true
     end
+    if UIState and UIState.setShowingSaveSlots then
+        UIState.setShowingSaveSlots(false)
+    end
     -- Game continues running when escape menu is opened
 end
 
@@ -95,6 +99,10 @@ function EscapeMenu.hide()
     local ok, UIManager = pcall(require, "src.core.ui_manager")
     if ok and UIManager and UIManager.state and UIManager.state.escape then
         UIManager.state.escape.open = false
+    end
+
+    if UIState and UIState.setShowingSaveSlots then
+        UIState.setShowingSaveSlots(false)
     end
 
     if EscapeMenu.saveLoadPanel then
@@ -285,6 +293,9 @@ function EscapeMenu.mousereleased(x, y, button)
                     onClose = function()
                         EscapeMenu.saveLoadPanel = nil
                         EscapeMenu.saveLoadPanelZ = nil
+                        if UIState and UIState.setShowingSaveSlots then
+                            UIState.setShowingSaveSlots(false)
+                        end
                     end
                 })
 
@@ -296,6 +307,10 @@ function EscapeMenu.mousereleased(x, y, button)
                     EscapeMenu.saveLoadPanel.window.x = math.floor((sw - EscapeMenu.saveLoadPanel.window.width) * 0.5)
                     EscapeMenu.saveLoadPanel.window.y = math.floor((sh - EscapeMenu.saveLoadPanel.window.height) * 0.5)
                     EscapeMenu.saveLoadPanel.window:show()
+                end
+
+                if UIState and UIState.setShowingSaveSlots then
+                    UIState.setShowingSaveSlots(true)
                 end
 
                 -- Save/load panel is now handled as a floating window
