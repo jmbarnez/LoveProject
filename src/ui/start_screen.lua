@@ -10,7 +10,6 @@ local SettingsPanel = require("src.ui.settings_panel")
 local UIButton = require("src.ui.common.button")
 local Window = require("src.ui.common.window")
 local Strings = require("src.core.strings")
-local VersionLog = require("src.ui.version_log")
 local NetworkManager = require("src.core.network.manager")
 local Notifications = require("src.ui.notifications")
 local UICursor = require("src.ui.hud.cursor")
@@ -96,11 +95,6 @@ local startScreenHandler = function(self, x, y, button)
     return false
   end
 
-  if Theme.handleButtonClick(self.versionButton, x, y, function()
-    VersionLog.toggle()
-  end) then
-    return false
-  end
 
   if Theme.handleButtonClick(self.settingsButton, x, y, function()
     SettingsPanel.toggle()
@@ -195,7 +189,6 @@ function Start.new()
   self.button = { x = 0, y = 0, w = 260, h = 40 }
   self.loadButton = { x = 0, y = 0, w = 260, h = 40 }
   self.multiplayerButton = { x = 0, y = 0, w = 260, h = 40 }
-  self.versionButton = { x = 0, y = 0, w = 260, h = 40 }
   self.settingsButton = { x = 0, y = 0, w = 40, h = 40 }
   self.exitButton = { x = 0, y = 0, w = 40, h = 40 }
   
@@ -233,23 +226,6 @@ function Start.new()
       self.joinErrorMessage = nil
     end
   })
-  self.versionWindow = Window.new({
-    title = Strings.getUI("version_log_title"),
-    width = 1000,
-    height = 640,
-    visible = false,
-    closable = true,
-    draggable = true,
-    resizable = false,
-    useLoadPanelTheme = true,
-    drawContent = function(_, x, y, w, h)
-      VersionLog.draw(x, y, w, h)
-    end,
-    onClose = function()
-      VersionLog.close()
-    end
-  })
-  VersionLog.showWindow(self.versionWindow)
   
   -- Initialize settings panel
   SettingsPanel.init()
@@ -490,20 +466,14 @@ function Start:draw()
   local mhover = mx >= mbx and mx <= mbx + bw and my >= mby and my <= mby + bh
   self.multiplayerButton._rect = Theme.drawMenuButton(mbx, mby, bw, bh, "Join Game", mhover, t)
 
+  -- Draw version text at bottom center (no button, just text)
   local versionText = Strings.getUI('version') or ""
   local versionWidth = Theme.getFont("normal"):getWidth(versionText)
-  local versionButtonPadding = Theme.getScaledSize(20)
-  local vbw = math.max(Theme.getScaledSize(160), versionWidth + versionButtonPadding)
-  local vbh = bh
-  local vbx = math.floor((w - vbw) * 0.5)
-  local vby = math.floor(h - vbh - Theme.getScaledSize(40))
-
-  local vhover = mx >= vbx and mx <= vbx + vbw and my >= vby and my <= vby + vbh
-
-  -- Use unified button system for version button
-  Theme.drawCompactButton(vbx, vby, vbw, vbh, versionText, vhover, t)
-
-  self.versionButton._rect = { x = vbx, y = vby, w = vbw, h = vbh }
+  local versionX = math.floor((w - versionWidth) * 0.5)
+  local versionY = math.floor(h - Theme.getScaledSize(40))
+  
+  Theme.setColor(Theme.colors.textSecondary)
+  love.graphics.print(versionText, versionX, versionY)
 
   -- Settings button in top right (smaller)
   local settingsButtonSize = Theme.getScaledSize(32)
@@ -565,9 +535,6 @@ function Start:draw()
   end
 
   SettingsPanel.draw()
-  if VersionLog.visible then
-    self.versionWindow:draw()
-  end
   
   -- Draw notifications on top of everything else
   Notifications.draw()
@@ -791,14 +758,6 @@ function Start:mousepressed(x, y, button)
     return false
   end
 
-  if VersionLog.visible then
-    if self.versionWindow:mousepressed(x, y, button) then
-      return false
-    end
-    if VersionLog.mousepressed(x, y, button) then
-      return false
-    end
-  end
 
   return startScreenHandler(self, x, y, button)
 end
@@ -811,10 +770,6 @@ function Start:mousereleased(x, y, button)
     self.loadSlotsUI.window:mousereleased(x, y, button)
   end
   SettingsPanel.mousereleased(x, y, button)
-  if VersionLog.visible then
-    self.versionWindow:mousereleased(x, y, button)
-    VersionLog.mousereleased(x, y, button)
-  end
 end
 
 function Start:mousemoved(x, y, dx, dy)
@@ -825,10 +780,6 @@ function Start:mousemoved(x, y, dx, dy)
     self.loadSlotsUI.window:mousemoved(x, y, dx, dy)
   end
   SettingsPanel.mousemoved(x, y, dx, dy)
-  if VersionLog.visible then
-    self.versionWindow:mousemoved(x, y, dx, dy)
-    VersionLog.mousemoved(x, y, dx, dy)
-  end
 end
 
 function Start:wheelmoved(x, y, dx, dy)
@@ -836,15 +787,6 @@ function Start:wheelmoved(x, y, dx, dy)
     return true
   end
 
-  if VersionLog.visible then
-    local windowWheel = self.versionWindow and self.versionWindow.wheelmoved
-    if windowWheel and windowWheel(self.versionWindow, x, y, dx, dy) then
-      return true
-    end
-    if VersionLog.wheelmoved(x, y, dx, dy) then
-      return true
-    end
-  end
 
   return false
 end
@@ -900,9 +842,6 @@ function Start:keypressed(key)
     if SettingsPanel.keypressed(key) then
       return true
     end
-  if VersionLog.visible and VersionLog.keypressed(key) then
-    return true
-  end
     
     if self.showJoinUI then
       if key == "escape" then
