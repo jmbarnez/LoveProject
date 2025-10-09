@@ -13,7 +13,7 @@ local SkillsPanel = require("src.ui.skills")
 local Util = require("src.core.util")
 local Hotbar = require("src.systems.hotbar")
 local RepairSystem = require("src.systems.repair_system")
-local UI = require("src.core.ui")
+local UI = require("src.ui.hud.root")
 local NetworkSession = require("src.core.network.session")
 
 local Input = {}

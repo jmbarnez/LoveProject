@@ -2,7 +2,7 @@ local State = require("src.game.state")
 
 local RenderSystem = require("src.systems.render")
 local Effects = require("src.systems.effects")
-local UI = require("src.core.ui")
+local UI = require("src.ui.hud.root")
 local UIManager = require("src.core.ui_manager")
 local Theme = require("src.core.theme")
 local NetworkSync = require("src.systems.network_sync")
