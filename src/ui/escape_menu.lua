@@ -274,9 +274,6 @@ function EscapeMenu.mousereleased(x, y, button)
         return true, false
     end
 
-    if SettingsPanel.visible then
-        return SettingsPanel.mousereleased(x, y, button)
-    end
 
     local menuX, menuY, menuW, menuH, buttonX, saveButtonY, settingsButtonY, lanButtonY, exitButtonY, buttonW, buttonH = getLayout()
 
@@ -411,9 +408,6 @@ function EscapeMenu.keypressed(key)
     -- Let the input router handle escape key globally
     -- This function now only handles non-escape keys
     
-    if SettingsPanel.visible then
-        return SettingsPanel.keypressed(key)
-    end
     
     return true -- Consume all non-escape keypresses when menu is visible
 end
@@ -426,9 +420,6 @@ function EscapeMenu.textinput(text)
         return EscapeMenu.saveLoadPanel:textinput(text)
     end
     
-    if SettingsPanel.visible then
-        return false -- Let settings panel handle its own text input
-    end
     
     return true -- Consume all text input when menu is visible
 end

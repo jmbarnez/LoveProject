@@ -15,10 +15,20 @@ PanelRegistry.register({
         panel.visible = open == true
     end,
     onOpen = function(panel)
+        -- Ensure the panel is initialized
+        if not panel.window and panel.init then
+            panel.init()
+        end
         panel.visible = true
+        if panel.window then
+            panel.window:show()
+        end
     end,
     onClose = function(panel)
         panel.visible = false
+        if panel.window then
+            panel.window:hide()
+        end
     end,
     getRect = function(panel)
         local window = panel.window
@@ -28,7 +38,12 @@ PanelRegistry.register({
         return nil
     end,
     draw = function(panel)
-        if panel.draw then
+        if panel.window then
+            panel.window.visible = panel.visible
+            if panel.visible then
+                panel.window:draw()
+            end
+        elseif panel.draw then
             panel.draw()
         end
     end,
