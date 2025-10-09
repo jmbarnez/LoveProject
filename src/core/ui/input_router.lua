@@ -247,14 +247,6 @@ function UIInputRouter.keypressed(key, scancode, isrepeat, player)
     if key == "escape" then
         local state = require("src.core.ui.state")
 
-        if state.isOpen("escape") and type(state.isShowingSaveSlots) == "function" and state.isShowingSaveSlots() then
-            local ok, escapeMenu = pcall(require, "src.ui.escape_menu")
-            if ok and escapeMenu and type(escapeMenu.closeSaveLoadPanel) == "function" then
-                escapeMenu.closeSaveLoadPanel()
-                return true
-            end
-        end
-
         local sortedPanels = {}
         for _, record in ipairs(PanelRegistry.list()) do
             if state.isOpen(record.id) then
@@ -271,9 +263,10 @@ function UIInputRouter.keypressed(key, scancode, isrepeat, player)
         -- If there are open panels, close the topmost one
         if #sortedPanels > 0 then
             local topPanel = sortedPanels[1]
+            local UIManager = require("src.core.ui.manager")
+            
             if topPanel.id == "escape" then
                 -- Escape menu is on top, close it
-                local UIManager = require("src.core.ui.manager")
                 UIManager.close("escape")
                 return true
             else
@@ -288,20 +281,18 @@ function UIInputRouter.keypressed(key, scancode, isrepeat, player)
                 
                 if escapeMenuOpen then
                     -- Close the topmost panel (e.g., settings) and keep escape menu open
-                    local UIManager = require("src.core.ui.manager")
                     UIManager.close(topPanel.id)
                     return true
                 else
                     -- Close the topmost panel
-                    local UIManager = require("src.core.ui.manager")
                     UIManager.close(topPanel.id)
                     return true
                 end
             end
         else
-            -- No panels open, open escape menu
+            -- No panels open, toggle escape menu (consistent with hotkeys)
             local UIManager = require("src.core.ui.manager")
-            UIManager.open("escape")
+            UIManager.toggle("escape")
             return true
         end
     end

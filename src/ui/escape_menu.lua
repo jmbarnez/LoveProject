@@ -12,16 +12,9 @@ local EscapeMenu = {
     exitButtonDown = false,
     settingsButtonDown = false,
     saveButtonDown = false,
-    lanButtonDown = false,
-    saveLoadPanel = nil,
-    saveLoadPanelZ = nil,
-    _floatingWindowZ = 180
+    lanButtonDown = false
 }
 
-local function nextFloatingZ()
-    EscapeMenu._floatingWindowZ = (EscapeMenu._floatingWindowZ or 180) + 1
-    return EscapeMenu._floatingWindowZ
-end
 
 local function pointIn(px, py, rx, ry, rw, rh)
     if type(px) ~= "number" or type(py) ~= "number" or type(rx) ~= "number" or type(ry) ~= "number" or type(rw) ~= "number" or type(rh) ~= "number" then
@@ -105,10 +98,6 @@ function EscapeMenu.hide()
         UIState.setShowingSaveSlots(false)
     end
 
-    if EscapeMenu.saveLoadPanel then
-        EscapeMenu.saveLoadPanel = nil
-        EscapeMenu.saveLoadPanelZ = nil
-    end
 
     -- Game continues running when escape menu is closed
 end
@@ -168,10 +157,6 @@ function EscapeMenu.draw()
         EscapeMenu.window:draw()
     end
 
-    -- Draw save/load panel if it exists
-    if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.window then
-        EscapeMenu.saveLoadPanel.window:draw()
-    end
 end
 
 function EscapeMenu.drawContent(window, x, y, w, h)
@@ -203,21 +188,6 @@ end
 
 function EscapeMenu.mousepressed(x, y, button)
     if not EscapeMenu.visible then return false, false end
-    -- If a floating save/load panel exists and the click is inside it,
-    -- route to the save/load panel and always consume the click so it
-    -- does not fall through to the EscapeMenu buttons behind it.
-    if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.window then
-        local w = EscapeMenu.saveLoadPanel.window
-        if pointIn(x, y, w.x, w.y, w.width, w.height) then
-            -- Ensure the save/load instance gets the event and bring it to front
-            local handled = false
-            if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.mousepressed then
-                handled = EscapeMenu.saveLoadPanel:mousepressed(x, y, button)
-            end
-            EscapeMenu.saveLoadPanelZ = nextFloatingZ()
-            return true, false
-        end
-    end
 
     -- Handle window interaction (drag, close)
     if EscapeMenu.window and EscapeMenu.window:mousepressed(x, y, button) then
@@ -257,16 +227,6 @@ end
 function EscapeMenu.mousereleased(x, y, button)
     if not EscapeMenu.visible then return false, false end
     
-    -- Handle save/load panel input first
-    if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.window then
-        local w = EscapeMenu.saveLoadPanel.window
-        if pointIn(x, y, w.x, w.y, w.width, w.height) then
-            if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.mousereleased then
-                return EscapeMenu.saveLoadPanel:mousereleased(x, y, button)
-            end
-            return true, false
-        end
-    end
     
     if not EscapeMenu.window then return true, false end
 
@@ -282,36 +242,17 @@ function EscapeMenu.mousereleased(x, y, button)
         if EscapeMenu.saveButtonDown then
             EscapeMenu.saveButtonDown = false
             if pointIn(x, y, buttonX, saveButtonY, buttonW, buttonH) then
-                if EscapeMenu.saveLoadPanel then
-                    return true, false
-                end
 
-                EscapeMenu.saveLoadPanel = SaveLoad:new({
-                    onClose = function()
-                        EscapeMenu.saveLoadPanel = nil
-                        EscapeMenu.saveLoadPanelZ = nil
-                        if UIState and UIState.setShowingSaveSlots then
-                            UIState.setShowingSaveSlots(false)
-                        end
-                    end
-                })
-
-                EscapeMenu.saveLoadPanelZ = nextFloatingZ()
-
-                -- Make the window visible and ensure it's centered
-                if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.window then
-                    local sw, sh = Viewport.getDimensions()
-                    EscapeMenu.saveLoadPanel.window.x = math.floor((sw - EscapeMenu.saveLoadPanel.window.width) * 0.5)
-                    EscapeMenu.saveLoadPanel.window.y = math.floor((sh - EscapeMenu.saveLoadPanel.window.height) * 0.5)
-                    EscapeMenu.saveLoadPanel.window:show()
+                -- Open save/load panel through UIManager (this will keep escape menu open behind it)
+                local UIManager = require("src.core.ui_manager")
+                if UIManager and UIManager.open then
+                    UIManager.open("save_load")
                 end
 
                 if UIState and UIState.setShowingSaveSlots then
                     UIState.setShowingSaveSlots(true)
                 end
 
-                -- Save/load panel is now handled as a floating window
-                -- The window handles its own input and drawing
                 return true, false
             end
         end
@@ -378,16 +319,6 @@ end
 function EscapeMenu.mousemoved(x, y, dx, dy)
     if not EscapeMenu.visible then return false end
     
-    -- Handle save/load panel input first
-    if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.window then
-        local w = EscapeMenu.saveLoadPanel.window
-        if pointIn(x, y, w.x, w.y, w.width, w.height) then
-            if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.mousemoved then
-                return EscapeMenu.saveLoadPanel:mousemoved(x, y, dx, dy)
-            end
-            return true
-        end
-    end
     
     if not EscapeMenu.window then return true end
 
@@ -400,14 +331,11 @@ end
 function EscapeMenu.keypressed(key)
     if not EscapeMenu.visible then return false end
 
-    -- Handle save/load panel input first
-    if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.keypressed then
-        return EscapeMenu.saveLoadPanel:keypressed(key)
-    end
     
     -- Let the input router handle escape key globally
-    -- This function now only handles non-escape keys
-    
+    if key == "escape" then
+        return false
+    end
     
     return true -- Consume all non-escape keypresses when menu is visible
 end
@@ -415,36 +343,10 @@ end
 function EscapeMenu.textinput(text)
     if not EscapeMenu.visible then return false end
     
-    -- Handle save/load panel input first
-    if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.textinput then
-        return EscapeMenu.saveLoadPanel:textinput(text)
-    end
     
     
     return true -- Consume all text input when menu is visible
 end
 
-function EscapeMenu.closeSaveLoadPanel()
-    local panel = EscapeMenu.saveLoadPanel
-    if not panel then
-        if UIState and UIState.setShowingSaveSlots then
-            UIState.setShowingSaveSlots(false)
-        end
-        return
-    end
-
-    if panel.window and type(panel.window.hide) == "function" then
-        panel.window:hide()
-    elseif panel.onClose then
-        panel.onClose()
-    end
-
-    EscapeMenu.saveLoadPanel = nil
-    EscapeMenu.saveLoadPanelZ = nil
-
-    if UIState and UIState.setShowingSaveSlots then
-        UIState.setShowingSaveSlots(false)
-    end
-end
 
 return EscapeMenu
