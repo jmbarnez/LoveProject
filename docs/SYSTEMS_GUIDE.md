@@ -208,7 +208,7 @@ UI elements (`StatusBars`, `SkillXpPopup`, `Theme` animations) are updated befor
 * Integrates with the node UI to refresh balances and enforce trade rules.
 
 ### Sound System (`src/core/sound.lua`)
-* Registers SFX/music from `content/sounds` and attaches them to gameplay events.
+* Registers SFX/music from `assets/sounds` and attaches them to gameplay events.
 * Updates listener position each frame for positional audio.
 
 ### Multiplayer System (`src/core/multiplayer.lua`)

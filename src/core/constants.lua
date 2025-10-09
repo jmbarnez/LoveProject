@@ -295,7 +295,7 @@ Constants.FILES = {
 
     -- Asset paths
     FONTS_PATH = "assets/fonts/",
-    SOUNDS_PATH = "content/sounds/",
+    SOUNDS_PATH = "assets/sounds/",
     SHADERS_PATH = "src/shaders/",
 }
 

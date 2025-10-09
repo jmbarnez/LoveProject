@@ -3,7 +3,7 @@ local Settings = require("src.core.settings")
 
 local UISounds = {}
 
--- Sound effect names (these should match your sound files in content/sounds/sfx/)
+-- Sound effect names (these should match your sound files in assets/sounds/sfx/)
 UISounds.SOUNDS = {
     BUTTON_CLICK = "button_click",
     BUTTON_HOVER = "button_hover",
