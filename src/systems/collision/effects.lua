@@ -204,7 +204,7 @@ function CollisionEffects.canEmitCollisionFX(a, b, now)
 end
 
 -- Create collision effects for both entities in a collision
-function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x, e2y, nx, ny, e1Radius, e2Radius, shape1, shape2)
+function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x, e2y, nx, ny, e1Radius, e2Radius, shape1, shape2, disableSound)
     if not Effects then return end
 
     -- Validate input parameters
@@ -344,7 +344,7 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
         -- Shield impact effect
         if Effects.spawnImpact then
             local impactAngle = math.atan2(targetCollisionY - targetY, targetCollisionX - targetX)
-            Effects.spawnImpact('shield', targetX, targetY, targetRadius, targetCollisionX, targetCollisionY, impactAngle, nil, 'collision', targetEntity)
+            Effects.spawnImpact('shield', targetX, targetY, targetRadius, targetCollisionX, targetCollisionY, impactAngle, nil, 'collision', targetEntity, disableSound)
         elseif Effects.createImpactEffect then
             Effects.createImpactEffect(targetCollisionX, targetCollisionY, "shield_collision")
         end
@@ -352,7 +352,7 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
         -- Hull impact effect
         if Effects.spawnImpact then
             local impactAngle = math.atan2(targetCollisionY - targetY, targetCollisionX - targetX)
-            Effects.spawnImpact('hull', targetX, targetY, targetRadius, targetCollisionX, targetCollisionY, impactAngle, nil, 'collision', targetEntity)
+            Effects.spawnImpact('hull', targetX, targetY, targetRadius, targetCollisionX, targetCollisionY, impactAngle, nil, 'collision', targetEntity, disableSound)
         elseif Effects.createImpactEffect then
             Effects.createImpactEffect(targetCollisionX, targetCollisionY, "hull_collision")
         end

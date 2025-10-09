@@ -362,7 +362,7 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
                         local targetRadius = targetRadius
                         
                         -- Use the precise hit position for collision effects
-                        CollisionEffects.createCollisionEffects(turret, entity, hx, hy, hx, hy, 0, 0, beamRadius, targetRadius, nil, nil)
+                        CollisionEffects.createCollisionEffects(turret, entity, hx, hy, hx, hy, 0, 0, beamRadius, targetRadius, nil, nil, true)
                     end
                 end
             end
