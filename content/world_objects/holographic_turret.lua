@@ -73,7 +73,21 @@ return {
     
     -- Collision
     collidable = {
-        radius = 16,
+        shape = "polygon",
+        vertices = {
+            -12, -6,  -- Top-left
+            -16, 0,   -- Left
+            -12, 6,   -- Bottom-left
+            -6, 12,   -- Bottom-left
+            0, 16,    -- Bottom
+            6, 12,    -- Bottom-right
+            12, 6,    -- Right
+            16, 0,    -- Right
+            12, -6,   -- Top-right
+            6, -12,   -- Top-right
+            0, -16,   -- Top
+            -6, -12,  -- Top-left
+        },
         isStatic = true
     },
     

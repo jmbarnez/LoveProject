@@ -49,6 +49,19 @@ return {
                 color = {1.0, 0.3, 0.1, 1.0}
             }
         },
+        collidable = {
+            shape = "polygon",
+            vertices = {
+                -3, -2,  -- Top-left
+                -2, -3,  -- Left
+                2, -3,   -- Left
+                3, -2,   -- Top-right
+                3, 2,    -- Right
+                2, 3,    -- Bottom-right
+                -2, 3,   -- Bottom-left
+                -3, 2,   -- Bottom-left
+            }
+        },
         damage = {
             value = 35.0,
         },

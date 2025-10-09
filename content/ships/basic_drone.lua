@@ -69,9 +69,20 @@ return {
     xpReward = 10,
     cargo = { capacity = 20, volumeLimit = 8.0 }, -- 8 m^3 cargo hold for basic drone
 
+    collidable = {
+        shape = "polygon",
+        vertices = {
+            0, -10,  -- Top
+            -8, -5,  -- Top-left
+            -8, 5,   -- Bottom-left
+            0, 10,   -- Bottom
+            8, 5,    -- Bottom-right
+            8, -5,   -- Top-right
+        }
+    },
+
     enemy = {
         sizeMultiplier = 1.5,
-        collidableRadiusMultiplier = 1.5,
         physicsRadiusMultiplier = 1.5,
         energyRegen = 20,
         turretBehavior = {

@@ -63,6 +63,7 @@ end
 local function getCollisionShape(entity)
     local pos = entity.components.position
 
+    -- Shields are always circular by design
     if StationShields.hasActiveShield(entity) then
         return {
             type = "circle",
@@ -72,7 +73,7 @@ local function getCollisionShape(entity)
         }
     end
 
-    -- Check for polygon collision shape directly (same as projectile collision system)
+    -- Check for polygon collision shape first (primary method)
     local collidable = entity.components and entity.components.collidable
     if collidable and collidable.shape == "polygon" and collidable.vertices then
         local pos = entity.components.position
@@ -83,6 +84,17 @@ local function getCollisionShape(entity)
         end
     end
 
+    -- Only use circular collision for truly circular objects
+    -- This includes: projectiles, small circular items, and objects explicitly marked as circular
+    if collidable and collidable.shape == "circle" and collidable.radius then
+        return {
+            type = "circle",
+            x = pos.x,
+            y = pos.y,
+            radius = collidable.radius
+        }
+    end
+
     -- For stations, only use polygon shapes - no circular fallback
     if entity.tag == "station" or (entity.components and entity.components.station) then
         -- Stations must have polygon collision shapes - no circular fallback
@@ -90,6 +102,15 @@ local function getCollisionShape(entity)
         return nil
     end
 
+    -- For ships and other entities, require polygon collision shapes
+    -- No more circular fallback - entities must define proper polygon shapes
+    if entity.tag == "ship" or entity.tag == "enemy" or entity.tag == "asteroid" or 
+       (entity.components and (entity.components.ship or entity.components.enemy or entity.components.mineable)) then
+        -- These entities must have polygon collision shapes defined
+        return nil
+    end
+
+    -- Only allow circular collision for small items, projectiles, and decorative objects
     return {
         type = "circle",
         x = pos.x,

@@ -41,7 +41,17 @@ return {
             }
         },
         collidable = {
-            radius = 5,
+            shape = "polygon",
+            vertices = {
+                -4, -2,  -- Top-left
+                -2, -4,  -- Left
+                2, -4,   -- Left
+                4, -2,   -- Top-right
+                4, 2,    -- Right
+                2, 4,    -- Bottom-right
+                -2, 4,   -- Bottom-left
+                -4, 2,   -- Bottom-left
+            }
         },
         damage = {
             value = 1.5,

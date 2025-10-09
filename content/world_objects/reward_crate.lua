@@ -12,7 +12,21 @@ return {
     },
     
     collidable = {
-        radius = 25,
+        shape = "polygon",
+        vertices = {
+            -20, -15,  -- Top-left
+            -25, -10,  -- Left-top
+            -25, 10,   -- Left-bottom
+            -20, 15,   -- Bottom-left
+            -10, 20,   -- Bottom-left
+            10, 20,    -- Bottom-right
+            20, 15,    -- Right-bottom
+            25, 10,    -- Right
+            25, -10,   -- Right-top
+            20, -15,   -- Top-right
+            10, -20,   -- Top-right
+            -10, -20,  -- Top-left
+        },
         isTrigger = true
     },
     

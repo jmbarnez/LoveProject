@@ -24,7 +24,21 @@ return {
     },
 
     collidable = {
-        radius = 52,
+        shape = "polygon",
+        vertices = {
+            -44, -18,  -- Top-left
+            -52, 0,    -- Left
+            -44, 18,   -- Bottom-left
+            -18, 44,   -- Bottom-left
+            0, 52,     -- Bottom
+            18, 44,    -- Bottom-right
+            44, 18,    -- Right
+            52, 0,     -- Right
+            44, -18,   -- Top-right
+            18, -44,   -- Top-right
+            0, -52,    -- Top
+            -18, -44,  -- Top-left
+        }
     },
 
     mineable = {
