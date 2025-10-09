@@ -26,9 +26,9 @@ function ShipWindow.ensure(state, drawCallback)
             state.visible = false
             local Sound = require("src.core.sound")
             Sound.triggerEvent('ui_button_click')
-            if _G.UIManager and _G.UIManager.close then
-                _G.UIManager.close("ship")
-            end
+            -- Clear the module-level Ship.visible flag
+            local Ship = require("src.ui.ship")
+            Ship.visible = false
         end
     })
 

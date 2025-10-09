@@ -96,7 +96,14 @@ function Hotbar.draw(player)
     local rx = x + (i - 1) * (size + gap)
     local ry = y
 
-    Theme.setColor(Theme.colors.bg2) -- Pure black background
+    -- Check if slot is enabled (has an item)
+    local isEnabled = slot.item ~= nil
+    
+    if isEnabled then
+      Theme.setColor(Theme.colors.bg2) -- Pure black background for enabled slots
+    else
+      Theme.setColor(Theme.withAlpha(Theme.colors.bg2, 0.5)) -- Dimmed background for empty slots
+    end
     love.graphics.rectangle('fill', rx, ry, size, size)
 
     local drewIcon = false
@@ -388,7 +395,10 @@ function Hotbar.draw(player)
 
     -- Highlight border when active for hold-type actions (draw last so it's on top)
     local borderColor = Theme.colors.border
-    if slot.item == 'shield' and (player and player.shieldChannel) then
+    if not isEnabled then
+      -- Dim border for empty slots
+      borderColor = Theme.withAlpha(Theme.colors.border, 0.3)
+    elseif slot.item == 'shield' and (player and player.shieldChannel) then
       borderColor = Theme.colors.info
     elseif slot.item == 'boost' and (HotbarSystem.isActive and HotbarSystem.isActive('boost')) then
       borderColor = Theme.colors.warning
@@ -398,7 +408,13 @@ function Hotbar.draw(player)
     local label = UIUtils.formatKeyLabel(HotbarSystem.getSlotKey and HotbarSystem.getSlotKey(i) or slot.key)
     local oldFont = love.graphics.getFont()
     if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
-    Theme.setColor(Theme.withAlpha(Theme.colors.text, 0.95))
+    
+    -- Adjust label color based on enabled state
+    if isEnabled then
+      Theme.setColor(Theme.withAlpha(Theme.colors.text, 0.95))
+    else
+      Theme.setColor(Theme.withAlpha(Theme.colors.text, 0.4))
+    end
     love.graphics.printf(label, rx, ry + size - 16, size, 'center')
     if Theme.fonts and Theme.fonts.small and oldFont then love.graphics.setFont(oldFont) end
   end
