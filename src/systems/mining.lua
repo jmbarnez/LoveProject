@@ -21,7 +21,7 @@ end
 
 
 -- Updates mining progress on all mineable entities being mined.
--- Yields resources to the player every N cycles.
+-- Only yields resources when the asteroid is completely depleted.
 function MiningSystem.update(dt, world, player)
     local entities = world:get_entities_with_components("mineable")
     for _, e in ipairs(entities) do
@@ -42,7 +42,9 @@ function MiningSystem.update(dt, world, player)
                         m.cycleCount = 0
                         if (m.resources or 0) > 0 then
                             m.resources = m.resources - 1
-                            if player then
+                            
+                            -- Only give resources when asteroid is completely depleted
+                            if m.resources <= 0 and player then
                                 local ItemPickup = require("src.entities.item_pickup")
                                 local radius = (e.components.collidable and e.components.collidable.radius) or 30
                                 
@@ -80,11 +82,14 @@ function MiningSystem.update(dt, world, player)
                                 end
 
                                 Events.emit(Events.GAME_EVENTS.ASTEROID_MINED, {
-                                    item = { id = "ore_tritanium", name = "Tritanium Ore" },
-                                    amount = 1,
+                                    item = { id = resourceType, name = "Ore" },
+                                    amount = oreCount,
                                     player = player,
                                     asteroid = e
                                 })
+                                
+                                -- Mark asteroid as depleted
+                                e.dead = true
                             end
                         end
                     end

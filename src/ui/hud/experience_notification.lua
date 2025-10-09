@@ -381,19 +381,45 @@ local function drawCompactProgressBar(x, y, w, h, progress, alpha)
     if progress > 0 then
         local fillW = math.floor(w * progress)
         
-        -- Simple gradient fill
-        local fillColor = Theme.withAlpha(Theme.colors.accent, 0.9 * alpha)
+        -- Check if we're in a level-up animation
+        local isLevelingUp = ExperienceNotification.state.leveledUp or 
+                            (ExperienceNotification.animation.targetLevel and 
+                             ExperienceNotification.animation.displayLevel and 
+                             ExperienceNotification.animation.targetLevel > ExperienceNotification.animation.displayLevel)
+        
+        -- Use different colors for level-up animation
+        local fillColor
+        if isLevelingUp then
+            -- Bright success color for level-ups
+            fillColor = Theme.withAlpha(Theme.colors.success, 0.9 * alpha)
+        else
+            -- Normal accent color
+            fillColor = Theme.withAlpha(Theme.colors.accent, 0.9 * alpha)
+        end
         Theme.setColor(fillColor)
         love.graphics.rectangle("fill", x, y, fillW, h, 4, 4)
         
-        -- Subtle highlight
-        local highlightColor = Theme.withAlpha(Theme.colors.accent, 0.3 * alpha)
+        -- Enhanced highlight for level-ups
+        local highlightColor
+        if isLevelingUp then
+            -- Bright highlight for level-ups
+            highlightColor = Theme.withAlpha(Theme.colors.success, 0.5 * alpha)
+        else
+            -- Subtle highlight for normal progress
+            highlightColor = Theme.withAlpha(Theme.colors.accent, 0.3 * alpha)
+        end
         Theme.setColor(highlightColor)
         love.graphics.rectangle("fill", x, y, fillW, 2, 4, 4)
     end
     
-    -- Clean border
-    Theme.setColor(Theme.withAlpha(Theme.colors.borderBright, 0.6 * alpha))
+    -- Enhanced border for level-ups
+    local borderColor
+    if ExperienceNotification.state.leveledUp then
+        borderColor = Theme.withAlpha(Theme.colors.success, 0.8 * alpha)
+    else
+        borderColor = Theme.withAlpha(Theme.colors.borderBright, 0.6 * alpha)
+    end
+    Theme.setColor(borderColor)
     love.graphics.setLineWidth(1)
     love.graphics.rectangle("line", x, y, w, h, 4, 4)
 end
@@ -435,13 +461,23 @@ function ExperienceNotification.draw()
     -- Compact title and XP gain on same line
     local displayLevel = ExperienceNotification.animation.displayLevel or ExperienceNotification.state.level
     local targetLevel = ExperienceNotification.animation.targetLevel or displayLevel
-    if ExperienceNotification.animation.activeSegment == nil and #ExperienceNotification.animation.segments == 0 then
+    
+    -- Update display level during animation to show live level progression
+    if ExperienceNotification.animation.activeSegment and ExperienceNotification.animation.activeSegment.onComplete then
+        -- During level-up animation, show the current display level
+        displayLevel = ExperienceNotification.animation.displayLevel
+    elseif ExperienceNotification.animation.activeSegment == nil and #ExperienceNotification.animation.segments == 0 then
+        -- Animation complete, show final level
         displayLevel = targetLevel
     end
 
     local levelLabel = tostring(displayLevel)
+    -- Show level progression during animation
     if targetLevel and targetLevel > displayLevel then
         levelLabel = string.format("%s → %s", displayLevel, targetLevel)
+    elseif ExperienceNotification.state.leveledUp and displayLevel == targetLevel then
+        -- Just leveled up, show the new level with emphasis
+        levelLabel = string.format("%s!", displayLevel)
     end
 
     local title = string.format("%s Lv.%s", ExperienceNotification.state.skillName, levelLabel)

@@ -46,20 +46,6 @@ Skills.definitions = {
             end
         end
     },
-    gunnery = {
-        id = "gunnery",
-        name = "Gunnery",
-        maxLevel = 99,
-        xpPerLevel = function(level)
-            if level <= 15 then return 8 * level
-            elseif level <= 30 then return 80 + 15 * (level - 15)
-            elseif level <= 45 then return 305 + 25 * (level - 30)
-            elseif level <= 60 then return 680 + 35 * (level - 45)
-            elseif level <= 75 then return 1205 + 45 * (level - 60)
-            else return 1880 + 65 * (level - 75)
-            end
-        end
-    },
     missiles = {
         id = "missiles",
         name = "Missiles",
@@ -89,11 +75,6 @@ Skills.playerSkills = {
         totalXp = 0
     },
     salvaging = {
-        level = 1,
-        xp = 0,
-        totalXp = 0
-    },
-    gunnery = {
         level = 1,
         xp = 0,
         totalXp = 0
@@ -180,15 +161,15 @@ function Skills.getProgressToNext(skillId)
         return 1
     end
 
-    -- Get XP needed for current level (not total XP to reach current level)
-    local currentLevelXp = skillDef.xpPerLevel(skillData.level)
-    local nextLevelXp = skillDef.xpPerLevel(skillData.level + 1)
+    -- Calculate XP needed for next level
+    local currentLevelTotalXp = Skills.getXpForLevel(skillId, skillData.level)
+    local nextLevelTotalXp = Skills.getXpForLevel(skillId, skillData.level + 1)
+    local xpNeededForNextLevel = nextLevelTotalXp - currentLevelTotalXp
     
     -- Current XP in this level is the stored xp value
     local currentXpInLevel = skillData.xp
 
-    local xpNeeded = nextLevelXp
-    return math.min(1, currentXpInLevel / xpNeeded)
+    return math.min(1, currentXpInLevel / xpNeededForNextLevel)
 end
 
 -- Add XP to a skill
@@ -214,8 +195,10 @@ function Skills.addXp(skillId, amount)
     -- Update level if changed
     local leveledUp = false
     if newLevel > skillData.level then
+        local oldLevel = skillData.level
         skillData.level = newLevel
         leveledUp = true
+        print(string.format("LEVEL UP! %s: %d -> %d", skillId, oldLevel, newLevel))
     end
 
     -- Update current level XP

@@ -659,73 +659,36 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
     remaining = remaining - applied
     wreckage.salvageAmount = remaining
 
-    -- Initialize partial salvage tracking fields if they don't exist (for legacy wreckage)
-    if wreckage._partialSalvage == nil then
-        wreckage._partialSalvage = 0
-    end
-    if wreckage._salvageDropped == nil then
-        wreckage._salvageDropped = 0
-    end
-
-    wreckage._partialSalvage = wreckage._partialSalvage + applied
-    wreckage._salvageDropped = wreckage._salvageDropped
-    local whole = math.floor(wreckage._partialSalvage)
-    if whole >= 1 then
-        wreckage._partialSalvage = wreckage._partialSalvage - whole
-        wreckage._salvageDropped = wreckage._salvageDropped + whole
-        spawnSalvagePickup(target, whole, world)
-        
-        -- Give XP and skill progression for salvaged resources
-        if source then
-            local xpBase = 10 -- base XP per salvaged resource
-            local salvagingLevel = Skills.getLevel("salvaging")
-            local xpGain = xpBase * (1 + salvagingLevel * 0.06) -- mild scaling per level
-            local leveledUp = Skills.addXp("salvaging", xpGain)
-
-            if leveledUp then
-                Notifications.action("Salvaging level up!")
-            end
-
-            -- Emit salvage event
-            Events.emit(Events.GAME_EVENTS.WRECKAGE_SALVAGED, {
-                player = source,
-                amount = whole,
-                resourceId = wreckage.resourceType or "scraps",
-                wreckage = target,
-                wreckageId = target.id
-            })
-        end
-    end
-
+    -- Only give resources when wreckage is completely destroyed
     if remaining <= 0 then
-        local initialTotal = wreckage.maxSalvageAmount
-        local remainingToDrop = math.max(0, math.floor(initialTotal - wreckage._salvageDropped + 0.0001))
-        if remainingToDrop > 0 then
-            wreckage._salvageDropped = wreckage._salvageDropped + remainingToDrop
-            spawnSalvagePickup(target, remainingToDrop, world)
+        local initialTotal = wreckage.maxSalvageAmount or wreckage.salvageAmount
+        local totalToDrop = math.max(1, math.floor(initialTotal))
+        
+        if totalToDrop > 0 then
+            spawnSalvagePickup(target, totalToDrop, world)
             
-            -- Give XP for remaining resources
+            -- Give XP for all salvaged resources at once
             if source then
                 local xpBase = 10
                 local salvagingLevel = Skills.getLevel("salvaging")
-                local xpGain = xpBase * (1 + salvagingLevel * 0.06) * remainingToDrop
+                local xpGain = xpBase * (1 + salvagingLevel * 0.06) * totalToDrop
                 local leveledUp = Skills.addXp("salvaging", xpGain)
 
                 if leveledUp then
                     Notifications.action("Salvaging level up!")
                 end
 
-                -- Emit salvage event for remaining resources
+                -- Emit salvage event for all resources
                 Events.emit(Events.GAME_EVENTS.WRECKAGE_SALVAGED, {
                     player = source,
-                    amount = remainingToDrop,
+                    amount = totalToDrop,
                     resourceId = wreckage.resourceType or "scraps",
                     wreckage = target,
                     wreckageId = target.id
                 })
             end
         end
-        wreckage._partialSalvage = 0
+        
         UtilityBeams.completeSalvage(nil, target, world)
         target.dead = true
     end
