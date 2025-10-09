@@ -99,18 +99,23 @@ UI elements (`StatusBars`, `SkillXpPopup`, `Theme` animations) are updated befor
 * `modifier_system.lua` applies design-time modifiers (overcharged coils, precision barrels, capacitor banks) when a turret is instantiated, changing damage, spread, cycle time, and energy usage.
 * `upgrade_system.lua` tracks per-turret experience via projectile hits and applies level-based bonuses (damage, rate of fire, improved homing) according to thresholds defined in turret content.
 * Turret instances expose `modifiers` for UI display and `upgradeEntry` for progression state.
+* Core modules (`core.lua`, projectile/beam specializations, `heat_manager.lua`) coordinate firing logic, overheating, and shared visual/audio hooks.
+* Combat weapons fire directionally (cursor or ship facing) with embedded projectile definitions per turret archetype to avoid duplicated template wiring.
 
 ### Spawning System (`src/systems/spawning.lua`)
 * Controls enemy wave timers, hub safe zones, and spawn radii.
 * Scales difficulty based on elapsed time and player state.
+* Enforces minimum spawn distance from the player, respects station safe zones, and caps simultaneous enemy counts per tier.
 
 ### Mining System (`src/systems/mining.lua`)
 * Drives mining beams, channel durations, and ore payouts from asteroids.
 * Works with content-defined mining stats and turret metadata.
+* Tracks per-asteroid progress, validates required mining tools, and spawns collectible resource crates on completion.
 
 ### Pickups System (`src/systems/pickups.lua`)
 * Finds nearby loot and applies magnetic attraction toward the player.
 * Collects pickups when within range and dispatches reward notifications.
+* Supports magnetic auto-collection, manual interaction prompts for special loot, and pickup FX/audio hooks.
 
 ### Interaction System (`src/systems/interaction.lua`)
 * Provides context prompts for docking, warp gates, repair beacons, and loot.
@@ -119,6 +124,7 @@ UI elements (`StatusBars`, `SkillXpPopup`, `Theme` animations) are updated befor
 ### Repair System (`src/systems/repair_system.lua`)
 * Lets the player repair damaged stations using carried resources.
 * Emits notifications and updates station state on success/failure.
+* Calculates repair costs/time and applies module/state updates once work completes.
 
 ### Hub/Station System (`src/systems/hub.lua`)
 * Tracks player proximity to stations and toggles the docked UI state.
@@ -127,11 +133,13 @@ UI elements (`StatusBars`, `SkillXpPopup`, `Theme` animations) are updated befor
 ### Quest System (`src/systems/quest_system.lua`)
 * Loads quest definitions from `content/quests`.
 * Updates objective counters, awards rewards, and feeds the HUD quest log.
+* Supports kill, mining, delivery, and exploration quest templates using event-driven progress hooks.
 
 ### Node Market (`src/systems/node_market.lua`)
 * Simulates candlestick data, random trend shifts, and trade volume.
 * Processes buy/sell orders from the node UI, updating the player's portfolio via `portfolio.lua`.
 * Maintains history caps to control memory usage.
+* Streams price updates and technical indicators while broadcasting portfolio events to UI widgets.
 
 ### Warp Gate System (`src/systems/warp_gate_system.lua`)
 * Tracks gate charge timers, unlock conditions, and travel requests.
@@ -142,6 +150,16 @@ UI elements (`StatusBars`, `SkillXpPopup`, `Theme` animations) are updated befor
 ### Render System (`src/systems/render.lua`)
 * Draws entities based on `renderable` components, including ships, projectiles, and world objects.
 * Delegates to specialized renderers (`src/systems/render/entity_renderers.lua`, indicators, HUD helpers).
+
+### Entity Renderers (`src/systems/render/entity_renderers.lua`)
+* Provides modular draw handlers for specific entity classes (ships, stations, asteroids, loot).
+* Keeps renderer selection data-driven so new templates can supply their `render_type` without modifying the main render loop.
+* Supports helper decorators (selection rings, docking outlines, shield arcs) that compose with base renderers.
+
+### Player Renderer (`src/systems/render/player_renderer.lua`)
+* Handles player-specific visuals, including thruster animation, shield effects, and damage feedback.
+* Synchronizes with `EngineTrailSystem` and status overlays to keep exhaust, shield pulsing, and HUD cues in lock-step.
+* Exposes hooks for cosmetics (ship skins, decals) without branching the shared entity renderer logic.
 
 ### Effects System (`src/systems/effects.lua`)
 * Manages transient particle systems and hit effects.
@@ -162,9 +180,19 @@ UI elements (`StatusBars`, `SkillXpPopup`, `Theme` animations) are updated befor
 * Maintains modal state (`isModalActive`) to pause gameplay input when overlays are open.
 * Routes input events to the top-most visible component using a registry/priority system.
 
+### Docked Interface (`src/ui/docked.lua`)
+* Drives the station services menu, including ship management, trade, and crafting panels.
+* Coordinates with `HubSystem`/`SpaceStationSystem` to transition between docked and undocked UI states.
+* Exposes callbacks so gameplay systems (repairs, quests) can register contextual actions without duplicating UI glue.
+
 ### HUD Systems (`src/ui/hud/`)
 * `StatusBars`, `SkillXpPopup`, `QuestLogHUD`, and indicator modules render gameplay feedback overlays.
 * `HotbarSystem` integrates with HUD widgets to display weapon cooldowns and manual fire state.
+
+### Inventory System (`src/ui/inventory.lua`)
+* Presents cargo, equipment slots, and loot details using the shared UI theme tokens.
+* Listens to pickup and quest events to refresh item lists and highlight new rewards.
+* Integrates drag-and-drop logic with the action map so keyboard shortcuts (equip, jettison) stay in sync.
 
 ## Support Services
 
@@ -182,6 +210,16 @@ UI elements (`StatusBars`, `SkillXpPopup`, `Theme` animations) are updated befor
 ### Sound System (`src/core/sound.lua`)
 * Registers SFX/music from `content/sounds` and attaches them to gameplay events.
 * Updates listener position each frame for positional audio.
+
+### Multiplayer System (`src/core/multiplayer.lua`)
+* Handles peer discovery, connection management, and event replication for cooperative sessions.
+* Performs state reconciliation so late joiners and lagged clients converge on the authoritative world snapshot.
+* Relies on the event bus to broadcast gameplay updates without hard-coding cross-system dependencies.
+
+### Action Map (`src/core/action_map.lua`)
+* Centralizes keyboard shortcuts and contextual actions used across gameplay and UI modules.
+* Registers actions with descriptors (`name`, `getKeys`, `callback`, optional `enabled`/`priority`) so behaviors remain declarative.
+* Integrates with `Settings` to resolve default and user-rebound keys, ensuring UI hints and input dispatch stay aligned.
 
 ### Theme & Settings (`src/core/theme.lua`, `src/core/settings.lua`)
 * Supplies fonts, colors, and spacing tokens for UI components.
@@ -210,6 +248,53 @@ graph TD
     WarpGate --> UI
     UIManager --> Hotbar
 ```
+
+### Update Flow
+
+```mermaid
+graph TD
+    A[Input System] --> B[Player System]
+    B --> C[AI System]
+    C --> D[Physics System]
+    D --> E[Collision System]
+    E --> F[Destruction System]
+    F --> G[Spawning System]
+    G --> H[Mining System]
+    H --> I[Pickup System]
+    I --> J[Quest System]
+    J --> K[Render System]
+    K --> L[UI System]
+```
+
+### Event Flow
+
+```mermaid
+graph LR
+    A[Collision System] --> B[ENTITY_DESTROYED]
+    B --> C[Destruction System]
+    C --> D[LOOT_SPAWNED]
+    D --> E[Pickup System]
+
+    F[Player System] --> G[PLAYER_DAMAGED]
+    G --> H[UI System]
+
+    I[Quest System] --> J[QUEST_COMPLETED]
+    J --> K[Player System]
+```
+
+### Data Dependencies
+
+- **World State** – Shared canonical data structure consumed by simulation and rendering systems.
+- **Player Entity** – Referenced by most gameplay systems for targeting, camera, and audio listener updates.
+- **Event System** – Backbone for decoupled communication and deferred work processing.
+- **Content System** – Supplies templates, stats, and quest definitions that systems hydrate at runtime.
+
+### Performance Considerations
+
+- **System Order** – Keep update order optimized for data locality and deterministic results.
+- **Entity Filtering** – Process only relevant entities/components per system to minimize iteration costs.
+- **Spatial Indexing** – Use quadtree/partition helpers for collision queries and proximity checks.
+- **Event Batching** – Batch event processing where possible to reduce redundant work each frame.
 
 When adding or modifying systems:
 
