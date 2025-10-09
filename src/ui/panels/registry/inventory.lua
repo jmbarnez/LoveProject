@@ -3,8 +3,11 @@ local PanelRegistry = require("src.ui.core.panel_registry")
 PanelRegistry.register({
     id = "inventory",
     defaultZ = 10,
+    useSelf = false, -- Inventory module methods don't use self
     loader = function()
-        return require("src.ui.inventory")
+        local Inventory = require("src.ui.inventory")
+        local instance = Inventory:new()
+        return instance
     end,
     isVisible = function(panel)
         return panel.visible == true
@@ -45,21 +48,23 @@ PanelRegistry.register({
             panel.update(dt)
         end
     end,
-    mousepressed = function(panel, ...)
+    mousepressed = function(panel, x, y, button, player)
         if panel.mousepressed then
-            return panel.mousepressed(...)
+            -- Inventory panel expects (x, y, button) not (x, y, button, player)
+            return panel.mousepressed(x, y, button)
         end
         return false
     end,
-    mousereleased = function(panel, ...)
+    mousereleased = function(panel, x, y, button, player)
         if panel.mousereleased then
-            return panel.mousereleased(...)
+            -- Inventory panel expects (x, y, button) not (x, y, button, player)
+            return panel.mousereleased(x, y, button)
         end
         return false
     end,
-    mousemoved = function(panel, ...)
+    mousemoved = function(panel, x, y, dx, dy)
         if panel.mousemoved then
-            return panel.mousemoved(...)
+            return panel.mousemoved(x, y, dx, dy)
         end
     end,
     wheelmoved = function(panel, ...)

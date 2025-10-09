@@ -3,6 +3,7 @@ local PanelRegistry = require("src.ui.core.panel_registry")
 PanelRegistry.register({
     id = "debug",
     defaultZ = 120,
+    useSelf = false, -- Debug module methods don't use self
     loader = function()
         return require("src.ui.debug_panel")
     end,
@@ -10,10 +11,18 @@ PanelRegistry.register({
         return panel.isVisible and panel.isVisible() or panel.visible == true
     end,
     setVisible = function(panel, open)
+        panel.visible = open == true
+    end,
+    onOpen = function(panel)
+        panel.visible = true
         if panel.setVisible then
-            panel.setVisible(open == true)
-        else
-            panel.visible = open == true
+            panel.setVisible(true)
+        end
+    end,
+    onClose = function(panel)
+        panel.visible = false
+        if panel.setVisible then
+            panel.setVisible(false)
         end
     end,
     draw = function(panel)

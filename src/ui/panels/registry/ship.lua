@@ -3,8 +3,11 @@ local PanelRegistry = require("src.ui.core.panel_registry")
 PanelRegistry.register({
     id = "ship",
     defaultZ = 15,
+    useSelf = true, -- Ship module methods use self (defined with :)
     loader = function()
-        return require("src.ui.ship")
+        local Ship = require("src.ui.ship")
+        local instance = Ship:new()
+        return instance
     end,
     isVisible = function(panel)
         return panel.visible == true
@@ -56,6 +59,12 @@ PanelRegistry.register({
     keypressed = function(panel, ...)
         if panel.keypressed then
             return panel.keypressed(...)
+        end
+        return false
+    end,
+    mousepressed = function(panel, ...)
+        if panel.mousepressed then
+            return panel.mousepressed(...)
         end
         return false
     end,

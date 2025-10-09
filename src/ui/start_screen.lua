@@ -501,9 +501,7 @@ function Start:draw()
   local vhover = mx >= vbx and mx <= vbx + vbw and my >= vby and my <= vby + vbh
 
   -- Use unified button system for version button
-  Theme.drawCompactButton(vbx, vby, vbw, vbh, versionText, vhover, t, { 
-    color = {0, 0, 0, 0.3} -- Semi-transparent background
-  })
+  Theme.drawCompactButton(vbx, vby, vbw, vbh, versionText, vhover, t)
 
   self.versionButton._rect = { x = vbx, y = vby, w = vbw, h = vbh }
 

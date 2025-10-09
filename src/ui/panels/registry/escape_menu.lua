@@ -4,6 +4,7 @@ PanelRegistry.register({
     id = "escape",
     defaultZ = 100,
     modal = true,
+    useSelf = false, -- Escape menu module methods don't use self
     loader = function()
         return require("src.ui.escape_menu")
     end,
@@ -49,6 +50,26 @@ PanelRegistry.register({
     keypressed = function(panel, ...)
         if panel.keypressed then
             return panel.keypressed(...)
+        end
+        return false
+    end,
+    mousepressed = function(panel, x, y, button, player)
+        if panel.mousepressed then
+            -- Escape panel expects (x, y, button) not (x, y, button, player)
+            return panel.mousepressed(x, y, button)
+        end
+        return false
+    end,
+    mousereleased = function(panel, x, y, button, player)
+        if panel.mousereleased then
+            -- Escape panel expects (x, y, button) not (x, y, button, player)
+            return panel.mousereleased(x, y, button)
+        end
+        return false
+    end,
+    mousemoved = function(panel, x, y, dx, dy)
+        if panel.mousemoved then
+            return panel.mousemoved(x, y, dx, dy)
         end
         return false
     end,

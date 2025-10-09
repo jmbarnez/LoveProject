@@ -4,6 +4,7 @@ PanelRegistry.register({
     id = "rewardWheel",
     defaultZ = 115,
     modal = true,
+    useSelf = false, -- Reward wheel module methods don't use self
     loader = function()
         return require("src.ui.reward_wheel_panel")
     end,

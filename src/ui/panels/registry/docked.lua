@@ -4,21 +4,25 @@ PanelRegistry.register({
     id = "docked",
     defaultZ = 40,
     modal = true,
+    useSelf = true, -- Docked module methods use self (defined with :)
     loader = function()
-        return require("src.ui.docked")
+        local Docked = require("src.ui.docked")
+        local instance = Docked:new()
+        return instance
     end,
     isVisible = function(panel)
-        return panel.isVisible and panel.isVisible()
+        return panel.visible == true
     end,
     setVisible = function(panel, open)
-        if panel.setVisible then
-            panel.setVisible(open == true)
-        else
-            panel.visible = open == true
-        end
+        panel.visible = open == true
+    end,
+    onOpen = function(panel)
+        panel.visible = true
+        -- Don't call show() here as it expects (player, station) parameters
+        -- The docking system handles this directly
     end,
     captureTextInput = function(panel)
-        return panel.isSearchActive and panel.isSearchActive()
+        return panel.state and panel.state:isSearchActive()
     end,
     getRect = function()
         local Viewport = require("src.core.viewport")
@@ -46,5 +50,41 @@ PanelRegistry.register({
             end
             panel.visible = false
         end
+    end,
+    mousepressed = function(panel, x, y, button, player)
+        if panel.mousepressed then
+            return panel.mousepressed(x, y, button, player)
+        end
+        return false
+    end,
+    mousereleased = function(panel, x, y, button, player)
+        if panel.mousereleased then
+            return panel.mousereleased(x, y, button, player)
+        end
+        return false
+    end,
+    mousemoved = function(panel, x, y, dx, dy, player)
+        if panel.mousemoved then
+            return panel.mousemoved(x, y, dx, dy, player)
+        end
+        return false
+    end,
+    wheelmoved = function(panel, dx, dy, player)
+        if panel.wheelmoved then
+            return panel.wheelmoved(dx, dy, player)
+        end
+        return false
+    end,
+    keypressed = function(panel, key, scancode, isrepeat, player)
+        if panel.keypressed then
+            return panel.keypressed(key, scancode, isrepeat, player)
+        end
+        return false
+    end,
+    textinput = function(panel, text, player)
+        if panel.textinput then
+            return panel.textinput(text, player)
+        end
+        return false
     end,
 })

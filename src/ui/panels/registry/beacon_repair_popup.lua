@@ -4,6 +4,7 @@ PanelRegistry.register({
     id = "beaconRepair",
     defaultZ = 113,
     modal = true,
+    useSelf = false, -- Beacon repair popup module methods don't use self
     loader = function()
         return require("src.ui.beacon_repair_popup")
     end,

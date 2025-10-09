@@ -4,6 +4,7 @@ PanelRegistry.register({
     id = "repairPopup",
     defaultZ = 112,
     modal = true,
+    useSelf = false, -- Repair popup module methods don't use self
     loader = function()
         return require("src.ui.repair_popup")
     end,

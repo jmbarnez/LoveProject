@@ -175,11 +175,11 @@ function Pickups.update(dt, world, player)
       local vel = e.components.velocity
       local pos = e.components.position
       -- Apply velocity
-      pos.x = pos.x + vel.vx * dt
-      pos.y = pos.y + vel.vy * dt
+      pos.x = pos.x + vel.x * dt
+      pos.y = pos.y + vel.y * dt
       -- Light drag
-      vel.vx = vel.vx * 0.98
-      vel.vy = vel.vy * 0.98
+      vel.x = vel.x * 0.98
+      vel.y = vel.y * 0.98
     end
   end
 
@@ -231,8 +231,8 @@ function Pickups.update(dt, world, player)
       local speed = BASE_PULL * pullStrength
       
       local vel = e.components.velocity
-      vel.vx = vel.vx + dirx * speed * dt
-      vel.vy = vel.vy + diry * speed * dt
+      vel.x = vel.x + dirx * speed * dt
+      vel.y = vel.y + diry * speed * dt
       
       -- Add visual feedback for magnetic pull (occasional particles)
       if math.random() < 0.02 * pullStrength then -- More particles when pull is stronger

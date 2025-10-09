@@ -4,6 +4,7 @@ PanelRegistry.register({
     id = "settings",
     defaultZ = 110,
     modal = true,
+    useSelf = false, -- Settings module methods don't use self
     loader = function()
         return require("src.ui.settings_panel")
     end,
@@ -35,5 +36,29 @@ PanelRegistry.register({
         if panel.update then
             panel.update(dt)
         end
+    end,
+    keypressed = function(panel, ...)
+        if panel.keypressed then
+            return panel.keypressed(...)
+        end
+        return false
+    end,
+    mousepressed = function(panel, ...)
+        if panel.mousepressed then
+            return panel.mousepressed(...)
+        end
+        return false
+    end,
+    mousereleased = function(panel, ...)
+        if panel.mousereleased then
+            return panel.mousereleased(...)
+        end
+        return false
+    end,
+    mousemoved = function(panel, ...)
+        if panel.mousemoved then
+            return panel.mousemoved(...)
+        end
+        return false
     end,
 })

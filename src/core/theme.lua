@@ -118,13 +118,13 @@ function Theme.loadFonts()
   local fontScale = (Viewport.getFontScale() or 1.0) * (Viewport.getUIScale() or 1.0)
   local fontPath = "assets/fonts/PressStart2P-Regular.ttf"
   local fontSizes = {
-    xsmall = 8,    -- Increased from 7 for better readability
-    small = 10,    -- Increased from 9 for better readability
-    normal = 12,   -- Increased from 11 for better readability
-    medium = 14,   -- Increased from 13 for better readability
-    large = 16,    -- Increased from 15 for better readability
-    title = 18,    -- Increased from 17 for better readability
-    monospace = 10 -- Increased from 9 for better readability
+    xsmall = 6,    -- Smaller for compact UI elements
+    small = 8,     -- Smaller for buttons and compact text
+    normal = 10,   -- Reduced for better button text fit
+    medium = 12,   -- Reduced for better UI text fit
+    large = 14,    -- Reduced for better UI text fit
+    title = 16,    -- Reduced for better UI text fit
+    monospace = 8  -- Smaller for compact UI elements
   }
 
   -- Initialize fonts table if it doesn't exist
@@ -897,10 +897,10 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
   
   -- No hover sounds - only click sounds for better UX
   
-  -- Transparent background with accent border/text
-  local baseColor = {0, 0, 0, 0} -- Fully transparent background
+  -- Button-like background with proper contrast
+  local baseColor = {0.1, 0.1, 0.1, 0.8} -- Dark semi-transparent background
   local borderColor = Theme.colors.accent -- Accent border
-  local textColor = Theme.colors.accent -- Accent text
+  local textColor = Theme.colors.text -- White text for better contrast
   
   -- Use custom color if provided (for special buttons like Apply/Reset)
   if color then
@@ -922,20 +922,20 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
       }
       textColor = {0, 0, 0, 1.0} -- Keep black text for visibility
     else
-      -- Add subtle background tint on hover for visibility
-      baseColor = {Theme.colors.accent[1], Theme.colors.accent[2], Theme.colors.accent[3], 0.2}
+      -- Make button more prominent on hover
+      baseColor = {0.2, 0.2, 0.2, 0.9} -- Darker, more opaque background
       
       -- Make border and text brighter on hover
       borderColor = {
-        math.min(1.0, borderColor[1] + 0.3),
-        math.min(1.0, borderColor[2] + 0.3), 
-        math.min(1.0, borderColor[3] + 0.3),
+        math.min(1.0, borderColor[1] + 0.2),
+        math.min(1.0, borderColor[2] + 0.2), 
+        math.min(1.0, borderColor[3] + 0.2),
         borderColor[4]
       }
       textColor = {
-        math.min(1.0, textColor[1] + 0.3),
-        math.min(1.0, textColor[2] + 0.3), 
-        math.min(1.0, textColor[3] + 0.3),
+        math.min(1.0, textColor[1] + 0.1),
+        math.min(1.0, textColor[2] + 0.1), 
+        math.min(1.0, textColor[3] + 0.1),
         textColor[4]
       }
     end
@@ -957,24 +957,38 @@ function Theme.drawStyledButton(x, y, w, h, text, hover, t, color, down, opts)
     h = h * scale
   end
 
-  -- If pressed down, make it darker
+  -- If pressed down, make it darker and add visual feedback
   if down then
     baseColor = {
-      baseColor[1] * 0.7,
-      baseColor[2] * 0.7,
-      baseColor[3] * 0.7,
-      math.min(1.0, baseColor[4] * 1.5) -- Make it more opaque when pressed
+      baseColor[1] * 0.5,
+      baseColor[2] * 0.5,
+      baseColor[3] * 0.5,
+      math.min(1.0, baseColor[4] * 1.2) -- Make it more opaque when pressed
     }
+    -- Slightly offset the button to simulate being pressed
+    x = x + 1
+    y = y + 1
   end
   
   -- Draw button background
   Theme.setColor(baseColor)
   love.graphics.rectangle("fill", x, y, w, h)
   
-  -- Draw accent border
+  -- Draw accent border with better visibility
   Theme.setColor(borderColor)
-  love.graphics.setLineWidth(2)
+  love.graphics.setLineWidth(1)
   love.graphics.rectangle("line", x, y, w, h)
+  
+  -- Add inner highlight for better button definition
+  local highlightColor = {
+    math.min(1.0, borderColor[1] + 0.3),
+    math.min(1.0, borderColor[2] + 0.3),
+    math.min(1.0, borderColor[3] + 0.3),
+    borderColor[4] * 0.5
+  }
+  Theme.setColor(highlightColor)
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("line", x + 1, y + 1, w - 2, h - 2)
 
   -- If a fixed font is provided via opts, use it for consistent sizing
   local padX = 12
