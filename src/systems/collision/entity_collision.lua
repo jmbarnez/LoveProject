@@ -973,7 +973,15 @@ function EntityCollision.checkProjectileCollision(projectile, target, dt)
     -- Use the same collision detection as laser beams (line-segment detection)
     -- Use ProjectileUtils for consistency with the projectile handler
     local ProjectileUtils = require("src.systems.collision.helpers.projectile_utils")
-    return ProjectileUtils.perform_collision_check(x1, y1, x2, y2, target, targetRadius)
+    
+    -- Get projectile radius from collidable component
+    local projectileRadius = 2.0 -- Default radius
+    local projectileCollidable = projectile.components.collidable
+    if projectileCollidable and projectileCollidable.radius then
+        projectileRadius = projectileCollidable.radius
+    end
+    
+    return ProjectileUtils.perform_collision_check(x1, y1, x2, y2, target, targetRadius, projectileRadius)
 end
 
 -- Handle projectile-specific collision behavior

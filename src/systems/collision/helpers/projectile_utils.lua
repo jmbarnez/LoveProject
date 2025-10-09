@@ -58,7 +58,7 @@ function ProjectileUtils.validate_target_radius(target_radius)
     return target_radius
 end
 
-function ProjectileUtils.perform_collision_check(x1, y1, x2, y2, target, target_radius)
+function ProjectileUtils.perform_collision_check(x1, y1, x2, y2, target, target_radius, projectile_radius)
     if math.abs(x1 - x2) + math.abs(y1 - y2) < 0.01 then
         return false
     end
@@ -77,6 +77,7 @@ function ProjectileUtils.perform_collision_check(x1, y1, x2, y2, target, target_
     end
 
     target_radius = ProjectileUtils.validate_target_radius(target_radius)
+    projectile_radius = projectile_radius or 2.0 -- Default projectile radius
 
     local health = components.health
     if health and (health.shield or 0) > 0 then
@@ -97,7 +98,19 @@ function ProjectileUtils.perform_collision_check(x1, y1, x2, y2, target, target_
         end
     end
 
-    return Physics.segCircleHit(x1, y1, x2, y2, ex, ey, target_radius)
+    -- Use circle-to-circle collision detection instead of line-segment to circle
+    -- This prevents bullets from passing through enemies
+    return ProjectileUtils.circleToCircleHit(x1, y1, x2, y2, ex, ey, target_radius, projectile_radius)
+end
+
+function ProjectileUtils.circleToCircleHit(x1, y1, x2, y2, cx, cy, target_radius, projectile_radius)
+    projectile_radius = projectile_radius or 2.0 -- Default projectile radius
+    
+    -- Calculate the total radius (projectile + target)
+    local total_radius = projectile_radius + target_radius
+    
+    -- Use the existing line-segment to circle collision, but with the combined radius
+    return Physics.segCircleHit(x1, y1, x2, y2, cx, cy, total_radius)
 end
 
 function ProjectileUtils.is_station_shield_hit(projectile, target)

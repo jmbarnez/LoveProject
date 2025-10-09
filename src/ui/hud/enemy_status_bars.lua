@@ -92,10 +92,15 @@ function EnemyStatusBars.drawMiniBars(entity)
   if isPlayer then
     -- Always show for players
   elseif isProjectile then
-    -- For projectiles, only show if damaged (not at full health)
+    -- For projectiles, show if damaged OR recently created (for visibility)
     local hpPct = (h.hp or 0) / math.max(1, h.maxHP or 1)
-    if hpPct >= 1.0 then
-      return -- Don't show health bar for undamaged projectiles
+    local showTime = 1.0 -- Show for 1 second after creation
+    local last = entity._hudDamageTime or -1e9
+    local timeSinceDamage = love.timer.getTime() - last
+    local recentlyDamaged = timeSinceDamage <= showTime
+    
+    if hpPct >= 1.0 and not recentlyDamaged then
+      return -- Don't show health bar for undamaged projectiles unless recently created
     end
   else
     -- For other entities (enemies, stations, etc.), show bars if recently damaged OR if low on health/shield
@@ -139,16 +144,34 @@ function EnemyStatusBars.drawMiniBars(entity)
     end
   end
   
-  local barW = math.max(60, math.min(140, radius * 2.4))
-  local barH = 12
+  -- Calculate bar size based on entity type
+  local barW, barH
+  if isProjectile then
+    -- Smaller bars for projectiles
+    barW = math.max(20, math.min(40, radius * 3))
+    barH = 6
+  else
+    -- Standard bars for other entities
+    barW = math.max(60, math.min(140, radius * 2.4))
+    barH = 12
+  end
 
   -- Position above the ship: undo rotation so bars are screen-aligned
   local angle = (entity.components.position and entity.components.position.angle) or 0
   love.graphics.push()
   love.graphics.rotate(-angle)
 
-  local baseY = -(radius + 22)
-  local x0 = -barW/2
+  -- Adjust positioning based on entity type
+  local baseY, x0
+  if isProjectile then
+    -- Closer positioning for projectiles
+    baseY = -(radius + 8)
+    x0 = -barW/2
+  else
+    -- Standard positioning for other entities
+    baseY = -(radius + 22)
+    x0 = -barW/2
+  end
 
   -- Combined hull + shield bar (like player) - shield overlays hull
   local hpPct = math.max(0, math.min(1, hp / math.max(1, maxHP)))

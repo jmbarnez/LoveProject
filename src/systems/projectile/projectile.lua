@@ -316,6 +316,13 @@ function Projectile.new(x, y, angle, friendly, config)
         world = world,
     })
 
+    -- Set initial damage time so health bars show briefly when projectiles are created
+    if love and love.timer and love.timer.getTime then
+        self._hudDamageTime = love.timer.getTime()
+    else
+        self._hudDamageTime = os.clock()
+    end
+
     return self
 end
 
