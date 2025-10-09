@@ -395,23 +395,42 @@ function Turret.getTurretWorldPosition(turret)
                     local candidateX, candidateY = nil, nil
 
                     if shape.type == "circle" then
+                        -- For circles, use the center as the muzzle tip
                         candidateX = shape.x
                         candidateY = shape.y
                     elseif shape.type == "rectangle" then
-                        candidateX = shape.x + shape.w / 2
-                        candidateY = shape.y + shape.h / 2
+                        -- For rectangles, find the tip (farthest point from pivot in the direction of the rectangle)
+                        local rectCenterX = shape.x + shape.w / 2
+                        local rectCenterY = shape.y + shape.h / 2
+                        local rectAngle = math.atan2(rectCenterY - pivotY, rectCenterX - pivotX)
+                        
+                        -- Calculate the tip position (farthest point in the direction of the rectangle)
+                        local halfWidth = shape.w / 2
+                        local halfHeight = shape.h / 2
+                        local tipDistance = math.sqrt(halfWidth * halfWidth + halfHeight * halfHeight)
+                        candidateX = rectCenterX + math.cos(rectAngle) * tipDistance
+                        candidateY = rectCenterY + math.sin(rectAngle) * tipDistance
                     elseif shape.type == "polygon" and shape.points then
-                        local sumX, sumY = 0, 0
-                        local count = 0
+                        -- For polygons, find the farthest point from the pivot
+                        local farthestX, farthestY = nil, nil
+                        local maxDistSq = -1
+                        
                         for i = 1, #shape.points, 2 do
-                            sumX = sumX + shape.points[i]
-                            sumY = sumY + shape.points[i + 1]
-                            count = count + 1
+                            local px = shape.points[i]
+                            local py = shape.points[i + 1]
+                            local dx = px - pivotX
+                            local dy = py - pivotY
+                            local distSq = dx * dx + dy * dy
+                            
+                            if distSq > maxDistSq then
+                                maxDistSq = distSq
+                                farthestX = px
+                                farthestY = py
+                            end
                         end
-                        if count > 0 then
-                            candidateX = sumX / count
-                            candidateY = sumY / count
-                        end
+                        
+                        candidateX = farthestX
+                        candidateY = farthestY
                     end
 
                     if candidateX and candidateY then

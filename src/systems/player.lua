@@ -463,7 +463,9 @@ function PlayerSystem.update(dt, player, input, world, hub)
             local dx = ppos.x - station.components.position.x
             local dy = ppos.y - station.components.position.y
             local distSq = dx * dx + dy * dy
-            if distSq <= (station.weaponDisableRadius or 0) ^ 2 then
+            -- Use the actual safe zone radius from the visual ring
+            local safeZoneRadius = station.actualSafeZoneRadius or station.weaponDisableRadius or (station.radius or 50) * 1.5
+            if distSq <= safeZoneRadius ^ 2 then
                 inWeaponDisableZone = true
                 break
             end

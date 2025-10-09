@@ -160,25 +160,7 @@ function Effects.spawnImpact(kind, cx, cy, r, hx, hy, angle, style, bulletKind, 
   end
 
   if kind == 'hull' then
-    local n = 6 + math.random(4)
-    for i=1,n do
-      local a = angle + (math.random()*2-1) * math.pi*0.35
-      local s = 180 + math.random()*120
-      Effects.add({ type='spark', x=hx, y=hy, vx=math.cos(a)*s, vy=math.sin(a)*s, t=0, life=0.25+math.random()*0.25,
-        color = {1.0,0.85,0.2,0.9}, size = 1.6 })
-    end
-    Effects.add({ type='ring', x=hx, y=hy, r0=2, r1=24, w0=3, w1=1, t=0, life=0.25, color={1,0.5,0.1,0.45} })
-    if bulletKind == 'laser' then
-      Effects.add({ type='ring', x=hx, y=hy, r0=1, r1=18, w0=2, w1=1, t=0, life=0.2, color={0.6,0.9,1.0,0.6} })
-    elseif bulletKind == 'missile' then
-      for i=1,6 do
-        local a = angle + (math.random()*2-1) * math.pi
-        local s = 120 + math.random()*180
-        Effects.add({ type='spark', x=hx, y=hy, vx=math.cos(a)*s, vy=math.sin(a)*s, t=0, life=0.3+math.random()*0.25,
-          color={1.0,0.7,0.3,0.9}, size=2 })
-      end
-      Effects.add({ type='smoke', x=hx, y=hy, r0=10, rg=70, t=0, life=0.9, color={0.35,0.35,0.35,0.35} })
-    end
+    -- Simple hull impact - no additional effects
   else -- shield
     -- Create enhanced shield impact animation at precise hit point (with entity reference for tracking)
     local ripple = nil
@@ -356,12 +338,13 @@ function Effects.draw()
         
         love.graphics.setLineWidth(1)
       else
+        -- Simple hull impact effect - just a circle (larger)
         local sc = p.hull.spark
         local rc = p.hull.ring
         love.graphics.setColor(sc[1], sc[2], sc[3], (sc[4] or 0.6) * a)
-        love.graphics.circle('fill', p.x, p.y, 3)
+        love.graphics.circle('fill', p.x, p.y, 5)
         love.graphics.setColor(rc[1], rc[2], rc[3], (rc[4] or 0.4) * a)
-        love.graphics.circle('line', p.x, p.y, 6)
+        love.graphics.circle('line', p.x, p.y, 10)
       end
     end
   end

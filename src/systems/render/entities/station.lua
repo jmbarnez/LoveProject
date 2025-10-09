@@ -43,7 +43,18 @@ local function render(entity, player)
         love.graphics.setLineWidth(1)
     end
 
-    -- Weapons disabled ring removed for better immersion
+    -- Draw station safe zone radius ring (always visible)
+    -- This ring defines the actual safe zone radius for both docking and weapons
+    local safeZoneRadius = (entity.weaponDisableRadius or (entity.radius or 50) * 1.5) * 2
+    
+    -- Draw simple ring
+    love.graphics.setColor(1.0, 0.5, 0.0, 0.6)  -- Orange with transparency
+    love.graphics.setLineWidth(2)
+    love.graphics.circle("line", 0, 0, safeZoneRadius)
+    love.graphics.setLineWidth(1)
+    
+    -- Set the actual safe zone radius on the entity for other systems to use
+    entity.actualSafeZoneRadius = safeZoneRadius
 end
 
 return render

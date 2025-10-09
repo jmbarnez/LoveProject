@@ -56,7 +56,8 @@ function Camera:apply()
   local w, h = Viewport.getDimensions()
   love.graphics.translate(w * 0.5, h * 0.5)
   love.graphics.scale(self.scale, self.scale)
-  love.graphics.translate(-math.floor(self.x), -math.floor(self.y))
+  -- Use stable camera position to prevent flickering
+  love.graphics.translate(-self.x, -self.y)
 end
 
 function Camera:reset()
@@ -65,32 +66,26 @@ end
 function Camera:getBounds()
     local w = love.graphics.getWidth() / self.scale
     local h = love.graphics.getHeight() / self.scale
-    -- Use the same floor operation as apply() for pixel-perfect accuracy
-    local visualX = math.floor(self.x)
-    local visualY = math.floor(self.y)
-    local x = visualX - w / 2
-    local y = visualY - h / 2
+    -- Use stable camera position to prevent flickering
+    local x = self.x - w / 2
+    local y = self.y - h / 2
     return x, y, w, h
 end
 
 
 function Camera:screenToWorld(sx, sy)
   local w, h = Viewport.getDimensions()
-  -- Use the same floor operation as apply() for pixel-perfect accuracy
-  local visualX = math.floor(self.x)
-  local visualY = math.floor(self.y)
-  local x = (sx - w * 0.5) / self.scale + visualX
-  local y = (sy - h * 0.5) / self.scale + visualY
+  -- Use stable camera position to prevent flickering
+  local x = (sx - w * 0.5) / self.scale + self.x
+  local y = (sy - h * 0.5) / self.scale + self.y
   return x, y
 end
 
 function Camera:worldToScreen(wx, wy)
   local w, h = Viewport.getDimensions()
-  -- Use the same floor operation as apply() for pixel-perfect accuracy
-  local visualX = math.floor(self.x)
-  local visualY = math.floor(self.y)
-  local sx = (wx - visualX) * self.scale + w * 0.5
-  local sy = (wy - visualY) * self.scale + h * 0.5
+  -- Use stable camera position to prevent flickering
+  local sx = (wx - self.x) * self.scale + w * 0.5
+  local sy = (wy - self.y) * self.scale + h * 0.5
   return sx, sy
 end
 

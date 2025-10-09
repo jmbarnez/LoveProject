@@ -36,6 +36,7 @@ return {
     },
 
     -- Station properties
+    docking_radius = 80,  -- Docking allowed within this radius
     weapon_disable_radius = 120,  -- Weapons disabled within this radius
     shield_radius = 200,  -- Shield protection radius
     radius = 50,  -- Station radius for calculations
@@ -75,8 +76,6 @@ return {
             { type = "circle", mode = "fill", color = {0.0, 1.0, 0.0, 0.8}, x = 0, y = 25, r = 3 },
             { type = "circle", mode = "fill", color = {0.0, 1.0, 0.0, 0.8}, x = 0, y = -25, r = 3 },
 
-            -- Weapon disabled ring
-            { type = "circle", mode = "line", color = {1.0, 0.5, 0.0, 0.4}, x = 0, y = 0, r = 120, lineWidth = 2 },
         }
     },
 }

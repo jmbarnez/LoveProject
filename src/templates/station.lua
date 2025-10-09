@@ -18,6 +18,7 @@ function Station.new(x, y, config)
     visuals = visuals or {}
     local visualSize = visuals.size or 1.0
 
+    local hasCustomDockingRadius = config.docking_radius ~= nil
     local hasCustomWeaponDisable = config.weapon_disable_radius ~= nil
     local hasCustomShieldRadius = config.shield_radius ~= nil
 
@@ -39,6 +40,7 @@ function Station.new(x, y, config)
     if config.radius then
         self.radius = config.radius
     end
+    self.dockingRadius = config.docking_radius or (self.radius * 1.2)
     self.weaponDisableRadius = config.weapon_disable_radius or (self.radius * 1.5)
     self.shieldRadius = config.shield_radius or (self.radius * 5)
 
@@ -98,6 +100,9 @@ function Station.new(x, y, config)
         local collidableRadius = self.components.collidable.radius
         if collidableRadius and collidableRadius > (self.radius or 0) then
             self.radius = collidableRadius
+            if not hasCustomDockingRadius then
+                self.dockingRadius = self.radius * 1.2
+            end
             if not hasCustomWeaponDisable then
                 self.weaponDisableRadius = self.radius * 1.5
             end
