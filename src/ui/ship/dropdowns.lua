@@ -1,6 +1,6 @@
 local Content = require("src.content.content")
 local Dropdown = require("src.ui.common.dropdown")
-local InventoryUI = require("src.ui.inventory")
+local CargoUI = require("src.ui.cargo")
 local ShipUtils = require("src.ui.ship.utils")
 
 local Dropdowns = {}
@@ -95,8 +95,8 @@ function Dropdowns.refresh(state, player)
                 state.slotDropdowns[i]:setSelectedIndex(index)
             end
 
-            if InventoryUI and InventoryUI.refresh then
-                InventoryUI.refresh()
+                        if CargoUI and CargoUI.refresh then
+                            CargoUI.refresh()
             end
 
             Dropdowns.refresh(state, player)

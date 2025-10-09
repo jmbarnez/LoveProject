@@ -63,7 +63,7 @@ local function openContextMenu(DockedUI, item, menuType, anchorX, anchorY)
   menu._inputRect = { x = inputX, y = inputY, w = inputW, h = inputH }
 end
 
-local function buildPlayerInventory(player)
+local function buildPlayerCargo(player)
   local items = {}
   if not player or not player.components or not player.components.cargo then
     return items
@@ -167,9 +167,9 @@ function Shop.drawBuybackItems(DockedUI, x, y, w, h, player)
   end
 end
 
-function Shop.drawPlayerInventoryForSale(DockedUI, x, y, w, h, player)
+function Shop.drawPlayerCargoForSale(DockedUI, x, y, w, h, player)
   if not player or not player.components or not player.components.cargo then return end
-  local items = buildPlayerInventory(player)
+  local items = buildPlayerCargo(player)
   local slotSize = 64
   local padding = 6
   local cols = math.floor(w / (slotSize + padding))

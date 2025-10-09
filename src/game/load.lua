@@ -157,15 +157,15 @@ function Load.load(Game, fromSave, saveSlot, loadingScreen, multiplayer, isHost)
     Sound.setListenerPosition(pos.x, pos.y)
   end
 
-  local Inventory = require("src.ui.inventory")
-  if Inventory.refresh then Inventory.refresh() end
+  local CargoUI = require("src.ui.cargo")
+  if CargoUI.refresh then CargoUI.refresh() end
 
   Input.init({
     camera = camera,
     player = player,
     world = world,
-    getInventoryOpen = function() return UIManager.isOpen("inventory") end,
-    setInventoryOpen = function(value) if value then UIManager.open("inventory") else UIManager.close("inventory") end end,
+    getCargoOpen = function() return UIManager.isOpen("cargo") end,
+    setCargoOpen = function(value) if value then UIManager.open("cargo") else UIManager.close("cargo") end end,
     clickMarkers = clickMarkers,
     hoveredEntity = hoveredEntity,
     hoveredEntityType = hoveredEntityType
