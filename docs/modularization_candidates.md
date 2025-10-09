@@ -1,0 +1,16 @@
+# Modularization Candidates
+
+The following Lua modules have grown large enough that refactoring them into smaller, purpose-specific files would likely improve readability, maintainability, and testing. Line counts come from `wc -l`.
+
+| File | Approx. Lines | Primary Responsibilities Today | Suggested Next Steps |
+| --- | --- | --- | --- |
+| `src/core/network/session.lua` | ~1222 | Orchestrates multiplayer session state, world snapshot queuing, network event wiring, and weapon request routing in a single module, with lifecycle methods like `Session.load`, `Session.update`, and `Session.handleWeaponRequest`. | Extract discrete concerns into `session_lifecycle.lua` (load/update/setup) and `session_world_sync.lua` (snapshot queueing and broadcast helpers) to isolate host/client flows. Consider moving weapon request handling into `systems/combat/network_weapon_handler.lua`. |
+| `src/ui/nodes.lua` | ~1206 | Owns UI state, chart rendering, trading panel drawing, animations, and input handlers such as `Nodes:update` and `Nodes:mousepressed`. | Split visual rendering into `nodes/chart_view.lua` and trading interactions into `nodes/trade_panel.lua`, leaving a slim controller to compose them. Relocate dropdown wiring and history tracking into dedicated helpers. |
+| `src/core/theme.lua` | ~1205 | Contains the entire color palette, typography, icon effects, and drawing helpers in a single dictionary-heavy module. | Separate static theme tokens into JSON or Lua tables under `content/theme/` and keep runtime drawing helpers (e.g., gradient utilities) in a lean `theme/drawing.lua`. This enables reuse and easier palette swaps. |
+| `src/ui/docked.lua` | ~1126 | Manages docked station UI, including window layout, quest panels, shop inventory, furnace smelting logic, and contextual input handling. | Introduce submodules such as `docked/furnace.lua`, `docked/shop_panel.lua`, and `docked/context_menu.lua` that expose draw/update hooks, leaving the parent module to route events. |
+| `src/ui/ship.lua` | ~1108 | Couples equipment layout rendering, turret management, hotbar preview construction, and docking checks within one script. | Extract ship loadout drawing to `ship/loadout_view.lua` and move hotbar preview + notifications into `ship/hotbar_preview.lua`. Provide a shared data adapter that Inventory UI can reuse. |
+| `src/ui/inventory.lua` | ~1025 | Handles cargo grid logic, crate rewards, shader setup, sorting/searching, context menus, and drag interactions. | Refactor search/sort state into `inventory/filters.lua`, crate reward handling into `inventory/rewards.lua`, and render routines into `inventory/grid_view.lua`. |
+| `src/core/network/server.lua` | ~1014 | Implements the authoritative host loop, message caching, player state sanitization, and reconciliation/backoff logic. | Break into `server/connection_registry.lua` for peer bookkeeping and `server/state_diff.lua` for snapshot hashing/delta emission to clarify responsibilities. |
+| `src/ui/start_screen.lua` | ~961 | Runs animated backgrounds, menu layout, profile handling, and tutorial banners. | Promote animation code into `start_screen/animations.lua` and separate profile I/O into a service under `core/profile`. |
+
+These refactors would align with the project’s modular direction and make it easier to onboard contributors into specific gameplay or UI areas.
