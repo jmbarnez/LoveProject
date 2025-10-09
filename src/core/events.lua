@@ -202,8 +202,8 @@ Events.GAME_EVENTS = {
   OBJECTIVE_COMPLETED = "objective_completed",
   
   -- UI events
-  INVENTORY_OPENED = "inventory_opened",
-  INVENTORY_CLOSED = "inventory_closed",
+  CARGO_OPENED = "cargo_opened",
+  CARGO_CLOSED = "cargo_closed",
   SHOP_OPENED = "shop_opened",
   CAN_DOCK = "can_dock",
   CAN_WARP = "can_warp",

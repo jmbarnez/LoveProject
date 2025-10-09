@@ -31,7 +31,7 @@ local settings = {
         music_volume = 0.25,
     },
     keymap = {
-        toggle_inventory = { primary = "tab" },
+        toggle_cargo = { primary = "tab" },
         toggle_ship = { primary = "g" },
         toggle_skills = { primary = "p" },
         toggle_map = { primary = "m" },

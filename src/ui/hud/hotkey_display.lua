@@ -32,7 +32,7 @@ function HotkeyDisplay.draw()
 
     local hotkeys = {
         { action = "Dock", key = keymap.dock },
-        { action = "Inventory", key = keymap.toggle_inventory },
+        { action = "Cargo", key = keymap.toggle_cargo },
         { action = "Skills", key = keymap.toggle_skills },
         { action = "Map", key = keymap.toggle_map },
     }
