@@ -48,6 +48,14 @@ PanelRegistry.register({
             end
             panel.visible = false
         end
+        
+        -- Ensure UI state is properly updated
+        local UIState = require("src.core.ui.state")
+        UIState.close("docked")
+        
+        -- Force modal handler to update
+        local UIModalHandler = require("src.core.ui.modal_handler")
+        UIModalHandler.update()
     end,
     mousepressed = function(panel, x, y, button, player)
         if panel.mousepressed then

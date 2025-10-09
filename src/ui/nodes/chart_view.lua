@@ -60,6 +60,19 @@ local function drawHeader(self, node, stats, layout)
     end
 
     self.nodeDropdown:setOptions(nodeOptions)
+    
+    -- Synchronize dropdown selection with current selectedSymbol
+    if self.selectedSymbol then
+        local selectedIndex = 1
+        for i, nodeInfo in ipairs(nodes) do
+            if nodeInfo.symbol == self.selectedSymbol then
+                selectedIndex = i
+                break
+            end
+        end
+        self.nodeDropdown:setSelectedIndex(selectedIndex)
+    end
+    
     self.nodeDropdown:setPosition(layout.x, layout.y)
     self.nodeDropdown:drawButtonOnly(layout.mx, layout.my)
 
@@ -381,16 +394,33 @@ function ChartView.wheelmoved(self, dx, dy)
             })
         end
 
-        local zoomFactor = 1 + (dy * 0.1)
-        self.zoom = math.max(0.05, math.min(32.0, (self.zoom or 1.0) * zoomFactor))
+        -- Check for shift key to enable independent Y-axis scaling
+        local isShiftPressed = love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift")
+        
+        if isShiftPressed then
+            -- Independent Y-axis scaling when shift is held
+            local yScaleFactor = dy > 0 and 1.1 or 0.9
+            self.yScale = math.max(0.1, math.min(20.0, (self.yScale or 1.0) * yScaleFactor))
+        else
+            -- Normal zoom behavior with proper multiplicative scaling
+            local zoomFactor = dy > 0 and 1.1 or 0.9
+            local newZoom = math.max(0.05, math.min(32.0, (self.zoom or 1.0) * zoomFactor))
+            
+            -- Coordinate yScale adjustment with zoom changes
+            local zoomRatio = newZoom / (self.zoom or 1.0)
+            self.yScale = math.max(0.1, math.min(20.0, (self.yScale or 1.0) * zoomRatio))
+            
+            self.zoom = newZoom
+        end
         return true
     end
 
     if self._yAxisLabels then
         for _, label in ipairs(self._yAxisLabels) do
             if Util.rectContains(mx, my, label.x, label.y, label.w, label.h) then
-                local zoomFactor = 1 + (dy * 0.1)
-                self.yScale = math.max(0.1, math.min(20.0, (self.yScale or 1.0) * zoomFactor))
+                -- Y-axis specific scaling with proper multiplicative scaling
+                local yScaleFactor = dy > 0 and 1.1 or 0.9
+                self.yScale = math.max(0.1, math.min(20.0, (self.yScale or 1.0) * yScaleFactor))
                 return true
             end
         end

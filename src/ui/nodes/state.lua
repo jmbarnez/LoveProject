@@ -29,8 +29,20 @@ local function createDropdown(node)
         options = {},
         selectedIndex = 1,
         onSelect = function(index)
-            local nodes = NodeMarket.getNodes()
-            local selectedNode = nodes and nodes[index]
+            -- Get the selected option text and extract the symbol from it
+            local selectedOptionText = node.nodeDropdown.options[index]
+            if not selectedOptionText then
+                return
+            end
+            
+            -- Extract symbol from "SYMBOL - Name" format
+            local symbol = string.match(selectedOptionText, "^([^%s]+)")
+            if not symbol then
+                return
+            end
+            
+            -- Find the node by symbol instead of relying on array index
+            local selectedNode = NodeMarket.getNodeBySymbol(symbol)
             if not selectedNode then
                 return
             end
