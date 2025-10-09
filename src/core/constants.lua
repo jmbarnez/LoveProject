@@ -193,7 +193,7 @@ Constants.PROJECTILES = {
     LASER_LIFETIME = 0.06,
 
     -- Bullet settings
-    BULLET_HIT_BUFFER = 1.5,
+    BULLET_HIT_BUFFER = 0.5,
     BULLET_TRACER_SPEED = 4800,
 }
 

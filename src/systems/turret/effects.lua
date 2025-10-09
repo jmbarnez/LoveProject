@@ -217,7 +217,7 @@ function TurretEffects.createImpactEffect(turret, x, y, target, impactType)
     -- Pass through bullet kind for styling (laser/mining/missile)
     local bulletKind = turret and turret.kind
 
-    Effects.spawnImpact(impactKind, ex, ey, targetRadius, x, y, impactAngle, impactConfig, bulletKind, target)
+    -- Collision effects are now handled exclusively by the unified collision system
 end
 
 

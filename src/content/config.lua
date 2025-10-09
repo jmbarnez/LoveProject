@@ -23,7 +23,7 @@ Config.LASER = {
 }
 
 Config.BULLET = {
-  HIT_BUFFER = 1.5,
+  HIT_BUFFER = 0.5,
   TRACER_SPEED = 4800,
 }
 

@@ -75,21 +75,30 @@ local function drawOverheadBar(x, y, w, h, hullPct, shieldPct)
   end
 end
 
--- Draw small screen-aligned shield/health bars above an enemy entity.
+-- Draw small screen-aligned shield/health bars above any entity with health.
 function EnemyStatusBars.drawMiniBars(entity)
   if not entity or not entity.components then return end
   local h = entity.components.health
   local col = entity.components.collidable
-  if not (h and col) then return end
+  if not h then return end
 
   -- Check if this is a player entity
   local isPlayer = entity.isPlayer or (entity.components and entity.components.player ~= nil) or entity.isRemotePlayer
   
+  -- Check if this is a projectile
+  local isProjectile = entity.components.bullet ~= nil
+  
   -- For players, always show health bars
   if isPlayer then
     -- Always show for players
+  elseif isProjectile then
+    -- For projectiles, only show if damaged (not at full health)
+    local hpPct = (h.hp or 0) / math.max(1, h.maxHP or 1)
+    if hpPct >= 1.0 then
+      return -- Don't show health bar for undamaged projectiles
+    end
   else
-    -- For enemies, show bars if recently damaged OR if enemy is low on health/shield
+    -- For other entities (enemies, stations, etc.), show bars if recently damaged OR if low on health/shield
     local showTime = getCombatValue("ENEMY_BAR_VIS_TIME") or 2.5
     local last = entity._hudDamageTime or -1e9
     local timeSinceDamage = love.timer.getTime() - last
@@ -97,7 +106,7 @@ function EnemyStatusBars.drawMiniBars(entity)
     -- Always show if recently damaged
     local recentlyDamaged = timeSinceDamage <= showTime
     
-    -- Also show if enemy is low on health or has shields (for better visibility)
+    -- Also show if entity is low on health or has shields (for better visibility)
     local hpPct = (h.hp or 0) / math.max(1, h.maxHP or 100)
     local shieldPct = (h.shield or 0) / math.max(1, h.maxShield or 1)
     local isLowHealth = hpPct < 0.8  -- Show if below 80% health
@@ -113,7 +122,23 @@ function EnemyStatusBars.drawMiniBars(entity)
   local shield = h.shield or 0
   local maxShield = h.maxShield or 0
 
-  local radius = col.radius or 12
+  -- Calculate radius - use collidable radius if available, otherwise estimate from entity type
+  local radius = 12 -- Default radius
+  if col and col.radius then
+    radius = col.radius
+  elseif isProjectile then
+    -- Projectiles are small, use a smaller radius
+    radius = 4
+  elseif entity.components.renderable and entity.components.renderable.props then
+    -- Try to get radius from renderable props
+    local props = entity.components.renderable.props
+    if props.radius then
+      radius = props.radius
+    elseif props.size then
+      radius = props.size * 10
+    end
+  end
+  
   local barW = math.max(60, math.min(140, radius * 2.4))
   local barH = 12
 

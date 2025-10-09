@@ -284,6 +284,17 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
                     bestDistance = distance
                     bestTarget = entity
                     bestHitX, bestHitY = hx, hy
+                    
+                    -- Create collision effects for beam hits
+                    local CollisionEffects = require("src.systems.collision.effects")
+                    local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
+                    if CollisionEffects.canEmitCollisionFX(turret, entity, now) then
+                        local beamRadius = 1 -- Beams are line segments
+                        local targetRadius = targetRadius
+                        
+                        -- Use the precise hit position for collision effects
+                        CollisionEffects.createCollisionEffects(turret, entity, hx, hy, hx, hy, 0, 0, beamRadius, targetRadius, nil, nil)
+                    end
                 end
             end
         end

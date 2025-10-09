@@ -10,6 +10,150 @@ local CollisionEffects = require("src.systems.collision.effects")
 --- pushes, shield handling, and impact effects.
 local EntityCollision = {}
 
+-- Debug flag to help identify collision effect issues
+local DEBUG_COLLISION_EFFECTS = true
+
+local function debugLog(message)
+    if DEBUG_COLLISION_EFFECTS then
+        print("[EntityCollision] " .. tostring(message))
+    end
+end
+
+-- Check if two entities belong to the same logical group (e.g., same station)
+local function areEntitiesInSameGroup(entity1, entity2)
+    -- If both entities have a station_id, they belong to the same group if IDs match
+    if entity1.station_id and entity2.station_id then
+        return entity1.station_id == entity2.station_id
+    end
+    
+    -- If both entities have a parent_station, they belong to the same group if parents match
+    if entity1.parent_station and entity2.parent_station then
+        return entity1.parent_station == entity2.parent_station
+    end
+    
+    -- If one entity is a station and the other has that station as parent
+    if entity1.tag == "station" and entity2.parent_station == entity1 then
+        return true
+    end
+    if entity2.tag == "station" and entity1.parent_station == entity2 then
+        return true
+    end
+    
+    -- If both entities are station parts (have station component)
+    if entity1.components and entity1.components.station and 
+       entity2.components and entity2.components.station then
+        -- Check if they have the same station reference
+        return entity1.station == entity2.station
+    end
+    
+    -- If both entities are parts of the same ship
+    if entity1.ship_id and entity2.ship_id then
+        return entity1.ship_id == entity2.ship_id
+    end
+    
+    -- If both entities are parts of the same asteroid
+    if entity1.asteroid_id and entity2.asteroid_id then
+        return entity1.asteroid_id == entity2.asteroid_id
+    end
+    
+    -- If both entities are parts of the same wreckage
+    if entity1.wreckage_id and entity2.wreckage_id then
+        return entity1.wreckage_id == entity2.wreckage_id
+    end
+    
+    -- If both entities are parts of the same enemy
+    if entity1.enemy_id and entity2.enemy_id then
+        return entity1.enemy_id == entity2.enemy_id
+    end
+    
+    -- If both entities are parts of the same hub
+    if entity1.hub_id and entity2.hub_id then
+        return entity1.hub_id == entity2.hub_id
+    end
+    
+    -- If both entities are parts of the same warp gate
+    if entity1.warp_gate_id and entity2.warp_gate_id then
+        return entity1.warp_gate_id == entity2.warp_gate_id
+    end
+    
+    -- If both entities are parts of the same beacon
+    if entity1.beacon_id and entity2.beacon_id then
+        return entity1.beacon_id == entity2.beacon_id
+    end
+    
+    -- If both entities are parts of the same ore furnace
+    if entity1.ore_furnace_id and entity2.ore_furnace_id then
+        return entity1.ore_furnace_id == entity2.ore_furnace_id
+    end
+    
+    -- If both entities are parts of the same holographic turret
+    if entity1.holographic_turret_id and entity2.holographic_turret_id then
+        return entity1.holographic_turret_id == entity2.holographic_turret_id
+    end
+    
+    -- If both entities are parts of the same reward crate
+    if entity1.reward_crate_id and entity2.reward_crate_id then
+        return entity1.reward_crate_id == entity2.reward_crate_id
+    end
+    
+    -- If both entities are parts of the same planet
+    if entity1.planet_id and entity2.planet_id then
+        return entity1.planet_id == entity2.planet_id
+    end
+    
+    return false
+end
+
+-- Get the group identifier for an entity
+local function getEntityGroupId(entity)
+    -- Priority order for group identification
+    if entity.station_id then
+        return "station_" .. tostring(entity.station_id)
+    end
+    if entity.parent_station then
+        return "station_" .. tostring(entity.parent_station.id or entity.parent_station)
+    end
+    if entity.tag == "station" then
+        return "station_" .. tostring(entity.id)
+    end
+    if entity.ship_id then
+        return "ship_" .. tostring(entity.ship_id)
+    end
+    if entity.asteroid_id then
+        return "asteroid_" .. tostring(entity.asteroid_id)
+    end
+    if entity.wreckage_id then
+        return "wreckage_" .. tostring(entity.wreckage_id)
+    end
+    if entity.enemy_id then
+        return "enemy_" .. tostring(entity.enemy_id)
+    end
+    if entity.hub_id then
+        return "hub_" .. tostring(entity.hub_id)
+    end
+    if entity.warp_gate_id then
+        return "warp_gate_" .. tostring(entity.warp_gate_id)
+    end
+    if entity.beacon_id then
+        return "beacon_" .. tostring(entity.beacon_id)
+    end
+    if entity.ore_furnace_id then
+        return "ore_furnace_" .. tostring(entity.ore_furnace_id)
+    end
+    if entity.holographic_turret_id then
+        return "holographic_turret_" .. tostring(entity.holographic_turret_id)
+    end
+    if entity.reward_crate_id then
+        return "reward_crate_" .. tostring(entity.reward_crate_id)
+    end
+    if entity.planet_id then
+        return "planet_" .. tostring(entity.planet_id)
+    end
+    
+    -- Fallback to individual entity ID
+    return "entity_" .. tostring(entity.id)
+end
+
 local combatOverrides = Config.COMBAT or {}
 local combatConstants = Constants.COMBAT
 
@@ -334,6 +478,17 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
         return
     end
 
+    -- Additional validation: ensure entities are actually overlapping
+    local dx = e1x - e2x
+    local dy = e1y - e2y
+    local distance = math.sqrt(dx * dx + dy * dy)
+    local minDistance = (getEntityCollisionRadius(entity1) + getEntityCollisionRadius(entity2)) * 0.8
+    
+    if distance > minDistance then
+        -- Entities are too far apart for a real collision
+        return
+    end
+
     local nx = collision.normalX or 0
     local ny = collision.normalY or 0
     if nx == 0 and ny == 0 then
@@ -563,11 +718,80 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
 
         -- Throttle collision FX to avoid spamming when resting against geometry
         local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
-        if CollisionEffects.canEmitCollisionFX(entity1, entity2, now) then
-            -- Create visual effects for both entities
+        
+        -- Check if entities belong to the same logical group (e.g., same station)
+        local inSameGroup = areEntitiesInSameGroup(entity1, entity2)
+        
+        -- Only create effects if this entity has a lower ID to prevent duplicate effects
+        -- This ensures collision effects are only created once per collision pair
+        local shouldCreateEffects = not entity2.id or (entity1.id and entity1.id < entity2.id)
+        
+        -- For entities in the same group, only create effects once per group collision
+        if inSameGroup then
+            -- Use a group-based tracking system
+            local groupKey = math.min(entity1.id or 0, entity2.id or 0) .. "_" .. math.max(entity1.id or 0, entity2.id or 0)
+            entity1._groupCollisionFX = entity1._groupCollisionFX or {}
+            local lastGroupCollision = entity1._groupCollisionFX[groupKey] or 0
+            
+            if (now - lastGroupCollision) < 0.1 then -- 100ms cooldown for group collisions
+                shouldCreateEffects = false
+            else
+                entity1._groupCollisionFX[groupKey] = now
+            end
+        end
+        
+        -- Special handling for bullet collisions - use more aggressive cooldown
+        local isBulletCollision = (entity1.components and entity1.components.bullet) or (entity2.components and entity2.components.bullet)
+        if isBulletCollision and shouldCreateEffects then
+            -- Use a more aggressive cooldown for bullet collisions
+            local bulletEntity = entity1.components.bullet and entity1 or entity2
+            local targetEntity = entity1.components.bullet and entity2 or entity1
+            local bulletTargetKey = bulletEntity.id .. "_" .. targetEntity.id
+            
+            bulletEntity._bulletCollisionFX = bulletEntity._bulletCollisionFX or {}
+            local lastBulletCollision = bulletEntity._bulletCollisionFX[bulletTargetKey] or 0
+            
+            if (now - lastBulletCollision) < 0.5 then -- 500ms cooldown for bullet collisions
+                shouldCreateEffects = false
+            else
+                bulletEntity._bulletCollisionFX[bulletTargetKey] = now
+            end
+        end
+        
+        if CollisionEffects.canEmitCollisionFX(entity1, entity2, now) and overlap > 0 and shouldCreateEffects then
+            if DEBUG_COLLISION_EFFECTS then
+                local e1Type = entity1.tag or (entity1.components and entity1.components.station and "station") or "unknown"
+                local e2Type = entity2.tag or (entity2.components and entity2.components.station and "station") or "unknown"
+                local e1GroupId = getEntityGroupId(entity1)
+                local e2GroupId = getEntityGroupId(entity2)
+                debugLog(string.format("Collision effects check: e1(id=%s,type=%s,group=%s) vs e2(id=%s,type=%s,group=%s), sameGroup=%s, shouldCreate=%s", 
+                    tostring(entity1.id), e1Type, e1GroupId, tostring(entity2.id), e2Type, e2GroupId, tostring(inSameGroup), tostring(shouldCreateEffects)))
+            end
+            
+            -- Calculate precise collision point for physics simulation
+            -- Find the actual contact point between the two entities
             local e1Radius = getEntityCollisionRadius(entity1)
             local e2Radius = getEntityCollisionRadius(entity2)
-            CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x, e2y, nx, ny, e1Radius, e2Radius, collision.shape1, collision.shape2)
+            
+            -- Use the collision normal to find the precise contact point
+            -- The contact point is where the surfaces actually touch
+            local collisionX, collisionY
+            
+            -- Calculate the contact point based on the collision normal and entity radii
+            -- Move from entity1's center along the normal by entity1's radius
+            collisionX = e1x + nx * e1Radius
+            collisionY = e1y + ny * e1Radius
+            
+            -- For more accuracy, we can also calculate from entity2's perspective and average
+            local collisionX2 = e2x - nx * e2Radius
+            local collisionY2 = e2y - ny * e2Radius
+            
+            -- Use the average of both calculations for the most accurate contact point
+            collisionX = (collisionX + collisionX2) * 0.5
+            collisionY = (collisionY + collisionY2) * 0.5
+            
+            -- Create visual effects using precise collision point
+            CollisionEffects.createCollisionEffects(entity1, entity2, collisionX, collisionY, collisionX, collisionY, nx, ny, e1Radius, e2Radius, collision.shape1, collision.shape2)
         end
     end
 end
@@ -639,7 +863,37 @@ function EntityCollision.handleEntityCollisions(collisionSystem, entity, world, 
                 
                 local hit, hitX, hitY = EntityCollision.checkProjectileCollision(entity, other, dt)
                 if hit then
+                    -- Create collision effects using precise hit position
+                    local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
+                    if CollisionEffects.canEmitCollisionFX(entity, other, now) then
+                        local targetRadius = getEntityCollisionRadius(other)
+                        local bulletRadius = getEntityCollisionRadius(entity)
+                        
+                        -- Use the precise hit position for collision effects
+                        CollisionEffects.createCollisionEffects(entity, other, hitX, hitY, hitX, hitY, 0, 0, bulletRadius, targetRadius, nil, nil)
+                    end
+                    
                     EntityCollision.handleProjectileCollision(entity, other, dt, nil, hitX, hitY)
+                end
+            elseif other.components.bullet then
+                -- Handle projectile vs non-projectile collision (other entity is projectile)
+                if EntityCollision.shouldIgnoreProjectileCollision(other, entity) then
+                    goto continue
+                end
+                
+                local hit, hitX, hitY = EntityCollision.checkProjectileCollision(other, entity, dt)
+                if hit then
+                    -- Create collision effects using precise hit position
+                    local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
+                    if CollisionEffects.canEmitCollisionFX(other, entity, now) then
+                        local targetRadius = getEntityCollisionRadius(entity)
+                        local bulletRadius = getEntityCollisionRadius(other)
+                        
+                        -- Use the precise hit position for collision effects
+                        CollisionEffects.createCollisionEffects(other, entity, hitX, hitY, hitX, hitY, 0, 0, bulletRadius, targetRadius, nil, nil)
+                    end
+                    
+                    EntityCollision.handleProjectileCollision(other, entity, dt, nil, hitX, hitY)
                 end
             else
                 -- Use standard collision detection for other entities
@@ -717,7 +971,9 @@ function EntityCollision.checkProjectileCollision(projectile, target, dt)
     end
     
     -- Use the same collision detection as laser beams (line-segment detection)
-    return CollisionHelpers.performCollisionCheck(x1, y1, x2, y2, target, targetRadius)
+    -- Use ProjectileUtils for consistency with the projectile handler
+    local ProjectileUtils = require("src.systems.collision.helpers.projectile_utils")
+    return ProjectileUtils.perform_collision_check(x1, y1, x2, y2, target, targetRadius)
 end
 
 -- Handle projectile-specific collision behavior
@@ -726,22 +982,107 @@ function EntityCollision.handleProjectileCollision(projectile, target, dt, colli
         return
     end
 
-    -- Import projectile collision handler
-    local ProjectileHandler = require("src.systems.collision.handlers.projectile")
-    
     -- Get target radius for effects
     local Radius = require("src.systems.collision.radius")
     local targetRadius = Radius.calculateEffectiveRadius(target)
 
-    -- Process the hit using the existing projectile handler logic
+    -- Mark projectile as coming from unified collision system to prevent duplicate effects
+    projectile._fromUnifiedCollision = true
+
+    -- Process the hit using the unified collision system
     local world = projectile._world
     
     if world then
-        ProjectileHandler.process_hit(nil, projectile, target, world, dt, hitX, hitY, targetRadius)
+        local CollisionEffects = require("src.systems.collision.effects")
+        local damage = projectile.components.damage and (projectile.components.damage.value or projectile.components.damage) or 1
+        local source = projectile.components.bullet and projectile.components.bullet.source
+        
+        -- Check if target is also a projectile
+        if target.components.bullet then
+            -- Projectile vs projectile collision - both take damage
+            local targetDamage = target.components.damage and (target.components.damage.value or target.components.damage) or 1
+            
+            -- Apply damage to both projectiles
+            CollisionEffects.applyDamage(projectile, targetDamage, target.components.bullet.source)
+            CollisionEffects.applyDamage(target, damage, source)
+            
+            -- Mark both projectiles as dead
+            projectile.dead = true
+            target.dead = true
+        else
+            -- Projectile vs non-projectile collision - only target takes damage
+            CollisionEffects.applyDamage(target, damage, source)
+            
+            -- Mark projectile as dead
+            projectile.dead = true
+        end
     else
         -- Fallback: just mark projectile as dead
         projectile.dead = true
     end
+end
+
+-- Function to establish entity group relationships
+function EntityCollision.establishGroupRelationship(entity, parentEntity, relationshipType)
+    if not entity or not parentEntity then
+        return false
+    end
+    
+    local parentId = parentEntity.id or parentEntity
+    if type(parentId) == "table" then
+        parentId = parentId.id
+    end
+    
+    if not parentId then
+        return false
+    end
+    
+    -- Set the appropriate group ID based on relationship type
+    if relationshipType == "station" then
+        entity.station_id = parentId
+        entity.parent_station = parentEntity
+    elseif relationshipType == "ship" then
+        entity.ship_id = parentId
+    elseif relationshipType == "asteroid" then
+        entity.asteroid_id = parentId
+    elseif relationshipType == "wreckage" then
+        entity.wreckage_id = parentId
+    elseif relationshipType == "enemy" then
+        entity.enemy_id = parentId
+    elseif relationshipType == "hub" then
+        entity.hub_id = parentId
+    elseif relationshipType == "warp_gate" then
+        entity.warp_gate_id = parentId
+    elseif relationshipType == "beacon" then
+        entity.beacon_id = parentId
+    elseif relationshipType == "ore_furnace" then
+        entity.ore_furnace_id = parentId
+    elseif relationshipType == "holographic_turret" then
+        entity.holographic_turret_id = parentId
+    elseif relationshipType == "reward_crate" then
+        entity.reward_crate_id = parentId
+    elseif relationshipType == "planet" then
+        entity.planet_id = parentId
+    else
+        return false
+    end
+    
+    return true
+end
+
+-- Function to check if two entities are in the same group
+function EntityCollision.areInSameGroup(entity1, entity2)
+    return areEntitiesInSameGroup(entity1, entity2)
+end
+
+-- Function to get the group ID for an entity
+function EntityCollision.getGroupId(entity)
+    return getEntityGroupId(entity)
+end
+
+-- Function to enable/disable debug logging
+function EntityCollision.setDebugEnabled(enabled)
+    DEBUG_COLLISION_EFFECTS = enabled
 end
 
 return EntityCollision

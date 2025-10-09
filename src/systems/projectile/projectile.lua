@@ -5,6 +5,7 @@ local Renderable = require("src.components.renderable")
 local Collidable = require("src.components.collidable")
 local Damage = require("src.components.damage")
 local TimedLife = require("src.components.timed_life")
+local Health = require("src.components.health")
 local ProjectileComponents = require("src.components.projectile.registry")
 local EventDispatcher = require("src.systems.projectile.event_dispatcher")
 local EffectManager = require("src.systems.projectile.effect_manager")
@@ -207,6 +208,23 @@ function Projectile.new(x, y, angle, friendly, config)
         timed_life = TimedLife.new(
             (config.timed_life and config.timed_life.duration) or 2.0
         ),
+        -- Add hull component for projectiles
+        health = (function()
+            local kind = config.kind or 'bullet'
+            local hullValue = 1 -- Default hull for bullets
+            
+            -- Rockets get more hull
+            if kind == "rocket" or kind == "missile" then
+                hullValue = 5
+            end
+            
+            return Health.new({
+                hp = hullValue,
+                maxHP = hullValue,
+                shield = 0,
+                maxShield = 0
+            })
+        end)(),
         -- Add max range tracking
         max_range = (function()
             if config.maxRange and config.maxRange > 0 then

@@ -237,15 +237,7 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
             UtilityBeams.applyMiningDamage(hitTarget, damageValue, turret.owner, world, hitX, hitY)
 
             -- Only create visual effects, no collision sound for mining
-            if Effects and Effects.spawnImpact then
-                local ex = hitTarget.components.position.x
-                local ey = hitTarget.components.position.y
-                local targetRadius = (hitTarget.components.collidable and hitTarget.components.collidable.radius) or 30
-                local impactAngle = math.atan2(hitY - ey, hitX - ex)
-                
-                -- Create visual impact without sound
-                Effects.spawnImpact('hull', ex, ey, targetRadius, hitX, hitY, impactAngle, nil, 'mining_laser', hitTarget, true)
-            end
+            -- Collision effects are now handled exclusively by the unified collision system
         else
             -- Continuous visual effects for non-mining targets
             TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
@@ -630,6 +622,16 @@ function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, w
                     bestDistance = distance
                     bestTarget = entity
                     bestHitX, bestHitY = hx, hy
+                    
+                    -- Create collision effects for beam hits
+                    local CollisionEffects = require("src.systems.collision.effects")
+                    local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
+                    if CollisionEffects.canEmitCollisionFX(turret, entity, now) then
+                        local beamRadius = 1 -- Beams are line segments
+                        
+                        -- Use the precise hit position for collision effects
+                        CollisionEffects.createCollisionEffects(turret, entity, hx, hy, hx, hy, 0, 0, beamRadius, targetRadius, nil, nil)
+                    end
                 end
             end
         end

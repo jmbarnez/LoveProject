@@ -6,6 +6,15 @@ local Radius = require("src.systems.collision.radius")
 
 local CollisionEffects = {}
 
+-- Debug flag to help identify collision effect issues
+local DEBUG_COLLISION_EFFECTS = true
+
+local function debugLog(message)
+    if DEBUG_COLLISION_EFFECTS then
+        print("[CollisionEffects] " .. tostring(message))
+    end
+end
+
 -- Find the closest point on a polygon to a given direction
 function CollisionEffects.findClosestPointOnPolygon(centerX, centerY, dirX, dirY, vertices, angle)
     if not vertices or #vertices < 6 then
@@ -61,6 +70,7 @@ function CollisionEffects.findClosestPointOnPolygon(centerX, centerY, dirX, dirY
 end
 
 -- Find the extreme point of a polygon in a given world-space direction
+-- Note: vertices should already be in world space (transformed)
 function CollisionEffects.findSupportPoint(vertices, dirX, dirY)
     if not vertices or #vertices < 6 then
         return nil
@@ -131,6 +141,57 @@ local COLLISION_FX_COOLDOWN = (Config and Config.EFFECTS and Config.EFFECTS.COLL
 
 function CollisionEffects.canEmitCollisionFX(a, b, now)
   if not a or not b or not a.id or not b.id then return true end
+  
+  -- Check if entities belong to the same logical group
+  local areInSameGroup = false
+  if a.station_id and b.station_id and a.station_id == b.station_id then
+    areInSameGroup = true
+  elseif a.parent_station and b.parent_station and a.parent_station == b.parent_station then
+    areInSameGroup = true
+  elseif a.tag == "station" and b.parent_station == a then
+    areInSameGroup = true
+  elseif b.tag == "station" and a.parent_station == b then
+    areInSameGroup = true
+  elseif a.components and a.components.station and b.components and b.components.station and a.station == b.station then
+    areInSameGroup = true
+  elseif a.ship_id and b.ship_id and a.ship_id == b.ship_id then
+    areInSameGroup = true
+  elseif a.asteroid_id and b.asteroid_id and a.asteroid_id == b.asteroid_id then
+    areInSameGroup = true
+  elseif a.wreckage_id and b.wreckage_id and a.wreckage_id == b.wreckage_id then
+    areInSameGroup = true
+  elseif a.enemy_id and b.enemy_id and a.enemy_id == b.enemy_id then
+    areInSameGroup = true
+  elseif a.hub_id and b.hub_id and a.hub_id == b.hub_id then
+    areInSameGroup = true
+  elseif a.warp_gate_id and b.warp_gate_id and a.warp_gate_id == b.warp_gate_id then
+    areInSameGroup = true
+  elseif a.beacon_id and b.beacon_id and a.beacon_id == b.beacon_id then
+    areInSameGroup = true
+  elseif a.ore_furnace_id and b.ore_furnace_id and a.ore_furnace_id == b.ore_furnace_id then
+    areInSameGroup = true
+  elseif a.holographic_turret_id and b.holographic_turret_id and a.holographic_turret_id == b.holographic_turret_id then
+    areInSameGroup = true
+  elseif a.reward_crate_id and b.reward_crate_id and a.reward_crate_id == b.reward_crate_id then
+    areInSameGroup = true
+  elseif a.planet_id and b.planet_id and a.planet_id == b.planet_id then
+    areInSameGroup = true
+  end
+  
+  -- For entities in the same group, use group-based cooldown
+  if areInSameGroup then
+    local groupKey = math.min(a.id, b.id) .. "_" .. math.max(a.id, b.id)
+    a._groupCollisionFX = a._groupCollisionFX or {}
+    local lastGroupCollision = a._groupCollisionFX[groupKey] or 0
+    
+    if (now - lastGroupCollision) >= COLLISION_FX_COOLDOWN then
+      a._groupCollisionFX[groupKey] = now
+      return true
+    end
+    return false
+  end
+  
+  -- For entities not in the same group, use individual entity cooldown
   a._collisionFx = a._collisionFx or {}
   b._collisionFx = b._collisionFx or {}
   local t = a._collisionFx[b.id] or 0
@@ -146,6 +207,14 @@ end
 function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x, e2y, nx, ny, e1Radius, e2Radius, shape1, shape2)
     if not Effects then return end
 
+    -- Validate input parameters
+    if not entity1 or not entity2 or not e1x or not e1y or not e2x or not e2y then
+        return
+    end
+
+    -- In physics simulation, we always use precise collision points
+    local isPreciseHit = true
+    
     -- Normal from entity1 towards entity2. Ensure it is normalized so the
     -- collision offsets behave predictably even when the MTV returns a
     -- scaled vector.
@@ -165,6 +234,7 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
     local midY = (e1y + e2y) * 0.5
 
     local function resolveCollisionPoint(entity, centerX, centerY, normalX, normalY, radius, collidable, shape)
+        -- For polygon shapes, use the world-transformed vertices from the collision shape
         if shape and shape.type == "polygon" and shape.vertices then
             local support = CollisionEffects.findSupportPoint(shape.vertices, normalX, normalY)
             if support then
@@ -172,6 +242,7 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
             end
         end
 
+        -- For circular shapes, use the shape radius and center
         if shape and shape.type == "circle" then
             local shapeRadius = shape.radius or radius
             if shapeRadius and shapeRadius > 0 then
@@ -179,6 +250,7 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
             end
         end
 
+        -- Fallback: try to use collidable component data
         if collidable and collidable.shape == "polygon" and collidable.vertices then
             local angle = (entity.components and entity.components.position and entity.components.position.angle) or 0
             local closestPoint = CollisionEffects.findClosestPointOnPolygon(centerX, centerY, normalX, normalY, collidable.vertices, angle)
@@ -191,62 +263,98 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
             return centerX + normalX * collidable.radius, centerY + normalY * collidable.radius
         end
 
-        if shape and shape.type == "circle" and radius and radius > 0 then
+        -- Final fallback: use radius-based calculation
+        if radius and radius > 0 then
             return centerX + normalX * radius, centerY + normalY * radius
         end
 
         return nil, nil
     end
 
-    local e1CollisionX, e1CollisionY = resolveCollisionPoint(entity1, e1x, e1y, nx, ny, e1Radius, e1Collidable, shape1)
-    if not e1CollisionX then
-        e1CollisionX, e1CollisionY = midX, midY
+    -- Calculate collision points more accurately using the collision normal and overlap
+    local e1CollisionX, e1CollisionY, e2CollisionX, e2CollisionY
+    
+    if isPreciseHit then
+        -- Use the precise hit position for both entities
+        e1CollisionX, e1CollisionY = e1x, e1y
+        e2CollisionX, e2CollisionY = e2x, e2y
+    else
+        -- Calculate collision points using normal collision detection
+        e1CollisionX, e1CollisionY = resolveCollisionPoint(entity1, e1x, e1y, nx, ny, e1Radius, e1Collidable, shape1)
+        if not e1CollisionX then
+            -- Fallback: use midpoint between entities
+            e1CollisionX, e1CollisionY = midX, midY
+        end
+
+        e2CollisionX, e2CollisionY = resolveCollisionPoint(entity2, e2x, e2y, -nx, -ny, e2Radius, e2Collidable, shape2)
+        if not e2CollisionX then
+            -- Fallback: use midpoint between entities
+            e2CollisionX, e2CollisionY = midX, midY
+        end
     end
 
-    local e2CollisionX, e2CollisionY = resolveCollisionPoint(entity2, e2x, e2y, -nx, -ny, e2Radius, e2Collidable, shape2)
-    if not e2CollisionX then
-        e2CollisionX, e2CollisionY = midX, midY
+    -- Additional validation: ensure collision points are reasonable
+    local maxDistance = math.max(e1Radius or 0, e2Radius or 0) * 3
+    local e1Distance = math.sqrt((e1CollisionX - e1x)^2 + (e1CollisionY - e1y)^2)
+    local e2Distance = math.sqrt((e2CollisionX - e2x)^2 + (e2CollisionY - e2y)^2)
+    
+    if e1Distance > maxDistance then
+        debugLog(string.format("Entity1 collision point too far: distance=%.2f, max=%.2f, using fallback", e1Distance, maxDistance))
+        e1CollisionX, e1CollisionY = e1x + nx * (e1Radius or 10), e1y + ny * (e1Radius or 10)
     end
+    
+    if e2Distance > maxDistance then
+        debugLog(string.format("Entity2 collision point too far: distance=%.2f, max=%.2f, using fallback", e2Distance, maxDistance))
+        e2CollisionX, e2CollisionY = e2x - nx * (e2Radius or 10), e2y - ny * (e2Radius or 10)
+    end
+
+    debugLog(string.format("Collision effects: e1(%.1f,%.1f)->(%.1f,%.1f), e2(%.1f,%.1f)->(%.1f,%.1f), normal(%.2f,%.2f)", 
+        e1x, e1y, e1CollisionX, e1CollisionY, e2x, e2y, e2CollisionX, e2CollisionY, nx, ny))
 
     -- Determine if each entity has shields active
     local e1HasShield = CollisionEffects.hasShield(entity1)
     local e2HasShield = CollisionEffects.hasShield(entity2)
 
-    -- Create appropriate impact effects for entity1
-    if e1HasShield then
-        -- Shield impact effect
-        if Effects.spawnImpact then
-            local impactAngle = math.atan2(e1CollisionY - e1y, e1CollisionX - e1x)
-            Effects.spawnImpact('shield', e1x, e1y, e1Radius, e1CollisionX, e1CollisionY, impactAngle, nil, 'collision', entity1)
-        elseif Effects.createImpactEffect then
-            Effects.createImpactEffect(e1CollisionX, e1CollisionY, "shield_collision")
-        end
+    -- Only create impact effects for the target entity (not projectiles)
+    -- Determine which entity is the target (non-projectile)
+    local targetEntity, targetX, targetY, targetRadius, targetCollisionX, targetCollisionY, targetHasShield
+    
+    if entity1.components and entity1.components.bullet then
+        -- Entity1 is a projectile, create effects for entity2
+        targetEntity = entity2
+        targetX = e2x
+        targetY = e2y
+        targetRadius = e2Radius
+        targetCollisionX = e2CollisionX
+        targetCollisionY = e2CollisionY
+        targetHasShield = e2HasShield
     else
-        -- Hull impact effect
-        if Effects.spawnImpact then
-            local impactAngle = math.atan2(e1CollisionY - e1y, e1CollisionX - e1x)
-            Effects.spawnImpact('hull', e1x, e1y, e1Radius, e1CollisionX, e1CollisionY, impactAngle, nil, 'collision', entity1)
-        elseif Effects.createImpactEffect then
-            Effects.createImpactEffect(e1CollisionX, e1CollisionY, "hull_collision")
-        end
+        -- Entity1 is the target, create effects for entity1
+        targetEntity = entity1
+        targetX = e1x
+        targetY = e1y
+        targetRadius = e1Radius
+        targetCollisionX = e1CollisionX
+        targetCollisionY = e1CollisionY
+        targetHasShield = e1HasShield
     end
-
-    -- Create appropriate impact effects for entity2
-    if e2HasShield then
+    
+    -- Create impact effect only for the target entity
+    if targetHasShield then
         -- Shield impact effect
         if Effects.spawnImpact then
-            local impactAngle = math.atan2(e2CollisionY - e2y, e2CollisionX - e2x)
-            Effects.spawnImpact('shield', e2x, e2y, e2Radius, e2CollisionX, e2CollisionY, impactAngle, nil, 'collision', entity2)
+            local impactAngle = math.atan2(targetCollisionY - targetY, targetCollisionX - targetX)
+            Effects.spawnImpact('shield', targetX, targetY, targetRadius, targetCollisionX, targetCollisionY, impactAngle, nil, 'collision', targetEntity)
         elseif Effects.createImpactEffect then
-            Effects.createImpactEffect(e2CollisionX, e2CollisionY, "shield_collision")
+            Effects.createImpactEffect(targetCollisionX, targetCollisionY, "shield_collision")
         end
     else
         -- Hull impact effect
         if Effects.spawnImpact then
-            local impactAngle = math.atan2(e2CollisionY - e2y, e2CollisionX - e2x)
-            Effects.spawnImpact('hull', e2x, e2y, e2Radius, e2CollisionX, e2CollisionY, impactAngle, nil, 'collision', entity2)
+            local impactAngle = math.atan2(targetCollisionY - targetY, targetCollisionX - targetX)
+            Effects.spawnImpact('hull', targetX, targetY, targetRadius, targetCollisionX, targetCollisionY, impactAngle, nil, 'collision', targetEntity)
         elseif Effects.createImpactEffect then
-            Effects.createImpactEffect(e2CollisionX, e2CollisionY, "hull_collision")
+            Effects.createImpactEffect(targetCollisionX, targetCollisionY, "hull_collision")
         end
     end
 end
@@ -382,6 +490,11 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
     end
 
     return hadShield or (shieldDamage > 0)
+end
+
+-- Function to enable/disable debug logging
+function CollisionEffects.setDebugEnabled(enabled)
+    DEBUG_COLLISION_EFFECTS = enabled
 end
 
 return CollisionEffects

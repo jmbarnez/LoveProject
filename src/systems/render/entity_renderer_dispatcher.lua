@@ -197,6 +197,12 @@ function Dispatcher.draw(world, camera, player)
 
         love.graphics.pop()
 
+        -- Draw health bars for all entities with health components
+        if entity.components.health then
+            local EnemyStatusBars = require("src.ui.hud.enemy_status_bars")
+            EnemyStatusBars.drawMiniBars(entity)
+        end
+
         -- Draw turret heat bars in screen space
         if entity.components.ai and entity.components.equipment and entity.components.equipment.grid then
             local x, y = entity.components.position.x, entity.components.position.y
