@@ -65,6 +65,21 @@ The project targets **LÖVE 11.x** and ships with any remaining Lua helpers in-r
 
 * `src/libs/json.lua`: Embedded JSON encoder/decoder used by save/load routines and content tooling.
 
+## Maintenance Tooling
+
+Use the scripts under `tools/maintenance/` to clean up development-only logging before packaging a build. The `remove_debug.lua`
+helper strips `Log.debug(...)` calls from `src/systems/destruction.lua` so the released game does not spam the log when debris is
+processed.
+
+**How to run it safely:**
+
+1. Ensure you have committed or stashed any local edits to `src/systems/destruction.lua`—the script overwrites the file in place.
+2. From the project root run `love tools/maintenance/remove_debug.lua` or `lua tools/maintenance/remove_debug.lua`.
+3. Review the diff to confirm only the expected `Log.debug` lines were removed before committing the change.
+
+Only run this script when preparing a production build; during day-to-day development the debug output can be valuable for
+diagnosing destruction edge cases.
+
 ## License
 
 Novus is distributed under the MIT License. Refer to `license.txt` for the full terms.
