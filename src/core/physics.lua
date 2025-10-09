@@ -476,10 +476,6 @@ function PhysicsBody:setThruster(thruster, active)
                     self.thrusterState.boost = 0
                 elseif thruster == 'brake' then
                     self.thrusterState.brake = 0
-                elseif thruster == 'boost' then
-                    self.thrusterState.boost = 0
-                elseif thruster == 'brake' then
-                    self.thrusterState.brake = 0
                 end
 
                 -- Check if any thrusters are still active

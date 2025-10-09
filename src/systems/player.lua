@@ -376,6 +376,17 @@ function PlayerSystem.update(dt, player, input, world, hub)
     if braking then
         body:setThruster("brake", true)
         thrusterState.brake = 1.0
+        
+        -- Apply brake force directly since skipThrusterForce bypasses thruster forces
+        local currentSpeed = math.sqrt(body.vx * body.vx + body.vy * body.vy)
+        if currentSpeed > 0.1 then -- Only brake if moving
+            local CorePhysics = require("src.core.physics")
+            local brakingThrust = baseThrust * CorePhysics.constants.brakingPower
+            -- Apply force opposite to current velocity vector
+            local brakeForceX = -(body.vx / currentSpeed) * brakingThrust
+            local brakeForceY = -(body.vy / currentSpeed) * brakingThrust
+            body:applyForce(brakeForceX, brakeForceY, dt)
+        end
     else
         body:setThruster("brake", false)
         thrusterState.brake = 0
@@ -539,6 +550,48 @@ function PlayerSystem.update(dt, player, input, world, hub)
             if not allow and (t.kind == "mining_laser" or t.kind == "salvaging_laser") then
                 local TurretSystem = require("src.systems.turret.system")
                 TurretSystem.stopEffects(t)
+            end
+        end
+    end
+    
+    -- Continuous pushing system: apply force to nearby wreckage pieces
+    if body and (w or s or a or d) and not modalActive then
+        local playerX, playerY = ppos.x, ppos.y
+        local playerVx, playerVy = body.vx, body.vy
+        local playerSpeed = math.sqrt(playerVx * playerVx + playerVy * playerVy)
+        
+        -- Only apply continuous pushing if player is moving
+        if playerSpeed > 0.5 then
+            -- Get all entities with wreckage components
+            local wreckageEntities = world:get_entities_with_components("wreckage", "position", "physics")
+            
+            for _, wreckage in ipairs(wreckageEntities) do
+                if wreckage and not wreckage.dead and wreckage.components.physics and wreckage.components.physics.body then
+                    local wreckagePos = wreckage.components.position
+                    local wreckageBody = wreckage.components.physics.body
+                    
+                    -- Calculate distance to wreckage
+                    local dx = wreckagePos.x - playerX
+                    local dy = wreckagePos.y - playerY
+                    local distance = math.sqrt(dx * dx + dy * dy)
+                    
+                    -- Apply continuous pushing within a reasonable range
+                    if distance > 0 and distance < 100 then
+                        -- Calculate push force based on distance and player movement
+                        local pushStrength = 0.3 -- Base push strength
+                        local distanceFactor = math.max(0.1, 1.0 - (distance / 100.0)) -- Closer = stronger push
+                        local speedFactor = math.min(1.0, playerSpeed / 100.0) -- Faster = stronger push
+                        
+                        -- Calculate push direction (away from player)
+                        local pushX = dx / distance
+                        local pushY = dy / distance
+                        
+                        -- Apply continuous force to wreckage
+                        local force = pushStrength * distanceFactor * speedFactor
+                        wreckageBody.vx = (wreckageBody.vx or 0) + pushX * force * dt
+                        wreckageBody.vy = (wreckageBody.vy or 0) + pushY * force * dt
+                    end
+                end
             end
         end
     end

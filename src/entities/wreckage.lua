@@ -67,10 +67,12 @@ local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, si
   e.components.position = Position.new({ x = px, y = py, angle = angle or 0 })
   e.components.physics = Physics.new({
     x = px, y = py,
-    mass = 80, -- Light enough to be pushed around
+    mass = 60, -- Light enough to be pushed around easily
   })
   -- Very low drag so wreckage travels very far before stopping
   e.components.physics.body.dragCoefficient = 0.995
+  -- Add some angular damping to prevent excessive spinning
+  e.components.physics.body.angularDamping = 0.98
   -- Use an impulse to start movement so it respects mass/momentum
   do
     local body = e.components.physics.body
@@ -94,8 +96,47 @@ local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, si
   if e.components.physics and e.components.physics.body then
     e.components.physics.body.radius = e.radius
   end
-  -- Provide ECS collidable radius to remove legacy fallbacks
-  e.components.collidable = Collidable.new({ radius = e.radius })
+  
+  -- Generate polygon collision shape from visual fragments
+  local collisionVertices = {}
+  local maxRadius = 0
+  
+  -- Combine all fragment polygons into a single collision shape
+  for _, fragment in ipairs(fragments) do
+    if fragment.type == "polygon" and fragment.points then
+      -- Add vertices from this fragment to the collision shape
+      for i = 1, #fragment.points, 2 do
+        local vx = fragment.points[i] or 0
+        local vy = fragment.points[i + 1] or 0
+        table.insert(collisionVertices, vx)
+        table.insert(collisionVertices, vy)
+        
+        -- Track maximum radius for fallback
+        local distance = math.sqrt(vx * vx + vy * vy)
+        if distance > maxRadius then
+          maxRadius = distance
+        end
+      end
+    end
+  end
+  
+  -- If no vertices were generated, create a simple triangle as fallback
+  if #collisionVertices == 0 then
+    local fallbackRadius = avgR or 6
+    collisionVertices = {
+      fallbackRadius, 0,
+      -fallbackRadius * 0.5, fallbackRadius * 0.866,
+      -fallbackRadius * 0.5, -fallbackRadius * 0.866
+    }
+    maxRadius = fallbackRadius
+  end
+  
+  -- Provide ECS collidable with polygon shape
+  e.components.collidable = Collidable.new({ 
+    shape = "polygon",
+    vertices = collisionVertices,
+    radius = maxRadius -- Keep radius for broad-phase collision detection
+  })
   -- Delay collisions briefly so fragments emerge before pushing each other away
   e._collisionGrace = 0.25
   -- Salvage fields and methods - scale salvage amount with ship size

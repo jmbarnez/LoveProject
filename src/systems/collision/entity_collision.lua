@@ -105,7 +105,7 @@ local function getCollisionShape(entity)
     -- For ships and other entities, require polygon collision shapes
     -- No more circular fallback - entities must define proper polygon shapes
     if entity.tag == "ship" or entity.tag == "enemy" or entity.tag == "asteroid" or 
-       (entity.components and (entity.components.ship or entity.components.enemy or entity.components.mineable)) then
+       (entity.components and (entity.components.ship or entity.components.enemy or entity.components.mineable or entity.components.wreckage)) then
         -- These entities must have polygon collision shapes defined
         return nil
     end
@@ -501,7 +501,7 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
             applySurfaceFriction(entity2, nx, ny, dt)
         end
 
-        -- Momentum transfer: allow the player to impart motion to wreckage pieces
+        -- Enhanced momentum transfer: allow ships to push wreckage pieces around
         local player, debris = nil, nil
         if entity1.isPlayer and e2Physics then
             player, debris = entity1, entity2
@@ -513,11 +513,51 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
             local playerBody = player.components.physics and player.components.physics.body
             local debrisBody = debris.components.physics.body
             if playerBody and playerBody.vx and playerBody.vy then
-                local transfer = 0.55
-                debrisBody.vx = (debrisBody.vx or 0) + playerBody.vx * transfer
-                debrisBody.vy = (debrisBody.vy or 0) + playerBody.vy * transfer
-                playerBody.vx = playerBody.vx * (1 - transfer * 0.3)
-                playerBody.vy = playerBody.vy * (1 - transfer * 0.3)
+                -- Get player velocity
+                local playerVx, playerVy = playerBody.vx, playerBody.vy
+                local playerSpeed = math.sqrt(playerVx * playerVx + playerVy * playerVy)
+                
+                -- Apply momentum even at low speeds for better responsiveness
+                if playerSpeed > 0.5 then
+                    -- Calculate collision normal for directional pushing
+                    local normalX = nx or 0
+                    local normalY = ny or 0
+                    
+                    -- Calculate velocity component along collision normal
+                    local velocityAlongNormal = playerVx * normalX + playerVy * normalY
+                    
+                    -- Apply momentum transfer in the direction of player movement
+                    -- Use a more aggressive approach for better pushing
+                    local baseTransfer = 1.2 -- Increased for more responsive pushing
+                    
+                    -- Scale by collision overlap for more realistic physics
+                    local overlapFactor = math.min(1.0, (overlap or 0) / 2.0)
+                    
+                    -- Scale by player speed for more dynamic pushing
+                    local speedFactor = math.min(2.5, playerSpeed / 30.0)
+                    
+                    -- Mass ratio consideration (heavier debris is harder to push)
+                    local playerMass = playerBody.mass or 500
+                    local debrisMass = debrisBody.mass or 60
+                    local massRatio = playerMass / debrisMass
+                    local massFactor = math.min(2.0, massRatio / 1.5)
+                    
+                    -- Calculate final transfer rate
+                    local finalTransfer = baseTransfer * overlapFactor * speedFactor * massFactor
+                    
+                    -- Apply momentum transfer in the direction of player movement
+                    debrisBody.vx = (debrisBody.vx or 0) + playerVx * finalTransfer
+                    debrisBody.vy = (debrisBody.vy or 0) + playerVy * finalTransfer
+                    
+                    -- Apply slight resistance to player movement (realistic physics)
+                    local playerResistance = finalTransfer * 0.05 -- Reduced resistance for smoother pushing
+                    playerBody.vx = playerBody.vx * (1 - playerResistance)
+                    playerBody.vy = playerBody.vy * (1 - playerResistance)
+                    
+                    -- Add some angular momentum to make debris spin when pushed
+                    local angularTransfer = finalTransfer * 0.3
+                    debrisBody.angularVel = (debrisBody.angularVel or 0) + (playerVx - playerVy) * angularTransfer * 0.01
+                end
             end
         end
 
