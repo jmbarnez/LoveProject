@@ -6,8 +6,209 @@ local Skills = require("src.core.skills")
 local Notifications = require("src.ui.notifications")
 local Events = require("src.core.events")
 local Log = require("src.core.log")
+local TurretCore = require("src.systems.turret.core")
 
 local UtilityBeams = {}
+
+local function resetBeamState(turret)
+    turret.beamActive = false
+    turret.beamTarget = nil
+    turret.beamStartX = nil
+    turret.beamStartY = nil
+    turret.beamEndX = nil
+    turret.beamEndY = nil
+end
+
+local function computeBeamTarget(turret, world)
+    local owner = turret.owner or {}
+    local shipPos = owner.components and owner.components.position
+    local cursorPos = owner.cursorWorldPos
+
+    local initialAngle
+    if cursorPos and shipPos then
+        initialAngle = math.atan2(cursorPos.y - shipPos.y, cursorPos.x - shipPos.x)
+    elseif shipPos then
+        initialAngle = shipPos.angle
+    else
+        initialAngle = 0
+    end
+
+    turret.currentAimAngle = initialAngle
+
+    local sx, sy = TurretCore.getTurretWorldPosition(turret)
+
+    local angle = initialAngle
+    if cursorPos then
+        angle = math.atan2(cursorPos.y - sy, cursorPos.x - sx)
+    end
+
+    if angle ~= turret.currentAimAngle then
+        turret.currentAimAngle = angle
+        sx, sy = TurretCore.getTurretWorldPosition(turret)
+    else
+        turret.currentAimAngle = angle
+    end
+
+    local maxRange = turret.maxRange or 0
+    local effectiveRange = maxRange
+    local endX, endY
+
+    if cursorPos then
+        local dx = cursorPos.x - sx
+        local dy = cursorPos.y - sy
+        local cursorDistance = math.sqrt(dx * dx + dy * dy)
+
+        if maxRange > 0 then
+            effectiveRange = math.min(cursorDistance, maxRange)
+        else
+            effectiveRange = cursorDistance
+        end
+
+        if cursorDistance > 0 then
+            local scale = effectiveRange / cursorDistance
+            endX = sx + dx * scale
+            endY = sy + dy * scale
+        else
+            effectiveRange = 0
+            endX = sx
+            endY = sy
+        end
+    else
+        endX = sx + math.cos(angle) * effectiveRange
+        endY = sy + math.sin(angle) * effectiveRange
+    end
+
+    local hitTarget, hitX, hitY = UtilityBeams.performMiningHitscan(
+        sx, sy, endX, endY, turret, world
+    )
+
+    return {
+        startX = sx,
+        startY = sy,
+        angle = angle,
+        effectiveRange = effectiveRange,
+        endX = endX,
+        endY = endY,
+        hitTarget = hitTarget,
+        hitX = hitX,
+        hitY = hitY,
+        beamEndX = hitX or endX,
+        beamEndY = hitY or endY
+    }
+end
+
+local function updateEnergyAndWarnings(turret, dt, weaponName)
+    local energyStarved = false
+    local energyLevel = 1.0
+
+    local owner = turret.owner
+    local ownerComponents = owner and owner.components
+    local health = ownerComponents and ownerComponents.health
+
+    if turret.energyPerSecond and health and owner.isPlayer then
+        local currentEnergy = health.energy or 0
+        local maxEnergy = health.maxEnergy or 100
+        local energyCost = turret.energyPerSecond * dt
+        local resumeMultiplier = turret.resumeEnergyMultiplier or 2
+        local resumeThreshold = turret.minResumeEnergy or (resumeMultiplier * energyCost)
+        resumeThreshold = math.max(resumeThreshold, energyCost)
+
+        energyLevel = math.max(0, currentEnergy / maxEnergy)
+
+        if not turret._energySmoothing then
+            turret._energySmoothing = {
+                gracePeriod = 0.3,
+                graceTimer = 0,
+                lowEnergyThreshold = 0.15,
+                criticalEnergyThreshold = 0.05,
+                lastEnergyLevel = 1.0
+            }
+        end
+
+        local smoothing = turret._energySmoothing
+
+        if currentEnergy < energyCost then
+            smoothing.graceTimer = smoothing.graceTimer + dt
+        else
+            smoothing.graceTimer = 0
+        end
+
+        local shouldCutOff = false
+        if turret._energyStarved then
+            if currentEnergy >= resumeThreshold then
+                turret._energyStarved = false
+                smoothing.graceTimer = 0
+            else
+                shouldCutOff = true
+            end
+        else
+            if currentEnergy < energyCost then
+                if smoothing.graceTimer >= smoothing.gracePeriod then
+                    turret._energyStarved = true
+                    shouldCutOff = true
+                end
+            else
+                health.energy = math.max(0, currentEnergy - energyCost)
+            end
+        end
+
+        local currentTime = love.timer.getTime()
+        local lastEnergyWarning = turret._lastEnergyWarning or 0
+        local energyWarningCooldown = 3.0
+        local lastWarningLevel = turret._lastWarningLevel or "none"
+
+        if currentTime - lastEnergyWarning > energyWarningCooldown then
+            local currentWarningLevel = "none"
+            if energyLevel <= smoothing.criticalEnergyThreshold and not turret._energyStarved then
+                currentWarningLevel = "critical"
+            elseif energyLevel <= smoothing.lowEnergyThreshold and not turret._energyStarved then
+                currentWarningLevel = "low"
+            end
+
+            if currentWarningLevel ~= "none" and currentWarningLevel ~= lastWarningLevel then
+                if Notifications and Notifications.add then
+                    if currentWarningLevel == "critical" then
+                        Notifications.add("Critical energy! " .. weaponName .. " power failing!", "warning")
+                    elseif currentWarningLevel == "low" then
+                        Notifications.add("Low energy - " .. weaponName .. " power reduced", "info")
+                    end
+                end
+                turret._lastEnergyWarning = currentTime
+                turret._lastWarningLevel = currentWarningLevel
+            end
+        end
+
+        if energyLevel > smoothing.lowEnergyThreshold then
+            turret._lastWarningLevel = "none"
+        end
+
+        energyStarved = shouldCutOff
+    end
+
+    return energyStarved, energyLevel
+end
+
+local function applyBeamState(turret, sx, sy, beamEndX, beamEndY, hitTarget, energyLevel)
+    turret.beamActive = true
+    turret.beamStartX = sx
+    turret.beamStartY = sy
+    turret.beamEndX = beamEndX
+    turret.beamEndY = beamEndY
+    turret.beamTarget = hitTarget
+    turret._currentEnergyLevel = energyLevel
+end
+
+local function updateBeamSound(turret, wasActive, stopSoundFn)
+    if not wasActive then
+        if isTurretInputActive(turret) then
+            TurretEffects.playFiringSound(turret)
+        end
+    elseif wasActive and not isTurretInputActive(turret) then
+        if stopSoundFn then
+            stopSoundFn(turret)
+        end
+    end
+end
 
 -- Helper function to send utility beam weapon fire request to host
 local function sendUtilityBeamWeaponFireRequest(turret, sx, sy, angle, beamLength, beamType)
@@ -80,13 +281,10 @@ end
 -- Handle mining laser operation (continuous beam with continuous damage)
 function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     if locked or not isTurretInputActive(turret) or not turret:canFire() then
-        turret.beamActive = false
-        turret.beamTarget = nil
-        -- Stop mining laser sound if it was playing
+        resetBeamState(turret)
         if turret.miningSoundActive or turret.miningSoundInstance then
             TurretEffects.stopMiningSound(turret)
         end
-        -- Clear mining flags when beam is not active
         if world then
             local entities = world:get_entities_with_components("mineable")
             for _, entity in ipairs(entities) do
@@ -98,198 +296,37 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
         return
     end
 
-    -- Continuous visual effects - no timer needed
-
-    -- Determine aim angle first relative to ship, then compute muzzle and precise distance from muzzle to cursor
-    local Turret = require("src.systems.turret.core")
-    local shipPos = turret.owner.components and turret.owner.components.position
-    local cursorPos = turret.owner.cursorWorldPos
-    local initialAngle
-
-    if cursorPos and shipPos then
-        initialAngle = math.atan2(cursorPos.y - shipPos.y, cursorPos.x - shipPos.x)
-    elseif shipPos then
-        initialAngle = shipPos.angle
-    else
-        initialAngle = 0
-    end
-
-    turret.currentAimAngle = initialAngle
-
-    -- Now compute turret muzzle position using the provisional aim
-    local sx, sy = Turret.getTurretWorldPosition(turret)
-
-    -- Refine aim so the beam originates at the muzzle and points directly at the cursor
-    local angle = initialAngle
-    if cursorPos then
-        angle = math.atan2(cursorPos.y - sy, cursorPos.x - sx)
-    end
-
-    if angle ~= turret.currentAimAngle then
-        turret.currentAimAngle = angle
-        sx, sy = Turret.getTurretWorldPosition(turret)
-    else
-        turret.currentAimAngle = angle
-    end
-
-    local maxRange = turret.maxRange or 0
-    local effectiveRange = maxRange
-    local endX, endY
-
-    if cursorPos then
-        local dx = cursorPos.x - sx
-        local dy = cursorPos.y - sy
-        local cursorDistance = math.sqrt(dx * dx + dy * dy)
-
-        if maxRange > 0 then
-            effectiveRange = math.min(cursorDistance, maxRange)
-        else
-            effectiveRange = cursorDistance
-        end
-
-        if cursorDistance > 0 then
-            local scale = effectiveRange / cursorDistance
-            endX = sx + dx * scale
-            endY = sy + dy * scale
-        else
-            effectiveRange = 0
-            endX = sx
-            endY = sy
-        end
-    else
-        endX = sx + math.cos(angle) * effectiveRange
-        endY = sy + math.sin(angle) * effectiveRange
-    end
-
-    local hitTarget, hitX, hitY = UtilityBeams.performMiningHitscan(
-        sx, sy, endX, endY, turret, world
-    )
-
     local wasActive = turret.beamActive
-    -- Use collision point if hit, otherwise use effective range end point
-    local beamEndX = hitX or endX
-    local beamEndY = hitY or endY
-
-    local energyStarved = false
-    local energyLevel = 1.0 -- Full energy by default
-    
-    if turret.energyPerSecond and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
-        local currentEnergy = turret.owner.components.health.energy or 0
-        local maxEnergy = turret.owner.components.health.maxEnergy or 100
-        local energyCost = turret.energyPerSecond * dt
-        local resumeMultiplier = turret.resumeEnergyMultiplier or 2
-        local resumeThreshold = turret.minResumeEnergy or (resumeMultiplier * energyCost)
-        resumeThreshold = math.max(resumeThreshold, energyCost)
-
-        -- Calculate energy level (0.0 to 1.0)
-        energyLevel = math.max(0, currentEnergy / maxEnergy)
-        
-        -- Initialize energy smoothing variables
-        if not turret._energySmoothing then
-            turret._energySmoothing = {
-                gracePeriod = 0.3, -- 300ms grace period before cutting off
-                graceTimer = 0,
-                lowEnergyThreshold = 0.15, -- Start dimming at 15% energy
-                criticalEnergyThreshold = 0.05, -- Critical at 5% energy
-                lastEnergyLevel = 1.0
-            }
-        end
-        
-        local smoothing = turret._energySmoothing
-        
-        -- Update grace timer
-        if currentEnergy < energyCost then
-            smoothing.graceTimer = smoothing.graceTimer + dt
-        else
-            smoothing.graceTimer = 0
-        end
-        
-        -- Determine if we should cut off the beam
-        local shouldCutOff = false
-        if turret._energyStarved then
-            if currentEnergy >= resumeThreshold then
-                turret._energyStarved = false
-                smoothing.graceTimer = 0
-            else
-                shouldCutOff = true
-            end
-        else
-            if currentEnergy < energyCost then
-                if smoothing.graceTimer >= smoothing.gracePeriod then
-                    turret._energyStarved = true
-                    shouldCutOff = true
-                end
-            else
-                -- We have enough energy, consume it
-                turret.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
-            end
-        end
-        
-        -- Energy warning notifications (only show once per energy state)
-        local currentTime = love.timer.getTime()
-        local lastEnergyWarning = turret._lastEnergyWarning or 0
-        local energyWarningCooldown = 3.0 -- 3 seconds between warnings
-        local lastWarningLevel = turret._lastWarningLevel or "none"
-        
-        if currentTime - lastEnergyWarning > energyWarningCooldown then
-            local currentWarningLevel = "none"
-            if energyLevel <= smoothing.criticalEnergyThreshold and not turret._energyStarved then
-                currentWarningLevel = "critical"
-            elseif energyLevel <= smoothing.lowEnergyThreshold and not turret._energyStarved then
-                currentWarningLevel = "low"
-            end
-            
-            -- Only show notification if warning level changed
-            if currentWarningLevel ~= "none" and currentWarningLevel ~= lastWarningLevel then
-                local Notifications = require("src.ui.notifications")
-                if Notifications and Notifications.add then
-                    local weaponName = turret.kind == "mining_laser" and "Mining laser" or "Salvaging laser"
-                    if currentWarningLevel == "critical" then
-                        Notifications.add("Critical energy! " .. weaponName .. " power failing!", "warning")
-                    elseif currentWarningLevel == "low" then
-                        Notifications.add("Low energy - " .. weaponName .. " power reduced", "info")
-                    end
-                end
-                turret._lastEnergyWarning = currentTime
-                turret._lastWarningLevel = currentWarningLevel
-            end
-        end
-        
-        -- Reset warning level when energy is restored
-        if energyLevel > smoothing.lowEnergyThreshold then
-            turret._lastWarningLevel = "none"
-        end
-        
-        energyStarved = shouldCutOff
-    end
+    local beamData = computeBeamTarget(turret, world)
+    local energyStarved, energyLevel = updateEnergyAndWarnings(turret, dt, "Mining laser")
 
     if energyStarved then
-        turret.beamActive = false
-        turret.beamTarget = nil
-        turret.beamStartX = nil
-        turret.beamStartY = nil
-        turret.beamEndX = nil
-        turret.beamEndY = nil
+        resetBeamState(turret)
         if turret.miningSoundActive or turret.miningSoundInstance then
             TurretEffects.stopMiningSound(turret)
         end
         return
     end
 
-    turret.beamActive = true
-    turret.beamStartX = sx
-    turret.beamStartY = sy
-    turret.beamEndX = beamEndX
-    turret.beamEndY = beamEndY
-    turret.beamTarget = hitTarget
-    
-    -- Store energy level for rendering system
-    turret._currentEnergyLevel = energyLevel
+    applyBeamState(
+        turret,
+        beamData.startX,
+        beamData.startY,
+        beamData.beamEndX,
+        beamData.beamEndY,
+        beamData.hitTarget,
+        energyLevel
+    )
 
-    -- Try to send utility beam weapon fire request first (for clients)
-    local requestSent = sendUtilityBeamWeaponFireRequest(turret, sx, sy, angle, effectiveRange, "mining")
+    local requestSent = sendUtilityBeamWeaponFireRequest(
+        turret,
+        beamData.startX,
+        beamData.startY,
+        beamData.angle,
+        beamData.effectiveRange,
+        "mining"
+    )
 
-    -- If not a client or request failed, process beam locally (for host)
     if not requestSent then
         -- Host processes beam locally
     end
@@ -298,22 +335,29 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
     local miningPower = turret.miningPower
     local damageRate = miningPower / cycle
 
-    if hitTarget then
-        if hitTarget.components and hitTarget.components.mineable then
-            -- Set mining flag
-            hitTarget.components.mineable.isBeingMined = true
-            
-            local damageValue = damageRate * dt
-            UtilityBeams.applyMiningDamage(hitTarget, damageValue, turret.owner, world, hitX, hitY)
+    if beamData.hitTarget then
+        if beamData.hitTarget.components and beamData.hitTarget.components.mineable then
+            beamData.hitTarget.components.mineable.isBeingMined = true
 
-            -- Only create visual effects, no collision sound for mining
-            -- Collision effects are now handled exclusively by the unified collision system
+            local damageValue = damageRate * dt
+            UtilityBeams.applyMiningDamage(
+                beamData.hitTarget,
+                damageValue,
+                turret.owner,
+                world,
+                beamData.hitX,
+                beamData.hitY
+            )
         else
-            -- Continuous visual effects for non-mining targets
-            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
+            TurretEffects.createImpactEffect(
+                turret,
+                beamData.hitX,
+                beamData.hitY,
+                beamData.hitTarget,
+                "laser"
+            )
         end
     else
-        -- No target hit, clear mining flags on all asteroids
         local entities = world:get_entities_with_components("mineable")
         for _, entity in ipairs(entities) do
             if entity.components and entity.components.mineable then
@@ -324,18 +368,7 @@ function UtilityBeams.updateMiningLaser(turret, dt, target, locked, world)
 
     turret.cooldownOverride = 0
 
-    -- Handle continuous mining laser sound
-    if not wasActive then
-        -- Start the mining laser sound (it will loop)
-        if isTurretInputActive(turret) then
-            TurretEffects.playFiringSound(turret)
-        end
-    elseif wasActive and not isTurretInputActive(turret) then
-        -- Beam was active but input is no longer active, stop sound
-        if turret.miningSoundActive or turret.miningSoundInstance then
-            TurretEffects.stopMiningSound(turret)
-        end
-    end
+    updateBeamSound(turret, wasActive, TurretEffects.stopMiningSound)
 end
 
 -- Apply mining damage to asteroid durability
@@ -480,206 +513,44 @@ end
 -- Handle salvaging laser operation (continuous beam with continuous damage)
 function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     if locked or not isTurretInputActive(turret) or not turret:canFire() then
-        turret.beamActive = false
-        turret.beamTarget = nil
+        resetBeamState(turret)
         if turret.salvagingSoundActive or turret.salvagingSoundInstance then
             TurretEffects.stopSalvagingSound(turret)
         end
         return
     end
-
-    -- Continuous visual effects - no timer needed
-
-    -- Determine aim angle first relative to ship, then compute muzzle and precise distance from muzzle to cursor
-    local Turret = require("src.systems.turret.core")
-    local shipPos = turret.owner.components and turret.owner.components.position
-    local cursorPos = turret.owner.cursorWorldPos
-    local initialAngle
-
-    if cursorPos and shipPos then
-        initialAngle = math.atan2(cursorPos.y - shipPos.y, cursorPos.x - shipPos.x)
-    elseif shipPos then
-        initialAngle = shipPos.angle
-    else
-        initialAngle = 0
-    end
-
-    turret.currentAimAngle = initialAngle
-
-    -- Now compute turret muzzle position using the provisional aim
-    local sx, sy = Turret.getTurretWorldPosition(turret)
-
-    -- Refine aim so the beam originates at the muzzle and points directly at the cursor
-    local angle = initialAngle
-    if cursorPos then
-        angle = math.atan2(cursorPos.y - sy, cursorPos.x - sx)
-    end
-
-    if angle ~= turret.currentAimAngle then
-        turret.currentAimAngle = angle
-        sx, sy = Turret.getTurretWorldPosition(turret)
-    else
-        turret.currentAimAngle = angle
-    end
-
-    local maxRange = turret.maxRange or 0
-    local effectiveRange = maxRange
-    local endX, endY
-
-    if cursorPos then
-        local dx = cursorPos.x - sx
-        local dy = cursorPos.y - sy
-        local cursorDistance = math.sqrt(dx * dx + dy * dy)
-
-        if maxRange > 0 then
-            effectiveRange = math.min(cursorDistance, maxRange)
-        else
-            effectiveRange = cursorDistance
-        end
-
-        if cursorDistance > 0 then
-            local scale = effectiveRange / cursorDistance
-            endX = sx + dx * scale
-            endY = sy + dy * scale
-        else
-            effectiveRange = 0
-            endX = sx
-            endY = sy
-        end
-    else
-        endX = sx + math.cos(angle) * effectiveRange
-        endY = sy + math.sin(angle) * effectiveRange
-    end
-
-    local hitTarget, hitX, hitY = UtilityBeams.performMiningHitscan(
-        sx, sy, endX, endY, turret, world
-    )
 
     local wasActive = turret.beamActive
-    -- Use collision point if hit, otherwise use effective range end point
-    local beamEndX = hitX or endX
-    local beamEndY = hitY or endY
-
-    local energyStarved = false
-    local energyLevel = 1.0 -- Full energy by default
-    
-    if turret.energyPerSecond and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
-        local currentEnergy = turret.owner.components.health.energy or 0
-        local maxEnergy = turret.owner.components.health.maxEnergy or 100
-        local energyCost = turret.energyPerSecond * dt
-        local resumeMultiplier = turret.resumeEnergyMultiplier or 2
-        local resumeThreshold = turret.minResumeEnergy or (resumeMultiplier * energyCost)
-        resumeThreshold = math.max(resumeThreshold, energyCost)
-
-        -- Calculate energy level (0.0 to 1.0)
-        energyLevel = math.max(0, currentEnergy / maxEnergy)
-        
-        -- Initialize energy smoothing variables
-        if not turret._energySmoothing then
-            turret._energySmoothing = {
-                gracePeriod = 0.3, -- 300ms grace period before cutting off
-                graceTimer = 0,
-                lowEnergyThreshold = 0.15, -- Start dimming at 15% energy
-                criticalEnergyThreshold = 0.05, -- Critical at 5% energy
-                lastEnergyLevel = 1.0
-            }
-        end
-        
-        local smoothing = turret._energySmoothing
-        
-        -- Update grace timer
-        if currentEnergy < energyCost then
-            smoothing.graceTimer = smoothing.graceTimer + dt
-        else
-            smoothing.graceTimer = 0
-        end
-        
-        -- Determine if we should cut off the beam
-        local shouldCutOff = false
-        if turret._energyStarved then
-            if currentEnergy >= resumeThreshold then
-                turret._energyStarved = false
-                smoothing.graceTimer = 0
-            else
-                shouldCutOff = true
-            end
-        else
-            if currentEnergy < energyCost then
-                if smoothing.graceTimer >= smoothing.gracePeriod then
-                    turret._energyStarved = true
-                    shouldCutOff = true
-                end
-            else
-                -- We have enough energy, consume it
-                turret.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
-            end
-        end
-        
-        -- Energy warning notifications (only show once per energy state)
-        local currentTime = love.timer.getTime()
-        local lastEnergyWarning = turret._lastEnergyWarning or 0
-        local energyWarningCooldown = 3.0 -- 3 seconds between warnings
-        local lastWarningLevel = turret._lastWarningLevel or "none"
-        
-        if currentTime - lastEnergyWarning > energyWarningCooldown then
-            local currentWarningLevel = "none"
-            if energyLevel <= smoothing.criticalEnergyThreshold and not turret._energyStarved then
-                currentWarningLevel = "critical"
-            elseif energyLevel <= smoothing.lowEnergyThreshold and not turret._energyStarved then
-                currentWarningLevel = "low"
-            end
-            
-            -- Only show notification if warning level changed
-            if currentWarningLevel ~= "none" and currentWarningLevel ~= lastWarningLevel then
-                local Notifications = require("src.ui.notifications")
-                if Notifications and Notifications.add then
-                    local weaponName = turret.kind == "mining_laser" and "Mining laser" or "Salvaging laser"
-                    if currentWarningLevel == "critical" then
-                        Notifications.add("Critical energy! " .. weaponName .. " power failing!", "warning")
-                    elseif currentWarningLevel == "low" then
-                        Notifications.add("Low energy - " .. weaponName .. " power reduced", "info")
-                    end
-                end
-                turret._lastEnergyWarning = currentTime
-                turret._lastWarningLevel = currentWarningLevel
-            end
-        end
-        
-        -- Reset warning level when energy is restored
-        if energyLevel > smoothing.lowEnergyThreshold then
-            turret._lastWarningLevel = "none"
-        end
-        
-        energyStarved = shouldCutOff
-    end
+    local beamData = computeBeamTarget(turret, world)
+    local energyStarved, energyLevel = updateEnergyAndWarnings(turret, dt, "Salvaging laser")
 
     if energyStarved then
-        turret.beamActive = false
-        turret.beamTarget = nil
-        turret.beamStartX = nil
-        turret.beamStartY = nil
-        turret.beamEndX = nil
-        turret.beamEndY = nil
+        resetBeamState(turret)
         if turret.salvagingSoundActive or turret.salvagingSoundInstance then
             TurretEffects.stopSalvagingSound(turret)
         end
         return
     end
 
-    turret.beamActive = true
-    turret.beamStartX = sx
-    turret.beamStartY = sy
-    turret.beamEndX = beamEndX
-    turret.beamEndY = beamEndY
-    turret.beamTarget = hitTarget
-    
-    -- Store energy level for rendering system
-    turret._currentEnergyLevel = energyLevel
+    applyBeamState(
+        turret,
+        beamData.startX,
+        beamData.startY,
+        beamData.beamEndX,
+        beamData.beamEndY,
+        beamData.hitTarget,
+        energyLevel
+    )
 
-    -- Try to send utility beam weapon fire request first (for clients)
-    local requestSent = sendUtilityBeamWeaponFireRequest(turret, sx, sy, angle, effectiveRange, "salvaging")
+    local requestSent = sendUtilityBeamWeaponFireRequest(
+        turret,
+        beamData.startX,
+        beamData.startY,
+        beamData.angle,
+        beamData.effectiveRange,
+        "salvaging"
+    )
 
-    -- If not a client or request failed, process beam locally (for host)
     if not requestSent then
         -- Host processes beam locally
     end
@@ -688,22 +559,35 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
     local salvagePower = turret.salvagePower
     local salvageRate = salvagePower / cycle
 
-    if hitTarget then
-        if hitTarget.components and hitTarget.components.wreckage then
-            -- Mark wreckage as being salvaged
-            if not hitTarget.components.wreckage.isBeingSalvaged then
-                hitTarget.components.wreckage.isBeingSalvaged = true
+    if beamData.hitTarget then
+        if beamData.hitTarget.components and beamData.hitTarget.components.wreckage then
+            if not beamData.hitTarget.components.wreckage.isBeingSalvaged then
+                beamData.hitTarget.components.wreckage.isBeingSalvaged = true
             end
-            
-            local removed = UtilityBeams.applySalvageDamage(hitTarget, salvageRate * dt, turret.owner, world)
-            -- Continuous visual effects while beam is active
-            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "salvage")
+
+            local removed = UtilityBeams.applySalvageDamage(
+                beamData.hitTarget,
+                salvageRate * dt,
+                turret.owner,
+                world
+            )
+            TurretEffects.createImpactEffect(
+                turret,
+                beamData.hitX,
+                beamData.hitY,
+                beamData.hitTarget,
+                "salvage"
+            )
         else
-            -- Continuous visual effects for non-salvage targets
-            TurretEffects.createImpactEffect(turret, hitX, hitY, hitTarget, "laser")
+            TurretEffects.createImpactEffect(
+                turret,
+                beamData.hitX,
+                beamData.hitY,
+                beamData.hitTarget,
+                "laser"
+            )
         end
     else
-        -- No target hit, clear salvage flags on all wreckage
         local entities = world:get_entities_with_components("wreckage")
         for _, entity in ipairs(entities) do
             if entity.components and entity.components.wreckage then
@@ -714,15 +598,7 @@ function UtilityBeams.updateSalvagingLaser(turret, dt, target, locked, world)
 
     turret.cooldownOverride = 0
 
-    -- Handle continuous salvaging laser sound
-    if not wasActive and isTurretInputActive(turret) then
-        TurretEffects.playFiringSound(turret)
-    elseif wasActive and not isTurretInputActive(turret) then
-        -- Beam was active but input is no longer active, stop sound
-        if turret.salvagingSoundActive or turret.salvagingSoundInstance then
-            TurretEffects.stopSalvagingSound(turret)
-        end
-    end
+    updateBeamSound(turret, wasActive, TurretEffects.stopSalvagingSound)
 end
 
 -- Complete salvage operation (cleanup after all materials yielded)
