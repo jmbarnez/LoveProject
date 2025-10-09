@@ -25,6 +25,7 @@ return {
 
     collidable = {
         shape = "polygon",
+        friction = 0.6, -- Rough asteroid surface
         vertices = {
             -44, -18,  -- Top-left
             -52, 0,    -- Left

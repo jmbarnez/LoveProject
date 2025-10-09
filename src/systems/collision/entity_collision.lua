@@ -169,7 +169,85 @@ local function checkEntityCollision(entity1, entity2)
     end
 end
 
--- Helper function to push an entity
+-- Helper function to get entity mass for momentum calculations
+local function getEntityMass(entity)
+    local physics = entity.components.physics
+    if physics and physics.body then
+        return physics.body.mass or 1000
+    end
+    -- Fallback mass based on entity type
+    if entity.components.mineable then
+        return 2000 -- Asteroids are heavy
+    elseif entity.tag == "station" then
+        return 10000 -- Stations are very heavy
+    else
+        return 1000 -- Default ship mass
+    end
+end
+
+-- Helper function to get surface friction for an entity
+local function getSurfaceFriction(entity)
+    local collidable = entity.components and entity.components.collidable
+    if collidable and collidable.friction then
+        return collidable.friction
+    end
+    
+    -- Default friction based on entity type
+    if entity.tag == "station" then
+        return 0.3 -- Smooth metal surfaces
+    elseif entity.components.mineable then
+        return 0.6 -- Rough asteroid surfaces
+    elseif entity.components.shield then
+        return 0.0 -- Energy shields have no friction
+    else
+        return 0.4 -- Default ship hull friction
+    end
+end
+
+-- Helper function to apply surface friction
+local function applySurfaceFriction(entity, normalX, normalY, dt)
+    local friction = getSurfaceFriction(entity)
+    if friction <= 0 then return end -- No friction to apply
+    
+    local physics = entity.components.physics
+    if physics and physics.body then
+        local body = physics.body
+        local vx = body.vx or 0
+        local vy = body.vy or 0
+        local speed = math.sqrt(vx * vx + vy * vy)
+        
+        if speed > 0.1 then
+            -- Calculate friction force opposite to velocity
+            local frictionForce = speed * friction * 0.1 -- Scale down for gameplay
+            local frictionX = -(vx / speed) * frictionForce
+            local frictionY = -(vy / speed) * frictionForce
+            
+            -- Apply friction
+            body.vx = body.vx + frictionX * dt
+            body.vy = body.vy + frictionY * dt
+        end
+    else
+        local vel = entity.components.velocity
+        if vel then
+            local vx = vel.x or 0
+            local vy = vel.y or 0
+            local speed = math.sqrt(vx * vx + vy * vy)
+            
+            if speed > 0.1 then
+                -- Calculate friction force opposite to velocity
+                local frictionForce = speed * friction * 0.1 -- Scale down for gameplay
+                local frictionX = -(vx / speed) * frictionForce
+                local frictionY = -(vy / speed) * frictionForce
+                
+                -- Apply friction
+                vel.x = vel.x + frictionX * dt
+                vel.y = vel.y + frictionY * dt
+            end
+        end
+    end
+end
+
+-- Helper function to push an entity with momentum preservation
 local function pushEntity(entity, pushX, pushY, normalX, normalY, dt, restitution)
     restitution = restitution or 0.25 -- default hull bounce if unspecified
     local physics = entity.components.physics
@@ -185,11 +263,15 @@ local function pushEntity(entity, pushX, pushY, normalX, normalY, dt, restitutio
             local delta = -(1 + restitution) * vn
             body.vx = vx + delta * normalX
             body.vy = vy + delta * normalY
-            body.vx = body.vx * 0.995
-            body.vy = body.vy * 0.995
+            
+            -- Apply minimal damping to prevent infinite bouncing
+            body.vx = body.vx * 0.998
+            body.vy = body.vy * 0.998
+            
+            -- Only apply minimum velocity boost for high restitution objects (shields)
             if restitution > 0.8 then
                 local newVn = body.vx * normalX + body.vy * normalY
-                local minOut = 60
+                local minOut = 40 -- Reduced from 60 for more realistic physics
                 if newVn < minOut then
                     local add = (minOut - newVn)
                     body.vx = body.vx + add * normalX
@@ -210,11 +292,15 @@ local function pushEntity(entity, pushX, pushY, normalX, normalY, dt, restitutio
                 local delta = -(1 + restitution) * vn
                 vel.x = vx + delta * normalX
                 vel.y = vy + delta * normalY
-                vel.x = vel.x * 0.995
-                vel.y = vel.y * 0.995
+                
+                -- Apply minimal damping to prevent infinite bouncing
+                vel.x = vel.x * 0.998
+                vel.y = vel.y * 0.998
+                
+                -- Only apply minimum velocity boost for high restitution objects (shields)
                 if restitution > 0.8 then
                     local newVn = vel.x * normalX + vel.y * normalY
-                    local minOut = 60
+                    local minOut = 40 -- Reduced from 60 for more realistic physics
                     if newVn < minOut then
                         local add = (minOut - newVn)
                         vel.x = vel.x + add * normalX
@@ -352,15 +438,61 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
         local e1Rest = StationShields.hasActiveShield(entity1) and SHIELD_REST or HULL_REST
         local e2Rest = StationShields.hasActiveShield(entity2) and SHIELD_REST or HULL_REST
 
-        -- Push entities apart based on their mobility
-        -- Normal points from entity1 to entity2, so we need to negate it for entity1
+        -- Enhanced momentum-based collision resolution
         if e1CanMove and e2CanMove then
-            pushEntity(entity1, -nx * pushDistance, -ny * pushDistance, -nx, -ny, dt, e1Rest)
-            pushEntity(entity2, nx * pushDistance, ny * pushDistance, nx, ny, dt, e2Rest)
+            -- Both entities can move - use proper momentum transfer
+            local mass1 = getEntityMass(entity1)
+            local mass2 = getEntityMass(entity2)
+            local totalMass = mass1 + mass2
+            
+            -- Calculate momentum-based push distances
+            local push1 = pushDistance * (mass2 / totalMass)
+            local push2 = pushDistance * (mass1 / totalMass)
+            
+            -- Apply separation with momentum preservation
+            pushEntity(entity1, -nx * push1, -ny * push1, -nx, -ny, dt, e1Rest)
+            pushEntity(entity2, nx * push2, ny * push2, nx, ny, dt, e2Rest)
+            
+            -- Apply momentum transfer between moving entities
+            local e1Physics = entity1.components.physics and entity1.components.physics.body
+            local e2Physics = entity2.components.physics and entity2.components.physics.body
+            
+            if e1Physics and e2Physics then
+                -- Calculate relative velocity
+                local relVx = e2Physics.vx - e1Physics.vx
+                local relVy = e2Physics.vy - e1Physics.vy
+                local relVelAlongNormal = relVx * nx + relVy * ny
+                
+                -- Don't resolve if velocities are separating
+                if relVelAlongNormal < 0 then
+                    -- Calculate impulse magnitude
+                    local impulse = -(1 + math.min(e1Rest, e2Rest)) * relVelAlongNormal
+                    impulse = impulse / (1/mass1 + 1/mass2)
+                    
+                    -- Apply impulse
+                    local impulseX = impulse * nx
+                    local impulseY = impulse * ny
+                    
+                    e1Physics.vx = e1Physics.vx - impulseX / mass1
+                    e1Physics.vy = e1Physics.vy - impulseY / mass1
+                    e2Physics.vx = e2Physics.vx + impulseX / mass2
+                    e2Physics.vy = e2Physics.vy + impulseY / mass2
+                end
+            end
+            
+            -- Apply surface friction after collision
+            applySurfaceFriction(entity1, -nx, -ny, dt)
+            applySurfaceFriction(entity2, nx, ny, dt)
         elseif e1CanMove then
+            -- Only entity1 can move - push it away from static entity2
             pushEntity(entity1, -nx * overlap, -ny * overlap, -nx, -ny, dt, e1Rest)
+            -- Apply friction from static surface
+            applySurfaceFriction(entity1, -nx, -ny, dt)
         elseif e2CanMove then
+            -- Only entity2 can move - push it away from static entity1
             pushEntity(entity2, nx * overlap, ny * overlap, nx, ny, dt, e2Rest)
+            -- Apply friction from static surface
+            applySurfaceFriction(entity2, nx, ny, dt)
         end
 
         -- Momentum transfer: allow the player to impart motion to wreckage pieces
