@@ -66,7 +66,7 @@ function Player.new(x, y, shipId)
   -- Turrets are provided by the ship template via components.equipment.turrets.
   -- No additional default turrets are added here.
 
-  -- Default inventory will be initialized by game setup (see Game.load).
+  -- Cargo hold will be initialized by game setup (see Game.load).
 
   self:resetDurability()
 
@@ -210,7 +210,7 @@ function Player:unequipTurret(slotNum)
     -- Find the turret slot
     for i, turretData in ipairs(self.components.equipment.turrets) do
         if turretData.slot == slotNum and turretData.turret then
-            -- Return turret to inventory
+            -- Return turret to cargo hold
             local turretId = turretData.id
             if turretId then
                 -- Return turret back to cargo (procedural turrets serialize via meta)
@@ -245,23 +245,24 @@ function Player:equipModule(slotNum, moduleId, turretData)
         return false
     end
 
-    -- Check if player has the item in inventory, or if it's a turret available from content
+    -- Check if player has the item in cargo, or if it's a turret available from content
     local hasItem = false
-    local inventoryValue = nil
+    local cargoValue = nil
 
     local cargo = self.components and self.components.cargo
     if cargo and cargo:has(moduleId, 1) then
         hasItem = true
+        cargoValue = cargo:get(moduleId)
     end
 
-    -- Allow equipping turrets directly from content system if not in inventory
+    -- Allow equipping turrets directly from content system if not in cargo
     local turretDef = Content.getTurret(moduleId)
     if not hasItem and turretDef and turretDef.module and turretDef.module.type == "turret" then
         hasItem = true
     end
 
     if not hasItem then
-        return false -- Don't have this item in inventory or content
+        return false -- Don't have this item in cargo or content
     end
 
     -- Get the module definition (could be any module type)
@@ -339,7 +340,7 @@ function Player:equipModule(slotNum, moduleId, turretData)
             gridData.type = moduleType
             gridData.baseType = baseType
 
-            -- Remove from inventory only if it was actually in inventory
+            -- Remove from cargo only if it was actually in cargo
             if cargo then
                 cargo:remove(moduleId, 1)
             end
@@ -371,7 +372,7 @@ function Player:unequipModule(slotNum)
             local moduleId = gridData.id
             local moduleType = gridData.type
 
-            -- Return module to inventory (stackable modules handled directly; turrets handled below)
+            -- Return module to cargo (stackable modules handled directly; turrets handled below)
             if moduleId and (moduleType == "shield" or moduleType == "module") then
                 cargo:add(moduleId, 1)
             elseif moduleType == "turret" then

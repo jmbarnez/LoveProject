@@ -8,9 +8,10 @@ local IconSystem = require("src.core.icon_system")
 local AuroraTitle = require("src.shaders.aurora_title")
 local PlayerRef = require("src.core.player_ref")
 local Window = require("src.ui.common.window")
+local CargoState = require("src.ui.cargo.state")
 
 local CARGO_SLOT_SIZE = 48
-local Inventory = {}
+local Cargo = CargoState.get()
 
 local function hasEmptyEquipmentSlot(player)
   local grid = player.components and player.components.equipment and player.components.equipment.grid
@@ -50,50 +51,21 @@ local function getCurrentPlayer()
   return PlayerRef.get and PlayerRef.get() or nil
 end
 
--- Core inventory state
-Inventory.visible = false
-Inventory.hoveredItem = nil
-Inventory.hoverTimer = 0
-Inventory.scroll = 0
-Inventory._scrollMax = 0
-Inventory.contextMenu = {
-  visible = false,
-  x = 0,
-  y = 0,
-  item = nil,
-  options = {}
-}
-Inventory.auroraShader = nil
-
--- Enhanced inventory features
-Inventory.searchText = ""
-Inventory.sortBy = "name" -- "name", "type", "rarity", "value", "quantity"
-Inventory.sortOrder = "asc" -- "asc" or "desc"
-Inventory._searchInputActive = false
-Inventory._scrollDragging = false
-Inventory._scrollDragOffset = 0
-Inventory._searchRect = nil
-Inventory._sortRect = nil
-
 local function setSearchActive(active)
-  if Inventory._searchInputActive == active then return end
-  Inventory._searchInputActive = active
-  if love and love.keyboard and love.keyboard.setTextInput then
-    love.keyboard.setTextInput(active)
-  end
+  CargoState.setSearchActive(active)
 end
 
-function Inventory.clearSearchFocus()
-  setSearchActive(false)
+function Cargo.clearSearchFocus()
+  CargoState.clearSearchFocus()
 end
 
-function Inventory.isSearchInputActive()
-  return Inventory._searchInputActive
+function Cargo.isSearchInputActive()
+  return CargoState.isSearchInputActive()
 end
 
-function Inventory.init()
-    Inventory.window = Window.new({
-        title = "Inventory",
+function Cargo.init()
+    Cargo.window = Window.new({
+        title = "Cargo",
         width = 520,
         height = 400,
         minWidth = 300,
@@ -101,9 +73,9 @@ function Inventory.init()
         useLoadPanelTheme = true,
         draggable = true,
         closable = true,
-        drawContent = Inventory.drawContent,
+        drawContent = Cargo.drawContent,
         onClose = function()
-            Inventory.visible = false
+            Cargo.visible = false
             setSearchActive(false)
             -- Play close sound
             local Sound = require("src.core.sound")
@@ -112,21 +84,21 @@ function Inventory.init()
     })
 end
 
-function Inventory.getRect()
-    if not Inventory.window then return nil end
-    return { x = Inventory.window.x, y = Inventory.window.y, w = Inventory.window.width, h = Inventory.window.height }
+function Cargo.getRect()
+    if not Cargo.window then return nil end
+    return { x = Cargo.window.x, y = Cargo.window.y, w = Cargo.window.width, h = Cargo.window.height }
 end
 
-function Inventory.refresh()
-    -- Reset transient state so the next draw reflects latest inventory data
-    Inventory.hoveredItem = nil
-    Inventory.hoverTimer = 0
-    Inventory.contextMenu.visible = false
-    -- Clear any active tooltips when inventory refreshes
+function Cargo.refresh()
+    -- Reset transient state so the next draw reflects latest cargo data
+    Cargo.hoveredItem = nil
+    Cargo.hoverTimer = 0
+    Cargo.contextMenu.visible = false
+    -- Clear any active tooltips when cargo refreshes
     local TooltipManager = require("src.ui.tooltip_manager")
     TooltipManager.clearTooltip()
     local player = getCurrentPlayer()
-    Inventory._cargoSnapshot = snapshotCargoState(player)
+    Cargo._cargoSnapshot = snapshotCargoState(player)
 end
 
 -- Helper functions
@@ -231,15 +203,15 @@ local function createContextMenu(item, x, y)
   if not item then return end
   local def = Content.getItem(item.id) or Content.getTurret(item.id)
   if not def then return end
-  Inventory.contextMenu.visible = true
-  Inventory.contextMenu.x = x
-  Inventory.contextMenu.y = y
-  Inventory.contextMenu.item = item
-  Inventory.contextMenu.options = {}
+  Cargo.contextMenu.visible = true
+  Cargo.contextMenu.x = x
+  Cargo.contextMenu.y = y
+  Cargo.contextMenu.item = item
+  Cargo.contextMenu.options = {}
   if def.consumable or def.type == "consumable" then
-    table.insert(Inventory.contextMenu.options, {name = "Use", action = "use"})
+    table.insert(Cargo.contextMenu.options, {name = "Use", action = "use"})
   end
-  table.insert(Inventory.contextMenu.options, {name = "Drop", action = "drop"})
+  table.insert(Cargo.contextMenu.options, {name = "Drop", action = "drop"})
 end
 
 -- Enhanced sorting and filtering functions
@@ -513,29 +485,29 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
   end
 end
 
-function Inventory.draw()
-    if not Inventory.visible then return end
-    if not Inventory.window then Inventory.init() end
-    -- Keep UIManager state in sync when inventory is shown/hidden directly
+function Cargo.draw()
+    if not Cargo.visible then return end
+    if not Cargo.window then Cargo.init() end
+    -- Keep UIManager state in sync when cargo is shown/hidden directly
     local ok, UIManager = pcall(require, "src.core.ui_manager")
-    if ok and UIManager and UIManager.state and UIManager.state.inventory then
-        UIManager.state.inventory.open = Inventory.visible
+    if ok and UIManager and UIManager.state and UIManager.state.cargo then
+        UIManager.state.cargo.open = Cargo.visible
     end
-    Inventory.window.visible = Inventory.visible
-    Inventory.window:draw()
+    Cargo.window.visible = Cargo.visible
+    Cargo.window:draw()
 
 end
 
-function Inventory.drawContent(window, x, y, w, h)
+function Cargo.drawContent(window, x, y, w, h)
     local player = getCurrentPlayer()
     if not player then return end
 
     local currentSnapshot = snapshotCargoState(player)
-    if cargoStateChanged(Inventory._cargoSnapshot, currentSnapshot) then
-        Inventory._cargoSnapshot = currentSnapshot
-        Inventory.hoveredItem = nil
-        Inventory.hoverTimer = 0
-        Inventory.contextMenu.visible = false
+    if cargoStateChanged(Cargo._cargoSnapshot, currentSnapshot) then
+        Cargo._cargoSnapshot = currentSnapshot
+        Cargo.hoveredItem = nil
+        Cargo.hoverTimer = 0
+        Cargo.contextMenu.visible = false
     end
 
     local mx, my = Viewport.getMousePosition()
@@ -554,17 +526,17 @@ function Inventory.drawContent(window, x, y, w, h)
         sortWidth = 0
     end
 
-    Inventory._searchRect = drawSearchBar(x + headerPadding, y + headerPadding, searchWidth, searchHeight, Inventory.searchText, Inventory._searchInputActive)
+    Cargo._searchRect = drawSearchBar(x + headerPadding, y + headerPadding, searchWidth, searchHeight, Cargo.searchText, Cargo._searchInputActive)
     if sortWidth > 0 then
-        Inventory._sortRect = drawSortButton(x + w - sortWidth - headerPadding, y + headerPadding, sortWidth, searchHeight, Inventory.sortBy, Inventory.sortOrder)
+        Cargo._sortRect = drawSortButton(x + w - sortWidth - headerPadding, y + headerPadding, sortWidth, searchHeight, Cargo.sortBy, Cargo.sortOrder)
     else
-        Inventory._sortRect = nil
+        Cargo._sortRect = nil
     end
 
     -- Get items with sorting and filtering
     local items = getPlayerItems(player)
-    items = filterItems(items, Inventory.searchText)
-    sortItems(items, Inventory.sortBy, Inventory.sortOrder)
+    items = filterItems(items, Cargo.searchText)
+    sortItems(items, Cargo.sortBy, Cargo.sortOrder)
 
     local iconSize = CARGO_SLOT_SIZE
     local padding = (Theme.ui and Theme.ui.contentPadding) or 8
@@ -577,19 +549,19 @@ function Inventory.drawContent(window, x, y, w, h)
 
     local totalRows = math.ceil(#items / iconsPerRow)
     local totalContentHeight = totalRows * (iconSize + padding) + padding
-    Inventory._scrollMax = math.max(0, totalContentHeight - contentH)
-    if Inventory.scroll > Inventory._scrollMax then Inventory.scroll = Inventory._scrollMax end
+    Cargo._scrollMax = math.max(0, totalContentHeight - contentH)
+    if Cargo.scroll > Cargo._scrollMax then Cargo.scroll = Cargo._scrollMax end
 
     -- Draw items with enhanced hover states
     love.graphics.push()
     love.graphics.setScissor(x, contentY, w, contentH)
-    Inventory._slotRects = {}
+    Cargo._slotRects = {}
 
     for i, item in ipairs(items) do
         local row = math.floor((i - 1) / iconsPerRow)
         local col = (i - 1) % iconsPerRow
         local itemX = x + col * (iconSize + padding) + padding
-        local itemY = contentY + row * (iconSize + padding) + padding - Inventory.scroll
+        local itemY = contentY + row * (iconSize + padding) + padding - Cargo.scroll
 
         if itemY + iconSize > contentY and itemY < contentY + contentH then
             local isHovered = mx >= itemX and mx <= itemX + iconSize and my >= itemY and my <= itemY + iconSize
@@ -597,32 +569,32 @@ function Inventory.drawContent(window, x, y, w, h)
 
             drawEnhancedItemSlot(item, itemX, itemY, iconSize, isHovered, isSelected)
 
-            table.insert(Inventory._slotRects, { x = itemX, y = itemY, w = iconSize, h = iconSize, item = item, index = i })
+            table.insert(Cargo._slotRects, { x = itemX, y = itemY, w = iconSize, h = iconSize, item = item, index = i })
 
             if isHovered then
-                if not Inventory.hoveredItem or Inventory.hoveredItem.id ~= item.id then
-                    Inventory.hoveredItem = item
-                    Inventory.hoverTimer = 0
+                if not Cargo.hoveredItem or Cargo.hoveredItem.id ~= item.id then
+                    Cargo.hoveredItem = item
+                    Cargo.hoverTimer = 0
                 else
-                    Inventory.hoverTimer = Inventory.hoverTimer + love.timer.getDelta()
+                    Cargo.hoverTimer = Cargo.hoverTimer + love.timer.getDelta()
                 end
             end
         end
     end
 
     -- Advanced scrollbar
-    if Inventory._scrollMax > 0 then
+    if Cargo._scrollMax > 0 then
         local scrollbarWidth = 12
         local scrollbarX = x + w - scrollbarWidth - 2
         local scrollbarY = contentY
         local scrollbarHeight = contentH
 
         local scrollbarHover = mx >= scrollbarX and mx <= scrollbarX + scrollbarWidth and my >= scrollbarY and my <= scrollbarY + scrollbarHeight
-        local thumbRect = drawAdvancedScrollbar(x, contentY, w, contentH, Inventory.scroll, Inventory._scrollMax, scrollbarHover)
+        local thumbRect = drawAdvancedScrollbar(x, contentY, w, contentH, Cargo.scroll, Cargo._scrollMax, scrollbarHover)
 
         -- Handle scrollbar dragging
-        if Inventory._scrollDragging and thumbRect then
-            Inventory._scrollThumbRect = thumbRect
+        if Cargo._scrollDragging and thumbRect then
+            Cargo._scrollThumbRect = thumbRect
         end
     end
 
@@ -669,8 +641,8 @@ function Inventory.drawContent(window, x, y, w, h)
 
     -- Register tooltip with tooltip manager
     local TooltipManager = require("src.ui.tooltip_manager")
-    if Inventory.hoveredItem and Inventory.hoverTimer > 0.1 and not Inventory.contextMenu.visible then
-        local def = Inventory.hoveredItem.turretData or Content.getItem(Inventory.hoveredItem.id) or Content.getTurret(Inventory.hoveredItem.id)
+    if Cargo.hoveredItem and Cargo.hoverTimer > 0.1 and not Cargo.contextMenu.visible then
+        local def = Cargo.hoveredItem.turretData or Content.getItem(Cargo.hoveredItem.id) or Content.getTurret(Cargo.hoveredItem.id)
         if def then
             TooltipManager.setTooltip(def, mx, my)
         end
@@ -680,16 +652,16 @@ function Inventory.drawContent(window, x, y, w, h)
     end
 
     -- Draw context menu
-    if Inventory.contextMenu.visible then
-        Inventory.drawContextMenu()
+    if Cargo.contextMenu.visible then
+        Cargo.drawContextMenu()
     end
 end
 
-function Inventory.mousepressed(x, y, button)
-    if not Inventory.visible then return false end
-    if not Inventory.window then Inventory.init() end
+function Cargo.mousepressed(x, y, button)
+    if not Cargo.visible then return false end
+    if not Cargo.window then Cargo.init() end
 
-    if Inventory.window:mousepressed(x, y, button) then
+    if Cargo.window:mousepressed(x, y, button) then
         return true
     end
 
@@ -699,29 +671,29 @@ function Inventory.mousepressed(x, y, button)
     local mx, my = Viewport.getMousePosition()
 
     if button == 1 then
-        local searchRect = Inventory._searchRect
+        local searchRect = Cargo._searchRect
         if searchRect and mx >= searchRect.x and mx <= searchRect.x + searchRect.w and my >= searchRect.y and my <= searchRect.y + searchRect.h then
             setSearchActive(true)
-            Inventory.contextMenu.visible = false
+            Cargo.contextMenu.visible = false
             return true
         end
 
-        local sortRect = Inventory._sortRect
+        local sortRect = Cargo._sortRect
         if sortRect and mx >= sortRect.x and mx <= sortRect.x + sortRect.w and my >= sortRect.y and my <= sortRect.y + sortRect.h then
             if love.keyboard and (love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift")) then
-                Inventory.sortOrder = (Inventory.sortOrder == "asc") and "desc" or "asc"
+                Cargo.sortOrder = (Cargo.sortOrder == "asc") and "desc" or "asc"
             else
                 local sortFields = {"name", "type", "rarity", "value", "quantity"}
                 local currentIndex = 1
                 for i, field in ipairs(sortFields) do
-                    if field == Inventory.sortBy then
+                    if field == Cargo.sortBy then
                         currentIndex = i
                         break
                     end
                 end
-                Inventory.sortBy = sortFields[(currentIndex % #sortFields) + 1]
+                Cargo.sortBy = sortFields[(currentIndex % #sortFields) + 1]
             end
-            Inventory.contextMenu.visible = false
+            Cargo.contextMenu.visible = false
             return true
         end
     end
@@ -731,8 +703,8 @@ function Inventory.mousepressed(x, y, button)
     end
 
     -- Context menu clicks
-    if (button == 1 or button == 2) and Inventory.contextMenu.visible then
-        local menu = Inventory.contextMenu
+    if (button == 1 or button == 2) and Cargo.contextMenu.visible then
+        local menu = Cargo.contextMenu
         local w = 180
         local optionH = 24
         local h = 8 + (#menu.options * optionH) + 8
@@ -740,20 +712,20 @@ function Inventory.mousepressed(x, y, button)
         for i, option in ipairs(menu.options) do
             local optY = menu.y + 8 + (i-1) * optionH
             if mx >= menu.x and mx <= menu.x + w and my >= optY and my <= optY + optionH then
-                Inventory.handleContextMenuClick(option)
+                Cargo.handleContextMenuClick(option)
                 return true
             end
         end
-        Inventory.contextMenu.visible = false
+        Cargo.contextMenu.visible = false
         return true
     end
 
     -- Item interactions
     if button == 2 then
         setSearchActive(false)
-        local item, index = getItemAtPosition(x, y, Inventory._slotRects)
+        local item, index = getItemAtPosition(x, y, Cargo._slotRects)
         if item then
-            Inventory.contextMenu = {
+            Cargo.contextMenu = {
                 visible = true,
                 x = mx,
                 y = my,
@@ -765,27 +737,27 @@ function Inventory.mousepressed(x, y, button)
             local def = getItemDefinition(item)
             if def then
                 if def.consumable or def.type == "consumable" then
-                    table.insert(Inventory.contextMenu.options, { name = "Use", action = "use" })
+                    table.insert(Cargo.contextMenu.options, { name = "Use", action = "use" })
                 end
-                table.insert(Inventory.contextMenu.options, { name = "Drop", action = "drop" })
+                table.insert(Cargo.contextMenu.options, { name = "Drop", action = "drop" })
             end
 
-            if #Inventory.contextMenu.options > 0 then
+            if #Cargo.contextMenu.options > 0 then
                 return true
             else
-                Inventory.contextMenu.visible = false
+                Cargo.contextMenu.visible = false
             end
         end
     end
 
     if button == 1 then
         setSearchActive(false)
-        local item, index = getItemAtPosition(x, y, Inventory._slotRects)
+        local item, index = getItemAtPosition(x, y, Cargo._slotRects)
         if item then
             local def = getItemDefinition(item)
             if def and (def.consumable or def.type == "consumable") then
                 -- Consumable item - use it
-                Inventory.useItem(player, item.id)
+                Cargo.useItem(player, item.id)
                 return true
             else
                 -- Non-consumable item - play click sound and show notification
@@ -799,55 +771,55 @@ function Inventory.mousepressed(x, y, button)
         end
     elseif button == 2 then
         setSearchActive(false)
-        local item, index = getItemAtPosition(x, y, Inventory._slotRects)
+        local item, index = getItemAtPosition(x, y, Cargo._slotRects)
         if item then
             createContextMenu(item, x, y)
             return true
         else
-            Inventory.contextMenu.visible = false
+            Cargo.contextMenu.visible = false
         end
     end
 
     return false
 end
 
-function Inventory.mousereleased(x, y, button)
-    if not Inventory.visible then return false end
-    if not Inventory.window then return false end
-    return Inventory.window:mousereleased(x, y, button)
+function Cargo.mousereleased(x, y, button)
+    if not Cargo.visible then return false end
+    if not Cargo.window then return false end
+    return Cargo.window:mousereleased(x, y, button)
 end
 
-function Inventory.mousemoved(x, y, dx, dy)
-    if not Inventory.visible then return false end
-    if not Inventory.window then return false end
-    return Inventory.window:mousemoved(x, y, dx, dy)
+function Cargo.mousemoved(x, y, dx, dy)
+    if not Cargo.visible then return false end
+    if not Cargo.window then return false end
+    return Cargo.window:mousemoved(x, y, dx, dy)
 end
 
-function Inventory.wheelmoved(x, y, dx, dy)
-    if not Inventory.visible then return false end
-    if not Inventory.window then return false end
-    if not Inventory.window:containsPoint(x, y) then return false end
+function Cargo.wheelmoved(x, y, dx, dy)
+    if not Cargo.visible then return false end
+    if not Cargo.window then return false end
+    if not Cargo.window:containsPoint(x, y) then return false end
 
     local scrollSpeed = 40
-    Inventory.scroll = Inventory.scroll - dy * scrollSpeed
-    Inventory.scroll = math.max(0, math.min(Inventory.scroll, math.max(0, Inventory._scrollMax)))
-    if Inventory.scroll ~= Inventory.scroll then Inventory.scroll = 0 end
+    Cargo.scroll = Cargo.scroll - dy * scrollSpeed
+    Cargo.scroll = math.max(0, math.min(Cargo.scroll, math.max(0, Cargo._scrollMax)))
+    if Cargo.scroll ~= Cargo.scroll then Cargo.scroll = 0 end
     return true
 end
 
-function Inventory.update(dt)
-  if not Inventory.visible then
+function Cargo.update(dt)
+  if not Cargo.visible then
     setSearchActive(false)
-    -- Clear any active tooltips when inventory is not visible
+    -- Clear any active tooltips when cargo is not visible
     local TooltipManager = require("src.ui.tooltip_manager")
     TooltipManager.clearTooltip()
     return
   end
-  if Inventory.hoveredItem then
+  if Cargo.hoveredItem then
     local mx, my = Viewport.getMousePosition()
     local stillHovering = false
-    if Inventory._slotRects then
-      for _, slot in ipairs(Inventory._slotRects) do
+    if Cargo._slotRects then
+      for _, slot in ipairs(Cargo._slotRects) do
         if mx >= slot.x and mx <= slot.x + slot.w and my >= slot.y and my <= slot.y + slot.h then
           stillHovering = true
           break
@@ -855,14 +827,14 @@ function Inventory.update(dt)
       end
     end
     if not stillHovering then
-      Inventory.hoveredItem = nil
-      Inventory.hoverTimer = 0
+      Cargo.hoveredItem = nil
+      Cargo.hoverTimer = 0
     end
   end
 end
 
-function Inventory.drawContextMenu()
-  local menu = Inventory.contextMenu
+function Cargo.drawContextMenu()
+  local menu = Cargo.contextMenu
   local x, y = menu.x, menu.y
   local w = 180
   local options = menu.options
@@ -886,11 +858,11 @@ function Inventory.drawContextMenu()
   end
 end
 
-function Inventory.keypressed(key)
-  if not Inventory.visible then return false end
+function Cargo.keypressed(key)
+  if not Cargo.visible then return false end
 
   -- When search input is active, consume most hotkeys
-  if Inventory._searchInputActive then
+  if Cargo._searchInputActive then
     if key == "escape" then
       setSearchActive(false)
       return true
@@ -898,7 +870,7 @@ function Inventory.keypressed(key)
       setSearchActive(false)
       return true
     elseif key == "backspace" then
-      Inventory.searchText = Inventory.searchText:sub(1, -2)
+      Cargo.searchText = Cargo.searchText:sub(1, -2)
       return true
     elseif key == "tab" then
       -- Tab could cycle between controls, but for now just consume it
@@ -910,31 +882,31 @@ function Inventory.keypressed(key)
 
   -- Normal hotkey handling when search is not active
   if key == "escape" then
-    if Inventory.contextMenu.visible then
-      Inventory.contextMenu.visible = false
+    if Cargo.contextMenu.visible then
+      Cargo.contextMenu.visible = false
       return true
     end
     setSearchActive(false)
-    Inventory.visible = false
+    Cargo.visible = false
     return true
   end
   return false
 end
 
-function Inventory.textinput(text)
-  if not Inventory.visible then return false end
+function Cargo.textinput(text)
+  if not Cargo.visible then return false end
 
   -- Handle search input
-  if Inventory._searchInputActive then
-    Inventory.searchText = Inventory.searchText .. text
+  if Cargo._searchInputActive then
+    Cargo.searchText = Cargo.searchText .. text
     return true
   end
 
   return false
 end
 
-function Inventory.handleContextMenuClick(option)
-  local menu = Inventory.contextMenu
+function Cargo.handleContextMenuClick(option)
+  local menu = Cargo.contextMenu
   if not menu.item then return end
   local item = menu.item
   local def = Content.getItem(item.id) or Content.getTurret(item.id)
@@ -942,14 +914,14 @@ function Inventory.handleContextMenuClick(option)
   local player = getCurrentPlayer()
   if not player then return end
   if option.action == "use" then
-    Inventory.useItem(player, item.id)
+    Cargo.useItem(player, item.id)
   elseif option.action == "drop" then
-    Inventory.dropItem(player, item.id)
+    Cargo.dropItem(player, item.id)
   end
   menu.visible = false
 end
 
-function Inventory.dropItem(player, itemId)
+function Cargo.dropItem(player, itemId)
   if not player or not player.components or not player.components.cargo then return false end
   local cargo = player.components.cargo
   if not cargo:has(itemId, 1) then return false end
@@ -995,7 +967,7 @@ function Inventory.dropItem(player, itemId)
   return true
 end
 
-function Inventory.useItem(player, itemId)
+function Cargo.useItem(player, itemId)
   if not player then player = getCurrentPlayer() end
   if not player or not player.components or not player.components.cargo then return false end
   local cargo = player.components.cargo
@@ -1021,5 +993,5 @@ function Inventory.useItem(player, itemId)
   return false
 end
 
-return Inventory
+return Cargo
 

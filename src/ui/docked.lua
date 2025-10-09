@@ -181,8 +181,8 @@ function DockedUI.drawBuybackItems(x, y, w, h, player)
     return ShopView.drawBuybackItems(DockedUI.state, x, y, w, h, player)
 end
 
-function DockedUI.drawPlayerInventoryForSale(x, y, w, h, player)
-    return ShopView.drawPlayerInventory(DockedUI.state, x, y, w, h, player)
+function DockedUI.drawPlayerCargoForSale(x, y, w, h, player)
+    return ShopView.drawPlayerCargo(DockedUI.state, x, y, w, h, player)
 end
 
 function DockedUI.drawShopItems(x, y, w, h, player)

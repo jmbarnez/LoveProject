@@ -29,7 +29,7 @@ end
 
 local function loadFallbackRegistrations()
     local defaults = {
-        "inventory",
+        "cargo",
         "ship",
         "skills",
         "docked",

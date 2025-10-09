@@ -303,7 +303,7 @@ local function getGameState()
         maxEnergy = currentPlayer.components.health.maxEnergy or 0
       } or {hp = 100, maxHp = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0},
 
-      -- Inventory (safe copy)
+      -- Cargo hold (safe copy)
       cargo = currentPlayer.components and currentPlayer.components.cargo and currentPlayer.components.cargo:serialize() or nil,
 
       -- Quest progress (safe copy)

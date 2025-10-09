@@ -30,7 +30,7 @@ The UI system uses a **modular panel approach** with centralized management. UI 
 ### UI System Components
 
 - **UIManager**: Central coordination and state management
-- **Panels**: Individual UI components (inventory, settings, etc.)
+- **Panels**: Individual UI components (cargo, settings, etc.)
 - **Theme System**: Styling and visual consistency
 - **Input System**: Mouse and keyboard handling
 - **Viewport System**: Screen space management
@@ -209,7 +209,7 @@ DockedUI.update(dt)               -- Update interface
 DockedUI.draw()                   -- Render interface
 ```
 
-### 3. Inventory Panel (`src/ui/inventory.lua`)
+### 3. Cargo Panel (`src/ui/cargo/panel.lua`)
 
 Item and equipment management:
 
@@ -222,10 +222,10 @@ Item and equipment management:
 
 **Key Functions**:
 ```lua
-InventoryUI.show(player)          -- Show inventory
-InventoryUI.hide()                -- Hide inventory
-InventoryUI.handleDragDrop()      -- Handle drag and drop
-InventoryUI.drawItemGrid()        -- Draw item grid
+CargoUI.show(player)              -- Show cargo
+CargoUI.hide()                    -- Hide cargo
+CargoUI.handleDragDrop()          -- Handle drag and drop
+CargoUI.drawItemGrid()            -- Draw item grid
 ```
 
 ### 4. Settings Panel (`src/ui/settings_panel.lua`)

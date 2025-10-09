@@ -77,8 +77,8 @@ function ShopView.drawBuybackItems(state, x, y, w, h, player)
     return Shop.drawBuybackItems(state, x, y, w, h, player)
 end
 
-function ShopView.drawPlayerInventory(state, x, y, w, h, player)
-    return Shop.drawPlayerInventoryForSale(state, x, y, w, h, player)
+function ShopView.drawPlayerCargo(state, x, y, w, h, player)
+    return Shop.drawPlayerCargoForSale(state, x, y, w, h, player)
 end
 
 local function notify(message)
@@ -103,8 +103,8 @@ function ShopView.purchaseItem(state, item, player, quantity)
         player.components.cargo:add(itemId, quantity)
     end
 
-    local Inventory = require("src.ui.inventory")
-    if Inventory.refresh then Inventory.refresh() end
+    local CargoUI = require("src.ui.cargo")
+    if CargoUI.refresh then CargoUI.refresh() end
 
     local notificationText = quantity > 1 and ("Purchased " .. itemName .. " x" .. quantity) or ("Purchased " .. itemName)
     notify(notificationText)

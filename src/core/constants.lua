@@ -69,7 +69,7 @@ Constants.UI = {
     DIALOG_BUTTON_HEIGHT = 35,
     DIALOG_BUTTON_SPACING = 20,
 
-    -- Inventory grid
+    -- Cargo grid
     INVENTORY_SLOT_SIZE = 64,
     INVENTORY_SLOT_SPACING = 10,
     INVENTORY_GRID_SIZE = 3,  -- 3x3 grid

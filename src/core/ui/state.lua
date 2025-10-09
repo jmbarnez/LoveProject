@@ -11,7 +11,7 @@ local UIState = {}
 
 -- Default z-index values for different panel types
 local DEFAULT_Z_INDEX = {
-    inventory = 10,
+    cargo = 10,
     ship = 15,
     skills = 30,
     docked = 40,
@@ -27,7 +27,7 @@ local DEFAULT_Z_INDEX = {
 
 -- Central UI state
 local state = {
-    inventory = { open = false, zIndex = DEFAULT_Z_INDEX.inventory },
+    cargo = { open = false, zIndex = DEFAULT_Z_INDEX.cargo },
     ship = { open = false, zIndex = DEFAULT_Z_INDEX.ship },
     skills = { open = false, zIndex = DEFAULT_Z_INDEX.skills },
     docked = { open = false, zIndex = DEFAULT_Z_INDEX.docked },
@@ -45,7 +45,7 @@ local topZ = 0 -- Will be calculated dynamically based on open panels
 
 -- UI layer order for proper layering
 local layerOrder = {
-    "inventory",
+    "cargo",
     "ship", 
     "skills",
     "docked",

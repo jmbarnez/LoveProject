@@ -122,8 +122,8 @@ The UI layer combines HUD overlays with modal panels managed by `UIManager`.
 ### In-Game Panels
 
 - **HUD (`src/ui/hud/`)** – Renders reticle, health/energy/shield bars, quest log, minimap, and hotbar.
-- **Docked UI (`src/ui/docked.lua`)** – Tabbed station services (Shop, Quests, Node Market, Furnace handling, inventory interactions).
-- **Inventory (`src/ui/inventory.lua`)** – Item management with search and drag/drop.
+- **Docked UI (`src/ui/docked.lua`)** – Tabbed station services (Shop, Quests, Node Market, Furnace handling, cargo interactions).
+- **Cargo (`src/ui/cargo/panel.lua`)** – Item management with search and drag/drop.
 - **Skills (`src/ui/skills.lua`)** – Shows skill levels and XP progress.
 - **Nodes (`src/ui/nodes.lua`)** – Advanced trading UI with candlestick charts, technical indicators, and order placement.
 - **Warp (`src/ui/warp.lua`)** – Displays available sectors and warp requirements.
