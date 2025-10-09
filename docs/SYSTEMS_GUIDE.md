@@ -36,7 +36,7 @@ This guide describes the gameplay and support systems that power Novus. Use it a
     - [UIManager](#uimanager-srccoreui_managerlua)
     - [Docked Interface](#docked-interface-srcuidockedlua)
     - [HUD Systems](#hud-systems-srcuihud)
-    - [Inventory System](#inventory-system-srcuiinventorylua)
+    - [Cargo System](#cargo-system-srcuicargopanellua)
 7. [Support Services](#support-services)
     - [Events](#events-srccoreeventslua)
     - [State Manager](#state-manager-srcmanagersstate_managerlua)
@@ -236,7 +236,7 @@ The system keeps the player entity authoritative for other subsystems (camera, a
 * Collects pickups when within range and dispatches reward notifications.
 * Supports magnetic auto-collection, manual interaction prompts for special loot, and pickup FX/audio hooks.
 
-**Pickup Types**: Magnetic loot, manual interactables, quest items, and station deliveries all flow through this system, ensuring consistent inventory updates.
+**Pickup Types**: Magnetic loot, manual interactables, quest items, and station deliveries all flow through this system, ensuring consistent cargo updates.
 
 ### Interaction System (`src/systems/interaction.lua`)
 
@@ -316,14 +316,14 @@ The system keeps the player entity authoritative for other subsystems (camera, a
 ### Input (`src/core/input.lua`)
 
 * Bridges Love callbacks (`love.keypressed`, `love.mousepressed`, etc.) with in-game state.
-* Uses `ActionMap` (`src/core/action_map.lua`) for configurable hotkeys (inventory, ship, map, repair beacon, fullscreen toggle).
+* Uses `ActionMap` (`src/core/action_map.lua`) for configurable hotkeys (cargo, ship, map, repair beacon, fullscreen toggle).
 * Manages screen transitions between the start menu and in-game UI.
 
 **Purpose**: Constructs the dispatch context that downstream systems consume, ensuring inputs, UI state, and gameplay services stay synchronized.
 
 ### UIManager (`src/core/ui_manager.lua`)
 
-* Registers and orchestrates UI components (inventory, docked panels, map, warp, escape menu, debug panel, etc.).
+* Registers and orchestrates UI components (cargo, docked panels, map, warp, escape menu, debug panel, etc.).
 * Maintains modal state (`isModalActive`) to pause gameplay input when overlays are open.
 * Routes input events to the top-most visible component using a registry/priority system.
 * Coordinates panel visibility, tooltips, and overlay layering to deliver a consistent UX.
@@ -341,9 +341,9 @@ The system keeps the player entity authoritative for other subsystems (camera, a
 * `HotbarSystem` integrates with HUD widgets to display weapon cooldowns and manual fire state.
 * Additional modules (minimap, notifications) consume event streams to stay in sync with gameplay progression.
 
-### Inventory System (`src/ui/inventory.lua`)
+### Cargo System (`src/ui/cargo/panel.lua`)
 
-* Presents cargo, equipment slots, and loot details using the shared UI theme tokens.
+* Presents the cargo hold, equipment slots, and loot details using the shared UI theme tokens.
 * Listens to pickup and quest events to refresh item lists and highlight new rewards.
 * Integrates drag-and-drop logic with the action map so keyboard shortcuts (equip, jettison) stay in sync.
 
@@ -408,7 +408,7 @@ graph TD
     Collision --> Destruction
     Destruction --> Effects
     Destruction --> Pickups
-    Pickups --> InventoryUI
+    Pickups --> CargoUI
     Mining --> Pickups
     Spawning --> AI
     Quest --> UI

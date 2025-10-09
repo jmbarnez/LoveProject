@@ -1,5 +1,5 @@
 local UIUtils = require("src.ui.common.utils")
-local InventoryUI = require("src.ui.inventory")
+local CargoUI = require("src.ui.cargo")
 local HotbarSystem = require("src.systems.hotbar")
 local Notifications = require("src.ui.notifications")
 local Util = require("src.core.util")
@@ -101,8 +101,8 @@ function Events.mousepressed(state, x, y, button, player)
                             HotbarSystem.populateFromPlayer(player, nil, index)
                         end
 
-                        if InventoryUI and InventoryUI.refresh then
-                            InventoryUI.refresh()
+                        if CargoUI and CargoUI.refresh then
+                            CargoUI.refresh()
                         end
 
                         Dropdowns.refresh(state, player)
@@ -120,8 +120,8 @@ function Events.mousepressed(state, x, y, button, player)
                 local unequipped = player.unequipModule and player:unequipModule(index)
                 if unequipped then
                     Dropdowns.refresh(state, player)
-                    if InventoryUI and InventoryUI.refresh then
-                        InventoryUI.refresh()
+                    if CargoUI and CargoUI.refresh then
+                        CargoUI.refresh()
                     end
                     if HotbarSystem.populateFromPlayer then
                         HotbarSystem.populateFromPlayer(player, nil, index)

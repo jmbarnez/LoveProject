@@ -133,7 +133,7 @@ function RewardWheelPanel.giveRewards()
         if cargo then
             local added = player:addItem(reward.item, reward.qty)
             if not added then
-                -- Drop as pickup if inventory full
+                -- Drop as pickup if cargo hold is full
                 local ItemPickup = require("src.entities.item_pickup")
                 local px, py = player.components.position.x, player.components.position.y
                 local pickup = ItemPickup.new(px, py, reward.item, reward.qty)

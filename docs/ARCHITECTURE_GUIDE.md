@@ -134,7 +134,7 @@ Systems use events for cross-cutting concerns (loot collection, quest updates, U
 - `main.lua` routes Love callbacks into `src/core/input.lua`.
 - `Input.init_love_callbacks` stores the current screen, UI manager, and loading screen references.
 - `Input.love_keypressed` handles escape/menu flow, quick save/load (F5/F9), and delegates to `UIManager.keypressed` or `Input.keypressed` depending on screen state.
-- `ActionMap` centralizes configurable hotkeys (inventory, ship, map, repair beacon, fullscreen toggle).
+- `ActionMap` centralizes configurable hotkeys (cargo, ship, map, repair beacon, fullscreen toggle).
 
 ### UI Manager
 
