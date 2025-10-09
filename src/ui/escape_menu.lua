@@ -402,7 +402,7 @@ end
 
 function EscapeMenu.keypressed(key)
     if not EscapeMenu.visible then return false end
-    
+
     -- Handle save/load panel input first
     if EscapeMenu.saveLoadPanel and EscapeMenu.saveLoadPanel.keypressed then
         return EscapeMenu.saveLoadPanel:keypressed(key)
@@ -431,6 +431,29 @@ function EscapeMenu.textinput(text)
     end
     
     return true -- Consume all text input when menu is visible
+end
+
+function EscapeMenu.closeSaveLoadPanel()
+    local panel = EscapeMenu.saveLoadPanel
+    if not panel then
+        if UIState and UIState.setShowingSaveSlots then
+            UIState.setShowingSaveSlots(false)
+        end
+        return
+    end
+
+    if panel.window and type(panel.window.hide) == "function" then
+        panel.window:hide()
+    elseif panel.onClose then
+        panel.onClose()
+    end
+
+    EscapeMenu.saveLoadPanel = nil
+    EscapeMenu.saveLoadPanelZ = nil
+
+    if UIState and UIState.setShowingSaveSlots then
+        UIState.setShowingSaveSlots(false)
+    end
 end
 
 return EscapeMenu
