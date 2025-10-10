@@ -7,11 +7,13 @@
 
 local Log = require("src.core.log")
 local PanelRegistry = require("src.ui.panels.init")
+local Dropdown = require("src.ui.common.dropdown")
 
 local UIInputRouter = {}
 
 -- Input capture state for drag operations
 local capturedComponent = nil
+local DROPDOWN_CAPTURE_SENTINEL = "__dropdown_capture__"
 
 -- Initialize input router
 function UIInputRouter.init()
@@ -80,14 +82,27 @@ end
 
 -- Handle mouse press events
 function UIInputRouter.mousepressed(x, y, button, player)
+    if Dropdown and Dropdown.consumeGlobalMousePressed and Dropdown.consumeGlobalMousePressed(x, y, button) then
+        capturedComponent = DROPDOWN_CAPTURE_SENTINEL
+        return true
+    end
+
+    local state = require("src.core.ui.state")
+    if state.isOpen("escape") then
+        local handled = callComponentMethod("escape", "mousepressed", x, y, button, player)
+        if handled then
+            capturedComponent = "escape"
+        end
+        return true
+    end
+
     -- Build list of visible components from PanelRegistry (topmost first)
     local openLayers = {}
-    local state = require("src.core.ui.state")
     for _, record in ipairs(PanelRegistry.list()) do
         if isPanelVisible(record, state) then
-            table.insert(openLayers, { 
-                name = record.id, 
-                z = state.getZIndex(record.id), 
+            table.insert(openLayers, {
+                name = record.id,
+                z = state.getZIndex(record.id),
                 getRect = function()
                     if record.getRect then
                         local ok, rect = pcall(record.getRect, record.module)
@@ -103,17 +118,15 @@ function UIInputRouter.mousepressed(x, y, button, player)
             })
         end
     end
-    
+
     -- Sort by z-index (highest first)
     table.sort(openLayers, function(a, b) return a.z > b.z end)
 
     -- Click-to-front behavior: bring clicked component to front
-    local raised = false
     for _, layer in ipairs(openLayers) do
         local r = layer.getRect()
         if r and x >= r.x and x <= r.x + r.w and y >= r.y and y <= r.y + r.h then
             state.open(layer.name)
-            raised = true
             break
         end
     end
@@ -139,8 +152,10 @@ end
 
 -- Handle mouse release events
 function UIInputRouter.mousereleased(x, y, button, player)
-    -- If a component captured the mouse on press, send release to it first
-    if capturedComponent then
+    if capturedComponent == DROPDOWN_CAPTURE_SENTINEL then
+        capturedComponent = nil
+        return true
+    elseif capturedComponent then
         local handled = callComponentMethod(capturedComponent, "mousereleased", x, y, button, player)
         capturedComponent = nil
         if handled then
@@ -148,8 +163,20 @@ function UIInputRouter.mousereleased(x, y, button, player)
         end
     end
 
-    -- Route to all visible panels
     local state = require("src.core.ui.state")
+    if state.isOpen("escape") then
+        local handled = callComponentMethod("escape", "mousereleased", x, y, button, player)
+        if handled then
+            return true
+        end
+        return true
+    end
+
+    if Dropdown and Dropdown.isAnyDropdownOpen and Dropdown.isAnyDropdownOpen() then
+        return true
+    end
+
+    -- Route to all visible panels
     local sortedPanels = {}
     for _, record in ipairs(PanelRegistry.list()) do
         if isPanelVisible(record, state) then
@@ -159,10 +186,10 @@ function UIInputRouter.mousereleased(x, y, button, player)
             })
         end
     end
-    
+
     -- Sort by z-index (highest first)
     table.sort(sortedPanels, function(a, b) return a.zIndex > b.zIndex end)
-    
+
     for _, panel in ipairs(sortedPanels) do
         local handled = callComponentMethod(panel.id, "mousereleased", x, y, button, player)
         if handled then
@@ -175,16 +202,32 @@ end
 
 -- Handle mouse move events
 function UIInputRouter.mousemoved(x, y, dx, dy, player)
-    -- If a component captured the mouse on press, route movement directly to it
-    if capturedComponent then
+    if capturedComponent == DROPDOWN_CAPTURE_SENTINEL then
+        if Dropdown and Dropdown.consumeGlobalMouseMoved then
+            Dropdown.consumeGlobalMouseMoved(x, y)
+        end
+        return true
+    elseif capturedComponent then
         local handled = callComponentMethod(capturedComponent, "mousemoved", x, y, dx, dy, player)
         if handled then
             return true
         end
     end
 
-    -- Route to all visible panels
+    if Dropdown and Dropdown.consumeGlobalMouseMoved and Dropdown.consumeGlobalMouseMoved(x, y) then
+        return true
+    end
+
     local state = require("src.core.ui.state")
+    if state.isOpen("escape") then
+        local handled = callComponentMethod("escape", "mousemoved", x, y, dx, dy, player)
+        if handled then
+            return true
+        end
+        return true
+    end
+
+    -- Route to all visible panels
     local sortedPanels = {}
     for _, record in ipairs(PanelRegistry.list()) do
         if state.isOpen(record.id) then
@@ -194,10 +237,10 @@ function UIInputRouter.mousemoved(x, y, dx, dy, player)
             })
         end
     end
-    
+
     -- Sort by z-index (highest first)
     table.sort(sortedPanels, function(a, b) return a.zIndex > b.zIndex end)
-    
+
     for _, panel in ipairs(sortedPanels) do
         local handled = callComponentMethod(panel.id, "mousemoved", x, y, dx, dy, player)
         if handled then
@@ -212,7 +255,19 @@ end
 function UIInputRouter.wheelmoved(x, y, dx, dy, player)
     if dy == nil then return false end
 
+    if Dropdown and Dropdown.isAnyDropdownOpen and Dropdown.isAnyDropdownOpen() then
+        return true
+    end
+
     local state = require("src.core.ui.state")
+    if state.isOpen("escape") then
+        local handled = callComponentMethod("escape", "wheelmoved", x, y, dx, dy, player)
+        if handled then
+            return true
+        end
+        return true
+    end
+
     local sortedPanels = {}
     for _, record in ipairs(PanelRegistry.list()) do
         if state.isOpen(record.id) then
@@ -243,62 +298,22 @@ end
 
 -- Handle keyboard events
 function UIInputRouter.keypressed(key, scancode, isrepeat, player)
-    -- Special handling for escape key
     if key == "escape" then
+        local UIManager = require("src.core.ui.manager")
         local state = require("src.core.ui.state")
 
-        local sortedPanels = {}
-        for _, record in ipairs(PanelRegistry.list()) do
-            if state.isOpen(record.id) then
-                table.insert(sortedPanels, {
-                    id = record.id,
-                    zIndex = state.getZIndex(record.id)
-                })
-            end
-        end
-        
-        -- Sort by z-index (highest first)
-        table.sort(sortedPanels, function(a, b) return a.zIndex > b.zIndex end)
-        
-        -- If there are open panels, close the topmost one
-        if #sortedPanels > 0 then
-            local topPanel = sortedPanels[1]
-            local UIManager = require("src.core.ui.manager")
-            
-            if topPanel.id == "escape" then
-                -- Escape menu is on top, close it
-                UIManager.close("escape")
-                return true
-            else
-                -- Check if escape menu is also open (settings panel case)
-                local escapeMenuOpen = false
-                for _, panel in ipairs(sortedPanels) do
-                    if panel.id == "escape" then
-                        escapeMenuOpen = true
-                        break
-                    end
-                end
-                
-                if escapeMenuOpen then
-                    -- Close the topmost panel (e.g., settings) and keep escape menu open
-                    UIManager.close(topPanel.id)
-                    return true
-                else
-                    -- Close the topmost panel
-                    UIManager.close(topPanel.id)
-                    return true
-                end
-            end
+        if state.isOpen("escape") then
+            UIManager.close("escape")
         else
-            -- No panels open, toggle escape menu (consistent with hotkeys)
-            local UIManager = require("src.core.ui.manager")
-            UIManager.toggle("escape")
-            return true
+            UIManager.open("escape")
         end
+
+        return true
     end
-    
-    -- Normal key handling for non-escape keys
+
     local state = require("src.core.ui.state")
+    local escapeOpen = state.isOpen("escape")
+
     local sortedPanels = {}
     for _, record in ipairs(PanelRegistry.list()) do
         if state.isOpen(record.id) then
@@ -308,15 +323,20 @@ function UIInputRouter.keypressed(key, scancode, isrepeat, player)
             })
         end
     end
-    
-    -- Sort by z-index (highest first)
+
     table.sort(sortedPanels, function(a, b) return a.zIndex > b.zIndex end)
-    
+
     for _, panel in ipairs(sortedPanels) do
-        local handled = callComponentMethod(panel.id, "keypressed", key, scancode, isrepeat, player)
-        if handled then
-            return true
+        if not escapeOpen or panel.id == "escape" then
+            local handled = callComponentMethod(panel.id, "keypressed", key, scancode, isrepeat, player)
+            if handled then
+                return true
+            end
         end
+    end
+
+    if escapeOpen then
+        return true
     end
 
     return false
@@ -325,6 +345,8 @@ end
 -- Handle key release events
 function UIInputRouter.keyreleased(key, scancode, player)
     local state = require("src.core.ui.state")
+    local escapeOpen = state.isOpen("escape")
+
     local sortedPanels = {}
     for _, record in ipairs(PanelRegistry.list()) do
         if state.isOpen(record.id) then
@@ -334,15 +356,20 @@ function UIInputRouter.keyreleased(key, scancode, player)
             })
         end
     end
-    
-    -- Sort by z-index (highest first)
+
     table.sort(sortedPanels, function(a, b) return a.zIndex > b.zIndex end)
-    
+
     for _, panel in ipairs(sortedPanels) do
-        local handled = callComponentMethod(panel.id, "keyreleased", key, scancode, player)
-        if handled then
-            return true
+        if not escapeOpen or panel.id == "escape" then
+            local handled = callComponentMethod(panel.id, "keyreleased", key, scancode, player)
+            if handled then
+                return true
+            end
         end
+    end
+
+    if escapeOpen then
+        return true
     end
 
     return false
@@ -351,6 +378,8 @@ end
 -- Handle text input events
 function UIInputRouter.textinput(text, player)
     local state = require("src.core.ui.state")
+    local escapeOpen = state.isOpen("escape")
+
     local sortedPanels = {}
     for _, record in ipairs(PanelRegistry.list()) do
         if state.isOpen(record.id) then
@@ -360,15 +389,20 @@ function UIInputRouter.textinput(text, player)
             })
         end
     end
-    
-    -- Sort by z-index (highest first)
+
     table.sort(sortedPanels, function(a, b) return a.zIndex > b.zIndex end)
-    
+
     for _, panel in ipairs(sortedPanels) do
-        local handled = callComponentMethod(panel.id, "textinput", text, player)
-        if handled then
-            return true
+        if not escapeOpen or panel.id == "escape" then
+            local handled = callComponentMethod(panel.id, "textinput", text, player)
+            if handled then
+                return true
+            end
         end
+    end
+
+    if escapeOpen then
+        return true
     end
 
     return false

@@ -4,6 +4,33 @@ local Viewport = require("src.core.viewport")
 local Dropdown = {}
 Dropdown.__index = Dropdown
 
+local activeDropdown = nil
+
+local function setActiveDropdown(dropdown)
+    if activeDropdown and activeDropdown ~= dropdown and activeDropdown.open then
+        activeDropdown.open = false
+    end
+    activeDropdown = dropdown
+end
+
+local function clearActiveDropdown(dropdown)
+    if activeDropdown == dropdown then
+        activeDropdown = nil
+    end
+end
+
+local function syncActiveState(dropdown)
+    if not dropdown then return end
+
+    if dropdown.open then
+        if activeDropdown ~= dropdown then
+            setActiveDropdown(dropdown)
+        end
+    elseif activeDropdown == dropdown then
+        clearActiveDropdown(dropdown)
+    end
+end
+
 -- Constants for consistent styling
 local DROPDOWN_WIDTH = 150
 local OPTION_HEIGHT = 24
@@ -44,6 +71,8 @@ function Dropdown:draw()
     local mx, my = Viewport.getMousePosition()
     if not mx or not my then return end
 
+    syncActiveState(self)
+
     -- Draw the main button
     self:drawButton(mx, my)
 
@@ -56,6 +85,7 @@ end
 function Dropdown:drawButtonOnly(mx, my)
     -- Draw only the button (for z-ordering when other dropdowns are open)
     if not mx or not my then return end
+    syncActiveState(self)
     self:drawButton(mx, my)
 end
 
@@ -63,11 +93,14 @@ function Dropdown:drawOptionsOnly(mx, my)
     -- Draw only the options (for z-ordering when this dropdown is open)
     if self.open then
         if not mx or not my then return end
+        syncActiveState(self)
         self:drawOptions(mx, my)
     end
 end
 
 function Dropdown:drawButton(mx, my)
+    syncActiveState(self)
+
     local buttonHover = self:isPointInButton(mx, my) and not self.disabled
 
     -- No hover sounds - only click sounds for better UX
@@ -110,6 +143,8 @@ function Dropdown:drawButton(mx, my)
 end
 
 function Dropdown:drawOptions(mx, my)
+    syncActiveState(self)
+
     -- Get current scissor rectangle to respect parent clipping
     local currentScissor = {love.graphics.getScissor()}
 
@@ -292,9 +327,17 @@ end
 function Dropdown:mousepressed(mx, my, button)
     if self.disabled or not mx or not my then return false end
 
+    syncActiveState(self)
+
     -- Check if click is on the button
     if self:isPointInButton(mx, my) then
-        self.open = not self.open
+        if self.open then
+            self.open = false
+            clearActiveDropdown(self)
+        else
+            setActiveDropdown(self)
+            self.open = true
+        end
         return true
     end
 
@@ -327,6 +370,7 @@ function Dropdown:mousepressed(mx, my, button)
                 if self:isPointInOption(mx, my, i) then
                     self.selectedIndex = i
                     self.open = false
+                    clearActiveDropdown(self)
                     self.onSelect(i, option)
                     return true
                 end
@@ -348,6 +392,7 @@ function Dropdown:mousepressed(mx, my, button)
         if not (mx >= self.x and mx <= self.x + self.width and
                 my >= self.y and my <= self.y + totalDropdownHeight) then
             self.open = false
+            clearActiveDropdown(self)
             return true
         end
     end
@@ -357,6 +402,8 @@ end
 
 function Dropdown:mousemoved(mx, my)
     if self.disabled or not mx or not my then return false end
+
+    syncActiveState(self)
 
     -- Update hover state
     self.hoveredOption = nil
@@ -429,6 +476,36 @@ end
 
 function Dropdown:setDisabled(disabled)
     self.disabled = disabled or false
+end
+
+function Dropdown.getActiveDropdown()
+    if activeDropdown and activeDropdown.open then
+        return activeDropdown
+    end
+    return nil
+end
+
+function Dropdown.isAnyDropdownOpen()
+    return Dropdown.getActiveDropdown() ~= nil
+end
+
+function Dropdown.consumeGlobalMousePressed(mx, my, button)
+    local dropdown = Dropdown.getActiveDropdown()
+    if not dropdown then
+        return false
+    end
+
+    return dropdown:mousepressed(mx, my, button) and true or false
+end
+
+function Dropdown.consumeGlobalMouseMoved(mx, my)
+    local dropdown = Dropdown.getActiveDropdown()
+    if not dropdown then
+        return false
+    end
+
+    dropdown:mousemoved(mx, my)
+    return true
 end
 
 return Dropdown
