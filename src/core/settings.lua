@@ -200,6 +200,20 @@ function Settings.applyGraphicsSettings(newSettings)
         local Content = require("src.content.content")
         Content.rebuildIcons()
 
+        local viewportWidth = sanitized.resolution.width
+        local viewportHeight = sanitized.resolution.height
+        local okViewport, Viewport = pcall(require, "src.core.viewport")
+        if not okViewport then
+            if Log and Log.warn then
+                Log.warn("Settings.applyGraphicsSettings - Failed to load viewport module: " .. tostring(Viewport))
+            end
+        elseif Viewport and Viewport.init and viewportWidth and viewportHeight then
+            local okInit, errInit = pcall(Viewport.init, viewportWidth, viewportHeight)
+            if not okInit and Log and Log.warn then
+                Log.warn("Settings.applyGraphicsSettings - Failed to reinitialize viewport: " .. tostring(errInit))
+            end
+        end
+
         -- Trigger a resize event to update UI elements
         pcall(function()
             if love.handlers and love.handlers.resize then
