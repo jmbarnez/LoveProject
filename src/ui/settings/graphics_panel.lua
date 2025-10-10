@@ -10,13 +10,12 @@ local currentSettings
 
 local vsyncTypes = {Strings.getUI("off"), Strings.getUI("on")}
 local fpsLimitTypes = {Strings.getUI("unlimited"), "30", "60", "120", "144", "240"}
-local displayModeTypes = {Strings.getSetting("windowed"), Strings.getSetting("borderless_fullscreen")}
-local resolutionTypes = {"1280x720", "1366x768", "1600x900", "1920x1080", "2560x1440", "3840x2160"}
+local displayModeTypes = {Strings.getSetting("windowed"), Strings.getSetting("fullscreen")}
+local resolutionTypes = {"1280x720", "1366x768", "1600x900", "1920x1080"}
 
 local vsyncDropdown
 local fpsLimitDropdown
 local displayModeDropdown
-local resolutionDropdown
 local resolutionDropdown
 
 local resolutionOptions = {}
@@ -347,14 +346,22 @@ local function ensureDropdowns()
             x = 0,
             y = 0,
             options = displayModeTypes,
-            selectedIndex = 2, -- Default to borderless fullscreen
+            selectedIndex = 1, -- Default to windowed
             onSelect = function(index)
                 if not currentSettings then return end
                 local modeMap = {
                     [1] = "windowed",
-                    [2] = "borderless_fullscreen"
+                    [2] = "fullscreen"
                 }
-                currentSettings.display_mode = modeMap[index] or "borderless_fullscreen"
+                currentSettings.display_mode = modeMap[index] or "windowed"
+                -- Update fullscreen flag based on display mode
+                if index == 2 then -- fullscreen
+                    currentSettings.fullscreen = true
+                    currentSettings.borderless = false
+                else -- windowed
+                    currentSettings.fullscreen = false
+                    currentSettings.borderless = false
+                end
             end
         })
     end
@@ -371,9 +378,7 @@ local function ensureDropdowns()
                     [1] = {width = 1280, height = 720},
                     [2] = {width = 1366, height = 768},
                     [3] = {width = 1600, height = 900},
-                    [4] = {width = 1920, height = 1080},
-                    [5] = {width = 2560, height = 1440},
-                    [6] = {width = 3840, height = 2160}
+                    [4] = {width = 1920, height = 1080}
                 }
                 local res = resolutionMap[index] or {width = 1920, height = 1080}
                 currentSettings.resolution = {width = res.width, height = res.height}
@@ -403,12 +408,12 @@ local function refreshDropdowns()
     fpsLimitDropdown:setSelectedIndex(idx)
 
     -- Set display mode dropdown
-    local displayMode = currentSettings.display_mode or "borderless_fullscreen"
+    local displayMode = currentSettings.display_mode or "windowed"
     local modeToIndex = {
         ["windowed"] = 1,
-        ["borderless_fullscreen"] = 2
+        ["fullscreen"] = 2
     }
-    local displayIdx = modeToIndex[displayMode] or 2
+    local displayIdx = modeToIndex[displayMode] or 1
     displayModeDropdown:setSelectedIndex(displayIdx)
 
     -- Set resolution dropdown
@@ -422,10 +427,6 @@ local function refreshDropdowns()
         resIdx = 3
     elseif resolution.width == 1920 and resolution.height == 1080 then
         resIdx = 4
-    elseif resolution.width == 2560 and resolution.height == 1440 then
-        resIdx = 5
-    elseif resolution.width == 3840 and resolution.height == 2160 then
-        resIdx = 6
     end
     resolutionDropdown:setSelectedIndex(resIdx)
 end
@@ -637,55 +638,15 @@ function GraphicsPanel.draw(layout)
     end
     yOffset = yOffset + itemHeight
 
-    Theme.setColor(Theme.colors.text)
-    love.graphics.print((Strings.getSetting("fullscreen") or "Fullscreen") .. ":", labelX, yOffset)
-    local fullscreenToggleX = valueX
-    local fullscreenToggleY = yOffset - 4
-    local fullscreenToggleW = 60
-    local fullscreenToggleH = 26
-    local fullscreenHover = mx >= fullscreenToggleX and mx <= fullscreenToggleX + fullscreenToggleW and
-        scrolledMouseY >= fullscreenToggleY and scrolledMouseY <= fullscreenToggleY + fullscreenToggleH
-    local fullscreenActive = currentSettings and currentSettings.fullscreen or false
-    GraphicsPanel._fullscreenToggleRect = Theme.drawCompactButton(
-        fullscreenToggleX,
-        fullscreenToggleY,
-        fullscreenToggleW,
-        fullscreenToggleH,
-        fullscreenActive and "ON" or "OFF",
-        fullscreenHover,
-        love.timer.getTime(),
-        { font = "small" }
-    )
-    yOffset = yOffset + itemHeight
+
 
     Theme.setColor(Theme.colors.text)
-    love.graphics.print((Strings.getSetting("borderless") or "Borderless") .. ":", labelX, yOffset)
-    local borderlessToggleX = valueX
-    local borderlessToggleY = yOffset - 4
-    local borderlessToggleW = 60
-    local borderlessToggleH = 26
-    local borderlessHover = mx >= borderlessToggleX and mx <= borderlessToggleX + borderlessToggleW and
-        scrolledMouseY >= borderlessToggleY and scrolledMouseY <= borderlessToggleY + borderlessToggleH
-    local borderlessActive = currentSettings and currentSettings.borderless or false
-    GraphicsPanel._borderlessToggleRect = Theme.drawCompactButton(
-        borderlessToggleX,
-        borderlessToggleY,
-        borderlessToggleW,
-        borderlessToggleH,
-        borderlessActive and "ON" or "OFF",
-        borderlessHover,
-        love.timer.getTime(),
-        { font = "small" }
-    )
-    yOffset = yOffset + itemHeight
-
-    Theme.setColor(Theme.colors.text)
-    love.graphics.print((Strings.getUI("vsync") or "VSync:"), labelX, yOffset)
+    love.graphics.print((Strings.getUI("vsync") or "VSync") .. ":", labelX, yOffset)
     vsyncDropdown:setPosition(valueX, yOffset - 2 - layout.scrollY)
     yOffset = yOffset + itemHeight
 
     Theme.setColor(Theme.colors.text)
-    love.graphics.print((Strings.getUI("max_fps") or "Max FPS:"), labelX, yOffset)
+    love.graphics.print((Strings.getUI("max_fps") or "Max FPS") .. ":", labelX, yOffset)
     fpsLimitDropdown:setPosition(valueX, yOffset - 2 - layout.scrollY)
     yOffset = yOffset + itemHeight
 
@@ -700,7 +661,7 @@ function GraphicsPanel.draw(layout)
     yOffset = yOffset + itemHeight
 
     Theme.setColor(Theme.colors.text)
-    love.graphics.print((Strings.getUI("show_fps") or "Show FPS:"), labelX, yOffset)
+    love.graphics.print((Strings.getUI("show_fps") or "Show FPS") .. ":", labelX, yOffset)
     local showFpsToggleX = valueX
     local showFpsToggleY = yOffset - 4
     local showFpsToggleW = 60
@@ -753,8 +714,9 @@ function GraphicsPanel.drawForeground(mx, my)
     end
     if fpsLimitDropdown then
         fpsLimitDropdown:drawButtonOnly(mx, my)
+    end
+    if displayModeDropdown then
         displayModeDropdown:drawButtonOnly(mx, my)
-        resolutionDropdown:drawButtonOnly(mx, my)
     end
 
     if resolutionDropdown then
@@ -765,8 +727,9 @@ function GraphicsPanel.drawForeground(mx, my)
     end
     if fpsLimitDropdown then
         fpsLimitDropdown:drawOptionsOnly(mx, my)
+    end
+    if displayModeDropdown then
         displayModeDropdown:drawOptionsOnly(mx, my)
-        resolutionDropdown:drawOptionsOnly(mx, my)
     end
 end
 
@@ -792,36 +755,11 @@ function GraphicsPanel.mousepressed(raw_x, raw_y, button)
         return true
     end
 
-    if GraphicsPanel._fullscreenToggleRect and raw_x >= GraphicsPanel._fullscreenToggleRect.x and raw_x <= GraphicsPanel._fullscreenToggleRect.x + GraphicsPanel._fullscreenToggleRect.w and raw_y >= GraphicsPanel._fullscreenToggleRect.y and raw_y <= GraphicsPanel._fullscreenToggleRect.y + GraphicsPanel._fullscreenToggleRect.h then
-        local Sound = require("src.core.sound")
-        Sound.playSFX("button_click")
-        if currentSettings then
-            currentSettings.fullscreen = not currentSettings.fullscreen
-            if currentSettings.fullscreen then
-                currentSettings.fullscreen_type = currentSettings.fullscreen_type or "desktop"
-                currentSettings.borderless = false
-            end
-        end
-        return true
-    end
-
-    if GraphicsPanel._borderlessToggleRect and raw_x >= GraphicsPanel._borderlessToggleRect.x and raw_x <= GraphicsPanel._borderlessToggleRect.x + GraphicsPanel._borderlessToggleRect.w and raw_y >= GraphicsPanel._borderlessToggleRect.y and raw_y <= GraphicsPanel._borderlessToggleRect.y + GraphicsPanel._borderlessToggleRect.h then
-        local Sound = require("src.core.sound")
-        Sound.playSFX("button_click")
-        if currentSettings then
-            currentSettings.borderless = not currentSettings.borderless
-            if currentSettings.borderless then
-                currentSettings.fullscreen = false
-            end
-        end
-        return true
-    end
 
     if resolutionDropdown and resolutionDropdown:mousepressed(raw_x, raw_y, button) then return true end
     if vsyncDropdown and vsyncDropdown:mousepressed(raw_x, raw_y, button) then return true end
     if fpsLimitDropdown and fpsLimitDropdown:mousepressed(raw_x, raw_y, button) then return true end
     if displayModeDropdown and displayModeDropdown:mousepressed(raw_x, raw_y, button) then return true end
-    if resolutionDropdown and resolutionDropdown:mousepressed(raw_x, raw_y, button) then return true end
 
     return false
 end
@@ -841,7 +779,6 @@ function GraphicsPanel.mousemoved(x, y)
     if vsyncDropdown then vsyncDropdown:mousemoved(x, y) end
     if fpsLimitDropdown then fpsLimitDropdown:mousemoved(x, y) end
     if displayModeDropdown then displayModeDropdown:mousemoved(x, y) end
-    if resolutionDropdown then resolutionDropdown:mousemoved(x, y) end
 end
 
 function GraphicsPanel.mousereleased()
@@ -864,12 +801,9 @@ function GraphicsPanel.getContentHeight(baseY, itemHeight)
     local yOffset = baseY
     yOffset = yOffset + 30 -- section label
     yOffset = yOffset + itemHeight -- resolution
-    yOffset = yOffset + itemHeight -- fullscreen
-    yOffset = yOffset + itemHeight -- borderless
     yOffset = yOffset + itemHeight -- vsync
     yOffset = yOffset + itemHeight -- fps
     yOffset = yOffset + itemHeight -- display mode
-    yOffset = yOffset + itemHeight -- resolution
     yOffset = yOffset + itemHeight -- show fps
     yOffset = yOffset + itemHeight -- accent
     return yOffset
