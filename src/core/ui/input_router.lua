@@ -243,58 +243,11 @@ end
 
 -- Handle keyboard events
 function UIInputRouter.keypressed(key, scancode, isrepeat, player)
-    -- Special handling for escape key
+    -- Special handling for escape key - always toggle escape panel
     if key == "escape" then
-        local state = require("src.core.ui.state")
-
-        local sortedPanels = {}
-        for _, record in ipairs(PanelRegistry.list()) do
-            if state.isOpen(record.id) then
-                table.insert(sortedPanels, {
-                    id = record.id,
-                    zIndex = state.getZIndex(record.id)
-                })
-            end
-        end
-        
-        -- Sort by z-index (highest first)
-        table.sort(sortedPanels, function(a, b) return a.zIndex > b.zIndex end)
-        
-        -- If there are open panels, close the topmost one
-        if #sortedPanels > 0 then
-            local topPanel = sortedPanels[1]
-            local UIManager = require("src.core.ui.manager")
-            
-            if topPanel.id == "escape" then
-                -- Escape menu is on top, close it
-                UIManager.close("escape")
-                return true
-            else
-                -- Check if escape menu is also open (settings panel case)
-                local escapeMenuOpen = false
-                for _, panel in ipairs(sortedPanels) do
-                    if panel.id == "escape" then
-                        escapeMenuOpen = true
-                        break
-                    end
-                end
-                
-                if escapeMenuOpen then
-                    -- Close the topmost panel (e.g., settings) and keep escape menu open
-                    UIManager.close(topPanel.id)
-                    return true
-                else
-                    -- Close the topmost panel
-                    UIManager.close(topPanel.id)
-                    return true
-                end
-            end
-        else
-            -- No panels open, toggle escape menu (consistent with hotkeys)
-            local UIManager = require("src.core.ui.manager")
-            UIManager.toggle("escape")
-            return true
-        end
+        local UIManager = require("src.core.ui.manager")
+        UIManager.toggle("escape")
+        return true
     end
     
     -- Normal key handling for non-escape keys

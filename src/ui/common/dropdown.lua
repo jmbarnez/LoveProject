@@ -340,16 +340,8 @@ function Dropdown:mousepressed(mx, my, button)
             end
         end
 
-        -- Click outside the entire dropdown area (button + options) closes it
-        local dropdownY = self._dropdownY or (self.y + self.optionHeight + 2)
-        local totalDropdownHeight = self.optionHeight + self.dropdownHeight + 2 -- button + gap + options
-        
-        -- Check if click is outside the entire dropdown area
-        if not (mx >= self.x and mx <= self.x + self.width and
-                my >= self.y and my <= self.y + totalDropdownHeight) then
-            self.open = false
-            return true
-        end
+        -- Consume all clicks when dropdown is open - do not close on outside clicks
+        return true
     end
 
     return false
