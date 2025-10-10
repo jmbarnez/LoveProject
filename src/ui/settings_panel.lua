@@ -30,6 +30,21 @@ local function cloneSettings(src)
     return Util.deepCopy(src or {})
 end
 
+local function revertUnappliedSettings()
+    local graphicsSettings = Settings.getGraphicsSettings()
+    local audioSettings = Settings.getAudioSettings()
+
+    if originalGraphicsSettings and not settingsEqual(graphicsSettings, originalGraphicsSettings) then
+        Settings.applyGraphicsSettings(cloneSettings(originalGraphicsSettings))
+        currentGraphicsSettings = cloneSettings(originalGraphicsSettings)
+    end
+
+    if originalAudioSettings and not settingsEqual(audioSettings, originalAudioSettings) then
+        Settings.applyAudioSettings(cloneSettings(originalAudioSettings))
+        currentAudioSettings = cloneSettings(originalAudioSettings)
+    end
+end
+
 local function settingsEqual(a, b)
     if a == b then return true end
     if type(a) ~= "table" or type(b) ~= "table" then
@@ -101,6 +116,7 @@ function SettingsPanel.init()
         drawContent = SettingsPanel.drawContent,
         onClose = function()
             SettingsPanel.visible = false
+            revertUnappliedSettings()
             -- Play close sound
             local Sound = require("src.core.sound")
             Sound.triggerEvent('ui_button_click')
@@ -391,16 +407,7 @@ function SettingsPanel.toggle()
         originalGraphicsSettings = cloneSettings(Settings.getGraphicsSettings())
         originalAudioSettings = cloneSettings(Settings.getAudioSettings())
     else
-        local graphicsSettings = Settings.getGraphicsSettings()
-        local audioSettings = Settings.getAudioSettings()
-
-        if originalGraphicsSettings and not settingsEqual(graphicsSettings, originalGraphicsSettings) then
-            Settings.applyGraphicsSettings(cloneSettings(originalGraphicsSettings))
-        end
-
-        if originalAudioSettings and not settingsEqual(audioSettings, originalAudioSettings) then
-            Settings.applyAudioSettings(cloneSettings(originalAudioSettings))
-        end
+        revertUnappliedSettings()
     end
 end
 
