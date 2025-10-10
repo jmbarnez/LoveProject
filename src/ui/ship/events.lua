@@ -3,6 +3,7 @@ local CargoUI = require("src.ui.cargo")
 local HotbarSystem = require("src.systems.hotbar")
 local Notifications = require("src.ui.notifications")
 local Util = require("src.core.util")
+local Dropdown = require("src.ui.common.dropdown")
 local Dropdowns = require("src.ui.ship.dropdowns")
 
 local Events = {}
@@ -19,16 +20,24 @@ function Events.mousepressed(state, x, y, button, player)
         return false, false
     end
 
+    local dropdownWasOpen = Dropdown.isAnyOpen()
     local content = getContentBounds(state)
-    if content and x and y and UIUtils.pointInRect(x, y, content) and state.slotDropdowns then
-        for _, dropdown in ipairs(state.slotDropdowns) do
-            if dropdown:mousepressed(x, y, button) then
-                if state.window and state.window.dragging then
-                    state.window.dragging = false
+    if state.slotDropdowns then
+        local withinContent = content and x and y and UIUtils.pointInRect(x, y, content)
+        if dropdownWasOpen or withinContent then
+            for _, dropdown in ipairs(state.slotDropdowns) do
+                if dropdown:mousepressed(x, y, button) then
+                    if state.window and state.window.dragging then
+                        state.window.dragging = false
+                    end
+                    return true, false
                 end
-                return true, false
             end
         end
+    end
+
+    if dropdownWasOpen then
+        return true, false
     end
 
     local handled = false
@@ -140,13 +149,7 @@ function Events.mousereleased(state, x, y, button)
         return false, false
     end
 
-    if state.window and state.window.visible then
-        local handled = state.window:mousereleased(x, y, button)
-        if handled then
-            return true, false
-        end
-    end
-
+    local dropdownOpen = Dropdown.isAnyOpen()
     if state.slotDropdowns then
         for _, dropdown in ipairs(state.slotDropdowns) do
             if dropdown.mousereleased and dropdown:mousereleased(x, y, button) then
@@ -155,19 +158,36 @@ function Events.mousereleased(state, x, y, button)
         end
     end
 
+    if dropdownOpen then
+        return true, false
+    end
+
+    if state.window and state.window.visible then
+        local handled = state.window:mousereleased(x, y, button)
+        if handled then
+            return true, false
+        end
+    end
+
     return false, false
 end
 
 function Events.mousemoved(state, x, y, dx, dy)
-    if state.window and state.window.visible then
-        if state.window:mousemoved(x, y, dx, dy) then
-            return true
-        end
-    end
+    local dropdownOpen = Dropdown.isAnyOpen()
 
     if state.slotDropdowns then
         for _, dropdown in ipairs(state.slotDropdowns) do
             dropdown:mousemoved(x, y)
+        end
+    end
+
+    if dropdownOpen then
+        return true
+    end
+
+    if state.window and state.window.visible then
+        if state.window:mousemoved(x, y, dx, dy) then
+            return true
         end
     end
 
@@ -177,6 +197,10 @@ end
 function Events.wheelmoved(state, x, y, dx, dy)
     if dy == nil or dy == 0 then
         return false
+    end
+
+    if Dropdown.isAnyOpen() then
+        return true
     end
 
     local handled = false

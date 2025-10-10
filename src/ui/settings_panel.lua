@@ -3,6 +3,7 @@ local Viewport = require("src.core.viewport")
 local Settings = require("src.core.settings")
 local Notifications = require("src.ui.notifications")
 local Window = require("src.ui.common.window")
+local Dropdown = require("src.ui.common.dropdown")
 local Strings = require("src.core.strings")
 local Util = require("src.core.util")
 local Log = require("src.core.log")
@@ -259,11 +260,19 @@ end
 function SettingsPanel.mousepressed(raw_x, raw_y, button)
     if not SettingsPanel.window.visible then return false end
 
-    if SettingsPanel.window:mousepressed(raw_x, raw_y, button) then
+    local dropdownOpen = Dropdown.isAnyOpen()
+
+    if not dropdownOpen and SettingsPanel.window:mousepressed(raw_x, raw_y, button) then
         return true
     end
 
-    if GraphicsPanel.mousepressed(raw_x, raw_y, button) then return true end
+    local graphicsHandled = GraphicsPanel.mousepressed(raw_x, raw_y, button)
+    if graphicsHandled then return true end
+
+    if dropdownOpen then
+        return true
+    end
+
     if AudioPanel.mousepressed(raw_x, raw_y, button) then return true end
     if ControlsPanel.mousepressed(raw_x, raw_y, button) then return true end
 
@@ -335,6 +344,9 @@ function SettingsPanel.wheelmoved(x, y, dx, dy)
     if not SettingsPanel.window.visible then return false end
 
     local win = SettingsPanel.window
+    if Dropdown.isAnyOpen() and win:containsPoint(x, y) then
+        return true
+    end
     if not win:containsPoint(x, y) then return false end
 
     local content = win:getContentBounds()
@@ -353,6 +365,13 @@ end
 
 function SettingsPanel.mousemoved(raw_x, raw_y, dx, dy)
     if not SettingsPanel.window.visible then return false end
+
+    local dropdownOpen = Dropdown.isAnyOpen()
+
+    if dropdownOpen then
+        GraphicsPanel.mousemoved(raw_x, raw_y)
+        return true
+    end
 
     if SettingsPanel.window:mousemoved(raw_x, raw_y, dx, dy) then
         return true

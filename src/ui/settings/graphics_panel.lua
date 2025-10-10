@@ -731,6 +731,15 @@ end
 function GraphicsPanel.mousepressed(raw_x, raw_y, button)
     if button ~= 1 then return false end
 
+    if Dropdown.isAnyOpen() then
+        local handled = false
+        if resolutionDropdown and resolutionDropdown:mousepressed(raw_x, raw_y, button) then handled = true end
+        if vsyncDropdown and vsyncDropdown:mousepressed(raw_x, raw_y, button) then handled = true end
+        if fpsLimitDropdown and fpsLimitDropdown:mousepressed(raw_x, raw_y, button) then handled = true end
+        if displayModeDropdown and displayModeDropdown:mousepressed(raw_x, raw_y, button) then handled = true end
+        return handled or true
+    end
+
     local screenX, screenY = Viewport.toScreen(raw_x, raw_y)
     if handleAccentGalleryClick(screenX, screenY) then return true end
 
@@ -761,6 +770,14 @@ function GraphicsPanel.mousepressed(raw_x, raw_y, button)
 end
 
 function GraphicsPanel.mousemoved(x, y)
+    if Dropdown.isAnyOpen() then
+        if resolutionDropdown then resolutionDropdown:mousemoved(x, y) end
+        if vsyncDropdown then vsyncDropdown:mousemoved(x, y) end
+        if fpsLimitDropdown then fpsLimitDropdown:mousemoved(x, y) end
+        if displayModeDropdown then displayModeDropdown:mousemoved(x, y) end
+        return
+    end
+
     if GraphicsPanel._colorPickerSliders then
         for channel, slider in pairs(GraphicsPanel._colorPickerSliders) do
             if accentColorSliders[channel].dragging then
