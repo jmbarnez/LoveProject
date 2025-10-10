@@ -2,6 +2,7 @@ local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
 local Dropdown = require("src.ui.common.dropdown")
 local Strings = require("src.core.strings")
+local Settings = require("src.core.settings")
 
 local GraphicsPanel = {}
 
@@ -16,6 +17,30 @@ local vsyncDropdown
 local fpsLimitDropdown
 local displayModeDropdown
 local resolutionDropdown
+local resolutionDropdown
+
+local resolutionOptions = {}
+local defaultResolutionChoices = {
+    { width = 3840, height = 2160 },
+    { width = 3440, height = 1440 },
+    { width = 2560, height = 1600 },
+    { width = 2560, height = 1440 },
+    { width = 2560, height = 1080 },
+    { width = 2560, height = 720 },
+    { width = 2048, height = 1152 },
+    { width = 1920, height = 1200 },
+    { width = 1920, height = 1080 },
+    { width = 1680, height = 1050 },
+    { width = 1600, height = 900 },
+    { width = 1536, height = 864 },
+    { width = 1440, height = 900 },
+    { width = 1366, height = 768 },
+    { width = 1280, height = 1024 },
+    { width = 1280, height = 800 },
+    { width = 1280, height = 720 },
+    { width = 1024, height = 768 },
+    { width = 800, height = 600 },
+}
 
 local accentGalleryOpen = false
 
@@ -53,6 +78,95 @@ local accentThemes = {
     { name = "Monochrome", color = {0.7, 0.7, 0.7, 1.0} },
     { name = "Custom", color = {0.7, 0.7, 0.7, 1.0} }
 }
+
+local function addResolutionOption(list, seen, width, height)
+    if type(width) ~= "number" or type(height) ~= "number" then
+        return
+    end
+
+    width = math.floor(width)
+    height = math.floor(height)
+
+    if width <= 0 or height <= 0 then
+        return
+    end
+
+    local key = string.format("%dx%d", width, height)
+    if seen[key] then
+        return
+    end
+
+    table.insert(list, { width = width, height = height })
+    seen[key] = true
+end
+
+local function buildResolutionOptions()
+    local options = {}
+    local seen = {}
+
+    for _, res in ipairs(defaultResolutionChoices) do
+        addResolutionOption(options, seen, res.width, res.height)
+    end
+
+    if Settings and Settings.getAvailableResolutions then
+        local ok, available = pcall(Settings.getAvailableResolutions)
+        if ok and type(available) == "table" then
+            for _, res in ipairs(available) do
+                addResolutionOption(options, seen, res.width, res.height)
+            end
+        end
+    end
+
+    if currentSettings and currentSettings.resolution then
+        addResolutionOption(options, seen, currentSettings.resolution.width, currentSettings.resolution.height)
+    end
+
+    table.sort(options, function(a, b)
+        if a.width == b.width then
+            return a.height < b.height
+        end
+        return a.width < b.width
+    end)
+
+    return options
+end
+
+local function updateResolutionDropdown()
+    resolutionOptions = buildResolutionOptions()
+
+    local labels = {}
+    local selectedIndex = 1
+    local currentWidth = currentSettings and currentSettings.resolution and math.floor(currentSettings.resolution.width or 0)
+    local currentHeight = currentSettings and currentSettings.resolution and math.floor(currentSettings.resolution.height or 0)
+
+    for index, option in ipairs(resolutionOptions) do
+        labels[index] = string.format("%d x %d", option.width, option.height)
+        if currentWidth == option.width and currentHeight == option.height then
+            selectedIndex = index
+        end
+    end
+
+    if not resolutionDropdown then
+        resolutionDropdown = Dropdown.new({
+            x = 0,
+            y = 0,
+            width = 220,
+            options = labels,
+            selectedIndex = selectedIndex,
+            onSelect = function(index)
+                local option = resolutionOptions[index]
+                if not option or not currentSettings then return end
+
+                currentSettings.resolution = currentSettings.resolution or {}
+                currentSettings.resolution.width = option.width
+                currentSettings.resolution.height = option.height
+            end
+        })
+    else
+        resolutionDropdown:setOptions(labels)
+        resolutionDropdown:setSelectedIndex(selectedIndex)
+    end
+end
 
 local function hsvToRgb(h, s, v)
     local r, g, b
@@ -272,6 +386,8 @@ local function refreshDropdowns()
     if not currentSettings then return end
     ensureDropdowns()
 
+    updateResolutionDropdown()
+
     vsyncDropdown:setSelectedIndex(currentSettings.vsync and 2 or 1)
 
     local fpsToIndex = {
@@ -479,6 +595,7 @@ end
 
 function GraphicsPanel.init()
     ensureDropdowns()
+    updateResolutionDropdown()
 end
 
 function GraphicsPanel.setSettings(settings)
@@ -514,12 +631,61 @@ function GraphicsPanel.draw(layout)
     yOffset = yOffset + 30
 
     Theme.setColor(Theme.colors.text)
-    love.graphics.print("VSync:", labelX, yOffset)
+    love.graphics.print((Strings.getSetting("resolution") or "Resolution") .. ":", labelX, yOffset)
+    if resolutionDropdown then
+        resolutionDropdown:setPosition(valueX, yOffset - 2 - layout.scrollY)
+    end
+    yOffset = yOffset + itemHeight
+
+    Theme.setColor(Theme.colors.text)
+    love.graphics.print((Strings.getSetting("fullscreen") or "Fullscreen") .. ":", labelX, yOffset)
+    local fullscreenToggleX = valueX
+    local fullscreenToggleY = yOffset - 4
+    local fullscreenToggleW = 60
+    local fullscreenToggleH = 26
+    local fullscreenHover = mx >= fullscreenToggleX and mx <= fullscreenToggleX + fullscreenToggleW and
+        scrolledMouseY >= fullscreenToggleY and scrolledMouseY <= fullscreenToggleY + fullscreenToggleH
+    local fullscreenActive = currentSettings and currentSettings.fullscreen or false
+    GraphicsPanel._fullscreenToggleRect = Theme.drawCompactButton(
+        fullscreenToggleX,
+        fullscreenToggleY,
+        fullscreenToggleW,
+        fullscreenToggleH,
+        fullscreenActive and "ON" or "OFF",
+        fullscreenHover,
+        love.timer.getTime(),
+        { font = "small" }
+    )
+    yOffset = yOffset + itemHeight
+
+    Theme.setColor(Theme.colors.text)
+    love.graphics.print((Strings.getSetting("borderless") or "Borderless") .. ":", labelX, yOffset)
+    local borderlessToggleX = valueX
+    local borderlessToggleY = yOffset - 4
+    local borderlessToggleW = 60
+    local borderlessToggleH = 26
+    local borderlessHover = mx >= borderlessToggleX and mx <= borderlessToggleX + borderlessToggleW and
+        scrolledMouseY >= borderlessToggleY and scrolledMouseY <= borderlessToggleY + borderlessToggleH
+    local borderlessActive = currentSettings and currentSettings.borderless or false
+    GraphicsPanel._borderlessToggleRect = Theme.drawCompactButton(
+        borderlessToggleX,
+        borderlessToggleY,
+        borderlessToggleW,
+        borderlessToggleH,
+        borderlessActive and "ON" or "OFF",
+        borderlessHover,
+        love.timer.getTime(),
+        { font = "small" }
+    )
+    yOffset = yOffset + itemHeight
+
+    Theme.setColor(Theme.colors.text)
+    love.graphics.print((Strings.getUI("vsync") or "VSync:"), labelX, yOffset)
     vsyncDropdown:setPosition(valueX, yOffset - 2 - layout.scrollY)
     yOffset = yOffset + itemHeight
 
     Theme.setColor(Theme.colors.text)
-    love.graphics.print("Max FPS:", labelX, yOffset)
+    love.graphics.print((Strings.getUI("max_fps") or "Max FPS:"), labelX, yOffset)
     fpsLimitDropdown:setPosition(valueX, yOffset - 2 - layout.scrollY)
     yOffset = yOffset + itemHeight
 
@@ -534,7 +700,7 @@ function GraphicsPanel.draw(layout)
     yOffset = yOffset + itemHeight
 
     Theme.setColor(Theme.colors.text)
-    love.graphics.print("Show FPS:", labelX, yOffset)
+    love.graphics.print((Strings.getUI("show_fps") or "Show FPS:"), labelX, yOffset)
     local showFpsToggleX = valueX
     local showFpsToggleY = yOffset - 4
     local showFpsToggleW = 60
@@ -579,12 +745,25 @@ function GraphicsPanel.drawOverlays()
 end
 
 function GraphicsPanel.drawForeground(mx, my)
+    if resolutionDropdown then
+        resolutionDropdown:drawButtonOnly(mx, my)
+    end
     if vsyncDropdown then
         vsyncDropdown:drawButtonOnly(mx, my)
+    end
+    if fpsLimitDropdown then
         fpsLimitDropdown:drawButtonOnly(mx, my)
         displayModeDropdown:drawButtonOnly(mx, my)
         resolutionDropdown:drawButtonOnly(mx, my)
+    end
+
+    if resolutionDropdown then
+        resolutionDropdown:drawOptionsOnly(mx, my)
+    end
+    if vsyncDropdown then
         vsyncDropdown:drawOptionsOnly(mx, my)
+    end
+    if fpsLimitDropdown then
         fpsLimitDropdown:drawOptionsOnly(mx, my)
         displayModeDropdown:drawOptionsOnly(mx, my)
         resolutionDropdown:drawOptionsOnly(mx, my)
@@ -613,6 +792,32 @@ function GraphicsPanel.mousepressed(raw_x, raw_y, button)
         return true
     end
 
+    if GraphicsPanel._fullscreenToggleRect and raw_x >= GraphicsPanel._fullscreenToggleRect.x and raw_x <= GraphicsPanel._fullscreenToggleRect.x + GraphicsPanel._fullscreenToggleRect.w and raw_y >= GraphicsPanel._fullscreenToggleRect.y and raw_y <= GraphicsPanel._fullscreenToggleRect.y + GraphicsPanel._fullscreenToggleRect.h then
+        local Sound = require("src.core.sound")
+        Sound.playSFX("button_click")
+        if currentSettings then
+            currentSettings.fullscreen = not currentSettings.fullscreen
+            if currentSettings.fullscreen then
+                currentSettings.fullscreen_type = currentSettings.fullscreen_type or "desktop"
+                currentSettings.borderless = false
+            end
+        end
+        return true
+    end
+
+    if GraphicsPanel._borderlessToggleRect and raw_x >= GraphicsPanel._borderlessToggleRect.x and raw_x <= GraphicsPanel._borderlessToggleRect.x + GraphicsPanel._borderlessToggleRect.w and raw_y >= GraphicsPanel._borderlessToggleRect.y and raw_y <= GraphicsPanel._borderlessToggleRect.y + GraphicsPanel._borderlessToggleRect.h then
+        local Sound = require("src.core.sound")
+        Sound.playSFX("button_click")
+        if currentSettings then
+            currentSettings.borderless = not currentSettings.borderless
+            if currentSettings.borderless then
+                currentSettings.fullscreen = false
+            end
+        end
+        return true
+    end
+
+    if resolutionDropdown and resolutionDropdown:mousepressed(raw_x, raw_y, button) then return true end
     if vsyncDropdown and vsyncDropdown:mousepressed(raw_x, raw_y, button) then return true end
     if fpsLimitDropdown and fpsLimitDropdown:mousepressed(raw_x, raw_y, button) then return true end
     if displayModeDropdown and displayModeDropdown:mousepressed(raw_x, raw_y, button) then return true end
@@ -632,6 +837,7 @@ function GraphicsPanel.mousemoved(x, y)
         end
     end
 
+    if resolutionDropdown then resolutionDropdown:mousemoved(x, y) end
     if vsyncDropdown then vsyncDropdown:mousemoved(x, y) end
     if fpsLimitDropdown then fpsLimitDropdown:mousemoved(x, y) end
     if displayModeDropdown then displayModeDropdown:mousemoved(x, y) end
@@ -657,6 +863,9 @@ end
 function GraphicsPanel.getContentHeight(baseY, itemHeight)
     local yOffset = baseY
     yOffset = yOffset + 30 -- section label
+    yOffset = yOffset + itemHeight -- resolution
+    yOffset = yOffset + itemHeight -- fullscreen
+    yOffset = yOffset + itemHeight -- borderless
     yOffset = yOffset + itemHeight -- vsync
     yOffset = yOffset + itemHeight -- fps
     yOffset = yOffset + itemHeight -- display mode
