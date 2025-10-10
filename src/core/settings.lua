@@ -16,6 +16,7 @@ local settings = {
         fullscreen = true,
         fullscreen_type = "desktop",
         borderless = false,
+        display_mode = "borderless_fullscreen", -- "windowed" or "borderless_fullscreen"
         vsync = true,
         max_fps = Constants.TIMING.FPS_60,
         font_scale = 1.0,
@@ -180,7 +181,7 @@ function Settings.applyGraphicsSettings(newSettings)
 
     settings.graphics = sanitized
 
-    -- Only change window mode if resolution or fullscreen settings changed
+    -- Only change window mode if resolution or display settings changed
     local oldResolution = oldSettings and oldSettings.resolution or {}
     if not oldSettings or
        (oldResolution.width ~= sanitized.resolution.width) or
@@ -188,6 +189,7 @@ function Settings.applyGraphicsSettings(newSettings)
        ((oldSettings.fullscreen or false) ~= (sanitized.fullscreen or false)) or
        ((oldSettings.fullscreen_type) ~= (sanitized.fullscreen_type)) or
        ((oldSettings.borderless or false) ~= (sanitized.borderless or false)) or
+       ((oldSettings.display_mode) ~= (sanitized.display_mode)) or
        (oldSettings.vsync ~= sanitized.vsync) then
 
         local success, err = WindowMode.apply(sanitized)

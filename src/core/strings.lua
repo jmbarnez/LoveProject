@@ -55,6 +55,8 @@ local strings = {
             -- Graphics options
             vsync = "VSync:",
             max_fps = "Max FPS:",
+            display_mode = "Display Mode:",
+            resolution = "Resolution:",
             crosshair = "Crosshair:",
             accent_color = "Accent Color:",
             show_helpers = "Show Helpers:",
@@ -144,6 +146,7 @@ local strings = {
             fullscreen = "Fullscreen",
             windowed = "Windowed",
             borderless = "Borderless",
+            borderless_fullscreen = "Fullscreen",
 
             -- Graphics quality
             low = "Low",
