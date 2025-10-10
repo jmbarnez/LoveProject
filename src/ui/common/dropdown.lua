@@ -4,6 +4,9 @@ local Viewport = require("src.core.viewport")
 local Dropdown = {}
 Dropdown.__index = Dropdown
 
+-- Keep track of all dropdown instances so we can query global state
+Dropdown._instances = setmetatable({}, { __mode = "k" })
+
 -- Constants for consistent styling
 local DROPDOWN_WIDTH = 150
 local OPTION_HEIGHT = 24
@@ -37,7 +40,29 @@ function Dropdown.new(config)
     self._buttonRect = nil
     self._optionRects = nil
 
+    -- Register instance for global queries (weak table avoids leaks)
+    Dropdown._instances[self] = true
+
     return self
+end
+
+function Dropdown:setOpen(isOpen)
+    if self.open == isOpen then return end
+
+    self.open = isOpen and true or false
+
+    if not self.open then
+        self.hoveredOption = nil
+    end
+end
+
+function Dropdown.isAnyOpen()
+    for instance in pairs(Dropdown._instances) do
+        if instance.open then
+            return true
+        end
+    end
+    return false
 end
 
 function Dropdown:draw()
@@ -294,7 +319,7 @@ function Dropdown:mousepressed(mx, my, button)
 
     -- Check if click is on the button
     if self:isPointInButton(mx, my) then
-        self.open = not self.open
+        self:setOpen(not self.open)
         return true
     end
 
@@ -326,7 +351,7 @@ function Dropdown:mousepressed(mx, my, button)
             for i, option in ipairs(self.options) do
                 if self:isPointInOption(mx, my, i) then
                     self.selectedIndex = i
-                    self.open = false
+                    self:setOpen(false)
                     self.onSelect(i, option)
                     return true
                 end
