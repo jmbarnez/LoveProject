@@ -292,9 +292,15 @@ end
 function Dropdown:mousepressed(mx, my, button)
     if self.disabled or not mx or not my then return false end
 
-    -- If dropdown is open, consume ALL mouse input to prevent click leakage
+    -- Check if click is on the button
+    if self:isPointInButton(mx, my) then
+        self.open = not self.open
+        return true
+    end
+
+    -- If dropdown is open, check option clicks
     if self.open then
-        -- Check if click is on an option first
+        -- Get current scissor rectangle to check if click is within visible bounds
         local currentScissor = {love.graphics.getScissor()}
         local isWithinBounds = true
 
@@ -325,17 +331,25 @@ function Dropdown:mousepressed(mx, my, button)
                     return true
                 end
             end
+
+            -- Click outside options but still in dropdown area - don't close, just return true to indicate we handled it
+            local dropdownY = self._dropdownY or (self.y + self.optionHeight + 2)
+            if mx >= self.x and mx <= self.x + self.width and
+               my >= dropdownY and my <= dropdownY + self.dropdownHeight then
+                return true
+            end
         end
 
-        -- Close dropdown and consume input for any click when open
-        self.open = false
-        return true
-    end
-
-    -- Check if click is on the button (only when dropdown is closed)
-    if self:isPointInButton(mx, my) then
-        self.open = not self.open
-        return true
+        -- Click outside the entire dropdown area (button + options) closes it
+        local dropdownY = self._dropdownY or (self.y + self.optionHeight + 2)
+        local totalDropdownHeight = self.optionHeight + self.dropdownHeight + 2 -- button + gap + options
+        
+        -- Check if click is outside the entire dropdown area
+        if not (mx >= self.x and mx <= self.x + self.width and
+                my >= self.y and my <= self.y + totalDropdownHeight) then
+            self.open = false
+            return true
+        end
     end
 
     return false

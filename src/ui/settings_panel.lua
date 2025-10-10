@@ -259,14 +259,13 @@ end
 function SettingsPanel.mousepressed(raw_x, raw_y, button)
     if not SettingsPanel.window.visible then return false end
 
-    -- Check dropdowns first to prevent click leakage when they're open
-    if GraphicsPanel.mousepressed(raw_x, raw_y, button) then return true end
-    if AudioPanel.mousepressed(raw_x, raw_y, button) then return true end
-    if ControlsPanel.mousepressed(raw_x, raw_y, button) then return true end
-
     if SettingsPanel.window:mousepressed(raw_x, raw_y, button) then
         return true
     end
+
+    if GraphicsPanel.mousepressed(raw_x, raw_y, button) then return true end
+    if AudioPanel.mousepressed(raw_x, raw_y, button) then return true end
+    if ControlsPanel.mousepressed(raw_x, raw_y, button) then return true end
 
     local win = SettingsPanel.window
     local panelX, panelY, w, h = win.x, win.y, win.width, win.height
