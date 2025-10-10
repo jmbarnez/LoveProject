@@ -2,7 +2,7 @@ local PanelRegistry = require("src.ui.core.panel_registry")
 
 PanelRegistry.register({
     id = "escape",
-    defaultZ = 100,
+    defaultZ = 200, -- Highest z-index to ensure it always appears on top
     modal = true,
     useSelf = false, -- Escape menu module methods don't use self
     loader = function()

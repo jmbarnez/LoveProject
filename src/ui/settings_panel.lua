@@ -30,21 +30,6 @@ local function cloneSettings(src)
     return Util.deepCopy(src or {})
 end
 
-local function revertUnappliedSettings()
-    local graphicsSettings = Settings.getGraphicsSettings()
-    local audioSettings = Settings.getAudioSettings()
-
-    if originalGraphicsSettings and not settingsEqual(graphicsSettings, originalGraphicsSettings) then
-        Settings.applyGraphicsSettings(cloneSettings(originalGraphicsSettings))
-        currentGraphicsSettings = cloneSettings(originalGraphicsSettings)
-    end
-
-    if originalAudioSettings and not settingsEqual(audioSettings, originalAudioSettings) then
-        Settings.applyAudioSettings(cloneSettings(originalAudioSettings))
-        currentAudioSettings = cloneSettings(originalAudioSettings)
-    end
-end
-
 local function settingsEqual(a, b)
     if a == b then return true end
     if type(a) ~= "table" or type(b) ~= "table" then
@@ -64,6 +49,21 @@ local function settingsEqual(a, b)
     end
 
     return true
+end
+
+local function revertUnappliedSettings()
+    local graphicsSettings = Settings.getGraphicsSettings()
+    local audioSettings = Settings.getAudioSettings()
+
+    if originalGraphicsSettings and not settingsEqual(graphicsSettings, originalGraphicsSettings) then
+        Settings.applyGraphicsSettings(cloneSettings(originalGraphicsSettings))
+        currentGraphicsSettings = cloneSettings(originalGraphicsSettings)
+    end
+
+    if originalAudioSettings and not settingsEqual(audioSettings, originalAudioSettings) then
+        Settings.applyAudioSettings(cloneSettings(originalAudioSettings))
+        currentAudioSettings = cloneSettings(originalAudioSettings)
+    end
 end
 
 local function updateModuleData()
@@ -259,13 +259,14 @@ end
 function SettingsPanel.mousepressed(raw_x, raw_y, button)
     if not SettingsPanel.window.visible then return false end
 
-    if SettingsPanel.window:mousepressed(raw_x, raw_y, button) then
-        return true
-    end
-
+    -- Check dropdowns first to prevent click leakage when they're open
     if GraphicsPanel.mousepressed(raw_x, raw_y, button) then return true end
     if AudioPanel.mousepressed(raw_x, raw_y, button) then return true end
     if ControlsPanel.mousepressed(raw_x, raw_y, button) then return true end
+
+    if SettingsPanel.window:mousepressed(raw_x, raw_y, button) then
+        return true
+    end
 
     local win = SettingsPanel.window
     local panelX, panelY, w, h = win.x, win.y, win.width, win.height

@@ -79,50 +79,6 @@ local function replaceTableContents(target, source)
     end
 end
 
-local function applyGraphicsPreview()
-    if not currentSettings then return end
-
-    local ok, err = pcall(function()
-        Settings.applyGraphicsSettings(cloneSettings(currentSettings))
-    end)
-
-    if not ok then
-        if Log and Log.warn then
-            Log.warn("GraphicsPanel.applyGraphicsPreview - Failed to apply preview: " .. tostring(err))
-        end
-        return
-    end
-
-    local applied = Settings.getGraphicsSettings()
-    if applied then
-        replaceTableContents(currentSettings, applied)
-    end
-
-    updateResolutionDropdown()
-    if vsyncDropdown and fpsLimitDropdown and displayModeDropdown then
-        -- Ensure dropdown selections reflect any sanitized values from the engine
-        vsyncDropdown:setSelectedIndex(currentSettings.vsync and 2 or 1)
-
-        local fpsToIndex = {
-            [0] = 1,
-            [30] = 2,
-            [60] = 3,
-            [120] = 4,
-            [144] = 5,
-            [240] = 6
-        }
-        local fpsIndex = fpsToIndex[currentSettings.max_fps or 60] or 3
-        fpsLimitDropdown:setSelectedIndex(fpsIndex)
-        currentSettings.max_fps_index = fpsIndex
-
-        local modeToIndex = {
-            ["windowed"] = 1,
-            ["fullscreen"] = 2
-        }
-        displayModeDropdown:setSelectedIndex(modeToIndex[currentSettings.display_mode or "windowed"] or 1)
-    end
-end
-
 local function updateResolutionDropdown()
     resolutionOptions = {}
     for _, option in ipairs(baseResolutionOptions) do
@@ -170,6 +126,50 @@ local function updateResolutionDropdown()
     else
         resolutionDropdown:setOptions(labels)
         resolutionDropdown:setSelectedIndex(selectedIndex)
+    end
+end
+
+local function applyGraphicsPreview()
+    if not currentSettings then return end
+
+    local ok, err = pcall(function()
+        Settings.applyGraphicsSettings(cloneSettings(currentSettings))
+    end)
+
+    if not ok then
+        if Log and Log.warn then
+            Log.warn("GraphicsPanel.applyGraphicsPreview - Failed to apply preview: " .. tostring(err))
+        end
+        return
+    end
+
+    local applied = Settings.getGraphicsSettings()
+    if applied then
+        replaceTableContents(currentSettings, applied)
+    end
+
+    updateResolutionDropdown()
+    if vsyncDropdown and fpsLimitDropdown and displayModeDropdown then
+        -- Ensure dropdown selections reflect any sanitized values from the engine
+        vsyncDropdown:setSelectedIndex(currentSettings.vsync and 2 or 1)
+
+        local fpsToIndex = {
+            [0] = 1,
+            [30] = 2,
+            [60] = 3,
+            [120] = 4,
+            [144] = 5,
+            [240] = 6
+        }
+        local fpsIndex = fpsToIndex[currentSettings.max_fps or 60] or 3
+        fpsLimitDropdown:setSelectedIndex(fpsIndex)
+        currentSettings.max_fps_index = fpsIndex
+
+        local modeToIndex = {
+            ["windowed"] = 1,
+            ["fullscreen"] = 2
+        }
+        displayModeDropdown:setSelectedIndex(modeToIndex[currentSettings.display_mode or "windowed"] or 1)
     end
 end
 
