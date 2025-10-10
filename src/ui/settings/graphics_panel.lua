@@ -3,6 +3,7 @@ local Viewport = require("src.core.viewport")
 local Dropdown = require("src.ui.common.dropdown")
 local Strings = require("src.core.strings")
 local Settings = require("src.core.settings")
+local Log = require("src.core.log")
 
 local GraphicsPanel = {}
 
@@ -11,7 +12,12 @@ local currentSettings
 local vsyncTypes = {Strings.getUI("off"), Strings.getUI("on")}
 local fpsLimitTypes = {Strings.getUI("unlimited"), "30", "60", "120", "144", "240"}
 local displayModeTypes = {Strings.getSetting("windowed"), Strings.getSetting("fullscreen")}
-local resolutionTypes = {"1280x720", "1366x768", "1600x900", "1920x1080"}
+local baseResolutionOptions = {
+    { width = 1280, height = 720 },
+    { width = 1366, height = 768 },
+    { width = 1600, height = 900 },
+    { width = 1920, height = 1080 },
+}
 
 local vsyncDropdown
 local fpsLimitDropdown
@@ -19,27 +25,6 @@ local displayModeDropdown
 local resolutionDropdown
 
 local resolutionOptions = {}
-local defaultResolutionChoices = {
-    { width = 3840, height = 2160 },
-    { width = 3440, height = 1440 },
-    { width = 2560, height = 1600 },
-    { width = 2560, height = 1440 },
-    { width = 2560, height = 1080 },
-    { width = 2560, height = 720 },
-    { width = 2048, height = 1152 },
-    { width = 1920, height = 1200 },
-    { width = 1920, height = 1080 },
-    { width = 1680, height = 1050 },
-    { width = 1600, height = 900 },
-    { width = 1536, height = 864 },
-    { width = 1440, height = 900 },
-    { width = 1366, height = 768 },
-    { width = 1280, height = 1024 },
-    { width = 1280, height = 800 },
-    { width = 1280, height = 720 },
-    { width = 1024, height = 768 },
-    { width = 800, height = 600 },
-}
 
 local accentGalleryOpen = false
 
@@ -78,71 +63,90 @@ local accentThemes = {
     { name = "Custom", color = {0.7, 0.7, 0.7, 1.0} }
 }
 
-local function addResolutionOption(list, seen, width, height)
-    if type(width) ~= "number" or type(height) ~= "number" then
-        return
+local function replaceTableContents(target, source)
+    if type(target) ~= "table" or type(source) ~= "table" then return end
+
+    for key in pairs(target) do
+        target[key] = nil
     end
 
-    width = math.floor(width)
-    height = math.floor(height)
-
-    if width <= 0 or height <= 0 then
-        return
+    for key, value in pairs(source) do
+        if type(value) == "table" then
+            target[key] = cloneSettings(value)
+        else
+            target[key] = value
+        end
     end
-
-    local key = string.format("%dx%d", width, height)
-    if seen[key] then
-        return
-    end
-
-    table.insert(list, { width = width, height = height })
-    seen[key] = true
 end
 
-local function buildResolutionOptions()
-    local options = {}
-    local seen = {}
+local function applyGraphicsPreview()
+    if not currentSettings then return end
 
-    for _, res in ipairs(defaultResolutionChoices) do
-        addResolutionOption(options, seen, res.width, res.height)
-    end
-
-    if Settings and Settings.getAvailableResolutions then
-        local ok, available = pcall(Settings.getAvailableResolutions)
-        if ok and type(available) == "table" then
-            for _, res in ipairs(available) do
-                addResolutionOption(options, seen, res.width, res.height)
-            end
-        end
-    end
-
-    if currentSettings and currentSettings.resolution then
-        addResolutionOption(options, seen, currentSettings.resolution.width, currentSettings.resolution.height)
-    end
-
-    table.sort(options, function(a, b)
-        if a.width == b.width then
-            return a.height < b.height
-        end
-        return a.width < b.width
+    local ok, err = pcall(function()
+        Settings.applyGraphicsSettings(cloneSettings(currentSettings))
     end)
 
-    return options
+    if not ok then
+        if Log and Log.warn then
+            Log.warn("GraphicsPanel.applyGraphicsPreview - Failed to apply preview: " .. tostring(err))
+        end
+        return
+    end
+
+    local applied = Settings.getGraphicsSettings()
+    if applied then
+        replaceTableContents(currentSettings, applied)
+    end
+
+    updateResolutionDropdown()
+    if vsyncDropdown and fpsLimitDropdown and displayModeDropdown then
+        -- Ensure dropdown selections reflect any sanitized values from the engine
+        vsyncDropdown:setSelectedIndex(currentSettings.vsync and 2 or 1)
+
+        local fpsToIndex = {
+            [0] = 1,
+            [30] = 2,
+            [60] = 3,
+            [120] = 4,
+            [144] = 5,
+            [240] = 6
+        }
+        local fpsIndex = fpsToIndex[currentSettings.max_fps or 60] or 3
+        fpsLimitDropdown:setSelectedIndex(fpsIndex)
+        currentSettings.max_fps_index = fpsIndex
+
+        local modeToIndex = {
+            ["windowed"] = 1,
+            ["fullscreen"] = 2
+        }
+        displayModeDropdown:setSelectedIndex(modeToIndex[currentSettings.display_mode or "windowed"] or 1)
+    end
 end
 
 local function updateResolutionDropdown()
-    resolutionOptions = buildResolutionOptions()
+    resolutionOptions = {}
+    for _, option in ipairs(baseResolutionOptions) do
+        table.insert(resolutionOptions, cloneSettings(option))
+    end
 
     local labels = {}
     local selectedIndex = 1
     local currentWidth = currentSettings and currentSettings.resolution and math.floor(currentSettings.resolution.width or 0)
     local currentHeight = currentSettings and currentSettings.resolution and math.floor(currentSettings.resolution.height or 0)
+    local matched = false
 
     for index, option in ipairs(resolutionOptions) do
         labels[index] = string.format("%d x %d", option.width, option.height)
         if currentWidth == option.width and currentHeight == option.height then
             selectedIndex = index
+            matched = true
         end
+    end
+
+    if currentWidth and currentWidth > 0 and currentHeight and currentHeight > 0 and not matched then
+        table.insert(resolutionOptions, { width = currentWidth, height = currentHeight })
+        labels[#labels + 1] = string.format("%d x %d", currentWidth, currentHeight)
+        selectedIndex = #resolutionOptions
     end
 
     if not resolutionDropdown then
@@ -159,6 +163,8 @@ local function updateResolutionDropdown()
                 currentSettings.resolution = currentSettings.resolution or {}
                 currentSettings.resolution.width = option.width
                 currentSettings.resolution.height = option.height
+
+                applyGraphicsPreview()
             end
         })
     else
@@ -314,6 +320,7 @@ local function ensureDropdowns()
             onSelect = function(index)
                 if currentSettings then
                     currentSettings.vsync = (index == 2)
+                    applyGraphicsPreview()
                 end
             end
         })
@@ -337,6 +344,7 @@ local function ensureDropdowns()
                 }
                 currentSettings.max_fps_index = index
                 currentSettings.max_fps = fpsMap[index] or 60
+                applyGraphicsPreview()
             end
         })
     end
@@ -362,6 +370,7 @@ local function ensureDropdowns()
                     currentSettings.fullscreen = false
                     currentSettings.borderless = false
                 end
+                applyGraphicsPreview()
             end
         })
     end
@@ -370,18 +379,18 @@ local function ensureDropdowns()
         resolutionDropdown = Dropdown.new({
             x = 0,
             y = 0,
-            options = resolutionTypes,
-            selectedIndex = 4, -- Default to 1920x1080
+            width = 220,
+            options = {},
+            selectedIndex = 1,
             onSelect = function(index)
-                if not currentSettings then return end
-                local resolutionMap = {
-                    [1] = {width = 1280, height = 720},
-                    [2] = {width = 1366, height = 768},
-                    [3] = {width = 1600, height = 900},
-                    [4] = {width = 1920, height = 1080}
-                }
-                local res = resolutionMap[index] or {width = 1920, height = 1080}
-                currentSettings.resolution = {width = res.width, height = res.height}
+                local option = resolutionOptions[index]
+                if not option or not currentSettings then return end
+
+                currentSettings.resolution = currentSettings.resolution or {}
+                currentSettings.resolution.width = option.width
+                currentSettings.resolution.height = option.height
+
+                applyGraphicsPreview()
             end
         })
     end
@@ -415,20 +424,6 @@ local function refreshDropdowns()
     }
     local displayIdx = modeToIndex[displayMode] or 1
     displayModeDropdown:setSelectedIndex(displayIdx)
-
-    -- Set resolution dropdown
-    local resolution = currentSettings.resolution or {width = 1920, height = 1080}
-    local resIdx = 4 -- Default to 1920x1080
-    if resolution.width == 1280 and resolution.height == 720 then
-        resIdx = 1
-    elseif resolution.width == 1366 and resolution.height == 768 then
-        resIdx = 2
-    elseif resolution.width == 1600 and resolution.height == 900 then
-        resIdx = 3
-    elseif resolution.width == 1920 and resolution.height == 1080 then
-        resIdx = 4
-    end
-    resolutionDropdown:setSelectedIndex(resIdx)
 end
 
 
@@ -751,6 +746,7 @@ function GraphicsPanel.mousepressed(raw_x, raw_y, button)
         Sound.playSFX("button_click")
         if currentSettings then
             currentSettings.show_fps = not currentSettings.show_fps
+            applyGraphicsPreview()
         end
         return true
     end
