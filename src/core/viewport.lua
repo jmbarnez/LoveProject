@@ -55,29 +55,20 @@ function Viewport.resize(w, h)
     local sy = h / vh
     scale = math.min(sx, sy)
 
-    -- Ensure scale is valid and doesn't exceed window bounds
+    -- Ensure scale is valid
     if scale <= 0 or scale == math.huge then
         scale = 1
     end
 
     local sw = math.floor(vw * scale + 0.5)
     local sh = math.floor(vh * scale + 0.5)
-    
-    -- Ensure viewport doesn't extend beyond visible window space
-    sw = math.min(sw, w)
-    sh = math.min(sh, h)
-    
     ox = math.floor((w - sw) / 2)
     oy = math.floor((h - sh) / 2)
 
-    -- Ensure offsets are valid and within bounds
+    -- Ensure offsets are valid
     if ox ~= ox or oy ~= oy then -- Check for NaN
         ox, oy = 0, 0
     end
-    
-    -- Clamp offsets to ensure viewport stays within window
-    ox = math.max(0, math.min(ox, w - sw))
-    oy = math.max(0, math.min(oy, h - sh))
 
     -- Reload fonts to ensure they're the right size for the new resolution
     local success, err = pcall(function()
@@ -88,9 +79,6 @@ function Viewport.resize(w, h)
     if not success and Log and Log.warn then
         Log.warn("Failed to reload fonts on resize: " .. tostring(err))
     end
-    
-    -- Force canvas recreation for new resolution
-    ensureCanvas()
 end
 
 function Viewport.begin()
@@ -225,27 +213,6 @@ function Viewport.syncWithWindow()
             love.graphics.setCanvas()
         end
     end
-end
-
--- Ensure viewport stays within window bounds
-function Viewport.ensureBounds()
-    local w, h = love.graphics.getDimensions()
-    if not w or not h or w <= 0 or h <= 0 then return end
-    
-    local sw = math.floor(vw * scale + 0.5)
-    local sh = math.floor(vh * scale + 0.5)
-    
-    -- Clamp viewport size to window size
-    sw = math.min(sw, w)
-    sh = math.min(sh, h)
-    
-    -- Recalculate offsets to keep viewport centered
-    ox = math.floor((w - sw) / 2)
-    oy = math.floor((h - sh) / 2)
-    
-    -- Ensure offsets are within bounds
-    ox = math.max(0, math.min(ox, w - sw))
-    oy = math.max(0, math.min(oy, h - sh))
 end
 
 return Viewport

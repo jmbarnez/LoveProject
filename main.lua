@@ -257,15 +257,7 @@ function love.applyGraphicsSettings()
 
         local success = WindowMode.apply(graphicsSettings)
         if success and desiredWidth and desiredHeight then
-            -- Force viewport update with new resolution
             Viewport.init(desiredWidth, desiredHeight)
-            
-            -- Trigger resize event to update all UI components
-            if love.handlers and love.handlers.resize then
-                love.handlers.resize(desiredWidth, desiredHeight)
-            elseif love.resize then
-                love.resize(desiredWidth, desiredHeight)
-            end
         end
     end
 

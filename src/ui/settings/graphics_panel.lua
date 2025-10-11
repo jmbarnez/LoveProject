@@ -18,6 +18,7 @@ local vsyncDropdown
 local fpsLimitDropdown
 local windowModeDropdown
 local resolutionDropdown
+local fpsCheckboxRect = {}
 
 local function cloneSettings(src)
     if not src then return {} end
@@ -192,13 +193,6 @@ local function ensureDropdowns()
                     currentSettings.resolution = resolutionMap[index] or {width = 1920, height = 1080}
                 end
                 applyGraphicsPreview()
-                
-                -- Force immediate UI update after resolution change
-                local UIManager = require("src.core.ui_manager")
-                if UIManager and UIManager.resize then
-                    local w, h = love.graphics.getDimensions()
-                    UIManager.resize(w, h)
-                end
             end
         })
     end
@@ -264,9 +258,6 @@ function GraphicsPanel.draw(layout)
     local valueX = layout.valueX
     local itemHeight = layout.itemHeight
 
-    -- Clear cached interactive regions before redrawing
-    layout.showFPSCheckbox = nil
-
     Theme.setColor(Theme.colors.accent)
     love.graphics.setFont(Theme.fonts and (Theme.fonts.normal or Theme.fonts.small) or love.graphics.getFont())
     love.graphics.print("Graphics Settings", labelX, yOffset)
@@ -296,16 +287,14 @@ function GraphicsPanel.draw(layout)
     Theme.setColor(Theme.colors.text)
     love.graphics.print("Show FPS:", labelX, yOffset)
     local checkboxX = valueX
-    local checkboxY = yOffset - 2 - layout.scrollY
+    local checkboxY = yOffset - 2
     local checkboxSize = 16
     local hover = layout.mx >= checkboxX and layout.mx <= checkboxX + checkboxSize and layout.scrolledMouseY >= checkboxY and layout.scrolledMouseY <= checkboxY + checkboxSize
     Theme.drawStyledButton(checkboxX, checkboxY, checkboxSize, checkboxSize, currentSettings.show_fps and "✓" or "", hover, love.timer.getTime(), nil, false, { compact = true })
-    -- Store the checkbox position (without scroll offset) so interaction code can reuse it
-    layout.showFPSCheckbox = {
-        x = checkboxX,
-        y = yOffset - 2,
-        size = checkboxSize
-    }
+    
+    -- Store checkbox rect for click detection (in world coordinates)
+    fpsCheckboxRect = { x = checkboxX, y = checkboxY - layout.scrollY, w = checkboxSize, h = checkboxSize }
+    
     yOffset = yOffset + itemHeight
 
     layout.yOffset = yOffset
@@ -344,7 +333,7 @@ function GraphicsPanel.drawForeground(mx, my)
     end
 end
 
-function GraphicsPanel.mousepressed(raw_x, raw_y, button, layout)
+function GraphicsPanel.mousepressed(raw_x, raw_y, button)
     if button ~= 1 then return false end
 
     -- Check if any of our dropdowns handled the click
@@ -354,16 +343,14 @@ function GraphicsPanel.mousepressed(raw_x, raw_y, button, layout)
     if resolutionDropdown and resolutionDropdown:mousepressed(raw_x, raw_y, button) then return true end
 
     -- Check if FPS checkbox was clicked
-    if currentSettings and layout and layout.showFPSCheckbox then
-        local scrolledMouseY = raw_y + layout.scrollY
-        local checkbox = layout.showFPSCheckbox
-
-        if raw_x >= checkbox.x and raw_x <= checkbox.x + checkbox.size and
-           scrolledMouseY >= checkbox.y and scrolledMouseY <= checkbox.y + checkbox.size then
-            currentSettings.show_fps = not currentSettings.show_fps
-            applyGraphicsPreview()
-            return true
-        end
+    if currentSettings then
+        local layout = { valueX = 200, scrollY = 0 } -- Approximate values, will be overridden by actual layout
+        local checkboxX = layout.valueX
+        local checkboxY = 0 -- Will be calculated properly in draw function
+        local checkboxSize = 16
+        
+        -- This is a simplified check - in practice, you'd need to pass the actual layout
+        -- For now, we'll handle this in the main settings panel
     end
 
     return false
@@ -399,6 +386,18 @@ function GraphicsPanel.getContentHeight(baseY, itemHeight)
     return yOffset
 end
 
+function GraphicsPanel.toggleShowFPS()
+    if currentSettings then
+        currentSettings.show_fps = not currentSettings.show_fps
+        applyGraphicsPreview()
+        return true
+    end
+    return false
+end
+
+function GraphicsPanel.getFpsCheckboxRect()
+    return fpsCheckboxRect
+end
 
 GraphicsPanel.refreshDropdowns = refreshDropdowns
 

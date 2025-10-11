@@ -100,17 +100,7 @@ function SettingsPanel.calculateContentHeight()
     local controlsBase = audioEnd + sectionSpacing
     local controlsEnd = ControlsPanel.getContentHeight(controlsBase)
 
-    local newContentHeight = (controlsEnd - content.y) + 20
-    
-    -- Maintain scroll position when content height changes
-    if contentHeight > 0 and newContentHeight ~= contentHeight then
-        local content = SettingsPanel.window:getContentBounds()
-        local innerH = content.h
-        local maxScroll = math.max(0, newContentHeight - innerH)
-        scrollY = math.min(scrollY, maxScroll)
-    end
-    
-    contentHeight = newContentHeight
+    contentHeight = (controlsEnd - content.y) + 20
 end
 
 function SettingsPanel.init()
@@ -288,27 +278,21 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         return true
     end
 
-    -- Create layout for graphics panel
-    local content = SettingsPanel.window:getContentBounds()
-    local pad = (Theme.ui and Theme.ui.contentPadding) or 20
-    local layout = {
-        x = content.x,
-        y = content.y,
-        w = content.w,
-        h = content.h,
-        labelX = content.x + pad,
-        valueX = content.x + 200,
-        itemHeight = 40,
-        scrollY = scrollY,
-        settingsFont = Theme.getFont("normal"),
-        mx = raw_x,
-        my = raw_y,
-        scrolledMouseY = raw_y + scrollY,
-        yOffset = content.y + 10
-    }
-    
-    local graphicsHandled = GraphicsPanel.mousepressed(raw_x, raw_y, button, layout)
+    local graphicsHandled = GraphicsPanel.mousepressed(raw_x, raw_y, button)
     if graphicsHandled then return true end
+    
+    -- Handle FPS checkbox click
+    if not dropdownOpen then
+        local fpsRect = GraphicsPanel.getFpsCheckboxRect()
+        if fpsRect and fpsRect.x and fpsRect.y and fpsRect.w and fpsRect.h then
+            if raw_x >= fpsRect.x and raw_x <= fpsRect.x + fpsRect.w and 
+               raw_y >= fpsRect.y and raw_y <= fpsRect.y + fpsRect.h then
+                if GraphicsPanel.toggleShowFPS() then
+                    return true
+                end
+            end
+        end
+    end
 
     if dropdownOpen then
         return true

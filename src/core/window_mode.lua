@@ -101,33 +101,13 @@ function WindowMode.apply(graphicsSettings)
     Log.debug("  Resizable: " .. tostring(windowSettings.resizable))
     Log.debug("  VSync: " .. tostring(windowSettings.vsync))
 
-    -- Try to use updateMode for immediate changes, fallback to setMode
-    local ok, err
-    if love.window.updateMode then
-        ok, err = pcall(love.window.updateMode, width, height, windowSettings)
-        if not ok then
-            Log.debug("WindowMode.apply - updateMode failed, falling back to setMode")
-            ok, err = pcall(love.window.setMode, width, height, windowSettings)
-        end
-    else
-        ok, err = pcall(love.window.setMode, width, height, windowSettings)
-    end
+    local ok, err = pcall(love.window.setMode, width, height, windowSettings)
 
     if not ok then
         if Log and Log.warn then
             Log.warn("WindowMode.apply - Failed to apply window mode: " .. tostring(err))
         end
         return false, err
-    end
-
-    -- Immediately sync viewport with new resolution
-    local Viewport = require("src.core.viewport")
-    if Viewport and Viewport.resize then
-        Viewport.resize(width, height)
-        -- Ensure viewport stays within bounds
-        if Viewport.ensureBounds then
-            Viewport.ensureBounds()
-        end
     end
 
     Log.debug("WindowMode.apply - Window mode applied successfully")
