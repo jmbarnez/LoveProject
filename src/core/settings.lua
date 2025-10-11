@@ -98,10 +98,22 @@ function Settings.applyGraphicsSettings(newSettings)
 
     settings.graphics = sanitized
 
+    local function getResolutionPair(data)
+        if type(data) ~= "table" then return nil, nil end
+        local w = tonumber(data.width)
+        local h = tonumber(data.height)
+        return w, h
+    end
+
+    local oldWidth, oldHeight = getResolutionPair(oldSettings and oldSettings.resolution)
+    local newWidth, newHeight = getResolutionPair(sanitized and sanitized.resolution)
+    local resolutionChanged = (oldWidth ~= newWidth) or (oldHeight ~= newHeight)
+
     -- Only change window mode if display settings changed
     if not oldSettings or
        (oldSettings.display_mode ~= sanitized.display_mode) or
-       (oldSettings.vsync ~= sanitized.vsync) then
+       (oldSettings.vsync ~= sanitized.vsync) or
+       resolutionChanged then
 
         local success, err = WindowMode.apply(sanitized)
         if not success then
