@@ -246,116 +246,121 @@ end
 function World:drawBackground(camera)
   -- Draw in screen space regardless of camera
   love.graphics.push('all')
-  love.graphics.origin()
-  love.graphics.clear(0, 0, 0) -- Pure black space background
-  local w, h = Viewport.getDimensions()
-  -- Regenerate static sky on resolution change
-  if self.skyW ~= w or self.skyH ~= h or (#self.skyStars == 0) then
-    self.skyW, self.skyH = w, h
-    local scale = (w * h) / (1920 * 1080)
-    -- Density tuned for 1080p base (increased for visibility)
-    self.skyStars = genSkyStars(w, h, math.floor(480 * math.max(1, scale)))
-  end
-  -- Draw static sky (no parallax) with slow twinkle
-  -- Only update twinkling every few frames for better performance
-  local t = (love.timer and love.timer.getTime and love.timer.getTime()) or 0
-  local shouldUpdateTwinkle = self:shouldUpdateBackground(3) -- Update twinkling every 3 frames
-
-  for i = 1, #self.skyStars do
-    local s = self.skyStars[i]
-    -- Disable twinkling temporarily to test for flicker
-    local alpha = s.a
-    love.graphics.setColor(1, 1, 1, alpha)
-    local sx = math.floor(s.x) + 0.5
-    local sy = math.floor(s.y) + 0.5
-    love.graphics.circle('fill', sx, sy, s.s)
-  end
-  -- Rebuild parallax screen-space stars on resize
-  if self.starW ~= w or self.starH ~= h then
-    self.starW, self.starH = w, h
-    local scale = (w * h) / (1920 * 1080)
-    
-    -- Regenerate all star layers with appropriate densities
-    self.starLayers[1].stars = genScreenStars(w, h, math.floor(60 * math.max(1, scale)), "close")
-    self.starLayers[2].stars = genScreenStars(w, h, math.floor(80 * math.max(1, scale)), "medium")
-    self.starLayers[3].stars = genScreenStars(w, h, math.floor(100 * math.max(1, scale)), "far")
-    self.starLayers[4].stars = genScreenStars(w, h, math.floor(120 * math.max(1, scale)), "very_far")
-  end
-  -- Parallax stars: move slightly with camera and wrap on screen bounds
-  -- Use batched rendering for better performance
-  local t = (love.timer and love.timer.getTime and love.timer.getTime()) or 0
-  for li = 1, #self.starLayers do
-    local layer = self.starLayers[li]
-    local p = layer.p or 0.02
-    local ox = (-camera.x * p) % w
-    local oy = (-camera.y * p) % h
-    
-    -- Calculate base alpha based on parallax speed (closer = more visible)
-    local baseAlpha = math.min(0.6, 0.1 + 2.0 * p)
-    
-    -- Add subtle twinkling effect (slower for distant stars)
-    local twinkleSpeed = 1.0 + (4 - li) * 0.5 -- Closer stars twinkle faster
-    local twinkle = 0.8 + 0.2 * math.sin(t * twinkleSpeed)
-    baseAlpha = baseAlpha * twinkle
-    
-    love.graphics.setColor(1,1,1, baseAlpha)
-
-    -- Batch star rendering for better performance
-    local batch = self.starBatches[li]
-    if not batch or self.lastScreenSize.w ~= w or self.lastScreenSize.h ~= h then
-      -- Create new sprite batch for this layer
-      if love.graphics.newSpriteBatch then
-        -- Use a simple 1x1 white pixel image for stars
-        local starImage = love.graphics.newImage(love.image.newImageData(1, 1))
-        batch = love.graphics.newSpriteBatch(starImage, #layer.stars)
-        self.starBatches[li] = batch
-      end
-      self.lastScreenSize = {w = w, h = h}
+  local ok, err = xpcall(function()
+    love.graphics.origin()
+    love.graphics.clear(0, 0, 0) -- Pure black space background
+    local w, h = Viewport.getDimensions()
+    -- Regenerate static sky on resolution change
+    if self.skyW ~= w or self.skyH ~= h or (#self.skyStars == 0) then
+      self.skyW, self.skyH = w, h
+      local scale = (w * h) / (1920 * 1080)
+      -- Density tuned for 1080p base (increased for visibility)
+      self.skyStars = genSkyStars(w, h, math.floor(480 * math.max(1, scale)))
     end
+    -- Draw static sky (no parallax) with slow twinkle
+    -- Only update twinkling every few frames for better performance
+    local t = (love.timer and love.timer.getTime and love.timer.getTime()) or 0
+    local shouldUpdateTwinkle = self:shouldUpdateBackground(3) -- Update twinkling every 3 frames
 
-    if batch then
-      -- Clear and repopulate batch
-      batch:clear()
-      for i = 1, #layer.stars do
-        local s = layer.stars[i]
-        local sx = s.x + ox
-        local sy = s.y + oy
-        if sx >= w then sx = sx - w end
-        if sy >= h then sy = sy - h end
-        if sx < 0 then sx = sx + w end
-        if sy < 0 then sy = sy + h end
-        local sxs = math.floor(sx) + 0.5
-        local sys = math.floor(sy) + 0.5
-        batch:add(sxs, sys, 0, s.s * 2, s.s * 2) -- Scale the 1x1 pixel to star size
+    for i = 1, #self.skyStars do
+      local s = self.skyStars[i]
+      -- Disable twinkling temporarily to test for flicker
+      local alpha = s.a
+      love.graphics.setColor(1, 1, 1, alpha)
+      local sx = math.floor(s.x) + 0.5
+      local sy = math.floor(s.y) + 0.5
+      love.graphics.circle('fill', sx, sy, s.s)
+    end
+    -- Rebuild parallax screen-space stars on resize
+    if self.starW ~= w or self.starH ~= h then
+      self.starW, self.starH = w, h
+      local scale = (w * h) / (1920 * 1080)
+
+      -- Regenerate all star layers with appropriate densities
+      self.starLayers[1].stars = genScreenStars(w, h, math.floor(60 * math.max(1, scale)), "close")
+      self.starLayers[2].stars = genScreenStars(w, h, math.floor(80 * math.max(1, scale)), "medium")
+      self.starLayers[3].stars = genScreenStars(w, h, math.floor(100 * math.max(1, scale)), "far")
+      self.starLayers[4].stars = genScreenStars(w, h, math.floor(120 * math.max(1, scale)), "very_far")
+    end
+    -- Parallax stars: move slightly with camera and wrap on screen bounds
+    -- Use batched rendering for better performance
+    local t = (love.timer and love.timer.getTime and love.timer.getTime()) or 0
+    for li = 1, #self.starLayers do
+      local layer = self.starLayers[li]
+      local p = layer.p or 0.02
+      local ox = (-camera.x * p) % w
+      local oy = (-camera.y * p) % h
+
+      -- Calculate base alpha based on parallax speed (closer = more visible)
+      local baseAlpha = math.min(0.6, 0.1 + 2.0 * p)
+
+      -- Add subtle twinkling effect (slower for distant stars)
+      local twinkleSpeed = 1.0 + (4 - li) * 0.5 -- Closer stars twinkle faster
+      local twinkle = 0.8 + 0.2 * math.sin(t * twinkleSpeed)
+      baseAlpha = baseAlpha * twinkle
+
+      love.graphics.setColor(1,1,1, baseAlpha)
+
+      -- Batch star rendering for better performance
+      local batch = self.starBatches[li]
+      if not batch or self.lastScreenSize.w ~= w or self.lastScreenSize.h ~= h then
+        -- Create new sprite batch for this layer
+        if love.graphics.newSpriteBatch then
+          -- Use a simple 1x1 white pixel image for stars
+          local starImage = love.graphics.newImage(love.image.newImageData(1, 1))
+          batch = love.graphics.newSpriteBatch(starImage, #layer.stars)
+          self.starBatches[li] = batch
+        end
+        self.lastScreenSize = {w = w, h = h}
       end
-      love.graphics.draw(batch)
-    else
-      -- Fallback to individual draw calls if sprite batches not available
-      for i = 1, #layer.stars do
-        local s = layer.stars[i]
-        local sx = s.x + ox
-        local sy = s.y + oy
-        if sx >= w then sx = sx - w end
-        if sy >= h then sy = sy - h end
-        if sx < 0 then sx = sx + w end
-        if sy < 0 then sy = sy + h end
-        local sxs = math.floor(sx) + 0.5
-        local sys = math.floor(sy) + 0.5
-        
-        -- Use individual star color and brightness with twinkling
-        local starColor = s.color or {1.0, 1.0, 1.0}
-        local starBrightness = s.brightness or 1.0
-        
-        -- Individual star twinkling (slight variation per star)
-        local starTwinkle = 0.9 + 0.1 * math.sin(t * (twinkleSpeed + (i % 3) * 0.3))
-        local finalAlpha = baseAlpha * starBrightness * starTwinkle
-        
-        love.graphics.setColor(starColor[1], starColor[2], starColor[3], finalAlpha)
-        love.graphics.circle('fill', sxs, sys, s.s)
+
+      if batch then
+        -- Clear and repopulate batch
+        batch:clear()
+        for i = 1, #layer.stars do
+          local s = layer.stars[i]
+          local sx = s.x + ox
+          local sy = s.y + oy
+          if sx >= w then sx = sx - w end
+          if sy >= h then sy = sy - h end
+          if sx < 0 then sx = sx + w end
+          if sy < 0 then sy = sy + h end
+          local sxs = math.floor(sx) + 0.5
+          local sys = math.floor(sy) + 0.5
+          batch:add(sxs, sys, 0, s.s * 2, s.s * 2) -- Scale the 1x1 pixel to star size
+        end
+        love.graphics.draw(batch)
+      else
+        -- Fallback to individual draw calls if sprite batches not available
+        for i = 1, #layer.stars do
+          local s = layer.stars[i]
+          local sx = s.x + ox
+          local sy = s.y + oy
+          if sx >= w then sx = sx - w end
+          if sy >= h then sy = sy - h end
+          if sx < 0 then sx = sx + w end
+          if sy < 0 then sy = sy + h end
+          local sxs = math.floor(sx) + 0.5
+          local sys = math.floor(sy) + 0.5
+
+          -- Use individual star color and brightness with twinkling
+          local starColor = s.color or {1.0, 1.0, 1.0}
+          local starBrightness = s.brightness or 1.0
+
+          -- Individual star twinkling (slight variation per star)
+          local starTwinkle = 0.9 + 0.1 * math.sin(t * (twinkleSpeed + (i % 3) * 0.3))
+          local finalAlpha = baseAlpha * starBrightness * starTwinkle
+
+          love.graphics.setColor(starColor[1], starColor[2], starColor[3], finalAlpha)
+          love.graphics.circle('fill', sxs, sys, s.s)
+        end
       end
     end
-  end
+  end, debug.traceback)
   love.graphics.pop()
+  if not ok then
+    error(err)
+  end
 end
 
 function World:drawBounds()
