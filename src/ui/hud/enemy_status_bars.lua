@@ -251,15 +251,15 @@ function EnemyStatusBars.drawMiniBars(entity)
     end
   end
   
-  -- Calculate bar size based on entity type - compact but wide enough for name
+  -- Calculate bar size based on entity type - half length
   local barW, barH
   if isProjectile then
     -- Smaller bars for projectiles
-    barW = math.max(24, math.min(48, radius * 3.5))
+    barW = math.max(12, math.min(24, radius * 1.5))
     barH = 4
   else
-    -- Compact bars for other entities - just wide enough for name
-    barW = math.max(100, math.min(160, radius * 3.0))
+    -- Half-length bars for other entities
+    barW = math.max(50, math.min(80, radius * 1.5))
     barH = 8
   end
 
@@ -284,51 +284,11 @@ function EnemyStatusBars.drawMiniBars(entity)
   local hpPct = math.max(0, math.min(1, hp / math.max(1, maxHP)))
   local shieldPct = maxShield > 0 and math.max(0, math.min(1, shield / math.max(1, maxShield))) or 0
 
-  -- Draw health bar without text
+  -- Draw health bar
   drawOverheadBar(x0, baseY, barW, barH, hpPct, shieldPct)
   
-  -- Draw name above the health bar
-  local enemyLevel = entity.components.enemy_level
-  local name = entity.name or "Unknown Enemy"
-  local Content = require("src.content.content")
-  local shipDef = Content.getShip(entity.shipId)
-  if shipDef and shipDef.name then
-    name = shipDef.name
-  end
-  
-  -- Draw name label above health bar
-  local oldFont = love.graphics.getFont()
-  if Theme.fonts and Theme.fonts.small then 
-    love.graphics.setFont(Theme.fonts.small) 
-  end
-  local font = love.graphics.getFont()
-  local textWidth = font:getWidth(name)
-  local textHeight = font:getHeight()
-  
-  -- Position name above health bar
-  local nameY = baseY - textHeight - 4
-  local nameX = x0 + barW / 2 - textWidth / 2
-  
-  -- Draw simple background for better readability
-  local padding = 2
-  local bgWidth = textWidth + padding * 2
-  local bgHeight = textHeight + padding * 2
-  local bgX = nameX - padding
-  local bgY = nameY - padding
-  
-  love.graphics.setColor(0, 0, 0, 0.5)
-  love.graphics.rectangle("fill", bgX, bgY, bgWidth, bgHeight)
-  
-  -- Draw text in white for clean look
-  love.graphics.setColor(1, 1, 1, 0.9)
-  love.graphics.print(name, nameX, nameY)
-  
-  -- Restore font
-  if oldFont then
-    love.graphics.setFont(oldFont)
-  end
-  
   -- Draw level indicator next to the health bar
+  local enemyLevel = entity.components.enemy_level
   if enemyLevel then
     local levelText = tostring(enemyLevel.level or 1)
     local threatColor = enemyLevel:getThreatColor()
@@ -347,8 +307,8 @@ function EnemyStatusBars.drawMiniBars(entity)
     local textHeight = font:getHeight()
     
     -- Draw level badge
-    local badgeW = textWidth + 8
-    local badgeH = textHeight + 4
+    local badgeW = textWidth + 6
+    local badgeH = textHeight + 3
     local badgeX = levelX
     local badgeY = levelY + (barH - badgeH) / 2 -- Center vertically with health bar
     
@@ -365,12 +325,8 @@ function EnemyStatusBars.drawMiniBars(entity)
     local textX = badgeX + badgeW / 2 - textWidth / 2
     local textY = badgeY + badgeH / 2 - textHeight / 2
     
-    -- Text shadow
-    love.graphics.setColor(0, 0, 0, 0.8)
-    love.graphics.print(levelText, textX + 1, textY + 1)
-    
-    -- Main text
-    love.graphics.setColor(1, 1, 1, 1)
+    -- Main text - black for better contrast
+    love.graphics.setColor(0, 0, 0, 1)
     love.graphics.print(levelText, textX, textY)
     
     -- Restore font
