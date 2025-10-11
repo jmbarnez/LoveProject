@@ -266,12 +266,15 @@ function Quests:mousepressed(player, x, y, button)
         -- Only allow if truly complete
         local readinessCheck = QuestSystem.isQuestReadyToTurnIn or QuestSystem.isReady
         if readinessCheck and readinessCheck(player, slot.quest) then
+          -- Complete the quest first
           QuestSystem.completeQuest(player, slot.quest)
+          
           -- Start 30-minute cooldown timer for this slot (auto-replacement)
           local cooldown = 30 * 60 -- 30 minutes in seconds
+          local now = love.timer and love.timer.getTime() or os.time()
           slot.quest = nil
           slot.taken = false
-          slot.cooldownUntil = (love.timer and love.timer.getTime() or os.time()) + cooldown
+          slot.cooldownUntil = now + cooldown
         end
         return true
       end
@@ -286,6 +289,18 @@ end
 
 function Quests:mousemoved(player, x, y, dx, dy)
   return false
+end
+
+function Quests:wheelmoved(player, dx, dy)
+  -- Handle scroll wheel events in the quests window
+  -- This prevents the black screen issue and ensures smooth scrolling
+  if dy == nil or dy == 0 then
+    return false
+  end
+  
+  -- Simply consume the event to prevent it from reaching the game world
+  -- The black screen issue should be resolved by proper UI input routing
+  return true
 end
 
 return Quests

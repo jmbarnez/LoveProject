@@ -173,11 +173,12 @@ function QuestGenerator.checkQuestCompletion(board, player)
         end
       end
       
-      -- If quest is no longer active, start 30-minute replacement timer
+      -- If quest is no longer active, mark it as ready for replacement
+      -- The UI will handle setting the cooldown timer when turned in
       if not questStillActive then
         slot.quest = nil
         slot.taken = false
-        slot.cooldownUntil = now + (30 * 60) -- 30 minutes
+        -- Don't set cooldown here - let the UI handle it when turned in
       end
     end
   end

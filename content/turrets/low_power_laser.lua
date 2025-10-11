@@ -90,7 +90,6 @@ return {
     
     -- Overheating parameters
     maxHeat = 60,
-    heatPerShot = 20,
     cooldownRate = 15,
     overheatCooldown = 2.0,
     heatCycleMult = 0.7,
@@ -99,6 +98,7 @@ return {
     -- Firing mode
     fireMode = "manual",
     
-    -- Max level for this turret
+    -- Level properties
+    level = 1,
     maxLevel = 5
 }

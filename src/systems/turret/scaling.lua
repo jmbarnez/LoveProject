@@ -6,16 +6,15 @@ local SCALING_FACTORS = {
     cycle = 0.95,         -- 5% faster per level (lower cycle = faster)
     energy = 1.1,         -- 10% increase per level
     range = 1.05,         -- 5% increase per level
-    heat = 1.08,          -- 8% increase per level
     accuracy = 1.02,      -- 2% improvement per level
 }
 
--- Modifier rarity tiers with their chances
-local MODIFIER_RARITY = {
-    common = { chance = 0.6, maxModifiers = 1 },
-    uncommon = { chance = 0.25, maxModifiers = 2 },
-    rare = { chance = 0.12, maxModifiers = 3 },
-    epic = { chance = 0.03, maxModifiers = 4 }
+-- Modifier generation based on level
+local MODIFIER_GENERATION = {
+    { minLevel = 1, maxLevel = 5, maxModifiers = 1, chance = 0.6 },
+    { minLevel = 6, maxLevel = 10, maxModifiers = 2, chance = 0.7 },
+    { minLevel = 11, maxLevel = 15, maxModifiers = 3, chance = 0.8 },
+    { minLevel = 16, maxLevel = 20, maxModifiers = 4, chance = 0.9 }
 }
 
 -- Modifier definitions with scaling based on level
@@ -24,7 +23,6 @@ local MODIFIER_DEFINITIONS = {
     overcharged_coils = {
         name = "Overcharged Coils",
         description = "Increased damage output",
-        rarity = "common",
         apply = function(turret, level)
             local multiplier = 1.0 + (level * 0.05) -- 5% per level
             if turret.damage_range then
@@ -37,7 +35,6 @@ local MODIFIER_DEFINITIONS = {
     precision_barrel = {
         name = "Precision Barrel",
         description = "Improved accuracy and range",
-        rarity = "common",
         apply = function(turret, level)
             local accuracyMult = 1.0 + (level * 0.03) -- 3% per level
             local rangeMult = 1.0 + (level * 0.04)    -- 4% per level
@@ -55,7 +52,6 @@ local MODIFIER_DEFINITIONS = {
     rapid_fire_mechanism = {
         name = "Rapid Fire Mechanism",
         description = "Faster firing cycle",
-        rarity = "common",
         apply = function(turret, level)
             local cycleMult = 1.0 - (level * 0.02) -- 2% faster per level
             if turret.cycle then
@@ -67,7 +63,6 @@ local MODIFIER_DEFINITIONS = {
     energy_efficient_core = {
         name = "Energy Efficient Core",
         description = "Reduced energy consumption",
-        rarity = "uncommon",
         apply = function(turret, level)
             local energyMult = 1.0 - (level * 0.03) -- 3% less energy per level
             if turret.capCost then
@@ -82,12 +77,7 @@ local MODIFIER_DEFINITIONS = {
     heat_dissipation_system = {
         name = "Heat Dissipation System",
         description = "Better heat management",
-        rarity = "uncommon",
         apply = function(turret, level)
-            local heatMult = 1.0 - (level * 0.04) -- 4% less heat per level
-            if turret.heatPerShot then
-                turret.heatPerShot = turret.heatPerShot * heatMult
-            end
             if turret.cooldownRate then
                 turret.cooldownRate = turret.cooldownRate * (1.0 + level * 0.02) -- 2% faster cooldown per level
             end
@@ -97,7 +87,6 @@ local MODIFIER_DEFINITIONS = {
     reinforced_warheads = {
         name = "Reinforced Warheads",
         description = "Significantly increased damage",
-        rarity = "rare",
         apply = function(turret, level)
             local multiplier = 1.0 + (level * 0.08) -- 8% per level
             if turret.damage_range then
@@ -110,7 +99,6 @@ local MODIFIER_DEFINITIONS = {
     advanced_targeting = {
         name = "Advanced Targeting",
         description = "Superior accuracy and tracking",
-        rarity = "rare",
         apply = function(turret, level)
             local accuracyMult = 1.0 + (level * 0.05) -- 5% per level
             if turret.spread then
@@ -126,7 +114,6 @@ local MODIFIER_DEFINITIONS = {
     quantum_enhanced = {
         name = "Quantum Enhanced",
         description = "Exceptional performance across all metrics",
-        rarity = "epic",
         apply = function(turret, level)
             local mult = 1.0 + (level * 0.06) -- 6% per level
             if turret.damage_range then
@@ -182,15 +169,6 @@ function TurretScaling.scaleBaseProperties(turret, level)
         turret.falloff = turret.falloff * rangeScale
     end
     
-    -- Scale heat generation
-    if turret.heatPerShot then
-        local heatScale = math.pow(SCALING_FACTORS.heat, levelMult)
-        turret.heatPerShot = turret.heatPerShot * heatScale
-    end
-    if turret.maxHeat then
-        local heatScale = math.pow(SCALING_FACTORS.heat, levelMult)
-        turret.maxHeat = turret.maxHeat * heatScale
-    end
     
     -- Scale accuracy (lower spread = better)
     if turret.spread then
@@ -204,31 +182,25 @@ end
 function TurretScaling.generateModifiers(level)
     local modifiers = {}
     
-    -- Determine rarity tier based on level
-    local rarityTier = "common"
-    if level >= 15 then
-        rarityTier = "epic"
-    elseif level >= 10 then
-        rarityTier = "rare"
-    elseif level >= 5 then
-        rarityTier = "uncommon"
+    -- Find the appropriate generation tier for this level
+    local tier = nil
+    for _, config in ipairs(MODIFIER_GENERATION) do
+        if level >= config.minLevel and level <= config.maxLevel then
+            tier = config
+            break
+        end
     end
     
-    local rarityConfig = MODIFIER_RARITY[rarityTier]
-    if not rarityConfig then return modifiers end
+    if not tier then return modifiers end
     
     -- Roll for modifiers
-    if math.random() <= rarityConfig.chance then
-        local numModifiers = math.random(1, rarityConfig.maxModifiers)
+    if math.random() <= tier.chance then
+        local numModifiers = math.random(1, tier.maxModifiers)
         local availableModifiers = {}
         
-        -- Filter modifiers by rarity
+        -- All modifiers are available regardless of level
         for id, def in pairs(MODIFIER_DEFINITIONS) do
-            if def.rarity == rarityTier or 
-               (rarityTier == "rare" and def.rarity == "uncommon") or
-               (rarityTier == "epic" and (def.rarity == "rare" or def.rarity == "uncommon")) then
-                table.insert(availableModifiers, {id = id, def = def})
-            end
+            table.insert(availableModifiers, {id = id, def = def})
         end
         
         -- Select random modifiers
@@ -255,8 +227,7 @@ function TurretScaling.applyModifiers(turret, modifiers, level)
             table.insert(turret.modifiers, {
                 id = modifier.id,
                 name = modifier.def.name,
-                description = modifier.def.description,
-                rarity = modifier.def.rarity
+                description = modifier.def.description
             })
         end
     end

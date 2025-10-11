@@ -14,10 +14,6 @@ ProceduralGen.modifiers = {
     { name = "Rapid", mult = 0.7, desc = "Faster firing rate" },
     { name = "Lightning", mult = 0.5, desc = "Very fast firing rate" }
   },
-  heat = {
-    { name = "Cool", mult = 0.6, desc = "Lower heat generation" },
-    { name = "Standard", mult = 1.0, desc = "Standard heat generation" },
-  }
 }
 
 function ProceduralGen.generateTurretStats(baseTurret, tier)
@@ -58,17 +54,6 @@ function ProceduralGen.generateTurretStats(baseTurret, tier)
     })
   end
 
-  -- Apply heat generation modifier
-  if newTurret.heatPerShot then
-    local heatMod = ProceduralGen.modifiers.heat[math.random(1, #ProceduralGen.modifiers.heat)]
-    newTurret.heatPerShot = math.floor(newTurret.heatPerShot * heatMod.mult)
-    table.insert(newTurret.modifiers, {
-      type = "heat",
-      name = heatMod.name,
-      mult = heatMod.mult,
-      desc = heatMod.desc
-    })
-  end
 
   -- Generate procedural name based on modifiers
   newTurret.proceduralName = ProceduralGen.generateProceduralName(baseTurret.name, newTurret.modifiers)

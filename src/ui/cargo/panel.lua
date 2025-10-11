@@ -266,9 +266,8 @@ local function getSortValue(item, sortBy)
     return def.name or item.id
   elseif sortBy == "type" then
     return def.type or "unknown"
-  elseif sortBy == "rarity" then
-    local rarityOrder = {Common = 1, Uncommon = 2, Rare = 3, Epic = 4, Legendary = 5}
-    return rarityOrder[def.rarity] or 0
+  elseif sortBy == "level" then
+    return def.level or 1
   elseif sortBy == "value" then
     return def.price or def.value or 0
   elseif sortBy == "quantity" then
@@ -468,9 +467,16 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
     love.graphics.print(stackCount, iconX + iconSize - textW - 4, iconY + iconSize - textH - 3)
   end
 
-  -- Draw level indicator for leveled weapon modules
-  if def and def.level and def.level > 1 then
-    local levelText = tostring(def.level)
+  -- Draw level indicator for all turrets
+  local turretLevel = 1
+  if def and def.level then
+    turretLevel = def.level
+  elseif item.meta and item.meta.level then
+    turretLevel = item.meta.level
+  end
+  
+  if turretLevel > 1 then
+    local levelText = tostring(turretLevel)
     local font = Theme.getFont("small")
     local textW = font:getWidth(levelText)
     local textH = font:getHeight()
@@ -483,22 +489,32 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
     love.graphics.print(levelText, x + size - textW - 4, y + 3)
   end
 
-  if def and def.rarity then
-    local rarityColor = Theme.colors.rarity and Theme.colors.rarity[def.rarity] or Theme.colors.accent
-    local prevColor = { love.graphics.getColor() }
-    local dotSize = math.max(3, math.floor(size * 0.12)) -- Small dot, 12% of slot size
-    
-    -- Draw small colored dot in top left corner
-    Theme.setColor(rarityColor)
-    love.graphics.circle("fill", x + 2 + dotSize/2, y + 2 + dotSize/2, dotSize/2)
-    
-    -- Add subtle border for better visibility
-    Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.8))
-    love.graphics.setLineWidth(1)
-    love.graphics.circle("line", x + 2 + dotSize/2, y + 2 + dotSize/2, dotSize/2)
-    love.graphics.setLineWidth(1)
-    love.graphics.setColor(prevColor[1] or 1, prevColor[2] or 1, prevColor[3] or 1, prevColor[4] or 1)
+  -- Draw equipability indicator in top left corner
+  local canEquip = true
+  local PlayerRef = require("src.core.player_ref")
+  local player = PlayerRef.get()
+  if player and turretLevel > 1 then
+    local playerLevel = player.level or 1
+    canEquip = turretLevel <= playerLevel
   end
+  
+  local prevColor = { love.graphics.getColor() }
+  local dotSize = math.max(3, math.floor(size * 0.12)) -- Small dot, 12% of slot size
+  
+  -- Draw colored dot based on equipability
+  if canEquip then
+    Theme.setColor({0.2, 0.8, 0.2, 1.0}) -- Green for equipable
+  else
+    Theme.setColor({0.8, 0.2, 0.2, 1.0}) -- Red for not equipable
+  end
+  love.graphics.circle("fill", x + 2 + dotSize/2, y + 2 + dotSize/2, dotSize/2)
+  
+  -- Add subtle border for better visibility
+  Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.8))
+  love.graphics.setLineWidth(1)
+  love.graphics.circle("line", x + 2 + dotSize/2, y + 2 + dotSize/2, dotSize/2)
+  love.graphics.setLineWidth(1)
+  love.graphics.setColor(prevColor[1] or 1, prevColor[2] or 1, prevColor[3] or 1, prevColor[4] or 1)
 end
 
 function Cargo.draw()
@@ -658,9 +674,10 @@ function Cargo.drawContent(window, x, y, w, h)
     -- Register tooltip with tooltip manager
     local TooltipManager = require("src.ui.tooltip_manager")
     if Cargo.hoveredItem and Cargo.hoverTimer > 0.1 and not Cargo.contextMenu.visible then
-        local def = Cargo.hoveredItem.turretData or Content.getItem(Cargo.hoveredItem.id) or Content.getTurret(Cargo.hoveredItem.id)
-        if def then
-            TooltipManager.setTooltip(def, mx, my)
+        -- Pass the full item structure including meta data for scaled turrets
+        local itemData = Cargo.hoveredItem
+        if itemData then
+            TooltipManager.setTooltip(itemData, mx, my)
         end
     else
         -- Clear tooltip if not hovering or context menu is visible
@@ -699,7 +716,7 @@ function Cargo.mousepressed(x, y, button)
             if love.keyboard and (love.keyboard.isDown("lshift") or love.keyboard.isDown("rshift")) then
                 Cargo.sortOrder = (Cargo.sortOrder == "asc") and "desc" or "asc"
             else
-                local sortFields = {"name", "type", "rarity", "value", "quantity"}
+                local sortFields = {"name", "type", "level", "value", "quantity"}
                 local currentIndex = 1
                 for i, field in ipairs(sortFields) do
                     if field == Cargo.sortBy then

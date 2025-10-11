@@ -172,23 +172,8 @@ function DestructionSystem.update(world, gameState, hub)
             
             local items = rollLoot(dropsSource, enemyLevel)
             
-            -- Add small chance to drop equipped weapon modules
-            if e.components and e.components.equipment and e.components.equipment.grid then
-              local equipment = e.components.equipment
-              for _, slot in ipairs(equipment.grid) do
-                if slot.type == "turret" and slot.module and slot.module.templateId then
-                  -- 80% chance to drop equipped weapon module (testing)
-                  if math.random() <= 0.80 then
-                    local weaponModuleData = {
-                      id = slot.module.templateId,
-                      qty = 1,
-                      meta = slot.module -- Include the full weapon module data with modifiers
-                    }
-                    table.insert(items, weaponModuleData)
-                  end
-                end
-              end
-            end
+            -- Store equipped turrets in wreckage for potential salvaging
+            -- (No longer drop turrets directly as loot)
             
             if #items > 0 then
               -- Create item pickups for each item
@@ -209,7 +194,22 @@ function DestructionSystem.update(world, gameState, hub)
 
           -- Only spawn wreckage for enemies, not players
           if isEnemyShip then
-            local pieces = Wreckage.spawnFromEnemy({ x = x, y = y }, visuals, sizeScale)
+            -- Collect equipped turrets for potential salvaging
+            local equippedTurrets = {}
+            if e.components and e.components.equipment and e.components.equipment.grid then
+              local equipment = e.components.equipment
+              for _, slot in ipairs(equipment.grid) do
+                if slot.type == "turret" and slot.module and slot.module.templateId then
+                  table.insert(equippedTurrets, {
+                    id = slot.module.templateId,
+                    qty = 1,
+                    meta = slot.module -- Include the full weapon module data with modifiers
+                  })
+                end
+              end
+            end
+            
+            local pieces = Wreckage.spawnFromEnemy({ x = x, y = y }, visuals, sizeScale, equippedTurrets)
             if type(pieces) == 'table' then
               for _, piece in ipairs(pieces) do world:addEntity(piece) end
             end

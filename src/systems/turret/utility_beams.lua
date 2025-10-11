@@ -674,6 +674,58 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
     remaining = remaining - applied
     wreckage.salvageAmount = remaining
 
+    -- Check for turret recovery chance during salvaging
+    if not target.turretsRecovered and target.equippedTurrets and #target.equippedTurrets > 0 and source then
+        local salvagingLevel = Skills.getLevel("salvaging")
+        
+        -- Calculate recovery chance for each turret based on its level
+        local turretsToRecover = {}
+        for _, turret in ipairs(target.equippedTurrets) do
+            local turretLevel = 1
+            if turret.meta and turret.meta.level then
+                turretLevel = turret.meta.level
+            end
+            
+            -- Base chance = 15% - (turret_level × 0.8%), minimum 1%
+            local baseChance = math.max(0.01, 0.15 - (turretLevel * 0.008))
+            -- Add salvaging skill bonus (+0.3% per level)
+            local skillBonus = salvagingLevel * 0.003
+            local totalChance = baseChance + skillBonus
+            
+            if math.random() <= totalChance then
+                table.insert(turretsToRecover, turret)
+            end
+        end
+        
+        if #turretsToRecover > 0 then
+            -- Recover turrets!
+            local ItemPickup = require("src.entities.item_pickup")
+            local pos = target.components.position
+            
+            for _, turret in ipairs(turretsToRecover) do
+                local angle = math.random() * math.pi * 2
+                local dist = math.random(20, 40)
+                local px = pos.x + math.cos(angle) * dist
+                local py = pos.y + math.sin(angle) * dist
+                
+                local pickup = ItemPickup.new(px, py, turret.id, turret.qty, 0.8, 0, 0, turret.meta)
+                if pickup and world then
+                    world:addEntity(pickup)
+                end
+            end
+            
+            target.turretsRecovered = true
+            -- Grant bonus salvaging XP for turret recovery
+            local xpGain = 25 * #turretsToRecover
+            Skills.addXp("salvaging", xpGain)
+            
+            -- Show notification for turret recovery
+            if Notifications and Notifications.add then
+                Notifications.add("Recovered " .. #turretsToRecover .. " turret(s) from wreckage!", "success")
+            end
+        end
+    end
+
     -- Only give resources when wreckage is completely destroyed
     if remaining <= 0 then
         local initialTotal = wreckage.maxSalvageAmount or wreckage.salvageAmount

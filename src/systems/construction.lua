@@ -248,7 +248,6 @@ function ConstructionSystem.equipTurret(entity, turretType)
         muzzleFlash = turretDef.muzzleFlash or false,
         projectile = turretDef.projectile and turretDef.projectile.id or "combat_laser_beam",
         maxHeat = turretDef.maxHeat or 80,
-        heatPerShot = turretDef.heatPerShot or 60,
         cooldownRate = turretDef.cooldownRate or 9,
         overheatCooldown = turretDef.overheatCooldown or 4.0,
         heatCycleMult = turretDef.heatCycleMult or 0.6,

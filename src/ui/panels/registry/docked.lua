@@ -79,9 +79,9 @@ PanelRegistry.register({
         end
         return false
     end,
-    wheelmoved = function(panel, dx, dy, player)
+    wheelmoved = function(panel, x, y, dx, dy, player)
         if panel.wheelmoved then
-            return panel.wheelmoved(dx, dy, player)
+            return panel.wheelmoved(x, y, dx, dy, player)
         end
         return false
     end,

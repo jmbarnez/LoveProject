@@ -112,6 +112,9 @@ function Player.new(x, y, shipId)
   -- Initialize shield HP based on equipped modules (after modules are equipped)
   self:updateShieldHP()
 
+  -- Add level 5 versions of all turrets to cargo
+  self:addLevel5Turrets()
+
   PlayerHotbar.populate(self)
 
   return self
@@ -255,6 +258,29 @@ function Player:equipModule(slotNum, moduleId, turretData)
     -- Get the module definition (could be any module type)
     local moduleDef = Content.getItem(moduleId)
     local turretDef = Content.getTurret(moduleId)
+    
+    -- Check turret level restriction for turrets
+    if turretDef or (moduleDef and moduleDef.module and moduleDef.module.type == "turret") then
+        local turretLevel = 1
+        local turretToCheck = turretData or turretDef or (moduleDef and moduleDef.def) or moduleDef
+        
+        -- Get turret level from metadata if available (for salvaged turrets)
+        if turretToCheck and turretToCheck.level then
+            turretLevel = turretToCheck.level
+        elseif turretToCheck and turretToCheck.meta and turretToCheck.meta.level then
+            turretLevel = turretToCheck.meta.level
+        end
+        
+        -- Check if player level is high enough
+        local playerLevel = self.level or 1
+        if turretLevel > playerLevel then
+            local Notifications = require("src.ui.notifications")
+            if Notifications and Notifications.add then
+                Notifications.add("Cannot equip level " .. turretLevel .. " turret. You need to be level " .. turretLevel .. " or higher.", "warning")
+            end
+            return false
+        end
+    end
 
     -- Determine module type
     local moduleType = nil
@@ -506,6 +532,44 @@ function Player:iterCargo(cb)
     if self.components and self.components.cargo then
         self.components.cargo:iterate(cb)
     end
+end
+
+-- Add level 5 versions of all turrets to cargo
+function Player:addLevel5Turrets()
+    if not self.components or not self.components.cargo then
+        return false
+    end
+
+    local cargo = self.components.cargo
+    local TurretScaling = require("src.systems.turret.scaling")
+    
+    -- List of all available turret IDs
+    local turretIds = {
+        "basic_cannon",
+        "low_power_laser", 
+        "mining_laser",
+        "salvaging_laser",
+        "missile_launcher_mk1",
+        "railgun_turret"
+    }
+    
+    for _, turretId in ipairs(turretIds) do
+        local baseTurret = Content.getTurret(turretId)
+        if baseTurret then
+            -- Generate level 5 version with modifiers
+            local level5Turret = TurretScaling.generateLeveledTurret(baseTurret, 5)
+            
+            -- Add to cargo with metadata
+            cargo:add(turretId, 1, level5Turret)
+        end
+    end
+    
+    local Notifications = require("src.ui.notifications")
+    if Notifications and Notifications.add then
+        Notifications.add("Added level 5 versions of all turrets to cargo!", "success")
+    end
+    
+    return true
 end
 
 return Player

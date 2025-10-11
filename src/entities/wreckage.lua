@@ -62,7 +62,7 @@ local function buildFragments(visuals, sizeScale)
   return frags, avgR
 end
 
-local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, sizeScale)
+local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, sizeScale, equippedTurrets)
   local e = { components = {} }
   e.components.position = Position.new({ x = px, y = py, angle = angle or 0 })
   e.components.physics = Physics.new({
@@ -137,6 +137,11 @@ local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, si
   
   -- Delay collisions briefly so fragments emerge before pushing each other away
   e._collisionGrace = 0.25
+  
+  -- Store equipped turrets for potential recovery
+  e.equippedTurrets = equippedTurrets or {}
+  e.turretsRecovered = false -- Track if turrets have been recovered from this piece
+  
   -- Salvage fields and methods - scale salvage amount with ship size
   local sizeHint = (avgR or 6) * ((visuals and visuals.size) or 1.0) * (sizeScale or 1.0)
   e.components.wreckage = WreckageComponent.new({
@@ -157,8 +162,9 @@ local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, si
     end
   end
   -- Perform a single salvage cycle; returns true if one unit was salvaged
-  function e:salvageCycle()
+  function e:salvageCycle(player)
     if (self.salvageAmount or 0) <= 0 then return false end
+    
     -- Decrement salvage on both the entity mirror and the component
     self.salvageAmount = (self.salvageAmount or 0) - 1
     if self.components and self.components.wreckage then
@@ -174,21 +180,33 @@ local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, si
 end
 
 -- originPos: Position component or table with x,y
-function Wreckage.spawnFromEnemy(originPos, visuals, sizeScale)
+-- equippedTurrets: Array of turret data from destroyed enemy
+function Wreckage.spawnFromEnemy(originPos, visuals, sizeScale, equippedTurrets)
   local pieces = {}
   local ox = originPos.x or 0
   local oy = originPos.y or 0
   sizeScale = sizeScale or 1.0
+  equippedTurrets = equippedTurrets or {}
+  
   -- Spawn more pieces for better visibility and easier salvaging
   local numPieces = 2 + math.random(0, 4) -- 2-6 pieces (increased from 1-4)
   local lootPiece = math.random(1, numPieces)
+  local turretPiece = math.random(1, numPieces)
 
   for i = 1, numPieces do
     local pieceLoot = nil
+    local pieceTurrets = nil
+    
     -- Reduced chance for wreckage to drop loot - only 10% chance instead of 25%
     if i == lootPiece and math.random() < 0.10 then
       pieceLoot = { { id = "scraps", qty = math.random(1, 3) } }
     end
+    
+    -- Assign turrets to one random piece (5% base chance, scales with salvaging skill)
+    if i == turretPiece and #equippedTurrets > 0 then
+      pieceTurrets = equippedTurrets
+    end
+    
     local ang = (i / numPieces) * math.pi * 2 + (math.random() - 0.5) * 0.6
     -- Slower, more weighty outward impulse for realism
     local speed = (60 + math.random() * 60) * sizeScale
@@ -199,7 +217,7 @@ function Wreckage.spawnFromEnemy(originPos, visuals, sizeScale)
     local lifetime = 600 -- seconds
     local px = ox
     local py = oy
-    table.insert(pieces, newPiece(px, py, vx, vy, math.random() * math.pi * 2, angularVel, lifetime, visuals, sizeScale))
+    table.insert(pieces, newPiece(px, py, vx, vy, math.random() * math.pi * 2, angularVel, lifetime, visuals, sizeScale, pieceTurrets))
     if pieceLoot then
       for _, stack in ipairs(pieceLoot) do
         local angle = math.random() * math.pi * 2

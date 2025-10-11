@@ -13,9 +13,14 @@ function Tooltip.drawItemTooltip(item, x, y)
   -- Gather item details
   local name = item.proceduralName or item.name or "Unknown Item"
   
-  -- Add level indicator for leveled weapon modules
-  if item.level and item.level > 1 then
-    name = name .. " (Level " .. item.level .. ")"
+  -- Get the actual name from the item definition
+  if item.meta and item.meta.name then
+    name = item.meta.name
+  elseif item.id then
+    local baseDef = Content.getItem(item.id) or Content.getTurret(item.id)
+    if baseDef and baseDef.name then
+      name = baseDef.name
+    end
   end
 
   -- Tooltip dimensions and layout (using theme configuration)
@@ -39,9 +44,9 @@ function Tooltip.drawItemTooltip(item, x, y)
 
   -- Try to find the complete item definition from Content
   if item.id then
-    -- Check if this is a procedural turret (has baseId)
-    if item.baseId then
-      -- This is a procedural turret, use the item data directly
+    -- Check if this is a procedural turret (has baseId) or has meta data (scaled turret)
+    if item.baseId or item.meta then
+      -- This is a procedural turret or scaled turret, use the item data directly
       fullItemDef = item
       description = item.description or ""
       flavor = item.flavor or ""
@@ -61,25 +66,36 @@ function Tooltip.drawItemTooltip(item, x, y)
     end
   end
 
+  -- If we have meta data (scaled turret), use that instead of the base definition
+  if item.meta and item.meta.level then
+    fullItemDef = item.meta
+    description = item.meta.description or description
+    flavor = item.meta.flavor or flavor
+  end
+
   if fullItemDef then
     -- Collect stats from the item definition
     if fullItemDef.damage then stats[#stats + 1] = {name = "Damage", value = fullItemDef.damage} end
     if fullItemDef.damageMin and fullItemDef.damageMax then
       stats[#stats + 1] = {name = "Damage", value = fullItemDef.damageMin .. "-" .. fullItemDef.damageMax}
     end
-    if fullItemDef.optimal then stats[#stats + 1] = {name = "Range", value = fullItemDef.optimal .. (fullItemDef.falloff and " (" .. fullItemDef.falloff .. " falloff)" or "")} end
-    if fullItemDef.cycle then stats[#stats + 1] = {name = "Cycle Time", value = fullItemDef.cycle .. "s"} end
-    if fullItemDef.projectileSpeed then stats[#stats + 1] = {name = "Projectile Speed", value = fullItemDef.projectileSpeed} end
-    if fullItemDef.capCost then stats[#stats + 1] = {name = "Energy Cost", value = fullItemDef.capCost} end
+    if fullItemDef.damage_range then
+      local minDmg = fullItemDef.damage_range.min or 0
+      local maxDmg = fullItemDef.damage_range.max or minDmg
+      stats[#stats + 1] = {name = "Damage", value = math.floor(minDmg) .. "-" .. math.floor(maxDmg)}
+    end
+    if fullItemDef.optimal then stats[#stats + 1] = {name = "Range", value = math.floor(fullItemDef.optimal) .. (fullItemDef.falloff and " (" .. math.floor(fullItemDef.falloff) .. " falloff)" or "")} end
+    if fullItemDef.cycle then stats[#stats + 1] = {name = "Cycle Time", value = string.format("%.2f", fullItemDef.cycle) .. "s"} end
+    if fullItemDef.projectileSpeed then stats[#stats + 1] = {name = "Projectile Speed", value = math.floor(fullItemDef.projectileSpeed)} end
+    if fullItemDef.capCost then stats[#stats + 1] = {name = "Energy Cost", value = math.floor(fullItemDef.capCost)} end
     if fullItemDef.baseAccuracy then stats[#stats + 1] = {name = "Accuracy", value = math.floor(fullItemDef.baseAccuracy * 100) .. "%"} end
-    if fullItemDef.health then stats[#stats + 1] = {name = "Health", value = fullItemDef.health} end
-    if fullItemDef.shieldCapacity then stats[#stats + 1] = {name = "Shield", value = fullItemDef.shieldCapacity} end
-    if fullItemDef.energyCapacity then stats[#stats + 1] = {name = "Energy", value = fullItemDef.energyCapacity} end
-    if fullItemDef.heatMax then stats[#stats + 1] = {name = "Heat Capacity", value = fullItemDef.heatMax} end
-    if fullItemDef.heatPerShot then stats[#stats + 1] = {name = "Heat per Shot", value = fullItemDef.heatPerShot} end
+    if fullItemDef.health then stats[#stats + 1] = {name = "Health", value = math.floor(fullItemDef.health)} end
+    if fullItemDef.shieldCapacity then stats[#stats + 1] = {name = "Shield", value = math.floor(fullItemDef.shieldCapacity)} end
+    if fullItemDef.energyCapacity then stats[#stats + 1] = {name = "Energy", value = math.floor(fullItemDef.energyCapacity)} end
+    if fullItemDef.heatMax then stats[#stats + 1] = {name = "Heat Capacity", value = math.floor(fullItemDef.heatMax)} end
 
     -- Add item properties
-    if fullItemDef.rarity then stats[#stats + 1] = {name = "Rarity", value = fullItemDef.rarity} end
+    if fullItemDef.level and fullItemDef.level > 1 then stats[#stats + 1] = {name = "Level", value = fullItemDef.level} end
     if fullItemDef.tier then stats[#stats + 1] = {name = "Tier", value = fullItemDef.tier} end
     if fullItemDef.value then stats[#stats + 1] = {name = "Value", value = fullItemDef.value} end
     if fullItemDef.mass then stats[#stats + 1] = {name = "Mass", value = string.format("%.1f", fullItemDef.mass)} end
@@ -265,48 +281,35 @@ function Tooltip.drawItemTooltip(item, x, y)
       local changeText = ""
       local modText = ""
       
-      -- Handle new modifier system with rarity
-      if mod.rarity then
-        -- New modifier system with rarity
-        modText = mod.name
-        if mod.description then
-          modText = modText .. " - " .. mod.description
-        end
-        
-        -- Set color based on rarity
-        if mod.rarity == "epic" then
-          Theme.setColor({0.8, 0.2, 0.8, 1.0}) -- Purple
-        elseif mod.rarity == "rare" then
-          Theme.setColor({0.2, 0.6, 1.0, 1.0}) -- Blue
-        elseif mod.rarity == "uncommon" then
-          Theme.setColor({0.2, 0.8, 0.2, 1.0}) -- Green
-        else
-          Theme.setColor(Theme.colors.textSecondary) -- Common - default color
-        end
-      else
-        -- Legacy modifier system
-        if mod.type == "damage" then
-          if mod.mult > 1 then
-            changeText = "+" .. math.floor((mod.mult - 1) * 100) .. "% damage"
-          else
-            changeText = "-" .. math.floor((1 - mod.mult) * 100) .. "% damage"
-          end
-        elseif mod.type == "cooldown" then
-          if mod.mult > 1 then
-            changeText = "-" .. math.floor((mod.mult - 1) * 100) .. "% rate"
-          else
-            changeText = "+" .. math.floor((1 - mod.mult) * 100) .. "% rate"
-          end
-        elseif mod.type == "heat" then
-          if mod.mult > 1 then
-            changeText = "+" .. math.floor((mod.mult - 1) * 100) .. "% heat"
-          else
-            changeText = "-" .. math.floor((1 - mod.mult) * 100) .. "% heat"
-          end
-        end
-        modText = mod.name .. " (" .. changeText .. ")"
-        Theme.setColor(Theme.colors.textSecondary)
+      -- Handle modifier system
+      modText = mod.name
+      if mod.description then
+        modText = modText .. " - " .. mod.description
       end
+      
+      -- Use accent color for all modifiers
+      Theme.setColor(Theme.colors.accent)
+      if mod.type == "damage" then
+        if mod.mult > 1 then
+          changeText = "+" .. math.floor((mod.mult - 1) * 100) .. "% damage"
+        else
+          changeText = "-" .. math.floor((1 - mod.mult) * 100) .. "% damage"
+        end
+      elseif mod.type == "cooldown" then
+        if mod.mult > 1 then
+          changeText = "-" .. math.floor((mod.mult - 1) * 100) .. "% rate"
+        else
+          changeText = "+" .. math.floor((1 - mod.mult) * 100) .. "% rate"
+        end
+      elseif mod.type == "heat" then
+        if mod.mult > 1 then
+          changeText = "+" .. math.floor((mod.mult - 1) * 100) .. "% heat"
+        else
+          changeText = "-" .. math.floor((1 - mod.mult) * 100) .. "% heat"
+        end
+      end
+      modText = mod.name .. " (" .. changeText .. ")"
+      Theme.setColor(Theme.colors.textSecondary)
       
       love.graphics.print(modText, tx + padding, currentY)
       currentY = currentY + statH + tooltipConfig.statLineSpacing
