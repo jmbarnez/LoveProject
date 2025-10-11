@@ -42,16 +42,39 @@ function Tooltip.drawItemTooltip(item, x, y)
   local description = ""
   local flavor = ""
 
-  -- Try to find the complete item definition from Content
+  -- Unified turret handling - all turrets use the same logic
   if item.id then
-    -- Check if this is a procedural turret (has baseId) or has meta data (scaled turret)
-    if item.baseId or item.meta then
-      -- This is a procedural turret or scaled turret, use the item data directly
-      fullItemDef = item
-      description = item.description or ""
-      flavor = item.flavor or ""
+    -- Get base turret definition
+    local baseTurret = Content.getTurret(item.id)
+    
+    if baseTurret then
+      -- Start with base turret definition
+      fullItemDef = Util.deepCopy(baseTurret)
+      description = baseTurret.description or ""
+      flavor = baseTurret.flavor or ""
+      
+      -- If we have metadata (scaled turret), merge it with base definition
+      if item.meta and item.meta.level then
+        -- Merge scaled properties into base definition
+        for key, value in pairs(item.meta) do
+          if key ~= "name" and key ~= "description" and key ~= "flavor" then
+            fullItemDef[key] = value
+          end
+        end
+        -- Use scaled name/description if available
+        if item.meta.name then
+          fullItemDef.name = item.meta.name
+        end
+        if item.meta.description then
+          description = item.meta.description
+        end
+        if item.meta.flavor then
+          flavor = item.meta.flavor
+        end
+      end
     else
-      fullItemDef = Content.getItem(item.id) or Content.getTurret(item.id)
+      -- Fallback for non-turret items
+      fullItemDef = Content.getItem(item.id)
       if fullItemDef then
         description = fullItemDef.description or ""
         flavor = fullItemDef.flavor or ""
@@ -64,13 +87,6 @@ function Tooltip.drawItemTooltip(item, x, y)
       description = fullItemDef.description or ""
       flavor = fullItemDef.flavor or ""
     end
-  end
-
-  -- If we have meta data (scaled turret), use that instead of the base definition
-  if item.meta and item.meta.level then
-    fullItemDef = item.meta
-    description = item.meta.description or description
-    flavor = item.meta.flavor or flavor
   end
 
   if fullItemDef then
@@ -95,7 +111,7 @@ function Tooltip.drawItemTooltip(item, x, y)
     if fullItemDef.heatMax then stats[#stats + 1] = {name = "Heat Capacity", value = math.floor(fullItemDef.heatMax)} end
 
     -- Add item properties
-    if fullItemDef.level and fullItemDef.level > 1 then stats[#stats + 1] = {name = "Level", value = fullItemDef.level} end
+    if fullItemDef.level then stats[#stats + 1] = {name = "Level", value = fullItemDef.level} end
     if fullItemDef.tier then stats[#stats + 1] = {name = "Tier", value = fullItemDef.tier} end
     if fullItemDef.value then stats[#stats + 1] = {name = "Value", value = fullItemDef.value} end
     if fullItemDef.mass then stats[#stats + 1] = {name = "Mass", value = string.format("%.1f", fullItemDef.mass)} end

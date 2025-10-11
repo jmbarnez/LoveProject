@@ -221,12 +221,9 @@ function DrawShip.render(state, player, x, y, w, h)
         if slotType ~= "turret" then
             labelText = ((slotData and slotData.label) or ("Slot " .. i)) .. ":"
         end
-        local labelWidth = labelFont:getWidth(labelText)
-        local lineCount = math.max(1, math.ceil(labelWidth / maxLabelWidthAvailable))
-        local labelHeight = lineCount * labelFont:getHeight()
-        labelHeights[i] = labelHeight
-        local extraHotbarHeight = (slotType == "turret") and (optionHeight + 20) or 0
-        slotCursor = slotCursor + labelHeight + optionHeight + extraHotbarHeight + rowSpacing
+        -- No label height needed since we removed the labels
+        -- No extra height needed since buttons are now inline
+        slotCursor = slotCursor + optionHeight + rowSpacing
     end
     local slotContentHeight = slotCursor - slotBaseY + 16
     local slotViewInnerHeight = math.max(0, slotClipH - 16)
@@ -249,37 +246,31 @@ function DrawShip.render(state, player, x, y, w, h)
             currentSlotHeader = slotType
         end
 
-        local dropdown = state.slotDropdowns and state.slotDropdowns[i]
-        if dropdown then
-            local drawY = slotY + slotScroll
-            local labelHeight = labelHeights[i] or labelFont:getHeight()
-            local extraHotbarHeight = (slotType == "turret") and (dropdown.optionHeight + 20) or 0
-            local rowRectX = slotClipX + 2
-            local rowRectY = drawY - 6
-            local rowRectW = slotClipW - 4
-            local rowRectH = math.max(36, labelHeight + dropdown.optionHeight + extraHotbarHeight + 16)
+            local dropdown = state.slotDropdowns and state.slotDropdowns[i]
+            if dropdown then
+                local drawY = slotY + slotScroll
+                
+                -- Calculate layout with slot number on the left
+                local slotNumberWidth = 40 -- Space for slot number
+                local availableWidth = slotClipW - 24 - slotNumberWidth
+                local controlsY = drawY
 
-            local rowHover = mx and my and UIUtils.pointInRect(mx, my, { x = rowRectX, y = rowRectY, w = rowRectW, h = rowRectH })
-            Theme.setColor(rowHover and Theme.withAlpha(Theme.colors.hover, 0.85) or Theme.withAlpha(Theme.colors.bg3, 0.55))
-            love.graphics.rectangle("fill", rowRectX, rowRectY, rowRectW, rowRectH, 6, 6)
-
-            Theme.setColor(Theme.withAlpha(Theme.colors.border, rowHover and 0.45 or 0.28))
-            love.graphics.setLineWidth(1)
-            love.graphics.rectangle("line", rowRectX + 0.5, rowRectY + 0.5, rowRectW - 1, rowRectH - 1, 6, 6)
-
-            Theme.setColor(Theme.withAlpha(Theme.colors.accent, rowHover and 0.8 or 0.45))
-            love.graphics.rectangle("fill", gridX + 8, rowRectY + 6, 2, rowRectH - 12, 2, 2)
-
+            -- Draw slot number on the left
             Theme.setColor(Theme.colors.textSecondary)
-            love.graphics.setFont(labelFont)
-            local labelText = ((slotData and slotData.label) or ("Slot " .. i)) .. ":"
-            love.graphics.printf(labelText, gridX + 12, drawY, slotClipW - 24, "left")
+            Theme.setFont("small")
+            local slotNumberText = tostring(i)
+            love.graphics.printf(slotNumberText, gridX + 12, controlsY + 6, slotNumberWidth, "center")
 
-            local availableWidth = slotClipW - 24
-            local controlsY = drawY + labelHeight + 6
+            -- Calculate button sizes - all buttons same height as dropdown
+            local buttonHeight = dropdown.optionHeight
+            local buttonWidth = buttonHeight -- Square buttons for A and remove
+            local totalButtonWidth = (buttonWidth * 2) + 16 -- 2 buttons + spacing
+            local dropdownWidth = math.max(200, availableWidth - totalButtonWidth) -- Ensure minimum dropdown width
 
-            dropdown:setPosition(gridX + 12, controlsY)
-            dropdown.width = math.min(availableWidth, 340)
+            -- Position dropdown to the right of slot number
+            local dropdownX = gridX + 12 + slotNumberWidth + 8
+            dropdown:setPosition(dropdownX, controlsY)
+            dropdown.width = dropdownWidth
 
             local dropdownHover = dropdown:isPointInButton(mx, my)
             local optionsHover = false
@@ -327,43 +318,39 @@ function DrawShip.render(state, player, x, y, w, h)
 
             dropdown:drawButtonOnly(mx, my)
 
+            -- Position buttons inline with dropdown
+            local autoButtonX = dropdownX + dropdownWidth + 8
+            local removeButtonX = autoButtonX + buttonWidth + 8
+
+            -- Draw Auto button (A) for turrets
             local hotbarButton = state.hotbarButtons and state.hotbarButtons[i]
             if slotType == "turret" and hotbarButton then
-                local hotbarY = controlsY + dropdown.optionHeight + 6
-                local hotbarWidth = availableWidth - dropdown.optionHeight - 8
-                if hotbarWidth < 72 then
-                    hotbarWidth = math.max(56, hotbarWidth)
-                end
-                local hotbarRect = { x = gridX + 12, y = hotbarY, w = hotbarWidth, h = dropdown.optionHeight }
-                local removeRect = { x = hotbarRect.x + hotbarRect.w + 8, y = hotbarRect.y, w = dropdown.optionHeight, h = dropdown.optionHeight }
-                if removeRect.x + removeRect.w > gridX + 12 + availableWidth then
-                    local overflow = (removeRect.x + removeRect.w) - (gridX + 12 + availableWidth)
-                    hotbarRect.w = math.max(56, hotbarRect.w - overflow)
-                    removeRect.x = hotbarRect.x + hotbarRect.w + 8
-                end
-                local hotbarHover = hotbarRect and mx and my and UIUtils.pointInRect(mx, my, hotbarRect)
+                local autoRect = { x = autoButtonX, y = controlsY, w = buttonWidth, h = buttonHeight }
+                local autoHover = mx and my and UIUtils.pointInRect(mx, my, autoRect)
 
-                hotbarButton.rect = hotbarRect
-                hotbarButton.hover = hotbarHover
-                Theme.setColor(hotbarHover and Theme.colors.hover or Theme.colors.bg1)
-                love.graphics.rectangle("fill", hotbarRect.x, hotbarRect.y, hotbarRect.w, hotbarRect.h, 4, 4)
+                hotbarButton.rect = autoRect
+                hotbarButton.hover = autoHover
+                Theme.setColor(autoHover and Theme.colors.hover or Theme.colors.bg1)
+                love.graphics.rectangle("fill", autoRect.x, autoRect.y, autoRect.w, autoRect.h, 4, 4)
                 Theme.setColor(Theme.colors.textSecondary)
-                love.graphics.printf(hotbarButton.value == 0 and "Auto" or tostring(hotbarButton.value), hotbarRect.x, hotbarRect.y + 6, hotbarRect.w, "center")
-
-                local removeButton = state.removeButtons and state.removeButtons[i]
-                if removeButton then
-                    removeButton.rect = removeRect
-                    local removeHover = removeRect and mx and my and UIUtils.pointInRect(mx, my, removeRect)
-                    Theme.setColor(removeHover and Theme.colors.error or Theme.colors.bg1)
-                    love.graphics.rectangle("fill", removeRect.x, removeRect.y, removeRect.w, removeRect.h, 4, 4)
-                    Theme.setColor(Theme.colors.text)
-                    love.graphics.printf("-", removeRect.x, removeRect.y + 4, removeRect.w, "center")
-                end
-            elseif state.removeButtons and state.removeButtons[i] then
-                state.removeButtons[i].rect = nil
+                love.graphics.printf("A", autoRect.x, autoRect.y + 6, autoRect.w, "center")
             end
 
-            slotY = slotY + labelHeight + dropdown.optionHeight + extraHotbarHeight + rowSpacing
+            -- Draw Remove button (-) for all slots
+            local removeButton = state.removeButtons and state.removeButtons[i]
+            if removeButton then
+                local removeRect = { x = removeButtonX, y = controlsY, w = buttonWidth, h = buttonHeight }
+                local removeHover = mx and my and UIUtils.pointInRect(mx, my, removeRect)
+
+                removeButton.rect = removeRect
+                removeButton.hover = removeHover
+                Theme.setColor(removeHover and Theme.colors.error or Theme.colors.bg1)
+                love.graphics.rectangle("fill", removeRect.x, removeRect.y, removeRect.w, removeRect.h, 4, 4)
+                Theme.setColor(Theme.colors.text)
+                love.graphics.printf("-", removeRect.x, removeRect.y + 4, removeRect.w, "center")
+            end
+
+            slotY = slotY + dropdown.optionHeight + rowSpacing
         end
     end
 

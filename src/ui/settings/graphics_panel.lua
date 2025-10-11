@@ -349,22 +349,21 @@ end
 function GraphicsPanel.mousepressed(raw_x, raw_y, button)
     if button ~= 1 then return false end
 
+    -- Check if any dropdown is open first
+    if Dropdown.isAnyOpen() then
+        -- Let dropdowns handle their own clicks
+        if vsyncDropdown and vsyncDropdown:mousepressed(raw_x, raw_y, button) then return true end
+        if fpsLimitDropdown and fpsLimitDropdown:mousepressed(raw_x, raw_y, button) then return true end
+        if windowModeDropdown and windowModeDropdown:mousepressed(raw_x, raw_y, button) then return true end
+        if resolutionDropdown and resolutionDropdown:mousepressed(raw_x, raw_y, button) then return true end
+        return true -- Block other interactions when dropdown is open
+    end
+
     -- Check if any of our dropdowns handled the click
     if vsyncDropdown and vsyncDropdown:mousepressed(raw_x, raw_y, button) then return true end
     if fpsLimitDropdown and fpsLimitDropdown:mousepressed(raw_x, raw_y, button) then return true end
     if windowModeDropdown and windowModeDropdown:mousepressed(raw_x, raw_y, button) then return true end
     if resolutionDropdown and resolutionDropdown:mousepressed(raw_x, raw_y, button) then return true end
-
-    -- Check if FPS checkbox was clicked
-    if currentSettings then
-        local layout = { valueX = 200, scrollY = 0 } -- Approximate values, will be overridden by actual layout
-        local checkboxX = layout.valueX
-        local checkboxY = 0 -- Will be calculated properly in draw function
-        local checkboxSize = 16
-        
-        -- This is a simplified check - in practice, you'd need to pass the actual layout
-        -- For now, we'll handle this in the main settings panel
-    end
 
     return false
 end

@@ -304,7 +304,7 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
     local graphicsHandled = GraphicsPanel.mousepressed(raw_x, raw_y, button)
     if graphicsHandled then return true end
     
-    -- Handle FPS checkbox click
+    -- Handle FPS checkbox click only when no dropdown is open
     if not dropdownOpen then
         local fpsRect = GraphicsPanel.getFpsCheckboxRect()
         if fpsRect and fpsRect.x and fpsRect.y and fpsRect.w and fpsRect.h then

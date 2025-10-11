@@ -467,7 +467,7 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
     love.graphics.print(stackCount, iconX + iconSize - textW - 4, iconY + iconSize - textH - 3)
   end
 
-  -- Draw level indicator for all turrets
+  -- Draw level indicator and equipability indicator in top left corner
   local turretLevel = 1
   if def and def.level then
     turretLevel = def.level
@@ -475,21 +475,6 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
     turretLevel = item.meta.level
   end
   
-  if turretLevel > 1 then
-    local levelText = tostring(turretLevel)
-    local font = Theme.getFont("small")
-    local textW = font:getWidth(levelText)
-    local textH = font:getHeight()
-    
-    -- Draw level badge in top right corner
-    Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.9))
-    love.graphics.rectangle("fill", x + size - textW - 6, y + 2, textW + 4, textH + 2)
-    
-    Theme.setColor(Theme.colors.accent)
-    love.graphics.print(levelText, x + size - textW - 4, y + 3)
-  end
-
-  -- Draw equipability indicator in top left corner
   local canEquip = true
   local PlayerRef = require("src.core.player_ref")
   local player = PlayerRef.get()
@@ -498,23 +483,34 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
     canEquip = turretLevel <= playerLevel
   end
   
-  local prevColor = { love.graphics.getColor() }
-  local dotSize = math.max(3, math.floor(size * 0.12)) -- Small dot, 12% of slot size
+  -- Always show level indicator for turrets (including level 1)
+  local levelText = tostring(turretLevel)
+  local font = Theme.getFont("small")
+  local textW = font:getWidth(levelText)
+  local textH = font:getHeight()
   
-  -- Draw colored dot based on equipability
+  -- Calculate box size (slightly larger than text)
+  local boxW = textW + 6
+  local boxH = textH + 4
+  local boxX = x + 2
+  local boxY = y + 2
+  
+  -- Draw colored box based on equipability
   if canEquip then
-    Theme.setColor({0.2, 0.8, 0.2, 1.0}) -- Green for equipable
+    Theme.setColor({0.2, 0.8, 0.2, 0.9}) -- Green for equipable
   else
-    Theme.setColor({0.8, 0.2, 0.2, 1.0}) -- Red for not equipable
+    Theme.setColor({0.8, 0.2, 0.2, 0.9}) -- Red for not equipable
   end
-  love.graphics.circle("fill", x + 2 + dotSize/2, y + 2 + dotSize/2, dotSize/2)
+  love.graphics.rectangle("fill", boxX, boxY, boxW, boxH, 2)
   
-  -- Add subtle border for better visibility
+  -- Add border for better visibility
   Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.8))
   love.graphics.setLineWidth(1)
-  love.graphics.circle("line", x + 2 + dotSize/2, y + 2 + dotSize/2, dotSize/2)
-  love.graphics.setLineWidth(1)
-  love.graphics.setColor(prevColor[1] or 1, prevColor[2] or 1, prevColor[3] or 1, prevColor[4] or 1)
+  love.graphics.rectangle("line", boxX, boxY, boxW, boxH, 2)
+  
+  -- Draw level text in white
+  Theme.setColor({1.0, 1.0, 1.0, 1.0})
+  love.graphics.print(levelText, boxX + 3, boxY + 2)
 end
 
 function Cargo.draw()

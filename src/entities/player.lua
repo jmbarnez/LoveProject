@@ -559,7 +559,7 @@ function Player:addLevel5Turrets()
             -- Generate level 5 version with modifiers
             local level5Turret = TurretScaling.generateLeveledTurret(baseTurret, 5)
             
-            -- Add to cargo with metadata
+            -- Add to cargo with metadata (this creates the leveled turret)
             cargo:add(turretId, 1, level5Turret)
         end
     end
