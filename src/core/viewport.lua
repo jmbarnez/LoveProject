@@ -104,10 +104,21 @@ function Viewport.finish()
 
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(canvas, ox, oy, 0, scale, scale)
-  -- Be resilient if some draw path unbalanced the stack; ignore pop errors
-  local ok = pcall(love.graphics.pop)
-  if not ok then
-    -- Nothing to pop; continue without crashing
+
+  -- Always unwind the graphics stack so leaked push calls don't accumulate
+  local popped = 0
+  while true do
+    local ok = pcall(love.graphics.pop)
+    if not ok then
+      break
+    end
+    popped = popped + 1
+  end
+
+  if popped == 0 and Log and Log.warn then
+    Log.warn("Viewport.finish detected empty graphics stack when popping")
+  elseif popped > 1 and Log and Log.warn then
+    Log.warn("Viewport.finish cleaned up " .. tostring(popped - 1) .. " extra graphics pushes")
   end
 end
 

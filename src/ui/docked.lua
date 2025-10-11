@@ -322,17 +322,32 @@ end
 function DockedUI.wheelmoved(dx, dy, player)
     local state = DockedUI.state
     if not state.visible then return false end
-    if isFurnaceStation(state) then
-        return false
-    end
+
     if player then
         state.player = player
     end
 
+    -- Route to nodes tab first so it can handle chart zooming while still
+    -- preventing the underlying game world from seeing scroll events.
     if state.activeTab == "Nodes" and state.nodes and state.nodes.wheelmoved then
-        return state.nodes:wheelmoved(state.player, dx, dy)
+        if state.nodes:wheelmoved(state.player, dx, dy) then
+            return true
+        end
     end
-    return false
+
+    -- When the docked UI is visible it's modal – no input should leak through
+    -- to the game world.  Consume the wheel event if we're hovering the window
+    -- (or simply return true to block the world even if the cursor is outside),
+    -- ensuring accidental zooming/panning does not occur while docked.
+    local window = state.window
+    if window and window.visible then
+        local mx, my = Viewport.getMousePosition()
+        if window:containsPoint(mx, my) then
+            return true
+        end
+    end
+
+    return true
 end
 
 function DockedUI.keypressed(key, scancode, isrepeat, player)
