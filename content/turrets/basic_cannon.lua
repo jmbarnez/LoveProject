@@ -95,5 +95,8 @@ return {
     heatEnergyMult = 1.0,
     
     -- Firing mode
-    fireMode = "manual"
+    fireMode = "manual",
+    
+    -- Max level for this turret
+    maxLevel = 5
 }

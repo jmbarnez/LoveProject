@@ -12,55 +12,6 @@ local function getCombatValue(key)
 end
 local EnemyStatusBars = {}
 
-local function drawLevelBadge(x, y, enemyLevel)
-  if not enemyLevel then return end
-  
-  local threatColor = enemyLevel:getThreatColor()
-  local displayText = enemyLevel:getDisplayText()
-  
-  -- Get font and calculate text dimensions
-  local oldFont = love.graphics.getFont()
-  if Theme.fonts and Theme.fonts.small then 
-    love.graphics.setFont(Theme.fonts.small) 
-  end
-  local font = love.graphics.getFont()
-  local textWidth = font:getWidth(displayText)
-  local textHeight = font:getHeight()
-  
-  -- Calculate badge size based on text with padding
-  local padding = 6 -- Horizontal padding
-  local badgeW = textWidth + padding
-  local badgeH = textHeight + 4 -- Vertical padding
-  local badgeX = x - badgeW / 2 -- Center the badge
-  local badgeY = y
-  
-  -- Badge background with subtle glow
-  love.graphics.setColor(0, 0, 0, 0.6)
-  love.graphics.rectangle("fill", badgeX - 1, badgeY - 1, badgeW + 2, badgeH + 2, 3, 3)
-  
-  -- Main badge background
-  love.graphics.setColor(threatColor[1], threatColor[2], threatColor[3], 0.9)
-  love.graphics.rectangle("fill", badgeX, badgeY, badgeW, badgeH, 2, 2)
-  
-  -- Badge border
-  love.graphics.setColor(threatColor[1], threatColor[2], threatColor[3], 1.0)
-  love.graphics.setLineWidth(1)
-  love.graphics.rectangle("line", badgeX, badgeY, badgeW, badgeH, 2, 2)
-  
-  -- Center text in badge
-  local textX = badgeX + badgeW / 2 - textWidth / 2
-  local textY = badgeY + badgeH / 2 - textHeight / 2
-  
-  -- Text shadow for readability
-  love.graphics.setColor(0, 0, 0, 0.8)
-  love.graphics.print(displayText, textX + 1, textY + 1)
-  
-  -- Main text
-  love.graphics.setColor(1, 1, 1, 1)
-  love.graphics.print(displayText, textX, textY)
-  
-  if oldFont then love.graphics.setFont(oldFont) end
-end
 
 local function drawOverheadBar(x, y, w, h, hullPct, shieldPct)
   hullPct = math.max(0, math.min(1, hullPct or 0))
@@ -126,6 +77,107 @@ local function drawOverheadBar(x, y, w, h, hullPct, shieldPct)
     for i = 1, segments - 1 do
       local segX = innerX + innerW * (i / segments)
       love.graphics.line(segX, innerY + 1, segX, innerY + innerH - 1)
+    end
+  end
+end
+
+local function drawOverheadBarWithText(x, y, w, h, hullPct, shieldPct, text, enemyLevel)
+  hullPct = math.max(0, math.min(1, hullPct or 0))
+  shieldPct = math.max(0, math.min(1, shieldPct or 0))
+
+  -- Sleeker design inspired by player HUD
+  local innerPad = 1
+  local innerX = x + innerPad
+  local innerY = y + innerPad
+  local innerW = w - innerPad * 2
+  local innerH = h - innerPad * 2
+
+  -- Subtle drop shadow with slight glow
+  love.graphics.setColor(0, 0, 0, 0.3)
+  love.graphics.rectangle("fill", x - 1, y - 1, w + 2, h + 2, 2, 2)
+  
+  -- Very subtle outer glow for high-tech feel
+  love.graphics.setColor(0.2, 0.4, 0.6, 0.1)
+  love.graphics.rectangle("fill", x - 2, y - 2, w + 4, h + 4, 3, 3)
+
+  -- Background - dark with subtle border
+  Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.85))
+  love.graphics.rectangle("fill", innerX, innerY, innerW, innerH, 2, 2)
+  
+  -- Border - use threat color if available, otherwise subtle cyan accent
+  if enemyLevel then
+    local threatColor = enemyLevel:getThreatColor()
+    love.graphics.setColor(threatColor[1], threatColor[2], threatColor[3], 0.8)
+  else
+    Theme.setColor(Theme.withAlpha(Theme.colors.border, 0.6))
+  end
+  love.graphics.setLineWidth(1)
+  love.graphics.rectangle("line", innerX, innerY, innerW, innerH, 2, 2)
+
+  -- Hull fill - dynamic color from green->yellow->red (like player HUD)
+  if hullPct > 0 then
+    local r, g, b
+    if hullPct > 0.6 then
+      -- Green to yellow transition
+      local t = (hullPct - 0.6) / 0.4
+      r, g, b = t, 1, 0.2
+    else
+      -- Yellow to red transition
+      local t = hullPct / 0.6
+      r, g, b = 1, t, 0.1
+    end
+    local hullColor = { r, g, b, 0.9 }
+    love.graphics.setColor(hullColor)
+    love.graphics.rectangle("fill", innerX, innerY, innerW * hullPct, innerH, 2, 2)
+  end
+
+  -- Shield overlay - blue overlay on top of hull (like player HUD)
+  if shieldPct > 0 and innerW > 0 then
+    local shieldWidth = innerW * shieldPct
+    local shieldColor = Theme.semantic.statusShield
+    love.graphics.setColor(shieldColor[1], shieldColor[2], shieldColor[3], 0.7)
+    love.graphics.rectangle("fill", innerX, innerY, shieldWidth, innerH, 2, 2)
+    
+    -- Shield highlight line
+    love.graphics.setColor(shieldColor[1], shieldColor[2], shieldColor[3], 0.9)
+    love.graphics.rectangle("fill", innerX, innerY, shieldWidth, 1, 2, 2)
+  end
+
+  -- Clean segment dividers for readability
+  if innerW > 0 and innerW > 40 then
+    love.graphics.setColor(0, 0, 0, 0.25)
+    local segments = math.max(2, math.floor(innerW / 20))
+    for i = 1, segments - 1 do
+      local segX = innerX + innerW * (i / segments)
+      love.graphics.line(segX, innerY + 1, segX, innerY + innerH - 1)
+    end
+  end
+
+  -- Draw text centered in the bar
+  if text then
+    local oldFont = love.graphics.getFont()
+    if Theme.fonts and Theme.fonts.small then 
+      love.graphics.setFont(Theme.fonts.small) 
+    end
+    local font = love.graphics.getFont()
+    local textWidth = font:getWidth(text)
+    local textHeight = font:getHeight()
+    
+    -- Center text in the bar
+    local textX = x + w / 2 - textWidth / 2
+    local textY = y + h / 2 - textHeight / 2
+    
+    -- Text shadow for readability
+    love.graphics.setColor(0, 0, 0, 0.8)
+    love.graphics.print(text, textX + 1, textY + 1)
+    
+    -- Main text
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.print(text, textX, textY)
+    
+    -- Restore font
+    if oldFont then
+      love.graphics.setFont(oldFont)
     end
   end
 end
@@ -199,15 +251,15 @@ function EnemyStatusBars.drawMiniBars(entity)
     end
   end
   
-  -- Calculate bar size based on entity type - sleeker proportions
+  -- Calculate bar size based on entity type - compact but wide enough for name
   local barW, barH
   if isProjectile then
     -- Smaller bars for projectiles
     barW = math.max(24, math.min(48, radius * 3.5))
     barH = 4
   else
-    -- Sleeker bars for other entities - more compact and elegant
-    barW = math.max(80, math.min(160, radius * 2.8))
+    -- Compact bars for other entities - just wide enough for name
+    barW = math.max(100, math.min(160, radius * 3.0))
     barH = 8
   end
 
@@ -232,18 +284,104 @@ function EnemyStatusBars.drawMiniBars(entity)
   local hpPct = math.max(0, math.min(1, hp / math.max(1, maxHP)))
   local shieldPct = maxShield > 0 and math.max(0, math.min(1, shield / math.max(1, maxShield))) or 0
 
-  -- Draw level badge above health bar
-  local enemyLevel = entity.components.enemy_level
-  if enemyLevel then
-    local badgeY = baseY - 16 -- Position above health bar
-    local badgeX = x0 + barW / 2 -- Center the badge (function will center it properly)
-    drawLevelBadge(badgeX, badgeY, enemyLevel)
-  end
-
+  -- Draw health bar without text
   drawOverheadBar(x0, baseY, barW, barH, hpPct, shieldPct)
+  
+  -- Draw name above the health bar
+  local enemyLevel = entity.components.enemy_level
+  local name = entity.name or "Unknown Enemy"
+  local Content = require("src.content.content")
+  local shipDef = Content.getShip(entity.shipId)
+  if shipDef and shipDef.name then
+    name = shipDef.name
+  end
+  
+  -- Draw name label above health bar
+  local oldFont = love.graphics.getFont()
+  if Theme.fonts and Theme.fonts.small then 
+    love.graphics.setFont(Theme.fonts.small) 
+  end
+  local font = love.graphics.getFont()
+  local textWidth = font:getWidth(name)
+  local textHeight = font:getHeight()
+  
+  -- Position name above health bar
+  local nameY = baseY - textHeight - 4
+  local nameX = x0 + barW / 2 - textWidth / 2
+  
+  -- Draw simple background for better readability
+  local padding = 2
+  local bgWidth = textWidth + padding * 2
+  local bgHeight = textHeight + padding * 2
+  local bgX = nameX - padding
+  local bgY = nameY - padding
+  
+  love.graphics.setColor(0, 0, 0, 0.5)
+  love.graphics.rectangle("fill", bgX, bgY, bgWidth, bgHeight)
+  
+  -- Draw text in white for clean look
+  love.graphics.setColor(1, 1, 1, 0.9)
+  love.graphics.print(name, nameX, nameY)
+  
+  -- Restore font
+  if oldFont then
+    love.graphics.setFont(oldFont)
+  end
+  
+  -- Draw level indicator next to the health bar
+  if enemyLevel then
+    local levelText = tostring(enemyLevel.level or 1)
+    local threatColor = enemyLevel:getThreatColor()
+    
+    -- Position level indicator to the right of the health bar
+    local levelX = x0 + barW + 8
+    local levelY = baseY
+    
+    -- Get font for level indicator
+    local oldFont = love.graphics.getFont()
+    if Theme.fonts and Theme.fonts.small then 
+      love.graphics.setFont(Theme.fonts.small) 
+    end
+    local font = love.graphics.getFont()
+    local textWidth = font:getWidth(levelText)
+    local textHeight = font:getHeight()
+    
+    -- Draw level badge
+    local badgeW = textWidth + 8
+    local badgeH = textHeight + 4
+    local badgeX = levelX
+    local badgeY = levelY + (barH - badgeH) / 2 -- Center vertically with health bar
+    
+    -- Badge background with threat color
+    love.graphics.setColor(threatColor[1], threatColor[2], threatColor[3], 0.9)
+    love.graphics.rectangle("fill", badgeX, badgeY, badgeW, badgeH, 3, 3)
+    
+    -- Badge border
+    love.graphics.setColor(threatColor[1], threatColor[2], threatColor[3], 1.0)
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", badgeX, badgeY, badgeW, badgeH, 3, 3)
+    
+    -- Level text
+    local textX = badgeX + badgeW / 2 - textWidth / 2
+    local textY = badgeY + badgeH / 2 - textHeight / 2
+    
+    -- Text shadow
+    love.graphics.setColor(0, 0, 0, 0.8)
+    love.graphics.print(levelText, textX + 1, textY + 1)
+    
+    -- Main text
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.print(levelText, textX, textY)
+    
+    -- Restore font
+    if oldFont then
+      love.graphics.setFont(oldFont)
+    end
+  end
 
   love.graphics.pop()
 end
+
 
 return EnemyStatusBars
 

@@ -5,7 +5,7 @@ local TimedLife = require("src.components.timed_life")
 local ItemPickup = {}
 
 -- Creates a lightweight, non-collidable item pickup that magnetically moves to the player.
-function ItemPickup.new(x, y, itemId, qty, sizeScale, vx, vy)
+function ItemPickup.new(x, y, itemId, qty, sizeScale, vx, vy, meta)
   local self = { components = {} }
   self.components.position = Position.new({ x = x, y = y })
   self.components.renderable = Renderable.new({
@@ -17,7 +17,11 @@ function ItemPickup.new(x, y, itemId, qty, sizeScale, vx, vy)
     }
   })
   -- Tag component for systems to query
-  self.components.item_pickup = { itemId = itemId or "ore_tritanium", qty = qty or 1 }
+  self.components.item_pickup = { 
+    itemId = itemId or "ore_tritanium", 
+    qty = qty or 1,
+    meta = meta -- Store metadata for weapon modules
+  }
   -- Velocity for initial explosion spread
   local Velocity = require("src.components.velocity")
   self.components.velocity = Velocity.new({ x = vx or 0, y = vy or 0 })
@@ -27,6 +31,7 @@ function ItemPickup.new(x, y, itemId, qty, sizeScale, vx, vy)
   -- Expose top-level for convenience
   self.itemId = itemId or "ore_tritanium"
   self.qty = qty or 1
+  self.meta = meta -- Store metadata at top level too
 
   return self
 end

@@ -232,6 +232,12 @@ function EntityFactory.createEnemy(shipId, x, y)
                     if turretDef then
                         local turretParams = Util.deepCopy(turretDef)
                         turretParams.fireMode = turretParams.fireMode or defaultFireMode
+                        
+                        -- Apply level scaling and modifiers for enemy turrets
+                        local TurretScaling = require("src.systems.turret.scaling")
+                        local enemyLevel = enemy.components.enemy_level and enemy.components.enemy_level.level or 1
+                        turretParams = TurretScaling.generateLeveledTurret(turretParams, enemyLevel)
+                        
                         local turretInstance = TurretSystem.spawn(enemy, turretParams)
 
                         turretInstance.fireMode = turretInstance.fireMode or defaultFireMode

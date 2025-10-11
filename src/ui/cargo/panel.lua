@@ -468,6 +468,21 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
     love.graphics.print(stackCount, iconX + iconSize - textW - 4, iconY + iconSize - textH - 3)
   end
 
+  -- Draw level indicator for leveled weapon modules
+  if def and def.level and def.level > 1 then
+    local levelText = tostring(def.level)
+    local font = Theme.getFont("small")
+    local textW = font:getWidth(levelText)
+    local textH = font:getHeight()
+    
+    -- Draw level badge in top right corner
+    Theme.setColor(Theme.withAlpha(Theme.colors.bg0, 0.9))
+    love.graphics.rectangle("fill", x + size - textW - 6, y + 2, textW + 4, textH + 2)
+    
+    Theme.setColor(Theme.colors.accent)
+    love.graphics.print(levelText, x + size - textW - 4, y + 3)
+  end
+
   if def and def.rarity then
     local rarityColor = Theme.colors.rarity and Theme.colors.rarity[def.rarity] or Theme.colors.accent
     local prevColor = { love.graphics.getColor() }

@@ -1,7 +1,7 @@
 -- Data definition for the Basic Drone enemy.
 return {
     id = "basic_drone",
-    name = "Basic Drone",
+    name = "Rogue Drone",
     class = "Drone",
     description = "A simple, automated combat drone.",
     
@@ -102,9 +102,6 @@ return {
             { id = "broken_circuitry", min = 1, max = 2, chance = 0.4 },
             { id = "ore_tritanium", min = 1, max = 2, chance = 0.25 },
             { id = "ore_palladium", min = 1, max = 1, chance = 0.1 },
-            { id = "railgun_turret", chance = 0.05 },
-            { id = "low_power_laser", chance = 0.03 },
-            { id = "missile_launcher_mk1", chance = 0.02 },
             { id = "node_wallet", min = 1, max = 1, chance = 0.3 },
         }
     },

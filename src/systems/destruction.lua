@@ -6,13 +6,14 @@ local Content = require("src.content.content")
 local ProceduralGen = require("src.core.procedural_gen")
 local Util = require("src.core.util")
 local Skills = require("src.core.skills")
+local TurretScaling = require("src.systems.turret.scaling")
 
 local DestructionSystem = {}
 
 local Log = require("src.core.log")
 local Debug = require("src.core.debug")
 
-local function rollLoot(drops)
+local function rollLoot(drops, enemyLevel)
   local items = {}
   if type(drops) ~= 'table' then return items end
   for _, d in ipairs(drops) do
@@ -21,7 +22,8 @@ local function rollLoot(drops)
       local baseItem = Content.getTurret(d.id)
       if baseItem then
         for i = 1, (d.count or 1) do
-          local turret = ProceduralGen.generateTurretStats(baseItem, 1)
+          -- Use new scaling system for enemy-dropped turrets
+          local turret = TurretScaling.generateLeveledTurret(baseItem, enemyLevel or 1)
           turret.qty = 1
           table.insert(items, turret)
         end
@@ -162,7 +164,32 @@ function DestructionSystem.update(world, gameState, hub)
             dropsSource = e.lootTable
           end
           if dropsSource then
-            local items = rollLoot(dropsSource)
+            -- Get enemy level for turret scaling
+            local enemyLevel = 1
+            if e.components and e.components.enemy_level then
+              enemyLevel = e.components.enemy_level.level or 1
+            end
+            
+            local items = rollLoot(dropsSource, enemyLevel)
+            
+            -- Add small chance to drop equipped weapon modules
+            if e.components and e.components.equipment and e.components.equipment.grid then
+              local equipment = e.components.equipment
+              for _, slot in ipairs(equipment.grid) do
+                if slot.type == "turret" and slot.module and slot.module.templateId then
+                  -- 80% chance to drop equipped weapon module (testing)
+                  if math.random() <= 0.80 then
+                    local weaponModuleData = {
+                      id = slot.module.templateId,
+                      qty = 1,
+                      meta = slot.module -- Include the full weapon module data with modifiers
+                    }
+                    table.insert(items, weaponModuleData)
+                  end
+                end
+              end
+            end
+            
             if #items > 0 then
               -- Create item pickups for each item
               for _, item in ipairs(items) do
@@ -173,7 +200,7 @@ function DestructionSystem.update(world, gameState, hub)
                   local vx = math.cos(angle) * speed
                   local vy = math.sin(angle) * speed
                   
-                  local pickup = ItemPickup.new(x, y, item.id, item.qty, nil, vx, vy)
+                  local pickup = ItemPickup.new(x, y, item.id, item.qty, 0.8, vx, vy, item.meta)
                   world:addEntity(pickup)
                 end
               end

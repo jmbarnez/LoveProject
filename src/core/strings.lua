@@ -70,7 +70,7 @@ local strings = {
             new_game = "NEW GAME",
             load_game = "LOAD GAME",
             game_title = "NOVUS",
-            version = "v0.35",
+            version = "v0.40",
 
             -- Common UI elements
             close = "Close",

@@ -12,6 +12,11 @@ function Tooltip.drawItemTooltip(item, x, y)
 
   -- Gather item details
   local name = item.proceduralName or item.name or "Unknown Item"
+  
+  -- Add level indicator for leveled weapon modules
+  if item.level and item.level > 1 then
+    name = name .. " (Level " .. item.level .. ")"
+  end
 
   -- Tooltip dimensions and layout (using theme configuration)
   local tooltipConfig = Theme.components and Theme.components.tooltip or {
@@ -258,27 +263,51 @@ function Tooltip.drawItemTooltip(item, x, y)
 
     for _, mod in ipairs(modifiers) do
       local changeText = ""
-      if mod.type == "damage" then
-        if mod.mult > 1 then
-          changeText = "+" .. math.floor((mod.mult - 1) * 100) .. "% damage"
-        else
-          changeText = "-" .. math.floor((1 - mod.mult) * 100) .. "% damage"
+      local modText = ""
+      
+      -- Handle new modifier system with rarity
+      if mod.rarity then
+        -- New modifier system with rarity
+        modText = mod.name
+        if mod.description then
+          modText = modText .. " - " .. mod.description
         end
-      elseif mod.type == "cooldown" then
-        if mod.mult > 1 then
-          changeText = "-" .. math.floor((mod.mult - 1) * 100) .. "% rate"
+        
+        -- Set color based on rarity
+        if mod.rarity == "epic" then
+          Theme.setColor({0.8, 0.2, 0.8, 1.0}) -- Purple
+        elseif mod.rarity == "rare" then
+          Theme.setColor({0.2, 0.6, 1.0, 1.0}) -- Blue
+        elseif mod.rarity == "uncommon" then
+          Theme.setColor({0.2, 0.8, 0.2, 1.0}) -- Green
         else
-          changeText = "+" .. math.floor((1 - mod.mult) * 100) .. "% rate"
+          Theme.setColor(Theme.colors.textSecondary) -- Common - default color
         end
-      elseif mod.type == "heat" then
-        if mod.mult > 1 then
-          changeText = "+" .. math.floor((mod.mult - 1) * 100) .. "% heat"
-        else
-          changeText = "-" .. math.floor((1 - mod.mult) * 100) .. "% heat"
+      else
+        -- Legacy modifier system
+        if mod.type == "damage" then
+          if mod.mult > 1 then
+            changeText = "+" .. math.floor((mod.mult - 1) * 100) .. "% damage"
+          else
+            changeText = "-" .. math.floor((1 - mod.mult) * 100) .. "% damage"
+          end
+        elseif mod.type == "cooldown" then
+          if mod.mult > 1 then
+            changeText = "-" .. math.floor((mod.mult - 1) * 100) .. "% rate"
+          else
+            changeText = "+" .. math.floor((1 - mod.mult) * 100) .. "% rate"
+          end
+        elseif mod.type == "heat" then
+          if mod.mult > 1 then
+            changeText = "+" .. math.floor((mod.mult - 1) * 100) .. "% heat"
+          else
+            changeText = "-" .. math.floor((1 - mod.mult) * 100) .. "% heat"
+          end
         end
+        modText = mod.name .. " (" .. changeText .. ")"
+        Theme.setColor(Theme.colors.textSecondary)
       end
-      local modText = mod.name .. " (" .. changeText .. ")"
-      Theme.setColor(Theme.colors.textSecondary)
+      
       love.graphics.print(modText, tx + padding, currentY)
       currentY = currentY + statH + tooltipConfig.statLineSpacing
     end
