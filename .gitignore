@@ -1,0 +1,31 @@
+# AI assistant files
+.aider*
+
+# Build artifacts and executables
+Novus.love
+*.love
+love.exe
+lovec.exe
+*.dll
+*.exe
+*.ico
+
+# Debug and output files
+debug_output.txt
+output.txt
+*.log
+
+# Build scripts (keep build_love.bat as it's part of the project)
+# build_love.bat
+*.bat
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+*.tmp
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
