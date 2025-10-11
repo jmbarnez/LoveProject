@@ -285,6 +285,22 @@ function Input.keypressed(key)
         return
     end
 
+    -- Handle Enter key for interactions and docking
+    if key == "return" and gameState.player then
+        local InteractionSystem = require("src.systems.interaction")
+        if InteractionSystem.interact(gameState.player) then
+            return
+        end
+        
+        -- Check for docking
+        local docking = gameState.player.components and gameState.player.components.docking_status
+        if docking and docking.can_dock then
+            local Events = require("src.core.events")
+            Events.emit(Events.GAME_EVENTS.DOCK_REQUESTED)
+            return
+        end
+    end
+
     Hotbar.keypressed(key, gameState.player)
 end
 
