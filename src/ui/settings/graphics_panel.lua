@@ -264,6 +264,9 @@ function GraphicsPanel.draw(layout)
     local valueX = layout.valueX
     local itemHeight = layout.itemHeight
 
+    -- Clear cached interactive regions before redrawing
+    layout.showFPSCheckbox = nil
+
     Theme.setColor(Theme.colors.accent)
     love.graphics.setFont(Theme.fonts and (Theme.fonts.normal or Theme.fonts.small) or love.graphics.getFont())
     love.graphics.print("Graphics Settings", labelX, yOffset)
@@ -297,6 +300,12 @@ function GraphicsPanel.draw(layout)
     local checkboxSize = 16
     local hover = layout.mx >= checkboxX and layout.mx <= checkboxX + checkboxSize and layout.scrolledMouseY >= checkboxY and layout.scrolledMouseY <= checkboxY + checkboxSize
     Theme.drawStyledButton(checkboxX, checkboxY, checkboxSize, checkboxSize, currentSettings.show_fps and "✓" or "", hover, love.timer.getTime(), nil, false, { compact = true })
+    -- Store the checkbox position (without scroll offset) so interaction code can reuse it
+    layout.showFPSCheckbox = {
+        x = checkboxX,
+        y = yOffset - 2,
+        size = checkboxSize
+    }
     yOffset = yOffset + itemHeight
 
     layout.yOffset = yOffset
@@ -345,17 +354,12 @@ function GraphicsPanel.mousepressed(raw_x, raw_y, button, layout)
     if resolutionDropdown and resolutionDropdown:mousepressed(raw_x, raw_y, button) then return true end
 
     -- Check if FPS checkbox was clicked
-    if currentSettings and layout then
-        local valueX = layout.valueX
-        local itemHeight = layout.itemHeight
+    if currentSettings and layout and layout.showFPSCheckbox then
         local scrolledMouseY = raw_y + layout.scrollY
-        
-        -- Calculate FPS checkbox position (5th item: section label + vsync + fps + window mode + resolution + fps checkbox)
-        local fpsCheckboxY = layout.yOffset - 2 - layout.scrollY
-        local checkboxSize = 16
-        
-        if raw_x >= valueX and raw_x <= valueX + checkboxSize and 
-           scrolledMouseY >= fpsCheckboxY and scrolledMouseY <= fpsCheckboxY + checkboxSize then
+        local checkbox = layout.showFPSCheckbox
+
+        if raw_x >= checkbox.x and raw_x <= checkbox.x + checkbox.size and
+           scrolledMouseY >= checkbox.y and scrolledMouseY <= checkbox.y + checkbox.size then
             currentSettings.show_fps = not currentSettings.show_fps
             applyGraphicsPreview()
             return true
