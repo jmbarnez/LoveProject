@@ -1,4 +1,5 @@
 local Theme = require("src.core.theme")
+local Settings = require("src.core.settings")
 
 local AudioPanel = {}
 
@@ -14,6 +15,23 @@ local sliderRects = {}
 
 function AudioPanel.setSettings(settings)
     currentSettings = settings
+end
+
+local function applyAudioPreview()
+    if not currentSettings then return end
+
+    Settings.applyAudioSettings({
+        master_volume = currentSettings.master_volume,
+        sfx_volume = currentSettings.sfx_volume,
+        music_volume = currentSettings.music_volume
+    })
+
+    local applied = Settings.getAudioSettings()
+    if applied then
+        currentSettings.master_volume = applied.master_volume or currentSettings.master_volume
+        currentSettings.sfx_volume = applied.sfx_volume or currentSettings.sfx_volume
+        currentSettings.music_volume = applied.music_volume or currentSettings.music_volume
+    end
 end
 
 local function sliderColor(isHovered)
@@ -96,6 +114,7 @@ function AudioPanel.mousepressed(x, y, button)
             draggingSlider = name
             local pct = (x - rect.x) / rect.w
             currentSettings[name] = math.max(0, math.min(1, pct))
+            applyAudioPreview()
             return true
         end
     end
@@ -120,6 +139,7 @@ function AudioPanel.mousemoved(x, y)
         if rect then
             local pct = (x - rect.x) / rect.w
             currentSettings[draggingSlider] = math.max(0, math.min(1, pct))
+            applyAudioPreview()
             return true
         end
     end

@@ -21,6 +21,7 @@ local currentGraphicsSettings = {}
 local currentAudioSettings = {}
 local originalGraphicsSettings
 local originalAudioSettings
+local originalKeymap
 local keymap = {}
 
 local scrollY = 0
@@ -55,6 +56,7 @@ end
 local function revertUnappliedSettings()
     local graphicsSettings = Settings.getGraphicsSettings()
     local audioSettings = Settings.getAudioSettings()
+    local currentKeymap = Settings.getKeymap()
 
     if originalGraphicsSettings and not settingsEqual(graphicsSettings, originalGraphicsSettings) then
         Settings.applyGraphicsSettings(cloneSettings(originalGraphicsSettings))
@@ -64,6 +66,24 @@ local function revertUnappliedSettings()
     if originalAudioSettings and not settingsEqual(audioSettings, originalAudioSettings) then
         Settings.applyAudioSettings(cloneSettings(originalAudioSettings))
         currentAudioSettings = cloneSettings(originalAudioSettings)
+    end
+
+    if originalKeymap and not settingsEqual(currentKeymap or {}, originalKeymap) then
+        for action, keyValue in pairs(originalKeymap) do
+            Settings.setKeyBinding(action, keyValue, "primary")
+        end
+        if currentKeymap then
+            for action in pairs(currentKeymap) do
+                if originalKeymap[action] == nil then
+                    Settings.setKeyBinding(action, nil, "primary")
+                end
+            end
+        end
+
+        keymap = cloneSettings(originalKeymap)
+        ControlsPanel.setKeymap(keymap, function(newMap)
+            keymap = newMap
+        end)
     end
 end
 
@@ -127,6 +147,7 @@ function SettingsPanel.init()
     SettingsPanel.refreshFromSettings()
     originalGraphicsSettings = cloneSettings(Settings.getGraphicsSettings())
     originalAudioSettings = cloneSettings(Settings.getAudioSettings())
+    originalKeymap = cloneSettings(Settings.getKeymap())
 end
 
 function SettingsPanel.update(dt)
@@ -260,13 +281,15 @@ function SettingsPanel.drawContent(window, x, y, w, h)
 end
 
 local function applySettings()
-    local newGraphicsSettings = cloneSettings(currentGraphicsSettings)
-    local newAudioSettings = cloneSettings(currentAudioSettings)
-    Settings.applySettings(newGraphicsSettings, newAudioSettings)
-    Settings.save()
-    Notifications.add(Strings.getNotification("settings_applied"), "success")
-    originalGraphicsSettings = cloneSettings(Settings.getGraphicsSettings())
-    originalAudioSettings = cloneSettings(Settings.getAudioSettings())
+    local saved = Settings.save()
+    if saved then
+        Notifications.add(Strings.getNotification("settings_applied"), "success")
+        originalGraphicsSettings = cloneSettings(Settings.getGraphicsSettings())
+        originalAudioSettings = cloneSettings(Settings.getAudioSettings())
+        originalKeymap = cloneSettings(Settings.getKeymap())
+    else
+        Notifications.add(Strings.getNotification("settings_apply_failed") or "Failed to save settings", "error")
+    end
 end
 
 function SettingsPanel.mousepressed(raw_x, raw_y, button)
@@ -450,6 +473,7 @@ function SettingsPanel.toggle()
         SettingsPanel.refreshFromSettings()
         originalGraphicsSettings = cloneSettings(Settings.getGraphicsSettings())
         originalAudioSettings = cloneSettings(Settings.getAudioSettings())
+        originalKeymap = cloneSettings(Settings.getKeymap())
     else
         revertUnappliedSettings()
     end
