@@ -290,7 +290,20 @@ function GraphicsPanel.draw(layout)
     local checkboxY = yOffset - 2
     local checkboxSize = 16
     local hover = layout.mx >= checkboxX and layout.mx <= checkboxX + checkboxSize and layout.scrolledMouseY >= checkboxY and layout.scrolledMouseY <= checkboxY + checkboxSize
-    Theme.drawStyledButton(checkboxX, checkboxY, checkboxSize, checkboxSize, currentSettings.show_fps and "✓" or "", hover, love.timer.getTime(), nil, false, { compact = true })
+    -- Draw checkbox with filled box when toggled
+    if currentSettings.show_fps then
+        -- Filled checkbox
+        Theme.setColor(Theme.colors.accent)
+        love.graphics.rectangle("fill", checkboxX, checkboxY, checkboxSize, checkboxSize)
+        Theme.setColor(Theme.colors.border)
+        love.graphics.rectangle("line", checkboxX, checkboxY, checkboxSize, checkboxSize)
+    else
+        -- Empty checkbox
+        Theme.setColor(Theme.colors.bg3)
+        love.graphics.rectangle("fill", checkboxX, checkboxY, checkboxSize, checkboxSize)
+        Theme.setColor(Theme.colors.border)
+        love.graphics.rectangle("line", checkboxX, checkboxY, checkboxSize, checkboxSize)
+    end
     
     -- Store checkbox rect for click detection (in world coordinates)
     fpsCheckboxRect = { x = checkboxX, y = checkboxY - layout.scrollY, w = checkboxSize, h = checkboxSize }

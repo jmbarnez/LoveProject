@@ -121,6 +121,26 @@ function Settings.applyGraphicsSettings(newSettings)
             return
         end
 
+        -- Update viewport if resolution changed
+        if resolutionChanged or not oldSettings then
+            local Viewport = require("src.core.viewport")
+            if Viewport and Viewport.init then
+                local ok, err = pcall(Viewport.init, sanitized.resolution.width, sanitized.resolution.height)
+                if not ok and Log and Log.warn then
+                    Log.warn("Settings.applyGraphicsSettings - Failed to update viewport: " .. tostring(err))
+                end
+            end
+            
+            -- Trigger resize event for UI components
+            pcall(function()
+                if love.handlers and love.handlers.resize then
+                    love.handlers.resize(sanitized.resolution.width, sanitized.resolution.height)
+                elseif love.resize then
+                    love.resize(sanitized.resolution.width, sanitized.resolution.height)
+                end
+            end)
+        end
+
         IconRenderer.clearCache()
         local Content = require("src.content.content")
         Content.rebuildIcons()

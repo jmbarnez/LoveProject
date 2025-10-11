@@ -481,13 +481,7 @@ function Start:draw()
   local settingsButtonY = Theme.getScaledSize(20)
   local settingsHover = mx >= settingsButtonX and mx <= settingsButtonX + settingsButtonSize and my >= settingsButtonY and my <= settingsButtonY + settingsButtonSize
 
-  -- Use unified button system for settings button
-  Theme.drawButton(settingsButtonX, settingsButtonY, settingsButtonSize, settingsButtonSize, "", settingsHover, t, { 
-    size = "square",
-    color = {0, 0, 0, 0.3} -- Semi-transparent background
-  })
-  
-  -- Draw cog icon on top of button
+  -- Draw cog icon directly (no button background)
   Theme.setColor(settingsHover and {0.9, 0.9, 0.9, 1.0} or {0.7, 0.7, 0.7, 1.0})
   drawCogIcon(settingsButtonX + settingsButtonSize/2, settingsButtonY + settingsButtonSize/2, settingsButtonSize * 0.35)
 

@@ -500,21 +500,19 @@ function love.draw()
         loadingScreen:draw()
     end, "loading screen")
 
-    -- Draw FPS counter if enabled
-    if screen == "game" then
-        safeDraw(function()
-            local graphicsSettings = Settings.getGraphicsSettings()
-            if graphicsSettings and graphicsSettings.show_fps then
-                local fps = love.timer.getFPS()
-                local Theme = getModule("Theme")
-                local oldFont = love.graphics.getFont()
-                love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
-                Theme.setColor(Theme.colors.text)
-                love.graphics.print("FPS: " .. fps, 10, 10)
-                love.graphics.setFont(oldFont)
-            end
-        end, "fps counter")
-    end
+    -- Draw FPS counter if enabled (on both start screen and game)
+    safeDraw(function()
+        local graphicsSettings = Settings.getGraphicsSettings()
+        if graphicsSettings and graphicsSettings.show_fps then
+            local fps = love.timer.getFPS()
+            local Theme = getModule("Theme")
+            local oldFont = love.graphics.getFont()
+            love.graphics.setFont(Theme.fonts and Theme.fonts.small or love.graphics.getFont())
+            Theme.setColor(Theme.colors.text)
+            love.graphics.print("FPS: " .. fps, 10, 10)
+            love.graphics.setFont(oldFont)
+        end
+    end, "fps counter")
 
     -- Update debug panel render stats
     local drawTime = (love.timer.getTime() - drawStart) * 1000

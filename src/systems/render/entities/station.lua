@@ -43,12 +43,29 @@ local function render(entity, player)
         love.graphics.setLineWidth(1)
     end
 
-    -- Draw station safe zone radius ring (always visible)
+    -- Draw station safe zone radius ring (faint until player is inside)
     -- This ring defines the actual safe zone radius for both docking and weapons
     local safeZoneRadius = (entity.weaponDisableRadius or (entity.radius or 50) * 1.5) * 2
     
-    -- Draw simple ring
-    love.graphics.setColor(1.0, 0.5, 0.0, 0.6)  -- Orange with transparency
+    -- Calculate distance to player to determine ring opacity
+    local ringAlpha = 0.1  -- Very faint by default
+    if player and player.components and player.components.position then
+        local playerPos = player.components.position
+        local stationPos = entity.components.position
+        if stationPos then
+            local dx = playerPos.x - stationPos.x
+            local dy = playerPos.y - stationPos.y
+            local distance = math.sqrt(dx * dx + dy * dy)
+            
+            -- If player is inside the safe zone, make ring more visible
+            if distance <= safeZoneRadius then
+                ringAlpha = 0.6  -- Full visibility when inside
+            end
+        end
+    end
+    
+    -- Draw ring with calculated opacity
+    love.graphics.setColor(1.0, 0.5, 0.0, ringAlpha)  -- Orange with calculated transparency
     love.graphics.setLineWidth(2)
     love.graphics.circle("line", 0, 0, safeZoneRadius)
     love.graphics.setLineWidth(1)
