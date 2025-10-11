@@ -215,34 +215,57 @@ end
 
 function love.applyGraphicsSettings()
     local graphicsSettings = Settings.getGraphicsSettings()
-    local resolution = graphicsSettings.resolution or {}
-    local desiredWidth = resolution.width
-    local desiredHeight = resolution.height
+    
+    -- Use resolution from settings if available, otherwise get current window dimensions
+    local desiredWidth, desiredHeight
+    if graphicsSettings.resolution and graphicsSettings.resolution.width and graphicsSettings.resolution.height then
+        desiredWidth = graphicsSettings.resolution.width
+        desiredHeight = graphicsSettings.resolution.height
+    else
+        -- Get current window dimensions or use native desktop resolution
+        local currentMode = getCurrentWindowMode()
+        desiredWidth = currentMode and currentMode.width
+        desiredHeight = currentMode and currentMode.height
+        
+        -- If no current mode, get native desktop resolution
+        if not desiredWidth or not desiredHeight then
+            local desktopWidth, desktopHeight = love.window.getDesktopDimensions()
+            if desktopWidth and desktopHeight then
+                desiredWidth = desktopWidth
+                desiredHeight = desktopHeight
+            else
+                desiredWidth = 1920
+                desiredHeight = 1080
+            end
+        end
+    end
 
-    -- Build desired window mode configuration
+    -- Build desired window mode configuration based on display_mode
+    local displayMode = graphicsSettings.display_mode or "fullscreen"
     local desiredMode = {
         width = desiredWidth,
         height = desiredHeight,
-        fullscreen = graphicsSettings.fullscreen,
-        fullscreenType = graphicsSettings.fullscreen_type or "desktop",
-        borderless = graphicsSettings.borderless or false,
+        fullscreen = displayMode == "fullscreen",
+        fullscreenType = "desktop",
+        borderless = false, -- No borderless mode, just windowed or fullscreen
         vsync = normalizeVsync(graphicsSettings.vsync)
     }
 
-    -- Borderless windows override fullscreen setting
-    if desiredMode.borderless then
-        desiredMode.fullscreen = false
-    end
-
     -- Check if we need to update the window mode
-    local currentMode = getCurrentWindowMode()
     if shouldUpdateWindowMode(desiredMode, currentMode) then
-        Log.info("Applying graphics settings: " .. desiredWidth .. "x" .. desiredHeight ..
-                (desiredMode.fullscreen and " fullscreen" or " windowed"))
+        Log.info("Applying graphics settings: " .. desiredWidth .. "x" .. desiredHeight .. " " .. displayMode)
 
         local success = WindowMode.apply(graphicsSettings)
         if success and desiredWidth and desiredHeight then
+            -- Force viewport update with new resolution
             Viewport.init(desiredWidth, desiredHeight)
+            
+            -- Trigger resize event to update all UI components
+            if love.handlers and love.handlers.resize then
+                love.handlers.resize(desiredWidth, desiredHeight)
+            elseif love.resize then
+                love.resize(desiredWidth, desiredHeight)
+            end
         end
     end
 

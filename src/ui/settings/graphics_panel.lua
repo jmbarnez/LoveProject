@@ -11,9 +11,13 @@ local currentSettings
 
 local vsyncTypes = {Strings.getUI("off"), Strings.getUI("on")}
 local fpsLimitTypes = {Strings.getUI("unlimited"), "30", "60", "120", "144", "240"}
+local windowModeTypes = {"Windowed", "Fullscreen"}
+local resolutionTypes = {"1280x720", "1366x768", "1440x900", "1600x900", "1920x1080", "Native"}
 
 local vsyncDropdown
 local fpsLimitDropdown
+local windowModeDropdown
+local resolutionDropdown
 
 local function cloneSettings(src)
     if not src then return {} end
@@ -63,7 +67,7 @@ local function applyGraphicsPreview()
         replaceTableContents(currentSettings, applied)
     end
 
-    if vsyncDropdown and fpsLimitDropdown then
+    if vsyncDropdown and fpsLimitDropdown and windowModeDropdown and resolutionDropdown then
         -- Ensure dropdown selections reflect any sanitized values from the engine
         vsyncDropdown:setSelectedIndex(currentSettings.vsync and 2 or 1)
 
@@ -78,6 +82,28 @@ local function applyGraphicsPreview()
         local fpsIndex = fpsToIndex[currentSettings.max_fps or 60] or 3
         fpsLimitDropdown:setSelectedIndex(fpsIndex)
         currentSettings.max_fps_index = fpsIndex
+        
+        -- Set window mode dropdown
+        local windowModeToIndex = {
+            ["windowed"] = 1,
+            ["fullscreen"] = 2
+        }
+        local windowModeIndex = windowModeToIndex[currentSettings.display_mode or "fullscreen"] or 2
+        windowModeDropdown:setSelectedIndex(windowModeIndex)
+        
+        -- Set resolution dropdown
+        local resolution = currentSettings.resolution or {}
+        local width = resolution.width or 1920
+        local height = resolution.height or 1080
+        local resolutionToIndex = {
+            [1280] = 1,  -- 1280x720
+            [1366] = 2,  -- 1366x768
+            [1440] = 3,  -- 1440x900
+            [1600] = 4,  -- 1600x900
+            [1920] = 5,  -- 1920x1080
+        }
+        local resolutionIndex = resolutionToIndex[width] or 6 -- Default to Native
+        resolutionDropdown:setSelectedIndex(resolutionIndex)
     end
 end
 
@@ -120,6 +146,62 @@ local function ensureDropdowns()
             end
         })
     end
+
+    if not windowModeDropdown then
+        windowModeDropdown = Dropdown.new({
+            x = 0,
+            y = 0,
+            options = windowModeTypes,
+            selectedIndex = 2,
+            onSelect = function(index)
+                if not currentSettings then return end
+                local windowModeMap = {
+                    [1] = "windowed",
+                    [2] = "fullscreen"
+                }
+                currentSettings.display_mode = windowModeMap[index] or "fullscreen"
+                applyGraphicsPreview()
+            end
+        })
+    end
+
+    if not resolutionDropdown then
+        resolutionDropdown = Dropdown.new({
+            x = 0,
+            y = 0,
+            options = resolutionTypes,
+            selectedIndex = 6, -- Default to Native
+            onSelect = function(index)
+                if not currentSettings then return end
+                local resolutionMap = {
+                    [1] = {width = 1280, height = 720},   -- 1280x720
+                    [2] = {width = 1366, height = 768},   -- 1366x768
+                    [3] = {width = 1440, height = 900},   -- 1440x900
+                    [4] = {width = 1600, height = 900},   -- 1600x900
+                    [5] = {width = 1920, height = 1080},  -- 1920x1080
+                    [6] = "native"  -- Native resolution
+                }
+                
+                if resolutionMap[index] == "native" then
+                    -- Use native desktop resolution
+                    local desktopWidth, desktopHeight = love.window.getDesktopDimensions()
+                    if desktopWidth and desktopHeight then
+                        currentSettings.resolution = {width = desktopWidth, height = desktopHeight}
+                    end
+                else
+                    currentSettings.resolution = resolutionMap[index] or {width = 1920, height = 1080}
+                end
+                applyGraphicsPreview()
+                
+                -- Force immediate UI update after resolution change
+                local UIManager = require("src.core.ui_manager")
+                if UIManager and UIManager.resize then
+                    local w, h = love.graphics.getDimensions()
+                    UIManager.resize(w, h)
+                end
+            end
+        })
+    end
 end
 
 local function refreshDropdowns()
@@ -139,6 +221,28 @@ local function refreshDropdowns()
     local idx = fpsToIndex[currentSettings.max_fps or 60] or 3
     currentSettings.max_fps_index = idx
     fpsLimitDropdown:setSelectedIndex(idx)
+    
+    -- Set window mode dropdown
+    local windowModeToIndex = {
+        ["windowed"] = 1,
+        ["fullscreen"] = 2
+    }
+    local windowModeIndex = windowModeToIndex[currentSettings.display_mode or "fullscreen"] or 2
+    windowModeDropdown:setSelectedIndex(windowModeIndex)
+    
+    -- Set resolution dropdown
+    local resolution = currentSettings.resolution or {}
+    local width = resolution.width or 1920
+    local height = resolution.height or 1080
+    local resolutionToIndex = {
+        [1280] = 1,  -- 1280x720
+        [1366] = 2,  -- 1366x768
+        [1440] = 3,  -- 1440x900
+        [1600] = 4,  -- 1600x900
+        [1920] = 5,  -- 1920x1080
+    }
+    local resolutionIndex = resolutionToIndex[width] or 6 -- Default to Native
+    resolutionDropdown:setSelectedIndex(resolutionIndex)
 end
 
 
@@ -176,6 +280,25 @@ function GraphicsPanel.draw(layout)
     fpsLimitDropdown:setPosition(valueX, yOffset - 2 - layout.scrollY)
     yOffset = yOffset + itemHeight
 
+    Theme.setColor(Theme.colors.text)
+    love.graphics.print("Window Mode:", labelX, yOffset)
+    windowModeDropdown:setPosition(valueX, yOffset - 2 - layout.scrollY)
+    yOffset = yOffset + itemHeight
+
+    Theme.setColor(Theme.colors.text)
+    love.graphics.print("Resolution:", labelX, yOffset)
+    resolutionDropdown:setPosition(valueX, yOffset - 2 - layout.scrollY)
+    yOffset = yOffset + itemHeight
+
+    Theme.setColor(Theme.colors.text)
+    love.graphics.print("Show FPS:", labelX, yOffset)
+    local checkboxX = valueX
+    local checkboxY = yOffset - 2 - layout.scrollY
+    local checkboxSize = 16
+    local hover = layout.mx >= checkboxX and layout.mx <= checkboxX + checkboxSize and layout.scrolledMouseY >= checkboxY and layout.scrolledMouseY <= checkboxY + checkboxSize
+    Theme.drawStyledButton(checkboxX, checkboxY, checkboxSize, checkboxSize, currentSettings.show_fps and "✓" or "", hover, love.timer.getTime(), nil, false, { compact = true })
+    yOffset = yOffset + itemHeight
+
     layout.yOffset = yOffset
     return yOffset
 end
@@ -191,6 +314,12 @@ function GraphicsPanel.drawForeground(mx, my)
     if fpsLimitDropdown then
         fpsLimitDropdown:drawButtonOnly(mx, my)
     end
+    if windowModeDropdown then
+        windowModeDropdown:drawButtonOnly(mx, my)
+    end
+    if resolutionDropdown then
+        resolutionDropdown:drawButtonOnly(mx, my)
+    end
 
     if vsyncDropdown then
         vsyncDropdown:drawOptionsOnly(mx, my)
@@ -198,14 +327,40 @@ function GraphicsPanel.drawForeground(mx, my)
     if fpsLimitDropdown then
         fpsLimitDropdown:drawOptionsOnly(mx, my)
     end
+    if windowModeDropdown then
+        windowModeDropdown:drawOptionsOnly(mx, my)
+    end
+    if resolutionDropdown then
+        resolutionDropdown:drawOptionsOnly(mx, my)
+    end
 end
 
-function GraphicsPanel.mousepressed(raw_x, raw_y, button)
+function GraphicsPanel.mousepressed(raw_x, raw_y, button, layout)
     if button ~= 1 then return false end
 
     -- Check if any of our dropdowns handled the click
     if vsyncDropdown and vsyncDropdown:mousepressed(raw_x, raw_y, button) then return true end
     if fpsLimitDropdown and fpsLimitDropdown:mousepressed(raw_x, raw_y, button) then return true end
+    if windowModeDropdown and windowModeDropdown:mousepressed(raw_x, raw_y, button) then return true end
+    if resolutionDropdown and resolutionDropdown:mousepressed(raw_x, raw_y, button) then return true end
+
+    -- Check if FPS checkbox was clicked
+    if currentSettings and layout then
+        local valueX = layout.valueX
+        local itemHeight = layout.itemHeight
+        local scrolledMouseY = raw_y + layout.scrollY
+        
+        -- Calculate FPS checkbox position (5th item: section label + vsync + fps + window mode + resolution + fps checkbox)
+        local fpsCheckboxY = layout.yOffset - 2 - layout.scrollY
+        local checkboxSize = 16
+        
+        if raw_x >= valueX and raw_x <= valueX + checkboxSize and 
+           scrolledMouseY >= fpsCheckboxY and scrolledMouseY <= fpsCheckboxY + checkboxSize then
+            currentSettings.show_fps = not currentSettings.show_fps
+            applyGraphicsPreview()
+            return true
+        end
+    end
 
     return false
 end
@@ -214,11 +369,15 @@ function GraphicsPanel.mousemoved(x, y)
     if Dropdown.isAnyOpen() then
         if vsyncDropdown then vsyncDropdown:mousemoved(x, y) end
         if fpsLimitDropdown then fpsLimitDropdown:mousemoved(x, y) end
+        if windowModeDropdown then windowModeDropdown:mousemoved(x, y) end
+        if resolutionDropdown then resolutionDropdown:mousemoved(x, y) end
         return
     end
 
     if vsyncDropdown then vsyncDropdown:mousemoved(x, y) end
     if fpsLimitDropdown then fpsLimitDropdown:mousemoved(x, y) end
+    if windowModeDropdown then windowModeDropdown:mousemoved(x, y) end
+    if resolutionDropdown then resolutionDropdown:mousemoved(x, y) end
 end
 
 function GraphicsPanel.mousereleased()
@@ -230,8 +389,12 @@ function GraphicsPanel.getContentHeight(baseY, itemHeight)
     yOffset = yOffset + 30 -- section label
     yOffset = yOffset + itemHeight -- vsync
     yOffset = yOffset + itemHeight -- fps
+    yOffset = yOffset + itemHeight -- window mode
+    yOffset = yOffset + itemHeight -- resolution
+    yOffset = yOffset + itemHeight -- show fps
     return yOffset
 end
+
 
 GraphicsPanel.refreshDropdowns = refreshDropdowns
 

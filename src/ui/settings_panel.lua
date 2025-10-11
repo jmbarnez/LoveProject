@@ -100,7 +100,17 @@ function SettingsPanel.calculateContentHeight()
     local controlsBase = audioEnd + sectionSpacing
     local controlsEnd = ControlsPanel.getContentHeight(controlsBase)
 
-    contentHeight = (controlsEnd - content.y) + 20
+    local newContentHeight = (controlsEnd - content.y) + 20
+    
+    -- Maintain scroll position when content height changes
+    if contentHeight > 0 and newContentHeight ~= contentHeight then
+        local content = SettingsPanel.window:getContentBounds()
+        local innerH = content.h
+        local maxScroll = math.max(0, newContentHeight - innerH)
+        scrollY = math.min(scrollY, maxScroll)
+    end
+    
+    contentHeight = newContentHeight
 end
 
 function SettingsPanel.init()
@@ -172,9 +182,21 @@ local function drawSections(window, x, y, w, h)
     }
 
     layout.yOffset = GraphicsPanel.draw(layout)
+    
+    -- Draw divider line between Graphics and Audio sections
+    local dividerY = layout.yOffset + 30
+    Theme.setColor(Theme.colors.border)
+    love.graphics.rectangle("fill", x + pad, dividerY, w - (pad * 2), 1)
     layout.yOffset = layout.yOffset + 60
+    
     layout.yOffset = AudioPanel.draw(layout)
+    
+    -- Draw divider line between Audio and Controls sections
+    dividerY = layout.yOffset + 30
+    Theme.setColor(Theme.colors.border)
+    love.graphics.rectangle("fill", x + pad, dividerY, w - (pad * 2), 1)
     layout.yOffset = layout.yOffset + 60
+    
     ControlsPanel.draw(layout)
 
     love.graphics.pop()
@@ -266,7 +288,26 @@ function SettingsPanel.mousepressed(raw_x, raw_y, button)
         return true
     end
 
-    local graphicsHandled = GraphicsPanel.mousepressed(raw_x, raw_y, button)
+    -- Create layout for graphics panel
+    local content = SettingsPanel.window:getContentBounds()
+    local pad = (Theme.ui and Theme.ui.contentPadding) or 20
+    local layout = {
+        x = content.x,
+        y = content.y,
+        w = content.w,
+        h = content.h,
+        labelX = content.x + pad,
+        valueX = content.x + 200,
+        itemHeight = 40,
+        scrollY = scrollY,
+        settingsFont = Theme.getFont("normal"),
+        mx = raw_x,
+        my = raw_y,
+        scrolledMouseY = raw_y + scrollY,
+        yOffset = content.y + 10
+    }
+    
+    local graphicsHandled = GraphicsPanel.mousepressed(raw_x, raw_y, button, layout)
     if graphicsHandled then return true end
 
     if dropdownOpen then

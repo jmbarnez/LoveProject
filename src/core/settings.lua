@@ -9,22 +9,14 @@ local IconRenderer = require("src.content.icon_renderer")
 local defaultSettings = {} -- Will be populated with the initial settings
 local settings = {
   graphics = {
+        display_mode = "fullscreen", -- "windowed" or "fullscreen"
         resolution = {
             width = 1920,
             height = 1080,
         },
-        fullscreen = true,
-        fullscreen_type = "desktop",
-        borderless = false,
-        display_mode = "borderless_fullscreen", -- "windowed" or "borderless_fullscreen"
         vsync = true,
         max_fps = Constants.TIMING.FPS_60,
-        font_scale = 1.0,
         show_fps = false,
-        -- Crosshair customization
-        crosshair_style = 1,            -- 1..50 preset styles
-        crosshair_color = "cyan",       -- bright blue crosshair by default
-        crosshair_color_rgb = {0.0, 1.0, 1.0, 1.0}, -- cyan {r,g,b,a}
   },
     audio = {
         master_volume = 0.25,
@@ -64,40 +56,21 @@ local settings = {
     }
 }
 
+
+-- Set native resolution as default
 local function detectNativeResolution()
-    if not love or not love.window then return nil end
+    if not love or not love.window then return end
 
-    local displayIndex = 1
-    if love.window.getDisplay then
-        local ok, currentDisplay = pcall(love.window.getDisplay)
-        if ok and type(currentDisplay) == "number" and currentDisplay >= 1 then
-            displayIndex = currentDisplay
-        end
+    local desktopWidth, desktopHeight = love.window.getDesktopDimensions()
+    if desktopWidth and desktopHeight then
+        settings.graphics.resolution.width = desktopWidth
+        settings.graphics.resolution.height = desktopHeight
     end
-
-    if love.window.getDesktopDimensions then
-        local ok, width, height = pcall(love.window.getDesktopDimensions, displayIndex)
-        if ok and type(width) == "number" and type(height) == "number" and width > 0 and height > 0 then
-            return width, height
-        end
-    end
-
-    if love.window.getMode then
-        local ok, width, height = pcall(love.window.getMode)
-        if ok and type(width) == "number" and type(height) == "number" and width > 0 and height > 0 then
-            return width, height
-        end
-    end
-
-    return nil
 end
 
-do
-    local nativeWidth, nativeHeight = detectNativeResolution()
-    if nativeWidth and nativeHeight then
-        settings.graphics.resolution.width = nativeWidth
-        settings.graphics.resolution.height = nativeHeight
-    end
+-- Only set native resolution if Love2D is available
+if love and love.window then
+    detectNativeResolution()
 end
 
 defaultSettings = Util.deepCopy(settings)
@@ -106,30 +79,6 @@ function Settings.getGraphicsSettings()
     return settings.graphics
 end
 
-function Settings.getAvailableResolutions()
-    if not love.window then
-        return { { width = settings.graphics.resolution.width, height = settings.graphics.resolution.height } }
-    end
-
-    local resolutions = love.window.getFullscreenModes()
-    local uniqueResolutions = {}
-    local seen = {}
-    for i = #resolutions, 1, -1 do
-        local res = resolutions[i]
-        local key = res.width .. "x" .. res.height
-        if not seen[key] then
-            table.insert(uniqueResolutions, res)
-            seen[key] = true
-        end
-    end
-    table.sort(uniqueResolutions, function(a, b)
-        if a.width == b.width then
-            return a.height < b.height
-        end
-        return a.width < b.width
-    end)
-    return uniqueResolutions
-end
 
 function Settings.applyGraphicsSettings(newSettings)
     if type(newSettings) ~= "table" then
@@ -137,59 +86,21 @@ function Settings.applyGraphicsSettings(newSettings)
     end
 
     local oldSettings = Util.deepCopy(settings.graphics)
-
-    local function mergeTables(base, overrides)
-        local result = Util.deepCopy(base or {})
-
-        if type(overrides) ~= "table" then
-            return result
-        end
-
-        for key, value in pairs(overrides) do
-            if type(value) == "table" then
-                local baseValue = result[key]
-                if type(baseValue) == "table" then
-                    result[key] = mergeTables(baseValue, value)
-                else
-                    result[key] = mergeTables({}, value)
-                end
-            else
-                result[key] = value
-            end
-        end
-
-        return result
-    end
-
     local defaults = defaultSettings and defaultSettings.graphics or {}
-    local base = oldSettings or defaults
-    local sanitized = mergeTables(base, newSettings)
-
-    if type(sanitized.resolution) ~= "table" then
-        sanitized.resolution = Util.deepCopy(base.resolution or defaults.resolution or {})
+    
+    -- Merge new settings with existing ones
+    local sanitized = Util.deepCopy(oldSettings or defaults)
+    for key, value in pairs(newSettings) do
+        if defaults[key] ~= nil then -- Only allow known settings
+            sanitized[key] = value
+        end
     end
-
-    sanitized.resolution.width = tonumber(sanitized.resolution.width) or
-        (base.resolution and base.resolution.width) or
-        (defaults.resolution and defaults.resolution.width) or
-        Constants.RESOLUTION.DEFAULT_WIDTH
-
-    sanitized.resolution.height = tonumber(sanitized.resolution.height) or
-        (base.resolution and base.resolution.height) or
-        (defaults.resolution and defaults.resolution.height) or
-        Constants.RESOLUTION.DEFAULT_HEIGHT
 
     settings.graphics = sanitized
 
-    -- Only change window mode if resolution or display settings changed
-    local oldResolution = oldSettings and oldSettings.resolution or {}
+    -- Only change window mode if display settings changed
     if not oldSettings or
-       (oldResolution.width ~= sanitized.resolution.width) or
-       (oldResolution.height ~= sanitized.resolution.height) or
-       ((oldSettings.fullscreen or false) ~= (sanitized.fullscreen or false)) or
-       ((oldSettings.fullscreen_type) ~= (sanitized.fullscreen_type)) or
-       ((oldSettings.borderless or false) ~= (sanitized.borderless or false)) or
-       ((oldSettings.display_mode) ~= (sanitized.display_mode)) or
+       (oldSettings.display_mode ~= sanitized.display_mode) or
        (oldSettings.vsync ~= sanitized.vsync) then
 
         local success, err = WindowMode.apply(sanitized)
@@ -201,29 +112,6 @@ function Settings.applyGraphicsSettings(newSettings)
         IconRenderer.clearCache()
         local Content = require("src.content.content")
         Content.rebuildIcons()
-
-        local viewportWidth = sanitized.resolution.width
-        local viewportHeight = sanitized.resolution.height
-        local okViewport, Viewport = pcall(require, "src.core.viewport")
-        if not okViewport then
-            if Log and Log.warn then
-                Log.warn("Settings.applyGraphicsSettings - Failed to load viewport module: " .. tostring(Viewport))
-            end
-        elseif Viewport and Viewport.init and viewportWidth and viewportHeight then
-            local okInit, errInit = pcall(Viewport.init, viewportWidth, viewportHeight)
-            if not okInit and Log and Log.warn then
-                Log.warn("Settings.applyGraphicsSettings - Failed to reinitialize viewport: " .. tostring(errInit))
-            end
-        end
-
-        -- Trigger a resize event to update UI elements
-        pcall(function()
-            if love.handlers and love.handlers.resize then
-                love.handlers.resize(sanitized.resolution.width, sanitized.resolution.height)
-            elseif love.resize then
-                love.resize(sanitized.resolution.width, sanitized.resolution.height)
-            end
-        end)
     end
 
     -- Update FPS limit in main.lua if the function exists

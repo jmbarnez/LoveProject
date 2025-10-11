@@ -29,31 +29,49 @@ function WindowMode.apply(graphicsSettings)
         return false, "love.window.setMode unavailable"
     end
 
-    if not graphicsSettings or not graphicsSettings.resolution then
+    if not graphicsSettings then
         if Log and Log.warn then
-            Log.warn("WindowMode.apply - Missing graphics settings or resolution")
+            Log.warn("WindowMode.apply - Missing graphics settings")
         end
         return false, "invalid graphics settings"
     end
 
-    local width = graphicsSettings.resolution.width
-    local height = graphicsSettings.resolution.height
+    -- Use resolution from settings if available, otherwise get current window dimensions
+    local width, height
+    if graphicsSettings.resolution and graphicsSettings.resolution.width and graphicsSettings.resolution.height then
+        width = graphicsSettings.resolution.width
+        height = graphicsSettings.resolution.height
+    else
+        -- Get current window dimensions or use native desktop resolution
+        width, height = love.window.getMode()
+        if not width or not height then
+            -- Get native desktop resolution
+            local desktopWidth, desktopHeight = love.window.getDesktopDimensions()
+            if desktopWidth and desktopHeight then
+                width = desktopWidth
+                height = desktopHeight
+            else
+                -- Fallback to common resolution
+                width = 1920
+                height = 1080
+            end
+        end
+    end
 
     local minWidth, minHeight = computeMinimumDimensions(width, height)
 
     Log.debug("WindowMode.apply - Using minimum window size: " .. minWidth .. "x" .. minHeight)
 
     -- Determine display mode based on display_mode setting
-    local displayMode = graphicsSettings.display_mode or "borderless_fullscreen"
+    local displayMode = graphicsSettings.display_mode or "fullscreen"
     local isFullscreen = false
     local isBorderless = false
     local fullscreenType = "desktop"
     
-    if displayMode == "borderless_fullscreen" then
-        -- For borderless fullscreen, we want true fullscreen to respect resolution changes
+    if displayMode == "fullscreen" then
         isFullscreen = true
         isBorderless = false
-        fullscreenType = "desktop" -- Use desktop fullscreen to allow resolution changes
+        fullscreenType = "desktop"
     elseif displayMode == "windowed" then
         isFullscreen = false
         isBorderless = false
@@ -83,13 +101,33 @@ function WindowMode.apply(graphicsSettings)
     Log.debug("  Resizable: " .. tostring(windowSettings.resizable))
     Log.debug("  VSync: " .. tostring(windowSettings.vsync))
 
-    local ok, err = pcall(love.window.setMode, width, height, windowSettings)
+    -- Try to use updateMode for immediate changes, fallback to setMode
+    local ok, err
+    if love.window.updateMode then
+        ok, err = pcall(love.window.updateMode, width, height, windowSettings)
+        if not ok then
+            Log.debug("WindowMode.apply - updateMode failed, falling back to setMode")
+            ok, err = pcall(love.window.setMode, width, height, windowSettings)
+        end
+    else
+        ok, err = pcall(love.window.setMode, width, height, windowSettings)
+    end
 
     if not ok then
         if Log and Log.warn then
             Log.warn("WindowMode.apply - Failed to apply window mode: " .. tostring(err))
         end
         return false, err
+    end
+
+    -- Immediately sync viewport with new resolution
+    local Viewport = require("src.core.viewport")
+    if Viewport and Viewport.resize then
+        Viewport.resize(width, height)
+        -- Ensure viewport stays within bounds
+        if Viewport.ensureBounds then
+            Viewport.ensureBounds()
+        end
     end
 
     Log.debug("WindowMode.apply - Window mode applied successfully")
