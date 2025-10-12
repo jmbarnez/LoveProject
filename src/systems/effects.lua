@@ -119,6 +119,13 @@ function Effects.spawnImpact(kind, cx, cy, r, hx, hy, angle, style, bulletKind, 
     end
   end
 
+  local hullStyle = 'default'
+  if kind == 'hull' and bulletKind then
+    if bulletKind == 'laser' or bulletKind == 'mining_laser' or bulletKind == 'salvaging_laser' then
+      hullStyle = 'laser'
+    end
+  end
+
   table.insert(impacts, {
     kind = kind,
     cx = cx, cy = cy, r = r,
@@ -128,6 +135,8 @@ function Effects.spawnImpact(kind, cx, cy, r, hx, hy, angle, style, bulletKind, 
     span = math.rad(spanDeg),
     shield = { colors = shieldColors },
     hull = hullColors,
+    hullStyle = hullStyle,
+    sparkAccum = 0,
   })
   
   -- Trigger sound effect for impact (positional) - skip if disabled
@@ -230,7 +239,32 @@ function Effects.update(dt)
   for i = #impacts, 1, -1 do
     local p = impacts[i]
     p.t = p.t + dt
-    if p.t >= p.life then table.remove(impacts, i) end
+    if p.t >= p.life then
+      table.remove(impacts, i)
+    else
+      if p.kind == 'hull' and p.hullStyle == 'laser' then
+        local spawnInterval = 0.035
+        p.sparkAccum = (p.sparkAccum or 0) + dt
+        while p.sparkAccum >= spawnInterval do
+          p.sparkAccum = p.sparkAccum - spawnInterval
+          local spread = (math.random() * 2 - 1) * 0.45
+          local baseAngle = (p.angle or 0)
+          local sparkAngle = baseAngle + math.pi + spread
+          local speed = 70 + math.random() * 50
+          Effects.add({
+            type = 'spark',
+            x = p.x,
+            y = p.y,
+            vx = math.cos(sparkAngle) * speed,
+            vy = math.sin(sparkAngle) * speed,
+            t = 0,
+            life = 0.18 + math.random() * 0.12,
+            color = {1.0, 0.7, 0.25, 0.85},
+            size = 1.4,
+          })
+        end
+      end
+    end
   end
   -- Update FX particles
   for i = #fx, 1, -1 do
@@ -338,13 +372,40 @@ function Effects.draw()
         
         love.graphics.setLineWidth(1)
       else
-        -- Simple hull impact effect - just a circle (larger)
-        local sc = p.hull.spark
-        local rc = p.hull.ring
-        love.graphics.setColor(sc[1], sc[2], sc[3], (sc[4] or 0.6) * a)
-        love.graphics.circle('fill', p.x, p.y, 5)
-        love.graphics.setColor(rc[1], rc[2], rc[3], (rc[4] or 0.4) * a)
-        love.graphics.circle('line', p.x, p.y, 10)
+        if p.hullStyle == 'laser' then
+          -- Continuous laser impact: tight molten glow with directional streaks
+          local time = love.timer.getTime()
+          local pulse = 1 + 0.25 * math.sin(time * 18 + p.t * 16)
+          local emberRadius = 3.2 * pulse
+          love.graphics.setColor(1.0, 0.62, 0.18, 0.8 * a)
+          love.graphics.circle('fill', p.x, p.y, emberRadius)
+          love.graphics.setColor(1.0, 0.45, 0.1, 0.4 * a)
+          love.graphics.circle('fill', p.x, p.y, emberRadius * 1.9)
+
+          -- Draw subtle streaks in the direction opposite the incoming beam
+          local baseAngle = (p.angle or 0) + math.pi
+          local streakLength = 12
+          love.graphics.setLineWidth(1.6)
+          for s = -1, 1 do
+            local streakAngle = baseAngle + s * 0.28 + math.sin(time * 7 + s) * 0.08
+            love.graphics.setColor(1.0, 0.75, 0.3, 0.55 * a)
+            love.graphics.line(
+              p.x,
+              p.y,
+              p.x + math.cos(streakAngle) * streakLength,
+              p.y + math.sin(streakAngle) * streakLength
+            )
+          end
+          love.graphics.setLineWidth(1)
+        else
+          -- Simple hull impact effect - just a circle (larger)
+          local sc = p.hull.spark
+          local rc = p.hull.ring
+          love.graphics.setColor(sc[1], sc[2], sc[3], (sc[4] or 0.6) * a)
+          love.graphics.circle('fill', p.x, p.y, 5)
+          love.graphics.setColor(rc[1], rc[2], rc[3], (rc[4] or 0.4) * a)
+          love.graphics.circle('line', p.x, p.y, 10)
+        end
       end
     end
   end
