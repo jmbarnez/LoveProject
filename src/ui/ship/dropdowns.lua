@@ -50,15 +50,15 @@ function Dropdowns.refresh(state, player)
                     if def then
                         local allowed = false
                         local slotType = ShipUtils.resolveSlotType(slotData)
-                        if slotType == "turret" then
-                            allowed = turretDef ~= nil
-                        elseif slotType == "shield" then
-                            if itemDef and itemDef.module and itemDef.module.type == "shield" then
+                        if slotType == "module" then
+                            -- Any module can go in module slots
+                            if itemDef and itemDef.module then
                                 allowed = true
-                            elseif turretDef and turretDef.module and turretDef.module.type == "shield" then
+                            elseif turretDef and turretDef.module then
                                 allowed = true
                             end
                         else
+                            -- Fallback for other slot types
                             if itemDef and itemDef.module then
                                 allowed = true
                             elseif turretDef and turretDef.module then

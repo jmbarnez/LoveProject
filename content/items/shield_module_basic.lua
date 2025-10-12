@@ -39,9 +39,10 @@ return {
     },
     -- Module properties
     module = {
-        type = "shield",
+        type = "defensive",
         shield_hp = 50,        -- HP
         shield_regen = 0.8,    -- HP/s - much slower
-        slot_type = "shield"
+        slot_type = "defensive",
+        passive = true  -- Passive module - doesn't show on hotbar
     }
 }

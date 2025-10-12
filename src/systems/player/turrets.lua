@@ -11,7 +11,7 @@ local TurretSystem = {}
 function TurretSystem.processTurrets(player, state, modalActive, canFire, dt, world)
     -- Process all turrets from the grid, but apply different rules for weapons vs utility turrets
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "turret" and gridData.module and gridData.module.update and type(gridData.module.update) == "function" then
+        if gridData.type == "weapon" and gridData.module and gridData.module.update and type(gridData.module.update) == "function" then
             local turret = gridData.module
 
             -- Clean up dead assigned targets
@@ -53,7 +53,7 @@ end
 function TurretSystem.determineFiringState(turret, gridData, modalActive, canFire)
     local isMissile = turret.kind == 'missile'
     local isUtility = turret.kind == 'mining_laser' or turret.kind == 'salvaging_laser'
-    local actionName = 'turret_slot_' .. tostring(gridData.slot)
+    local actionName = 'slot_' .. tostring(gridData.slot)
     local perSlotActive = HotbarSystem.isActive(actionName)
     local manualFireAll = false -- Could be made configurable
 
@@ -133,9 +133,9 @@ function TurretSystem.isWeaponTurret(turret)
     return turret.kind == 'cannon' or turret.kind == 'laser' or turret.kind == 'missile' or turret.kind == 'railgun'
 end
 
--- Get turret action name for hotbar
+-- Get weapon action name for hotbar
 function TurretSystem.getActionName(slot)
-    return 'turret_slot_' .. tostring(slot)
+    return 'slot_' .. tostring(slot)
 end
 
 -- Check if turret slot is active
@@ -144,22 +144,22 @@ function TurretSystem.isSlotActive(slot)
     return HotbarSystem.isActive(actionName)
 end
 
--- Get all active turret slots
+-- Get all active weapon slots
 function TurretSystem.getActiveSlots(player)
     local activeSlots = {}
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "turret" and TurretSystem.isSlotActive(gridData.slot) then
+        if gridData.type == "weapon" and TurretSystem.isSlotActive(gridData.slot) then
             table.insert(activeSlots, gridData)
         end
     end
     return activeSlots
 end
 
--- Get turrets by type
+-- Get weapons by type
 function TurretSystem.getTurretsByType(player, turretType)
     local turrets = {}
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "turret" and gridData.module and gridData.module.kind == turretType then
+        if gridData.type == "weapon" and gridData.module and gridData.module.kind == turretType then
             table.insert(turrets, gridData)
         end
     end
@@ -170,7 +170,7 @@ end
 function TurretSystem.getUtilityTurrets(player)
     local utilityTurrets = {}
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "turret" and gridData.module and TurretSystem.isUtilityTurret(gridData.module) then
+        if gridData.type == "weapon" and gridData.module and TurretSystem.isUtilityTurret(gridData.module) then
             table.insert(utilityTurrets, gridData)
         end
     end
@@ -181,7 +181,7 @@ end
 function TurretSystem.getWeaponTurrets(player)
     local weaponTurrets = {}
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "turret" and gridData.module and TurretSystem.isWeaponTurret(gridData.module) then
+        if gridData.type == "weapon" and gridData.module and TurretSystem.isWeaponTurret(gridData.module) then
             table.insert(weaponTurrets, gridData)
         end
     end
@@ -191,7 +191,7 @@ end
 -- Stop all turret effects
 function TurretSystem.stopAllEffects(player)
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "turret" and gridData.module then
+        if gridData.type == "weapon" and gridData.module then
             local TurretSystemCore = require("src.systems.turret.system")
             TurretSystemCore.stopEffects(gridData.module)
         end
@@ -201,7 +201,7 @@ end
 -- Pause all turrets
 function TurretSystem.pauseAllTurrets(player)
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "turret" and gridData.module then
+        if gridData.type == "weapon" and gridData.module then
             gridData.module.firing = false
             gridData.module.autoFire = false
         end
@@ -211,7 +211,7 @@ end
 -- Resume all turrets
 function TurretSystem.resumeAllTurrets(player)
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "turret" and gridData.module then
+        if gridData.type == "weapon" and gridData.module then
             -- Turrets will be updated normally in the next update cycle
         end
     end

@@ -59,7 +59,7 @@ Config.AUDIO = Constants.AUDIO
 -- Dash system configuration
 Config.DASH = {
     SPEED = 100,           -- Base dash speed (u/s) - much weaker
-    COOLDOWN = 15.0,       -- Base cooldown in seconds - very long
+    COOLDOWN = 5.0,        -- Base cooldown in seconds
     ENERGY_COST = 75,      -- Base energy cost - very high
     IFRAMES = 0.15,        -- Base invincibility frames duration (s) - shorter
 }

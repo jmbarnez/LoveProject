@@ -37,7 +37,7 @@ function ShipUtils.buildHotbarPreview(player, gridOverride)
         local slot = slots[i]
         if slot and slot.item then
             local label = slot.item
-            local idx = tostring(slot.item):match("^turret_slot_(%d+)$")
+            local idx = tostring(slot.item):match("^slot_(%d+)$")
             if idx then
                 idx = tonumber(idx)
                 if grid[idx] then
@@ -57,9 +57,9 @@ function ShipUtils.buildHotbarPreview(player, gridOverride)
     local autos = {}
 
     for _, gridData in ipairs(grid) do
-        if gridData.type == "turret" and gridData.module then
+        if gridData.type == "weapon" and gridData.module then
             local entry = {
-                key = "turret_slot_" .. tostring(gridData.slot),
+                key = "slot_" .. tostring(gridData.slot),
                 label = ShipUtils.resolveModuleDisplayName(gridData) or ("Turret " .. tostring(gridData.slot)),
                 origin = "auto",
                 gridIndex = gridData.slot

@@ -99,13 +99,25 @@ function Player.new(x, y, shipId)
           return equipped
       end
 
-      -- Equip starting combat turrets
-      if not equipStartingModule(1, "basic_cannon") and self.components and self.components.cargo then
+      -- Equip starting weapons in universal slots
+      -- Try direct equipment first
+      local cannonDef = Content.getTurret("basic_cannon")
+      local laserDef = Content.getTurret("mining_laser")
+      
+      if cannonDef then
           self:addItem("basic_cannon", 1)
+          local success = self:equipModule(1, "basic_cannon")
+          if not success then
+              Log.warn("Failed to equip basic_cannon")
+          end
       end
-
-      if not equipStartingModule(2, "mining_laser") and self.components and self.components.cargo then
+      
+      if laserDef then
           self:addItem("mining_laser", 1)
+          local success = self:equipModule(2, "mining_laser")
+          if not success then
+              Log.warn("Failed to equip mining_laser")
+          end
       end
   end
 
@@ -139,7 +151,7 @@ function Player:getTurretInSlot(slotNum)
         return nil
     end
     local gridData = self.components.equipment.grid[slotNum]
-    if gridData and gridData.type == "turret" then
+    if gridData and gridData.type == "weapon" then
         return gridData.module
     end
     return nil
@@ -326,7 +338,7 @@ function Player:equipModule(slotNum, moduleId, turretData)
     if moduleDef and moduleDef.module then
         local declaredType = moduleDef.module.type or "module"
         if declaredType == "turret" then
-            moduleType = "turret"
+            moduleType = "weapon"  -- Always assign turret modules as weapon type
             local sourceDef = turretDef or moduleDef.def or moduleDef
             actualModule = instantiateTurret(sourceDef, moduleId, moduleId)
             if not actualModule then
@@ -337,13 +349,13 @@ function Player:equipModule(slotNum, moduleId, turretData)
             actualModule = moduleDef
         end
     elseif turretDef then
-        moduleType = "turret"
+        moduleType = "weapon"
         actualModule = instantiateTurret(turretDef, moduleId, moduleId)
         if not actualModule then
             return false
         end
     elseif turretData then
-        moduleType = "turret"
+        moduleType = "weapon"
         local baseId = turretData.baseId or turretData.id
         actualModule = instantiateTurret(turretData, moduleId, baseId)
         if not actualModule then
@@ -362,7 +374,8 @@ function Player:equipModule(slotNum, moduleId, turretData)
             end
 
             local baseType = gridData.baseType
-            if baseType and moduleType ~= baseType then
+            -- Allow any module type in universal slots (when baseType is "module")
+            if baseType and baseType ~= "module" and moduleType ~= baseType then
                 return false
             end
 
@@ -370,6 +383,10 @@ function Player:equipModule(slotNum, moduleId, turretData)
                 self:unequipModule(slotNum)
                 gridData = self.components.equipment.grid[i]
                 baseType = gridData.baseType
+                -- Re-check type compatibility after unequipping
+                if baseType and baseType ~= "module" and moduleType ~= baseType then
+                    return false
+                end
             end
 
             gridData.id = moduleId
@@ -385,12 +402,11 @@ function Player:equipModule(slotNum, moduleId, turretData)
             end
 
             -- Update systems based on module type
-            if moduleType == "shield" then
+            if moduleType == "defensive" or moduleType == "movement" or moduleType == "ability" or moduleType == "module" then
                 self:updateShieldHP()
-            elseif moduleType == "turret" then
-                PlayerHotbar.populate(self, moduleId, slotNum)
-            elseif moduleType == "ability" then
                 self:updateAbilityModules()
+                PlayerHotbar.populate(self, moduleId, slotNum)
+            elseif moduleType == "weapon" then
                 PlayerHotbar.populate(self, moduleId, slotNum)
             end
             return true
@@ -417,7 +433,7 @@ function Player:unequipModule(slotNum)
             -- Return module to cargo (stackable modules handled directly; turrets handled below)
             if moduleId and (moduleType == "shield" or moduleType == "module" or moduleType == "ability") then
                 cargo:add(moduleId, 1)
-            elseif moduleType == "turret" then
+            elseif moduleType == "weapon" then
                 local turretObj = gridData.module
                 if turretObj then
                     local baseId = turretObj.baseId or moduleId
@@ -438,12 +454,11 @@ function Player:unequipModule(slotNum)
             slotRef.hotbarSlot = nil
 
             -- Update systems based on module type
-            if moduleType == "shield" then
+            if moduleType == "defensive" or moduleType == "movement" or moduleType == "ability" or moduleType == "module" then
                 self:updateShieldHP()
-            elseif moduleType == "turret" then
-                PlayerHotbar.populate(self, nil, slotNum)
-            elseif moduleType == "ability" then
                 self:updateAbilityModules()
+                PlayerHotbar.populate(self, nil, slotNum)
+            elseif moduleType == "weapon" then
                 PlayerHotbar.populate(self, nil, slotNum)
             end
             return true
@@ -459,7 +474,7 @@ function Player:updateShieldHP()
 
     local totalShieldHP = 0
     for _, gridData in ipairs(self.components.equipment.grid) do
-        if gridData.type == "shield" and gridData.module and gridData.module.module and gridData.module.module.shield_hp then
+        if gridData.module and gridData.module.module and gridData.module.module.shield_hp then
             totalShieldHP = totalShieldHP + gridData.module.module.shield_hp
         end
     end
@@ -486,7 +501,7 @@ function Player:getShieldRegen()
 
     local totalShieldRegen = 0
     for _, gridData in ipairs(self.components.equipment.grid) do
-        if gridData.type == "shield" and gridData.module and gridData.module.module and gridData.module.module.shield_regen then
+        if gridData.module and gridData.module.module and gridData.module.module.shield_regen then
             totalShieldRegen = totalShieldRegen + gridData.module.module.shield_regen
         end
     end
@@ -506,7 +521,7 @@ function Player:updateAbilityModules()
 
     -- Check which abilities are equipped
     for _, gridData in ipairs(self.components.equipment.grid) do
-        if gridData.type == "ability" and gridData.module and gridData.module.module then
+        if gridData.module and gridData.module.module then
             local moduleData = gridData.module.module
             if moduleData.ability_type == "dash" then
                 self.abilityModules.dash_available = true

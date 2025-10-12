@@ -63,8 +63,9 @@ return {
     },
     -- Module properties
     module = {
-        type = "ability",
+        type = "movement",
         ability_type = "dash",
-        slot_type = "ability"
+        slot_type = "movement",
+        passive = false  -- Active module - shows on hotbar
     }
 }

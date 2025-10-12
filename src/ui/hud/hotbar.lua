@@ -55,8 +55,23 @@ local slotHandlers = {
     return true
   end,
   
+  movement = function(gridData, player, rx, ry, size)
+    local module = gridData.module
+    local subject = resolveAbilitySubject(module, gridData.id)
+    drawIcon({ subject, "basic_gun" }, rx + 4, ry + 4, size - 8)
+    return true
+  end,
+  
   shield = function(gridData, player, rx, ry, size)
     drawShieldIcon(rx + 4, ry + 4, size - 8, player and player.shieldChannel)
+    return true
+  end,
+  
+  -- Generic fallback for any module type
+  module = function(gridData, player, rx, ry, size)
+    local module = gridData.module
+    local subject = resolveAbilitySubject(module, gridData.id)
+    drawIcon({ subject, "basic_gun" }, rx + 4, ry + 4, size - 8)
     return true
   end
 }
@@ -72,12 +87,57 @@ local function drawEquipmentSlot(gridData, player, rx, ry, size)
     return handler(gridData, player, rx, ry, size)
   end
   
+  -- Fallback to generic module handler
+  handler = slotHandlers.module
+  if handler then
+    return handler(gridData, player, rx, ry, size)
+  end
+  
   return false
 end
 
 -- Cooldown handlers for different slot types
 local cooldownHandlers = {
-  ability = function(gridData, player, rx, ry, size)
+  module = function(gridData, player, rx, ry, size)
+    if gridData.module and gridData.module.module then
+      local moduleData = gridData.module.module
+      if moduleData.ability_type == "dash" then
+        local state = player.components.player_state
+        if state and state.dash_cooldown and state.dash_cooldown > 0 then
+          local dashConfig = require("src.content.config").DASH or {}
+          local cooldown = dashConfig.COOLDOWN or 0.9
+          local cooldownPct = math.max(0, math.min(1, state.dash_cooldown / cooldown))
+          if cooldownPct > 0 then
+            local barHeight = math.floor(size * cooldownPct)
+            -- Use orange for dash cooldown bar
+            love.graphics.setColor(0.8, 0.4, 0.1, 0.8)
+            love.graphics.rectangle('fill', rx, ry + size - barHeight, size, barHeight)
+            love.graphics.setColor(1.0, 0.6, 0.2, 1.0)
+            love.graphics.setLineWidth(2)
+            love.graphics.rectangle('line', rx, ry + size - barHeight, size, barHeight)
+
+            -- Numeric cooldown
+            local text = string.format("%.1f", state.dash_cooldown)
+            local fOld = love.graphics.getFont()
+            if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
+            local font = love.graphics.getFont()
+            local metrics = UIUtils.getCachedTextMetrics(text, font)
+            local fw = metrics.width
+            local fh = metrics.height
+            local tx, ty = rx + (size - fw) * 0.5, ry + (size - fh) * 0.5
+            local Theme = require("src.core.theme")
+            Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.7))
+            love.graphics.print(text, tx + 1, ty + 1)
+            Theme.setColor(Theme.colors.text)
+            love.graphics.print(text, tx, ty)
+            if fOld then love.graphics.setFont(fOld) end
+          end
+        end
+      end
+    end
+  end,
+  
+  movement = function(gridData, player, rx, ry, size)
     if gridData.module and gridData.module.module then
       local moduleData = gridData.module.module
       if moduleData.ability_type == "dash" then
@@ -119,11 +179,19 @@ local cooldownHandlers = {
 
 -- Generic function to handle cooldowns
 local function drawCooldownOverlay(gridData, player, rx, ry, size)
-  if not gridData or not gridData.type then
+  if not gridData then
     return false
   end
   
+  -- Try specific handler first
   local handler = cooldownHandlers[gridData.type]
+  if handler then
+    handler(gridData, player, rx, ry, size)
+    return true
+  end
+  
+  -- Fallback to module handler
+  handler = cooldownHandlers.module
   if handler then
     handler(gridData, player, rx, ry, size)
     return true
@@ -212,7 +280,7 @@ function Hotbar.draw(player)
       local subject = nil
       if player and player.components and player.components.equipment and player.components.equipment.grid then
         for _, gridData in ipairs(player.components.equipment.grid) do
-          if gridData.type == "turret" and gridData.module then
+          if gridData.type == "weapon" and gridData.module then
             subject = resolveTurretSubject(gridData.module, gridData.id)
             break
           end
@@ -223,16 +291,20 @@ function Hotbar.draw(player)
     elseif slot.item == "shield" then
       drawShieldIcon(rx + 4, ry + 4, size - 8, player and player.shieldChannel)
       drewIcon = true
-    elseif type(slot.item) == 'string' and (slot.item:match('^turret_slot_%d+$') or slot.item:match('^module_slot_%d+$')) then
-      local isTurret = slot.item:match('^turret_slot_%d+$')
-      local idx = tonumber(slot.item:match('^turret_slot_(%d+)$') or slot.item:match('^module_slot_(%d+)$'))
+    elseif type(slot.item) == 'string' and slot.item:match('^slot_%d+$') then
+      local idx = tonumber(slot.item:match('^slot_(%d+)$'))
 
       if player and player.components and player.components.equipment and player.components.equipment.grid and idx then
         local gridData = player.components.equipment.grid[idx]
         if gridData and gridData.module then
           local t = gridData.module
-          if isTurret then
-            -- Handle turret
+          local moduleType = gridData.type
+          
+          -- Check if this is a weapon module
+          local isWeapon = (gridData.type == "weapon")
+          
+          if isWeapon then
+            -- Handle weapon
             local subject = resolveTurretSubject(t, gridData.id)
             drawIcon({ subject, (t and t.id), "basic_gun" }, rx + 4, ry + 4, size - 8)
             drewIcon = true
@@ -243,8 +315,8 @@ function Hotbar.draw(player)
             end
           end
 
-          -- Draw heat bar for turrets only - fills entire slot like cooldown bars
-          if isTurret and t and t.getHeatFactor then
+          -- Draw heat bar for weapons only - fills entire slot like cooldown bars
+          if isWeapon and t and t.getHeatFactor then
               local heatFactor = t:getHeatFactor()
               if heatFactor > 0.001 then -- Lower threshold to make heat bars more visible
                   -- Heat bar fills entire slot area
@@ -272,99 +344,96 @@ function Hotbar.draw(player)
 
         end
       end
-    elseif type(slot.item) == 'string' and slot.item:match('^ability_slot_%d+$') then
-      local idx = tonumber(slot.item:match('^ability_slot_(%d+)$'))
-      if player and player.components and player.components.equipment and player.components.equipment.grid and idx then
-        local gridData = player.components.equipment.grid[idx]
-        if drawEquipmentSlot(gridData, player, rx, ry, size) then
-          drewIcon = true
-        end
-      end
     elseif slot.item == "boost" then
       local active = HotbarSystem.isActive and HotbarSystem.isActive('boost')
       drawBoostIcon(rx + 4, ry + 4, size - 8, active)
       drewIcon = true
     end
 
-    -- Draw clip status above slot for gun turrets (only when weapon is equipped and has ammo)
-    if player and slot.item and type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
-      local idx = tonumber(slot.item:match('^turret_slot_(%d+)$'))
+    -- Draw clip status above slot for gun weapons (only when weapon is equipped and has ammo)
+    if player and slot.item and type(slot.item) == 'string' and slot.item:match('^slot_%d+$') then
+      local idx = tonumber(slot.item:match('^slot_(%d+)$'))
       if player.components and player.components.equipment and player.components.equipment.grid and idx then
         local gridData = player.components.equipment.grid[idx]
         if gridData and gridData.module then
           local t = gridData.module
-          -- Only show ammo bar for turrets that require clips
-          local handler = t and t.getHandler and t:getHandler()
-          local config = handler and handler.config or {}
-          if t and config.requiresClip and t.clipSize and t.clipSize > 0 then
-            local clipStatus = t:getClipStatus()
-            if clipStatus then
-              -- Only show ammo bar if:
-              -- 1. Currently reloading, OR
-              -- 2. Ammo is low (less than 50%), OR  
-              -- 3. Recently fired (has been used recently)
-              local shouldShowAmmoBar = clipStatus.isReloading or 
-                                       (clipStatus.current / clipStatus.max) < 0.5 or
-                                       (t.lastFireTime and (love.timer.getTime() - t.lastFireTime) < 5.0)
-              
-              if shouldShowAmmoBar then
-              local barHeight = 4 -- Slim bar height
-              local barY = ry - barHeight - 2 -- Above the slot
-              local barWidth = size
-              local clipPct = clipStatus.current / clipStatus.max
-              
-              -- Clip bar background (dark)
-              love.graphics.setColor(0.1, 0.1, 0.1, 0.8)
-              love.graphics.rectangle('fill', rx, barY, barWidth, barHeight)
-              
-              -- Clip bar fill (depletes from right to left)
-              local fillWidth = math.floor(barWidth * clipPct)
-              local clipColor = {0.2, 0.8, 0.2, 1.0} -- Green
-              if clipPct < 0.3 then
-                clipColor = {0.8, 0.8, 0.2, 1.0} -- Yellow
+          -- Check if this is a weapon module
+          local isWeapon = (gridData.type == "weapon")
+          
+          -- Only show ammo bar for weapons that require clips
+          if isWeapon then
+            local handler = t and t.getHandler and t:getHandler()
+            local config = handler and handler.config or {}
+            if t and config.requiresClip and t.clipSize and t.clipSize > 0 then
+              local clipStatus = t:getClipStatus()
+              if clipStatus then
+                -- Only show ammo bar if:
+                -- 1. Currently reloading, OR
+                -- 2. Ammo is low (less than 50%), OR  
+                -- 3. Recently fired (has been used recently)
+                local shouldShowAmmoBar = clipStatus.isReloading or 
+                                         (clipStatus.current / clipStatus.max) < 0.5 or
+                                         (t.lastFireTime and (love.timer.getTime() - t.lastFireTime) < 5.0)
+                
+                if shouldShowAmmoBar then
+                  local barHeight = 4 -- Slim bar height
+                  local barY = ry - barHeight - 2 -- Above the slot
+                  local barWidth = size
+                  local clipPct = clipStatus.current / clipStatus.max
+                  
+                  -- Clip bar background (dark)
+                  love.graphics.setColor(0.1, 0.1, 0.1, 0.8)
+                  love.graphics.rectangle('fill', rx, barY, barWidth, barHeight)
+                  
+                  -- Clip bar fill (depletes from right to left)
+                  local fillWidth = math.floor(barWidth * clipPct)
+                  local clipColor = {0.2, 0.8, 0.2, 1.0} -- Green
+                  if clipPct < 0.3 then
+                    clipColor = {0.8, 0.8, 0.2, 1.0} -- Yellow
+                  end
+                  if clipPct <= 0 then
+                    clipColor = {0.8, 0.2, 0.2, 1.0} -- Red
+                  end
+                  
+                  love.graphics.setColor(clipColor)
+                  love.graphics.rectangle('fill', rx, barY, fillWidth, barHeight)
+                  
+                  -- Clip bar border
+                  love.graphics.setColor(0.4, 0.4, 0.4, 1.0)
+                  love.graphics.setLineWidth(1)
+                  love.graphics.rectangle('line', rx, barY, barWidth, barHeight)
+                  
+                  -- Reloading text and use ammunition bar as progress
+                  if clipStatus.isReloading then
+                    local textY = barY - 16 -- Above the clip bar
+                    local text = "Reloading..."
+                    local fOld = love.graphics.getFont()
+                    if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
+                    local font = love.graphics.getFont()
+                    local metrics = UIUtils.getCachedTextMetrics(text, font)
+                    local fw = metrics.width
+                    local fh = metrics.height
+                    local tx = rx + (barWidth - fw) * 0.5 -- Center the text
+                    
+                    -- Text shadow
+                    Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.8))
+                    love.graphics.print(text, tx + 1, textY + 1)
+                    -- Text
+                    Theme.setColor(Theme.colors.text)
+                    love.graphics.print(text, tx, textY)
+                    
+                    -- Use the ammunition bar as reload progress bar
+                    local reloadPct = clipStatus.reloadProgress
+                    local progressWidth = math.floor(barWidth * reloadPct)
+                    
+                    -- Reload progress fill (yellow) on top of the clip bar
+                    love.graphics.setColor(0.8, 0.8, 0.2, 1.0) -- Yellow
+                    love.graphics.rectangle('fill', rx, barY, progressWidth, barHeight)
+                    
+                    if fOld then love.graphics.setFont(fOld) end
+                  end
+                end -- Close shouldShowAmmoBar condition
               end
-              if clipPct <= 0 then
-                clipColor = {0.8, 0.2, 0.2, 1.0} -- Red
-              end
-              
-              love.graphics.setColor(clipColor)
-              love.graphics.rectangle('fill', rx, barY, fillWidth, barHeight)
-              
-              -- Clip bar border
-              love.graphics.setColor(0.4, 0.4, 0.4, 1.0)
-              love.graphics.setLineWidth(1)
-              love.graphics.rectangle('line', rx, barY, barWidth, barHeight)
-              
-              -- Reloading text and use ammunition bar as progress
-              if clipStatus.isReloading then
-                local textY = barY - 16 -- Above the clip bar
-                local text = "Reloading..."
-                local fOld = love.graphics.getFont()
-                if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
-                local font = love.graphics.getFont()
-                local metrics = UIUtils.getCachedTextMetrics(text, font)
-                local fw = metrics.width
-                local fh = metrics.height
-                local tx = rx + (barWidth - fw) * 0.5 -- Center the text
-                
-                -- Text shadow
-                Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.8))
-                love.graphics.print(text, tx + 1, textY + 1)
-                -- Text
-                Theme.setColor(Theme.colors.text)
-                love.graphics.print(text, tx, textY)
-                
-                -- Use the ammunition bar as reload progress bar
-                local reloadPct = clipStatus.reloadProgress
-                local progressWidth = math.floor(barWidth * reloadPct)
-                
-                -- Reload progress fill (yellow) on top of the clip bar
-                love.graphics.setColor(0.8, 0.8, 0.2, 1.0) -- Yellow
-                love.graphics.rectangle('fill', rx, barY, progressWidth, barHeight)
-                
-                if fOld then love.graphics.setFont(fOld) end
-              end
-              end -- Close shouldShowAmmoBar condition
             end
           end
         end
@@ -405,14 +474,23 @@ function Hotbar.draw(player)
             if fOld then love.graphics.setFont(fOld) end
           end
         end
-      elseif type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
-        -- Individual turret slot cooldown
-        local idx = tonumber(slot.item:match('^turret_slot_(%d+)$'))
+      elseif type(slot.item) == 'string' and slot.item:match('^slot_%d+$') then
+        -- Individual slot cooldown
+        local idx = tonumber(slot.item:match('^slot_(%d+)$'))
         if player and player.components and player.components.equipment and player.components.equipment.grid and idx then
           local gridData = player.components.equipment.grid[idx]
           if gridData and gridData.module then
             local t = gridData.module
-            if t and t.cooldown and t.cooldown > 0 then
+            
+            -- Check if this is a weapon/turret module
+            local isWeapon = false
+            if gridData.module and gridData.module.module then
+              isWeapon = gridData.module.module.type == "turret"
+            elseif gridData.module and gridData.module.type then
+              isWeapon = gridData.module.type == "turret"
+            end
+            
+            if isWeapon and t and t.cooldown and t.cooldown > 0 then
               local cycle = t.cycle or 1.0  -- Fallback to 1.0 if cycle is not available
               local cooldownPct = math.max(0, math.min(1, t.cooldown / cycle))
               if cooldownPct > 0 then
@@ -440,24 +518,19 @@ function Hotbar.draw(player)
                 love.graphics.print(text, tx, ty)
                 if fOld then love.graphics.setFont(fOld) end
               end
+            else
+              -- Use modular cooldown system for non-weapon modules
+              drawCooldownOverlay(gridData, player, rx, ry, size)
             end
-            
           end
         end
-      elseif type(slot.item) == 'string' and slot.item:match('^ability_slot_%d+$') then
-        -- Ability module cooldown using modular system
-        local idx = tonumber(slot.item:match('^ability_slot_(%d+)$'))
-        if player and player.components and player.components.equipment and player.components.equipment.grid and idx then
-          local gridData = player.components.equipment.grid[idx]
-          drawCooldownOverlay(gridData, player, rx, ry, size)
-        end
       elseif slot.item == 'turret' then
-        -- Aggregate primary turret cooldown (max ratio across installed turrets that are not overheated)
+        -- Aggregate primary weapon cooldown (max ratio across installed weapons that are not overheated)
         local best = 0
         local bestTime = 0
         if player.components and player.components.equipment and player.components.equipment.grid then
           for _, gridData in ipairs(player.components.equipment.grid) do
-            if gridData.type == "turret" and gridData.module then
+            if gridData.type == "weapon" and gridData.module then
               local t = gridData.module
               if t and (t.cooldown or 0) > 0 then
                   local effectiveCycle = t.cycle or 1.0
@@ -472,7 +545,7 @@ function Hotbar.draw(player)
         end
         if best > 0 then
           local barHeight = math.floor(size * best)
-          -- Use blue for turret cooldown bar
+          -- Use blue for weapon cooldown bar
           love.graphics.setColor(0.2, 0.6, 1.0, 0.7)
           love.graphics.rectangle('fill', rx, ry + size - barHeight, size, barHeight)
           love.graphics.setColor(0.4, 0.8, 1.0, 0.9)
@@ -502,10 +575,21 @@ function Hotbar.draw(player)
       end
     end
 
-    -- Draw red X overlay when weapons are disabled and slot has a turret
+    -- Draw red X overlay when weapons are disabled and slot has a weapon
     local playerState = player and player.components and player.components.player_state
-    if playerState and playerState.weapons_disabled and slot.item and type(slot.item) == 'string' and slot.item:match('^turret_slot_%d+$') then
-      drawRedX(rx, ry, size)
+    if playerState and playerState.weapons_disabled and slot.item and type(slot.item) == 'string' and slot.item:match('^slot_%d+$') then
+      local idx = tonumber(slot.item:match('^slot_(%d+)$'))
+      if player and player.components and player.components.equipment and player.components.equipment.grid and idx then
+        local gridData = player.components.equipment.grid[idx]
+        if gridData and gridData.module then
+          -- Check if this is a weapon module
+          local isWeapon = (gridData.type == "weapon")
+          
+          if isWeapon then
+            drawRedX(rx, ry, size)
+          end
+        end
+      end
     end
 
     -- Highlight border when active for hold-type actions (draw last so it's on top)

@@ -6,8 +6,7 @@ local Hotbar = {}
 -- Runtime state for hold/toggle actions
 Hotbar.state = {
     active = {
-        turret_slots = {},
-        ability_slots = {},
+        slots = {},
     }
 }
 
@@ -74,8 +73,7 @@ end
 function Hotbar.reset()
     Hotbar.slots = nil
     Hotbar.state.active = {
-        turret_slots = {},
-        ability_slots = {},
+        slots = {},
     }
 end
 
@@ -105,29 +103,31 @@ function Hotbar.populateFromPlayer(player, newModuleId, slotNum)
     end
 
     local forcedAssignment = {}
-    local seenTurrets = {}
-    local seenAbilities = {}
+    local seenModules = {}
 
     if player.components and player.components.equipment and player.components.equipment.grid then
         for _, gridData in ipairs(player.components.equipment.grid) do
-            if gridData.type == "turret" and gridData.module then
-                local key = "turret_slot_" .. tostring(gridData.slot)
-                seenTurrets[key] = true
-                local preferred = tonumber(gridData.hotbarSlot)
-                if preferred and preferred >= 1 and preferred <= #Hotbar.slots then
-                    if not forcedAssignment[preferred] then
-                        forcedAssignment[preferred] = key
-                        Hotbar.slots[preferred].item = key
-                    end
+            if gridData.module then
+                local moduleData = gridData.module.module or gridData.module
+                local isPassive = false
+                
+                -- Check if module is passive (for modules with .module structure)
+                if gridData.module.module and gridData.module.module.passive then
+                    isPassive = gridData.module.module.passive
+                elseif gridData.module.passive then
+                    isPassive = gridData.module.passive
                 end
-            elseif gridData.type == "ability" and gridData.module then
-                local key = "ability_slot_" .. tostring(gridData.slot)
-                seenAbilities[key] = true
-                local preferred = tonumber(gridData.hotbarSlot)
-                if preferred and preferred >= 1 and preferred <= #Hotbar.slots then
-                    if not forcedAssignment[preferred] then
-                        forcedAssignment[preferred] = key
-                        Hotbar.slots[preferred].item = key
+                
+                -- Only add to hotbar if module is not passive
+                if not isPassive then
+                    local key = "slot_" .. tostring(gridData.slot)
+                    seenModules[key] = true
+                    local preferred = tonumber(gridData.hotbarSlot)
+                    if preferred and preferred >= 1 and preferred <= #Hotbar.slots then
+                        if not forcedAssignment[preferred] then
+                            forcedAssignment[preferred] = key
+                            Hotbar.slots[preferred].item = key
+                        end
                     end
                 end
             end
@@ -145,22 +145,8 @@ function Hotbar.populateFromPlayer(player, newModuleId, slotNum)
         return false
     end
 
-    -- Place any remaining turrets that haven't been assigned yet
-    for key in pairs(seenTurrets) do
-        local exists = false
-        for i = 1, #Hotbar.slots do
-            if Hotbar.slots[i].item == key then
-                exists = true
-                break
-            end
-        end
-        if not exists then
-            place(key)
-        end
-    end
-
-    -- Place any remaining ability modules that haven't been assigned yet
-    for key in pairs(seenAbilities) do
+    -- Place any remaining modules that haven't been assigned yet
+    for key in pairs(seenModules) do
         local exists = false
         for i = 1, #Hotbar.slots do
             if Hotbar.slots[i].item == key then
@@ -187,17 +173,11 @@ end
 function Hotbar.isActive(action)
     if not action then return false end
     if Hotbar.state.active[action] == true then return true end
-    -- turret_slot_N actions
-    local idx = tostring(action):match("^turret_slot_(%d+)$")
+    -- slot_N actions
+    local idx = tostring(action):match("^slot_(%d+)$")
     if idx then
-        Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
-        return not not Hotbar.state.active.turret_slots[tonumber(idx)]
-    end
-    -- ability_slot_N actions
-    local abilityIdx = tostring(action):match("^ability_slot_(%d+)$")
-    if abilityIdx then
-        Hotbar.state.active.ability_slots = Hotbar.state.active.ability_slots or {}
-        return not not Hotbar.state.active.ability_slots[tonumber(abilityIdx)]
+        Hotbar.state.active.slots = Hotbar.state.active.slots or {}
+        return not not Hotbar.state.active.slots[tonumber(idx)]
     end
     return false
 end
@@ -209,36 +189,39 @@ function Hotbar.keypressed(key, player)
         if key == bound then
             local item = slot.item
             -- No fallback behavior - only process if there's an item in the slot
-            if type(item) == 'string' and (item:match('^turret_slot_%d+$') or item:match('^module_slot_%d+$')) then
-                -- Handle turret firing based on fireMode
-                local idx = tonumber(item:match('^turret_slot_(%d+)$') or item:match('^module_slot_(%d+)$'))
-                if idx then
-                    -- Get the turret to check its fireMode
-                    local TurretSystem = require("src.systems.turret.system")
-                    local turret = TurretSystem.getTurretBySlot(player, idx)
-                    if turret then
-                        if turret.fireMode == "automatic" then
-                            -- For automatic mode: toggle the autoFire state
-                            Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
-                            Hotbar.state.active.turret_slots[idx] = not Hotbar.state.active.turret_slots[idx]
-                        else
-                            -- For manual mode: set firing to true (will be cleared on key release)
-                            Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
-                            Hotbar.state.active.turret_slots[idx] = true
-                        end
-                    end
-                end
-            elseif type(item) == 'string' and item:match('^ability_slot_%d+$') then
-                -- Handle ability module activation
-                local idx = tonumber(item:match('^ability_slot_(%d+)$'))
+            if type(item) == 'string' and item:match('^slot_%d+$') then
+                local idx = tonumber(item:match('^slot_(%d+)$'))
                 if idx and player.components and player.components.equipment and player.components.equipment.grid then
                     local gridData = player.components.equipment.grid[idx]
-                    if gridData and gridData.module and gridData.module.module then
-                        local moduleData = gridData.module.module
-                        if moduleData.ability_type == "dash" then
-                            -- Trigger dash
-                            local DashSystem = require("src.systems.player.dash")
-                            DashSystem.queueDash(player)
+                    if gridData and gridData.module then
+                        -- Check if this is a weapon module
+                        local isWeapon = (gridData.type == "weapon")
+                        
+                        if isWeapon then
+                            -- Handle weapon firing based on fireMode
+                            local TurretSystem = require("src.systems.turret.system")
+                            local turret = TurretSystem.getTurretBySlot(player, idx)
+                            if turret then
+                                if turret.fireMode == "automatic" then
+                                    -- For automatic mode: toggle the autoFire state
+                                    Hotbar.state.active.slots = Hotbar.state.active.slots or {}
+                                    Hotbar.state.active.slots[idx] = not Hotbar.state.active.slots[idx]
+                                else
+                                    -- For manual mode: set firing to true (will be cleared on key release)
+                                    Hotbar.state.active.slots = Hotbar.state.active.slots or {}
+                                    Hotbar.state.active.slots[idx] = true
+                                end
+                            end
+                        else
+                            -- Handle module activation
+                            if gridData.module.module then
+                                local moduleData = gridData.module.module
+                                if moduleData.ability_type == "dash" then
+                                    -- Trigger dash
+                                    local DashSystem = require("src.systems.player.dash")
+                                    DashSystem.queueDash(player)
+                                end
+                            end
                         end
                     end
                 end
@@ -256,16 +239,24 @@ function Hotbar.keyreleased(key, player)
         local bound = Hotbar.getSlotKey(i)
         if key == bound then
             local item = slot.item
-            if type(item) == 'string' and (item:match('^turret_slot_%d+$') or item:match('^module_slot_%d+$')) then
-                local idx = tonumber(item:match('^turret_slot_(%d+)$') or item:match('^module_slot_(%d+)$'))
-                if idx then
-                    -- Get the turret to check its fireMode
-                    local TurretSystem = require("src.systems.turret.system")
-                    local turret = TurretSystem.getTurretBySlot(player, idx)
-                    if turret and turret.fireMode == "manual" then
-                        -- For manual mode: clear the firing state on key release
-                        Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
-                        Hotbar.state.active.turret_slots[idx] = false
+            if type(item) == 'string' and item:match('^slot_%d+$') then
+                local idx = tonumber(item:match('^slot_(%d+)$'))
+                if idx and player.components and player.components.equipment and player.components.equipment.grid then
+                    local gridData = player.components.equipment.grid[idx]
+                    if gridData and gridData.module then
+                        -- Check if this is a weapon module
+                        local isWeapon = (gridData.type == "weapon")
+                        
+                        if isWeapon then
+                            -- Get the turret to check its fireMode
+                            local TurretSystem = require("src.systems.turret.system")
+                            local turret = TurretSystem.getTurretBySlot(player, idx)
+                            if turret and turret.fireMode == "manual" then
+                                -- For manual mode: clear the firing state on key release
+                                Hotbar.state.active.slots = Hotbar.state.active.slots or {}
+                                Hotbar.state.active.slots[idx] = false
+                            end
+                        end
                     end
                 end
             end

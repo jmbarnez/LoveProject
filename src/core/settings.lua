@@ -41,7 +41,7 @@ local settings = {
     },
     hotbar = {
         items = {
-            "turret_slot_1", -- LMB
+            "slot_1", -- LMB
             "shield",        -- RMB
             nil,              -- Q
             nil,              -- E

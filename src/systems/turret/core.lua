@@ -340,7 +340,7 @@ function Turret.getTurretBySlot(player, slot)
     end
 
     local gridData = player.components.equipment.grid[slot]
-    if gridData and gridData.type == "turret" then
+    if gridData and gridData.type == "weapon" then
         return gridData.module
     end
 
