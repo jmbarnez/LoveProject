@@ -421,6 +421,7 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
                     source = turret.owner,
                     damage = damageConfig,
                     definition = projectileTemplate,
+                    kind = turret.kind, -- Pass turret kind to projectile
                     sourcePlayerId = metadata.playerId,
                     sourceShipId = metadata.shipId,
                     sourceTurretSlot = metadata.turretSlot,
@@ -579,6 +580,7 @@ function ProjectileWeapons.updateMissileTurret(turret, dt, target, locked, world
                 damage = damageConfig,
                 additionalEffects = additionalEffects,
                 definition = projectileTemplate,
+                kind = turret.kind, -- Pass turret kind to projectile
                 sourcePlayerId = metadata.playerId,
                 sourceShipId = metadata.shipId,
                 sourceTurretSlot = metadata.turretSlot,

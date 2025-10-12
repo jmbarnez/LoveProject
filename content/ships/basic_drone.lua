@@ -62,7 +62,7 @@ return {
     hardpoints = {
         {
             turret = "basic_cannon",
-            randomTurrets = { "basic_cannon", "low_power_laser" },
+            randomTurrets = { "basic_cannon", "low_power_laser", "healing_laser" },
         }
     },
 
@@ -120,23 +120,6 @@ return {
             ai = { intelligenceLevel = "STANDARD", aggressiveType = "aggressive" },
             xpReward = 15,
             hull = { hp = 80, shield = 100, cap = 0 } -- Increased shield for guard variant
-        },
-        elite = {
-            name = "Elite Hunter Drone",
-            ai = { intelligenceLevel = "ELITE", aggressiveType = "hostile" },
-            xpReward = 25,
-            hull = { hp = 120, shield = 150, cap = 0 }, -- Increased shield for elite variant
-            engine = { maxSpeed = 400, accel = 650 }
-        },
-        ace = {
-            name = "Ace Combat Drone",
-            ai = { intelligenceLevel = "ACE", aggressiveType = "hostile" },
-            xpReward = 40,
-            hull = { hp = 180, shield = 200, cap = 0 }, -- Increased shield for ace variant
-            engine = { maxSpeed = 420, accel = 700 },
-            hardpoints = {
-                { turret = "low_power_laser" }
-            }
         }
     }
 }

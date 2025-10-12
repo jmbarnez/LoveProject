@@ -299,6 +299,7 @@ local function logEnemyComponents(enemy)
     end
 end
 
+
 -- Spawns a basic drone enemy
 local function spawnEnemy(player, hub, world)
   local margin = getSpawnValue("MARGIN") or 300
@@ -348,6 +349,9 @@ local function spawnEnemy(player, hub, world)
       if not (enemyShip.components and enemyShip.components.ai) then
           Log.error("Enemy spawned without AI component!")
       end
+      
+      -- Basic drones now have modular behavior based on their weapon modules
+      -- No need to spawn separate healing drones
   end
 end
 

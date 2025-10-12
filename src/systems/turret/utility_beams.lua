@@ -795,4 +795,130 @@ function UtilityBeams.applySalvageDamage(target, damage, source, world)
     return applied > 0
 end
 
+-- Handle healing laser operation (continuous beam with continuous healing)
+function UtilityBeams.updateHealingLaser(turret, dt, target, locked, world)
+    if locked or not isTurretInputActive(turret) or not turret:canFire() then
+        resetBeamState(turret)
+        if turret.healingSoundActive or turret.healingSoundInstance then
+            TurretEffects.stopHealingSound(turret)
+        end
+        if world then
+            local entities = world:get_entities_with_components("health")
+            for _, entity in ipairs(entities) do
+                if entity.components and entity.components.health then
+                    entity.components.health.isBeingHealed = false
+                end
+            end
+        end
+        return
+    end
+
+    -- Set target position for AI-controlled healing drones
+    if target and target.components and target.components.position then
+        local owner = turret.owner or {}
+        owner.cursorWorldPos = {
+            x = target.components.position.x,
+            y = target.components.position.y
+        }
+    end
+
+    local wasActive = turret.beamActive
+    local beamData = computeBeamTarget(turret, world)
+    local energyStarved, energyLevel = updateEnergyAndWarnings(turret, dt, "Healing laser")
+
+    if energyStarved then
+        resetBeamState(turret)
+        if turret.healingSoundActive or turret.healingSoundInstance then
+            TurretEffects.stopHealingSound(turret)
+        end
+        return
+    end
+
+    applyBeamState(
+        turret,
+        beamData.startX,
+        beamData.startY,
+        beamData.beamEndX,
+        beamData.beamEndY,
+        beamData.hitTarget,
+        energyLevel
+    )
+
+    local requestSent = sendUtilityBeamWeaponFireRequest(
+        turret,
+        beamData.startX,
+        beamData.startY,
+        beamData.angle,
+        beamData.effectiveRange,
+        "healing"
+    )
+
+    if not requestSent then
+        -- Host processes beam locally
+    end
+
+    local cycle = math.max(0.1, turret.cycle)
+    local healingPower = turret.healingPower or 2.0
+    local healingRate = healingPower / cycle
+
+    if beamData.hitTarget then
+        if beamData.hitTarget.components and beamData.hitTarget.components.health then
+            beamData.hitTarget.components.health.isBeingHealed = true
+
+            local healingValue = healingRate * dt
+            UtilityBeams.applyHealingDamage(
+                beamData.hitTarget,
+                healingValue,
+                turret.owner,
+                world,
+                beamData.hitX,
+                beamData.hitY
+            )
+        else
+            TurretEffects.createImpactEffect(
+                turret,
+                beamData.hitX,
+                beamData.hitY,
+                beamData.hitTarget,
+                "laser"
+            )
+        end
+    else
+        local entities = world:get_entities_with_components("health")
+        for _, entity in ipairs(entities) do
+            if entity.components and entity.components.health then
+                entity.components.health.isBeingHealed = false
+            end
+        end
+    end
+
+    turret.cooldownOverride = 0
+
+    updateBeamSound(turret, wasActive, TurretEffects.stopHealingSound)
+end
+
+-- Apply healing damage to target (hull only, not shield)
+function UtilityBeams.applyHealingDamage(target, healing, source, world, impactX, impactY)
+    if not target.components or not target.components.health then
+        return
+    end
+
+    local health = target.components.health
+    local oldHp = health.hp or 0
+
+    -- Only heal hull, not shield
+    if health.hp and health.hp < (health.maxHp or 0) then
+        local hullHealing = math.min(healing, (health.maxHp or 0) - health.hp)
+        health.hp = health.hp + hullHealing
+    end
+
+    -- Create healing visual effects
+    if (health.hp or 0) > oldHp then
+        local Effects = require("src.systems.effects")
+        if Effects.spawnHealingParticles then
+            Effects.spawnHealingParticles(impactX, impactY)
+        end
+    end
+end
+
 return UtilityBeams

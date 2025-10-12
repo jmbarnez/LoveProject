@@ -277,9 +277,7 @@ function TurretScaling.generateProceduralName(baseName, modifiers, level)
     local name = baseName
     
     -- Add level prefix for high-level turrets
-    if level >= 15 then
-        name = "Elite " .. name
-    elseif level >= 10 then
+    if level >= 10 then
         name = "Advanced " .. name
     elseif level >= 5 then
         name = "Enhanced " .. name

@@ -112,9 +112,6 @@ function Player.new(x, y, shipId)
   -- Initialize shield HP based on equipped modules (after modules are equipped)
   self:updateShieldHP()
 
-  -- Add level 5 versions of all turrets to cargo
-  self:addLevel5Turrets()
-
   PlayerHotbar.populate(self)
 
   return self

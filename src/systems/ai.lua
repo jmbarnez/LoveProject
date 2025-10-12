@@ -458,6 +458,10 @@ function AISystem.update(dt, world)
         local ai = entity.components.ai
         if getmetatable(ai) == SimpleTurretAI or entity.aiType == "turret" then
             updateTurretEnemy(entity, world, dt)
+        elseif entity.id == "basic_drone" or entity.id == "boss_drone" then
+            -- Modular AI for drones based on weapon modules
+            local ModularDroneAI = require("src.systems.ai_modular_drone")
+            ModularDroneAI.update(entity, dt, world)
         else
             updateShipEnemy(entity, world, dt)
         end

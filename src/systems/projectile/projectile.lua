@@ -167,6 +167,7 @@ function Projectile.new(x, y, angle, friendly, config)
             targetX = config.targetX, -- Target position for bomb-type projectiles
             targetY = config.targetY,
             targetAngle = config.targetAngle,
+            kind = config.kind, -- Store projectile kind for collision detection
         },
         position = Position.new({ x = x, y = y, angle = angle }),
         velocity = Velocity.new({ x = vx, y = vy }),
@@ -208,22 +209,21 @@ function Projectile.new(x, y, angle, friendly, config)
         timed_life = TimedLife.new(
             (config.timed_life and config.timed_life.duration) or 2.0
         ),
-        -- Add hull component for projectiles
+        -- Add health component only for rockets/missiles
         health = (function()
             local kind = config.kind or 'bullet'
-            local hullValue = 1 -- Default hull for bullets
             
-            -- Rockets get more hull
+            -- Only rockets and missiles get health components
             if kind == "rocket" or kind == "missile" then
-                hullValue = 5
+                return Health.new({
+                    hp = 5,
+                    maxHP = 5,
+                    shield = 0,
+                    maxShield = 0
+                })
             end
             
-            return Health.new({
-                hp = hullValue,
-                maxHP = hullValue,
-                shield = 0,
-                maxShield = 0
-            })
+            return nil -- No health component for other projectiles
         end)(),
         -- Add max range tracking
         max_range = (function()

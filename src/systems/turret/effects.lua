@@ -45,6 +45,18 @@ function TurretEffects.playFiringSound(turret)
         if turret.miningSoundInstance then
             activeUtilitySounds[turret.miningSoundInstance] = turret
         end
+    elseif turret.kind == "healing_laser" then
+        -- Always stop any existing sound first, then start new one
+        if turret.healingSoundInstance then
+            TurretEffects.stopHealingSound(turret)
+        end
+        -- Store the sound instance for continuous healing laser
+        turret.healingSoundInstance = Sound.triggerEvent('weapon_healing_laser', x, y)
+        turret.healingSoundActive = true
+        -- Track this sound globally
+        if turret.healingSoundInstance then
+            activeUtilitySounds[turret.healingSoundInstance] = turret
+        end
     elseif turret.kind == "salvaging_laser" then
         -- Always stop any existing sound first, then start new one
         if turret.salvagingSoundInstance then
@@ -105,6 +117,30 @@ function TurretEffects.stopSalvagingSound(turret)
         end
         turret.salvagingSoundInstance = nil
         turret.salvagingSoundActive = false
+    end
+end
+
+-- Stop healing laser sound
+function TurretEffects.stopHealingSound(turret)
+    if turret then
+        if turret.healingSoundInstance then
+            -- Remove from global tracking
+            activeUtilitySounds[turret.healingSoundInstance] = nil
+            -- Force stop the sound instance
+            if turret.healingSoundInstance.stop then
+                turret.healingSoundInstance:stop()
+            end
+            -- Also try to pause it as a backup
+            if turret.healingSoundInstance.pause then
+                turret.healingSoundInstance:pause()
+            end
+            -- Set volume to 0 as additional safety
+            if turret.healingSoundInstance.setVolume then
+                turret.healingSoundInstance:setVolume(0)
+            end
+        end
+        turret.healingSoundInstance = nil
+        turret.healingSoundActive = false
     end
 end
 

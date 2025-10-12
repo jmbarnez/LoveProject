@@ -107,6 +107,53 @@ function Effects.spawnLaserSparks(x, y, angle, color)
   end
 end
 
+-- Spawn healing particles for healing laser effects
+function Effects.spawnHealingParticles(x, y)
+  local color = {0.0, 1.0, 0.5, 0.8} -- Lime green
+  
+  -- Create gentle upward floating particles
+  local particleCount = 6 + math.random(4) -- 6-9 particles
+  
+  for i = 1, particleCount do
+    local angle = (math.random() * 2 - 1) * math.pi * 0.3 -- Gentle spread
+    local speed = 20 + math.random() * 30 -- Slow, gentle movement
+    local life = 0.8 + math.random() * 0.4 -- Longer life for gentle effect
+    local size = 1.2 + math.random() * 0.8 -- Larger, more visible particles
+    
+    Effects.add({
+      type = 'healing_particle',
+      x = x + (math.random() * 2 - 1) * 8, -- Small random offset
+      y = y + (math.random() * 2 - 1) * 8,
+      vx = math.cos(angle) * speed,
+      vy = math.sin(angle) * speed - 10, -- Slight upward bias
+      t = 0,
+      life = life,
+      color = color,
+      size = size,
+    })
+  end
+  
+  -- Add some gentle sparkle effects
+  for i = 1, 4 do
+    local angle = math.random() * 2 * math.pi
+    local speed = 15 + math.random() * 20
+    local life = 0.4 + math.random() * 0.3
+    local size = 0.8 + math.random() * 0.4
+    
+    Effects.add({
+      type = 'healing_sparkle',
+      x = x,
+      y = y,
+      vx = math.cos(angle) * speed,
+      vy = math.sin(angle) * speed,
+      t = 0,
+      life = life,
+      color = {1.0, 1.0, 1.0, 0.9}, -- White sparkles
+      size = size,
+    })
+  end
+end
+
 -- Spawn bullet impact effects for projectiles hitting hull surfaces
 function Effects.spawnBulletImpact(x, y, angle, bulletType, color)
   color = color or {0.8, 0.8, 0.8, 0.9}
@@ -617,6 +664,29 @@ function Effects.draw()
           love.graphics.setColor(f.color[1], f.color[2], f.color[3], alpha)
           love.graphics.circle('fill', f.x, f.y, 0.5)
         end
+      elseif f.type == 'healing_particle' then
+        -- Gentle healing particle rendering - soft circles with glow
+        local alpha = (f.color[4] or 1) * a
+        local size = f.size or 2
+        
+        -- Draw soft glow effect
+        love.graphics.setColor(f.color[1], f.color[2], f.color[3], alpha * 0.3)
+        love.graphics.circle('fill', f.x, f.y, size * 1.5)
+        
+        -- Draw main particle
+        love.graphics.setColor(f.color[1], f.color[2], f.color[3], alpha)
+        love.graphics.circle('fill', f.x, f.y, size)
+        
+        -- Draw bright center
+        love.graphics.setColor(1, 1, 1, alpha * 0.8)
+        love.graphics.circle('fill', f.x, f.y, size * 0.3)
+      elseif f.type == 'healing_sparkle' then
+        -- Healing sparkle rendering - small bright dots
+        local alpha = (f.color[4] or 1) * a
+        local size = f.size or 1
+        
+        love.graphics.setColor(f.color[1], f.color[2], f.color[3], alpha)
+        love.graphics.circle('fill', f.x, f.y, size)
       elseif f.type == 'ring' then
         local rr = Util.lerp(f.r0 or 2, f.r1 or 24, f.t / f.life)
         local lw = Util.lerp(f.w0 or 2, f.w1 or 1, f.t / f.life)

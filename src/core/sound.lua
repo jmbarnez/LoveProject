@@ -194,6 +194,8 @@ function Sound.loadSFX(name, path)
         proceduralSound = SoundGenerator.getCachedSound("mining_laser", 0.55, 90) -- Mining laser: looping sub-bass rumble
     elseif targetName == "salvaging_laser" then
         proceduralSound = SoundGenerator.getCachedSound("salvaging_laser", 0.5, 260) -- Salvaging laser: warm low-mid sweep
+    elseif targetName == "healing_laser" then
+        proceduralSound = SoundGenerator.getCachedSound("healing_laser", 0.4, 180) -- Healing laser: gentle, soothing tone
     elseif targetName == "shield_hit" then
         proceduralSound = SoundGenerator.getCachedSound("shield_hit", 0.15)
     elseif targetName == "hull_hit" then

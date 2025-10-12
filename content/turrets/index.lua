@@ -8,4 +8,5 @@ return {
     -- Utility turrets
     require("content.turrets.mining_laser"),
     require("content.turrets.salvaging_laser"),
+    require("content.turrets.healing_laser"),
 }

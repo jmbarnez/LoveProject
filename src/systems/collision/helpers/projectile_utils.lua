@@ -39,6 +39,19 @@ function ProjectileUtils.should_ignore_collision(projectile, target)
         return false
     end
 
+    -- Check if this is a utility beam (healing, mining, salvaging)
+    local isUtilityBeam = false
+    if projectile.components.bullet and projectile.components.bullet.kind then
+        local kind = projectile.components.bullet.kind
+        isUtilityBeam = (kind == "healing_laser" or kind == "mining_laser" or kind == "salvaging_laser")
+    end
+
+    -- For utility beams, allow friendly fire (healing can target allies)
+    if isUtilityBeam then
+        return false -- Don't ignore any targets for utility beams
+    end
+
+    -- For all other projectiles, prevent friendly fire
     local isFriendlyBullet = (projectile.components.collidable and projectile.components.collidable.friendly) or false
     if isFriendlyBullet then
         local isFriendlyEntity = target.isFreighter or target.isFriendly

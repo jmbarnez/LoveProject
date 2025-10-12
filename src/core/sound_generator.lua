@@ -491,6 +491,48 @@ function SoundGenerator.generateSalvagingLaser(duration, frequency, sampleRate)
     return soundData
 end
 
+-- Generate a healing laser sound (gentle, soothing, medical tone)
+function SoundGenerator.generateHealingLaser(duration, frequency, sampleRate)
+    duration = duration or 0.4
+    frequency = frequency or 180
+    sampleRate = sampleRate or 22050
+
+    local sampleCount = math.floor(duration * sampleRate)
+    local soundData = love.sound.newSoundData(sampleCount, sampleRate, 16, 1)
+
+    for i = 0, sampleCount - 1 do
+        local t = i / sampleCount
+
+        -- Gentle, soothing base tone
+        local baseFreq = frequency
+        local harmonic1 = math.sin(t * baseFreq * 2 * math.pi) * 0.4
+        local harmonic2 = math.sin(t * baseFreq * 1.5 * 2 * math.pi) * 0.25
+        local harmonic3 = math.sin(t * baseFreq * 2.5 * 2 * math.pi) * 0.15
+
+        -- Soft modulation for medical feel
+        local modulation = 1 + 0.08 * math.sin(t * 6 * 2 * math.pi)
+        local envelope = modulation * (0.8 + 0.2 * math.sin(t * 2 * 2 * math.pi))
+
+        -- Gentle pulsing effect
+        local pulse = 1 + 0.1 * math.sin(t * 4 * 2 * math.pi)
+
+        -- Soft white noise for texture
+        local texture = noise() * 0.05 * (1 - t * 0.5)
+
+        local sample = (harmonic1 + harmonic2 + harmonic3) * envelope * pulse + texture
+
+        -- Gentle fade in/out
+        local fadeIn = math.min(1, t * 8)
+        local fadeOut = math.min(1, (1 - t) * 4)
+        sample = sample * fadeIn * fadeOut
+
+        sample = Util.clamp(sample * 0.3, -1, 1)
+        soundData:setSample(i, sample)
+    end
+
+    return soundData
+end
+
 -- Generate shield hit sound (energy shield impact with harmonic resonance)
 function SoundGenerator.generateShieldHit(duration, sampleRate)
     duration = duration or 0.25
@@ -848,6 +890,8 @@ function SoundGenerator.getCachedSound(soundType, ...)
             soundData = SoundGenerator.generateMiningLaser(...)
         elseif soundType == "salvaging_laser" then
             soundData = SoundGenerator.generateSalvagingLaser(...)
+        elseif soundType == "healing_laser" then
+            soundData = SoundGenerator.generateHealingLaser(...)
         elseif soundType == "shield_hit" then
             soundData = SoundGenerator.generateShieldHit(...)
         elseif soundType == "hull_hit" then
