@@ -10,7 +10,7 @@ function Camera.new()
   -- Smooth zoom with continuous scaling
   self.scale = 0.5 -- Start at 0.5x zoom
   self.targetScale = self.scale
-  self.minScale = 0.5 -- Minimum zoom out to 0.5x
+  self.minScale = 0.3 -- Minimum zoom out to 0.3x (new ultra-wide view)
   self.maxScale = 2.0 -- Maximum zoom in to 2.0x
   self.zoomLerp = 8 -- Smooth zoom transition speed
   self.zoomSpeed = 0.1 -- Speed of zoom changes per wheel tick

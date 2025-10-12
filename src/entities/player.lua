@@ -172,9 +172,32 @@ function Player:equipTurret(slotNum, turretId)
             end
 
             if turretDef then
+                -- Check turret level restriction
+                local turretLevel = 1
+                if turretDef.level then
+                    turretLevel = turretDef.level
+                elseif turretDef.meta and turretDef.meta.level then
+                    turretLevel = turretDef.meta.level
+                end
+                
+                -- Check if player level is high enough
+                local playerLevel = 1
+                if self.components and self.components.progression then
+                    playerLevel = self.components.progression.level or 1
+                end
+                
+                if turretLevel > playerLevel then
+                    local Notifications = require("src.ui.notifications")
+                    if Notifications and Notifications.add then
+                        Notifications.add("Cannot equip level " .. turretLevel .. " turret. You need to be level " .. turretLevel .. " or higher.", "warning")
+                    end
+                    return false
+                end
+                
                 local newTurret = TurretSystem.spawn(self, turretDef)
                 newTurret.id = turretId
                 newTurret.slot = slotNum
+                newTurret._sourceData = turretDef -- Preserve the full turret definition including level
                 self.components.equipment.turrets[i] = {
                     id = turretId,
                     turret = newTurret,
@@ -272,7 +295,10 @@ function Player:equipModule(slotNum, moduleId, turretData)
         end
         
         -- Check if player level is high enough
-        local playerLevel = self.level or 1
+        local playerLevel = 1
+        if self.components and self.components.progression then
+            playerLevel = self.components.progression.level or 1
+        end
         if turretLevel > playerLevel then
             local Notifications = require("src.ui.notifications")
             if Notifications and Notifications.add then

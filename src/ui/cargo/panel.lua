@@ -479,7 +479,10 @@ local function drawEnhancedItemSlot(item, x, y, size, isHovered, isSelected)
   local PlayerRef = require("src.core.player_ref")
   local player = PlayerRef.get()
   if player and turretLevel > 1 then
-    local playerLevel = player.level or 1
+    local playerLevel = 1
+    if player.components and player.components.progression then
+      playerLevel = player.components.progression.level or 1
+    end
     canEquip = turretLevel <= playerLevel
   end
   

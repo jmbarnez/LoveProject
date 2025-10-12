@@ -68,11 +68,38 @@ function Dropdowns.refresh(state, player)
 
                         if allowed then
                             local label = def.name or tostring(entry.id)
+                            
+                            -- Check if this is a turret with level restrictions
+                            local turretLevel = 1
+                            if def.level then
+                                turretLevel = def.level
+                            elseif entry.meta and entry.meta.level then
+                                turretLevel = entry.meta.level
+                            end
+                            
+                            local playerLevel = 1
+                            if player.components and player.components.progression then
+                                playerLevel = player.components.progression.level or 1
+                            end
+                            
+                            local isLevelRestricted = turretLevel > playerLevel
+                            
+                            
                             if stackQty > 1 then
                                 label = string.format("%s (x%d)", label, stackQty)
                             end
+                            
+                            if isLevelRestricted then
+                                label = string.format("%s - Requires Level %d", label, turretLevel)
+                            end
+                            
                             table.insert(options, label)
-                            actions[#options] = { kind = "equip", id = entry.id }
+                            actions[#options] = { 
+                                kind = "equip", 
+                                id = entry.id, 
+                                turretData = entry.meta,
+                                levelRestricted = isLevelRestricted
+                            }
                         end
                     end
                 end
@@ -86,20 +113,43 @@ function Dropdowns.refresh(state, player)
             if not action then return end
 
             if action.kind == "equip" then
-                player:equipModule(slotIndex, action.id, action.turretData)
+                -- Check if this is a level-restricted turret
+                if action.levelRestricted then
+                    local Notifications = require("src.ui.notifications")
+                    if Notifications and Notifications.add then
+                        local turretLevel = 1
+                        if action.turretData and action.turretData.level then
+                            turretLevel = action.turretData.level
+                        end
+                        Notifications.add("Cannot equip level " .. turretLevel .. " turret. You need to be level " .. turretLevel .. " or higher.", "warning")
+                    end
+                    -- Don't change the dropdown selection, keep it on the current selection
+                    return false -- Don't equip the turret and don't update selection
+                end
+                local success = player:equipModule(slotIndex, action.id, action.turretData)
+                if success and state.slotDropdowns[i] then
+                    state.slotDropdowns[i]:setSelectedIndex(index)
+                end
+                return success
             elseif action.kind == "unequip" then
-                player:unequipModule(slotIndex)
+                local success = player:unequipModule(slotIndex)
+                if success and state.slotDropdowns[i] then
+                    state.slotDropdowns[i]:setSelectedIndex(index)
+                end
+                return success
+            end
+            
+            -- Handle other actions (like "keep")
+            if action.kind == "keep" then
+                return true -- Allow selection to update for "keep" actions
             end
 
-            if state.slotDropdowns[i] then
-                state.slotDropdowns[i]:setSelectedIndex(index)
-            end
-
-                        if CargoUI and CargoUI.refresh then
-                            CargoUI.refresh()
+            if CargoUI and CargoUI.refresh then
+                CargoUI.refresh()
             end
 
             Dropdowns.refresh(state, player)
+            return true -- Default to allowing selection update
         end
 
         if not state.slotDropdowns[i] then

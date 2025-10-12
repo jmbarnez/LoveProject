@@ -230,7 +230,12 @@ function Dropdown:drawOptions(mx, my)
 
             -- Option text
             local textColor
-            if isSelected then
+            local action = self._actions and self._actions[i]
+            local isLevelRestricted = action and action.levelRestricted
+            
+            if isLevelRestricted then
+                textColor = {0.8, 0.2, 0.2, 1.0} -- Red for level restricted
+            elseif isSelected then
                 textColor = Theme.colors.textHighlight -- White text on colored background
             elseif isHovered then
                 textColor = Theme.colors.accent -- Accent color for hover
@@ -350,9 +355,12 @@ function Dropdown:mousepressed(mx, my, button)
         if isWithinBounds then
             for i, option in ipairs(self.options) do
                 if self:isPointInOption(mx, my, i) then
-                    self.selectedIndex = i
                     self:setOpen(false)
-                    self.onSelect(i, option)
+                    local success = self.onSelect(i, option)
+                    -- Only update selection if the callback indicates success
+                    if success ~= false then
+                        self.selectedIndex = i
+                    end
                     return true
                 end
             end
