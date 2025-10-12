@@ -69,10 +69,10 @@ local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, si
     x = px, y = py,
     mass = 60, -- Light enough to be pushed around easily
   })
-  -- Very low drag so wreckage travels very far before stopping
-  e.components.physics.body.dragCoefficient = 0.995
-  -- Add some angular damping to prevent excessive spinning
-  e.components.physics.body.angularDamping = 0.98
+  -- Minimal drag so wreckage travels far before stopping
+  e.components.physics.body.dragCoefficient = 0.999
+  -- Minimal angular damping for natural spinning
+  e.components.physics.body.angularDamping = 0.999
   -- Use an impulse to start movement so it respects mass/momentum
   do
     local body = e.components.physics.body

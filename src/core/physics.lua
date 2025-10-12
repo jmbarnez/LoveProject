@@ -2,16 +2,16 @@ local Physics = {}
 
 -- Realistic space physics constants - True Newtonian mechanics
 Physics.constants = {
-    -- Balanced space drag (solar wind, cosmic dust, etc.)
+    -- Minimal space drag (solar wind, cosmic dust, etc.)
     -- Applied to ALL moving objects for consistency
-    -- 0.9999 = 0.01% per frame = 0.6% per second = balanced gameplay drag
-    SPACE_DRAG_COEFFICIENT = 0.9999,
+    -- 0.99995 = 0.005% per frame = 0.3% per second = minimal drag for responsiveness
+    SPACE_DRAG_COEFFICIENT = 0.99995,
     -- Ship mass affects acceleration (in tons)
     defaultMass = 500,
     -- Thruster efficiency
     thrusterEfficiency = 0.8,
-    -- Light angular damping for stability (minimal space friction on rotation)
-    angularDamping = 0.999,
+    -- Minimal angular damping for responsive rotation
+    angularDamping = 0.9995,
     -- Minimum velocity threshold (only stop truly microscopic values to prevent floating point errors)
     minVelocity = 0.001,
     -- Maximum velocity cap

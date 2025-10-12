@@ -196,9 +196,9 @@ function Pickups.update(dt, world, player)
       -- Apply velocity
       pos.x = pos.x + vel.x * dt
       pos.y = pos.y + vel.y * dt
-      -- Light drag
-      vel.x = vel.x * 0.98
-      vel.y = vel.y * 0.98
+      -- Minimal drag for natural movement
+      vel.x = vel.x * 0.999
+      vel.y = vel.y * 0.999
     end
   end
 

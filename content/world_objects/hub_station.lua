@@ -14,7 +14,6 @@ return {
     collidable = {
         shape = "polygon",
         friendly = true,
-        friction = 0.3, -- Smooth metal surface
         vertices = {
             -40, -20,  -- Top-left
             -30, -30,  -- Left

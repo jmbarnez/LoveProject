@@ -139,20 +139,7 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
         -- Create collision effects if appropriate
         if shouldCreateEffects and not inSameGroup then
             local CollisionEffects = require("src.systems.collision.effects")
-            local CollisionShapes = require("src.systems.collision.shapes.collision_shapes")
-            
-            local e1x = entity1.components.position.x
-            local e1y = entity1.components.position.y
-            local e2x = entity2.components.position.x
-            local e2y = entity2.components.position.y
-            
-            local e1Radius = CollisionShapes.getEntityCollisionRadius(entity1)
-            local e2Radius = CollisionShapes.getEntityCollisionRadius(entity2)
-            
-            local shape1 = collision.shape1
-            local shape2 = collision.shape2
-            
-            CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x, e2y, nx, ny, e1Radius, e2Radius, shape1, shape2)
+            CollisionEffects.createCollisionEffects(entity1, entity2, collision, nx, ny, overlap)
         end
     end
 end

@@ -75,7 +75,6 @@ return {
 
     collidable = {
         shape = "polygon",
-        friction = 0.4, -- Standard ship hull friction
         vertices = {
             0, -10,  -- Top
             -8, -5,  -- Top-left
