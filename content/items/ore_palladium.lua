@@ -3,7 +3,6 @@ return {
   name = "Palladium Ore",
   type = "material",
   rarity = "Rare",
-  tier = 2,
   stack = 9999,
   value = 25,
   price = 35, -- Shop price based on market sell price

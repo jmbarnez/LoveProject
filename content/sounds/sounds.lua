@@ -87,7 +87,7 @@ return {
     impact_asteroid_light = {type = "sfx", sound = "asteroid_hit_light", volume = 0.3},
     impact_asteroid_heavy = {type = "sfx", sound = "asteroid_hit_heavy", volume = 0.6},
     impact_rock = {type = "sfx", sound = "rock_impact", volume = 0.5},
-    ship_explosion = {type = "sfx", sound = "explosion", volume = 0.9},
+    ship_explosion = {type = "sfx", sound = "explosion", volume = 0.4},
     
     -- Legacy impact events (for compatibility)
     impact_shield = {type = "sfx", sound = "shield_hit", volume = 0.5},

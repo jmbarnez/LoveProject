@@ -58,6 +58,7 @@ local function drawShieldIcon(x, y, size, active)
   love.graphics.circle('fill', cx + r*0.35, cy - r*0.35, 2)
 end
 
+
 local function drawRedX(x, y, size)
   local cx, cy = x + size * 0.5, y + size * 0.5
   local lineWidth = math.max(2, size * 0.08) -- Scale line width with slot size
@@ -170,6 +171,19 @@ function Hotbar.draw(player)
               end
           end
 
+        end
+      end
+    elseif type(slot.item) == 'string' and slot.item:match('^ability_slot_%d+$') then
+      local idx = tonumber(slot.item:match('^ability_slot_(%d+)$'))
+      if player and player.components and player.components.equipment and player.components.equipment.grid and idx then
+        local gridData = player.components.equipment.grid[idx]
+        if gridData and gridData.module then
+          -- Use the module's icon definition
+          local moduleIcon = gridData.module.icon
+          if moduleIcon then
+            drawIcon({ moduleIcon }, rx + 4, ry + 4, size - 8)
+            drewIcon = true
+          end
         end
       end
     elseif slot.item == "boost" then
@@ -334,6 +348,50 @@ function Hotbar.draw(player)
               end
             end
             
+          end
+        end
+      elseif type(slot.item) == 'string' and slot.item:match('^ability_slot_%d+$') then
+        -- Ability module cooldown (dash)
+        local idx = tonumber(slot.item:match('^ability_slot_(%d+)$'))
+        if player and player.components and player.components.equipment and player.components.equipment.grid and idx then
+          local gridData = player.components.equipment.grid[idx]
+          if gridData and gridData.module and gridData.module.module then
+            local moduleData = gridData.module.module
+            if moduleData.ability_type == "dash" then
+              local state = player.components.player_state
+              if state and state.dash_cooldown and state.dash_cooldown > 0 then
+                local dashConfig = require("src.content.config").DASH or {}
+                local baseCooldown = dashConfig.COOLDOWN or 0.9
+                local abilityModules = player.abilityModules or {}
+                local cooldown = baseCooldown * (1.0 - (abilityModules.dash_cooldown_reduction or 0.0))
+                local cooldownPct = math.max(0, math.min(1, state.dash_cooldown / cooldown))
+                if cooldownPct > 0 then
+                  local barHeight = math.floor(size * cooldownPct)
+                  -- Use orange for dash cooldown bar
+                  love.graphics.setColor(0.8, 0.4, 0.1, 0.8)
+                  love.graphics.rectangle('fill', rx, ry + size - barHeight, size, barHeight)
+                  love.graphics.setColor(1.0, 0.6, 0.2, 1.0)
+                  love.graphics.setLineWidth(2)
+                  love.graphics.rectangle('line', rx, ry + size - barHeight, size, barHeight)
+
+                  -- Numeric cooldown
+                  local text = string.format("%.1f", state.dash_cooldown)
+                  local fOld = love.graphics.getFont()
+                  if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
+                  local font = love.graphics.getFont()
+                  local metrics = UIUtils.getCachedTextMetrics(text, font)
+                  local fw = metrics.width
+                  local fh = metrics.height
+                  local tx, ty = rx + (size - fw) * 0.5, ry + (size - fh) * 0.5
+                  local Theme = require("src.core.theme")
+                  Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.7))
+                  love.graphics.print(text, tx + 1, ty + 1)
+                  Theme.setColor(Theme.colors.text)
+                  love.graphics.print(text, tx, ty)
+                  if fOld then love.graphics.setFont(fOld) end
+                end
+              end
+            end
           end
         end
       elseif slot.item == 'turret' then

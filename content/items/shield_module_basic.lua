@@ -7,7 +7,6 @@ return {
     value = 100,
     price = 500,
     rarity = "Common",
-    tier = 1,
     mass = 5,
     volume = 2,
     stack = 1,

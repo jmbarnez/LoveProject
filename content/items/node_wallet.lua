@@ -3,7 +3,6 @@ return {
   name = "Node Wallet",
   type = "consumable",
   rarity = "Uncommon",
-  tier = 2,
   stack = 10,
   value = 50,
   price = nil, -- Not sold in shops

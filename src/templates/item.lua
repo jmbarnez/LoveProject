@@ -14,7 +14,6 @@ function Item.new(props)
   self.effect = props.effect -- optional
   -- Extended fields (optional, carried for UI/gameplay)
   self.rarity = props.rarity or "Common"
-  self.tier = props.tier or 1
   self.mass = props.mass or 0
   self.volume = props.volume or 0
   self.market = props.market

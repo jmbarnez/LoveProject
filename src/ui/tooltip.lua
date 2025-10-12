@@ -112,7 +112,6 @@ function Tooltip.drawItemTooltip(item, x, y)
 
     -- Add item properties
     if fullItemDef.level then stats[#stats + 1] = {name = "Level", value = fullItemDef.level} end
-    if fullItemDef.tier then stats[#stats + 1] = {name = "Tier", value = fullItemDef.tier} end
     if fullItemDef.value then stats[#stats + 1] = {name = "Value", value = fullItemDef.value} end
     if fullItemDef.mass then stats[#stats + 1] = {name = "Mass", value = string.format("%.1f", fullItemDef.mass)} end
     if fullItemDef.volume then stats[#stats + 1] = {name = "Volume", value = string.format("%.1f", fullItemDef.volume)} end

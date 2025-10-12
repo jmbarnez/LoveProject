@@ -3,7 +3,6 @@ return {
   name = "Tritanium Ore",
   type = "material",
   rarity = "Common",
-  tier = 1,
   stack = 9999,
   value = 5,
   price = 8, -- Shop price based on market buy price

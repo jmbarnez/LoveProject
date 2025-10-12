@@ -41,14 +41,14 @@ local function drawOverheadBar(x, y, w, h, hullPct, shieldPct)
   love.graphics.setLineWidth(1)
   love.graphics.rectangle("line", innerX, innerY, innerW, innerH, 2, 2)
 
-  -- Hull fill - green gradient (like player HUD but more vibrant)
+  -- Hull fill - red gradient for enemies
   if hullPct > 0 then
     local hullWidth = innerW * hullPct
     
-    -- Base green color with gradient
-    local baseR, baseG, baseB = 0.2, 0.8, 0.3  -- Nice green
+    -- Base red color with gradient
+    local baseR, baseG, baseB = 0.9, 0.2, 0.2  -- Nice red
     
-    -- Create gradient from darker green to lighter green
+    -- Create gradient from darker red to lighter red
     love.graphics.setColor({baseR * 0.6, baseG * 0.6, baseB * 0.6, 0.9})
     love.graphics.rectangle("fill", innerX, innerY, hullWidth, innerH, 2, 2)
     

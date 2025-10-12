@@ -111,6 +111,9 @@ function Player.new(x, y, shipId)
 
   -- Initialize shield HP based on equipped modules (after modules are equipped)
   self:updateShieldHP()
+  
+  -- Initialize ability modules
+  self:updateAbilityModules()
 
   PlayerHotbar.populate(self)
 
@@ -386,6 +389,9 @@ function Player:equipModule(slotNum, moduleId, turretData)
                 self:updateShieldHP()
             elseif moduleType == "turret" then
                 PlayerHotbar.populate(self, moduleId, slotNum)
+            elseif moduleType == "ability" then
+                self:updateAbilityModules()
+                PlayerHotbar.populate(self, moduleId, slotNum)
             end
             return true
         end
@@ -409,7 +415,7 @@ function Player:unequipModule(slotNum)
             local moduleType = gridData.type
 
             -- Return module to cargo (stackable modules handled directly; turrets handled below)
-            if moduleId and (moduleType == "shield" or moduleType == "module") then
+            if moduleId and (moduleType == "shield" or moduleType == "module" or moduleType == "ability") then
                 cargo:add(moduleId, 1)
             elseif moduleType == "turret" then
                 local turretObj = gridData.module
@@ -435,6 +441,9 @@ function Player:unequipModule(slotNum)
             if moduleType == "shield" then
                 self:updateShieldHP()
             elseif moduleType == "turret" then
+                PlayerHotbar.populate(self, nil, slotNum)
+            elseif moduleType == "ability" then
+                self:updateAbilityModules()
                 PlayerHotbar.populate(self, nil, slotNum)
             end
             return true
@@ -483,6 +492,33 @@ function Player:getShieldRegen()
     end
 
     return totalShieldRegen
+end
+
+function Player:updateAbilityModules()
+    if not self.components or not self.components.equipment or not self.components.equipment.grid then
+        return
+    end
+
+    -- Reset ability module bonuses
+    self.abilityModules = {
+        dash_speed_multiplier = 1.0,
+        dash_cooldown_reduction = 0.0,
+        dash_energy_reduction = 0.0,
+        dash_iframes_bonus = 0.0
+    }
+
+    -- Calculate bonuses from equipped ability modules
+    for _, gridData in ipairs(self.components.equipment.grid) do
+        if gridData.type == "ability" and gridData.module and gridData.module.module then
+            local moduleData = gridData.module.module
+            if moduleData.ability_type == "dash" then
+                self.abilityModules.dash_speed_multiplier = self.abilityModules.dash_speed_multiplier * (moduleData.dash_speed_multiplier or 1.0)
+                self.abilityModules.dash_cooldown_reduction = self.abilityModules.dash_cooldown_reduction + (moduleData.dash_cooldown_reduction or 0.0)
+                self.abilityModules.dash_energy_reduction = self.abilityModules.dash_energy_reduction + (moduleData.dash_energy_reduction or 0.0)
+                self.abilityModules.dash_iframes_bonus = self.abilityModules.dash_iframes_bonus + (moduleData.dash_iframes_bonus or 0.0)
+            end
+        end
+    end
 end
 
 -- The large update function has been moved to PlayerSystem.

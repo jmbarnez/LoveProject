@@ -7,6 +7,7 @@ local Hotbar = {}
 Hotbar.state = {
     active = {
         turret_slots = {},
+        ability_slots = {},
     }
 }
 
@@ -74,6 +75,7 @@ function Hotbar.reset()
     Hotbar.slots = nil
     Hotbar.state.active = {
         turret_slots = {},
+        ability_slots = {},
     }
 end
 
@@ -104,12 +106,23 @@ function Hotbar.populateFromPlayer(player, newModuleId, slotNum)
 
     local forcedAssignment = {}
     local seenTurrets = {}
+    local seenAbilities = {}
 
     if player.components and player.components.equipment and player.components.equipment.grid then
         for _, gridData in ipairs(player.components.equipment.grid) do
             if gridData.type == "turret" and gridData.module then
                 local key = "turret_slot_" .. tostring(gridData.slot)
                 seenTurrets[key] = true
+                local preferred = tonumber(gridData.hotbarSlot)
+                if preferred and preferred >= 1 and preferred <= #Hotbar.slots then
+                    if not forcedAssignment[preferred] then
+                        forcedAssignment[preferred] = key
+                        Hotbar.slots[preferred].item = key
+                    end
+                end
+            elseif gridData.type == "ability" and gridData.module then
+                local key = "ability_slot_" .. tostring(gridData.slot)
+                seenAbilities[key] = true
                 local preferred = tonumber(gridData.hotbarSlot)
                 if preferred and preferred >= 1 and preferred <= #Hotbar.slots then
                     if not forcedAssignment[preferred] then
@@ -146,6 +159,20 @@ function Hotbar.populateFromPlayer(player, newModuleId, slotNum)
         end
     end
 
+    -- Place any remaining ability modules that haven't been assigned yet
+    for key in pairs(seenAbilities) do
+        local exists = false
+        for i = 1, #Hotbar.slots do
+            if Hotbar.slots[i].item == key then
+                exists = true
+                break
+            end
+        end
+        if not exists then
+            place(key)
+        end
+    end
+
     -- Normalize to remove any duplicates
     Hotbar.normalizeSlots()
     if Hotbar.save then Hotbar.save() end
@@ -165,6 +192,12 @@ function Hotbar.isActive(action)
     if idx then
         Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
         return not not Hotbar.state.active.turret_slots[tonumber(idx)]
+    end
+    -- ability_slot_N actions
+    local abilityIdx = tostring(action):match("^ability_slot_(%d+)$")
+    if abilityIdx then
+        Hotbar.state.active.ability_slots = Hotbar.state.active.ability_slots or {}
+        return not not Hotbar.state.active.ability_slots[tonumber(abilityIdx)]
     end
     return false
 end
@@ -192,6 +225,20 @@ function Hotbar.keypressed(key, player)
                             -- For manual mode: set firing to true (will be cleared on key release)
                             Hotbar.state.active.turret_slots = Hotbar.state.active.turret_slots or {}
                             Hotbar.state.active.turret_slots[idx] = true
+                        end
+                    end
+                end
+            elseif type(item) == 'string' and item:match('^ability_slot_%d+$') then
+                -- Handle ability module activation
+                local idx = tonumber(item:match('^ability_slot_(%d+)$'))
+                if idx and player.components and player.components.equipment and player.components.equipment.grid then
+                    local gridData = player.components.equipment.grid[idx]
+                    if gridData and gridData.module and gridData.module.module then
+                        local moduleData = gridData.module.module
+                        if moduleData.ability_type == "dash" then
+                            -- Trigger dash
+                            local DashSystem = require("src.systems.player.dash")
+                            DashSystem.queueDash(player)
                         end
                     end
                 end

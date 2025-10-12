@@ -3,7 +3,6 @@ return {
   name = "Galactic Credits",
   type = "currency",
   rarity = "Common",
-  tier = 1,
   stack = 999999,
   value = 1,
   mass = 0.0,

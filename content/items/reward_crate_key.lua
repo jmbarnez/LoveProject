@@ -3,7 +3,6 @@ return {
     name = "Reward Key",
     type = "material",
     rarity = "Uncommon",
-    tier = 1,
     stack = 20,
     value = 0,
     price = nil, -- Not sold in shops - only obtainable from MILA

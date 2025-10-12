@@ -642,9 +642,9 @@ function SoundGenerator.generateHullHit(duration, sampleRate)
     return soundData
 end
 
--- Generate explosion sound (enhanced for ship destruction sonic boom)
+-- Generate minimal satisfying pop sound for ship destruction
 function SoundGenerator.generateExplosion(duration, sampleRate)
-    duration = duration or 1.2  -- Slightly longer for sonic boom effect
+    duration = duration or 0.3  -- Much shorter for minimal pop
     sampleRate = sampleRate or 22050
 
     local sampleCount = math.floor(duration * sampleRate)
@@ -653,34 +653,35 @@ function SoundGenerator.generateExplosion(duration, sampleRate)
     for i = 0, sampleCount - 1 do
         local t = i / sampleCount
 
-        -- Sonic boom characteristics: sharp initial crack followed by rapid decay
-        local sharpCrack = 0
-        if t < 0.05 then  -- Very sharp initial spike (first 50ms)
-            sharpCrack = noise() * 2 * (1 - t * 20)
+        -- Quick, sharp pop with satisfying characteristics
+        local pop = 0
+        
+        -- Sharp initial crack (very brief)
+        if t < 0.02 then
+            pop = noise() * 1.5 * (1 - t * 50)
         end
-
-        -- Low-frequency boom that builds and decays
-        local lowBoom = noise() * 1.5 * math.sin(t * math.pi * 2) * math.exp(-t * 4)
-
-        -- Mid-frequency crackle
-        local midCrackle = noise() * 0.8 * math.exp(-t * 6)
-
-        -- High-frequency snap/whip
-        local highSnap = noise() * 0.6 * math.exp(-t * 12) * math.sin(t * 200 * 2 * math.pi)
-
-        local sample = sharpCrack + lowBoom + midCrackle + highSnap
-
-        -- Add some tonal elements for metallic ship destruction feel
-        sample = sample + 0.4 * math.sin(t * 80 * 2 * math.pi) * math.exp(-t * 5)  -- Metallic ring
-        sample = sample + 0.2 * math.sin(t * 40 * 2 * math.pi) * math.exp(-t * 3)  -- Lower metallic tone
-
-        -- Sharp attack envelope followed by rapid decay
-        local attack = math.min(1.0, t * 20)  -- Quick attack
-        local decay = math.exp(-t * 3)        -- Rapid decay
+        
+        -- Quick low-frequency thump for satisfaction
+        local thump = 0.8 * math.sin(t * math.pi * 3) * math.exp(-t * 8)
+        
+        -- Subtle metallic ping for ship destruction feel
+        local ping = 0.3 * math.sin(t * 120 * 2 * math.pi) * math.exp(-t * 6)
+        
+        -- Combine elements
+        local sample = pop + thump + ping
+        
+        -- Quick attack, satisfying decay
+        local attack = math.min(1.0, t * 30)  -- Very quick attack
+        local decay = math.exp(-t * 5)        -- Quick but not too abrupt decay
         local envelope = attack * decay
         sample = sample * envelope
-
-        sample = Util.clamp(sample * 0.7, -1, 1)
+        
+        -- Gentle compression for satisfying pop feel
+        sample = sample * 0.6
+        if sample > 0.3 then sample = 0.3 + (sample - 0.3) * 0.3 end
+        if sample < -0.3 then sample = -0.3 + (sample + 0.3) * 0.3 end
+        
+        sample = Util.clamp(sample, -1, 1)
         soundData:setSample(i, sample)
     end
 

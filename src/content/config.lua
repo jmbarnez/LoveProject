@@ -56,4 +56,12 @@ Config.RENDER = {
 -- Audio behavior
 Config.AUDIO = Constants.AUDIO
 
+-- Dash system configuration
+Config.DASH = {
+    SPEED = 225,           -- Base dash speed (1/4th of original 900)
+    COOLDOWN = 8.0,        -- Base cooldown in seconds
+    ENERGY_COST = 50,      -- Base energy cost
+    IFRAMES = 0.25,        -- Base invincibility frames duration
+}
+
 return Config

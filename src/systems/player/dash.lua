@@ -32,7 +32,11 @@ function DashSystem.processDash(player, state, input, body, dt, modalActive)
 
     -- Check energy requirements
     local energy = player.components and player.components.energy
-    local canEnergy = not energy or (energy.energy or 0) >= ((Config.DASH and Config.DASH.ENERGY_COST) or 0)
+    local dashConfig = Config.DASH or {}
+    local baseEnergyCost = dashConfig.ENERGY_COST or 0
+    local abilityModules = player.abilityModules or {}
+    local energyCost = baseEnergyCost * (1.0 - (abilityModules.dash_energy_reduction or 0.0))
+    local canEnergy = not energy or (energy.energy or 0) >= energyCost
     
     if not canEnergy then
         PlayerDebug.logDash(true, 0, false, energy and energy.energy or 0)
@@ -80,10 +84,17 @@ end
 function DashSystem.executeDash(player, state, body, dashDirX, dashDirY, health)
     -- Get dash configuration
     local dashConfig = Config.DASH or {}
-    local desiredSpeed = dashConfig.SPEED or 900
-    local iframes = dashConfig.IFRAMES or 0.25
-    local cooldown = dashConfig.COOLDOWN or 0.9
-    local energyCost = dashConfig.ENERGY_COST or 0
+    local baseSpeed = dashConfig.SPEED or 900
+    local baseIframes = dashConfig.IFRAMES or 0.25
+    local baseCooldown = dashConfig.COOLDOWN or 0.9
+    local baseEnergyCost = dashConfig.ENERGY_COST or 0
+    
+    -- Apply ability module bonuses
+    local abilityModules = player.abilityModules or {}
+    local desiredSpeed = baseSpeed * (abilityModules.dash_speed_multiplier or 1.0)
+    local iframes = baseIframes + (abilityModules.dash_iframes_bonus or 0.0)
+    local cooldown = baseCooldown * (1.0 - (abilityModules.dash_cooldown_reduction or 0.0))
+    local energyCost = baseEnergyCost * (1.0 - (abilityModules.dash_energy_reduction or 0.0))
     
     -- Apply dash impulse
     local impulseX = dashDirX * desiredSpeed * (body.mass or 500)
@@ -128,7 +139,11 @@ end
 -- Check if dash is available (not on cooldown and has energy)
 function DashSystem.isDashAvailable(player, state)
     local energy = player.components and player.components.energy
-    local hasEnergy = not energy or (energy.energy or 0) >= ((Config.DASH and Config.DASH.ENERGY_COST) or 0)
+    local dashConfig = Config.DASH or {}
+    local baseEnergyCost = dashConfig.ENERGY_COST or 0
+    local abilityModules = player.abilityModules or {}
+    local energyCost = baseEnergyCost * (1.0 - (abilityModules.dash_energy_reduction or 0.0))
+    local hasEnergy = not energy or (energy.energy or 0) >= energyCost
     local offCooldown = (state.dash_cooldown or 0) <= 0
     
     return hasEnergy and offCooldown

@@ -3,7 +3,6 @@ return {
   name = "Broken Circuitry",
   type = "material",
   rarity = "Common",
-  tier = 1,
   stack = 9999,
   value = 8,
   price = 12, -- Shop price based on market sell price

@@ -3,7 +3,6 @@ return {
   name = "Scraps",
   type = "material",
   rarity = "Common",
-  tier = 1,
   stack = 9999,
   value = 5,
   price = 7, -- Shop price based on market sell price
