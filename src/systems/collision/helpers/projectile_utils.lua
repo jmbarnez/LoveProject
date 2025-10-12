@@ -101,9 +101,10 @@ function ProjectileUtils.perform_collision_check(x1, y1, x2, y2, target, target_
         end
     end
 
-    -- Use circle-to-circle collision detection instead of line-segment to circle
-    -- This prevents bullets from passing through enemies
-    return ProjectileUtils.circleToCircleHit(x1, y1, x2, y2, ex, ey, target_radius, projectile_radius)
+    -- Use line-segment to circle collision detection for precise impact points (same as lasers)
+    -- This ensures bullets stop exactly at the surface like lasers do
+    local Physics = require("src.core.physics")
+    return Physics.segCircleHit(x1, y1, x2, y2, ex, ey, target_radius)
 end
 
 function ProjectileUtils.circleToCircleHit(x1, y1, x2, y2, cx, cy, target_radius, projectile_radius)

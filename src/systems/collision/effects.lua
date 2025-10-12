@@ -349,12 +349,124 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
             Effects.createImpactEffect(targetCollisionX, targetCollisionY, "shield_collision")
         end
     else
-        -- Hull impact effect
-        if Effects.spawnImpact then
+        -- Check if this is a laser/beam weapon hitting a hard surface
+        local isLaserWeapon = false
+        local isUtilityBeam = false
+        
+        -- Check if entity1 is a laser weapon
+        if entity1.components and entity1.components.bullet then
+            local bullet = entity1.components.bullet
+            if bullet.kind then
+                if bullet.kind == "laser" or bullet.kind == "mining_laser" or bullet.kind == "salvaging_laser" then
+                    isLaserWeapon = true
+                end
+            end
+        end
+        
+        -- Check if entity1 is a utility beam (mining/salvaging)
+        if entity1.components and entity1.components.bullet then
+            local bullet = entity1.components.bullet
+            if bullet.kind then
+                if bullet.kind == "mining_laser" or bullet.kind == "salvaging_laser" then
+                    isUtilityBeam = true
+                end
+            end
+        end
+        
+        -- Check if target is a hard surface (asteroid, station, reward crate, etc.)
+        local isHardSurface = false
+        if targetEntity.components and targetEntity.components.mineable then
+            isHardSurface = true -- Asteroids are hard surfaces
+        elseif targetEntity.components and targetEntity.components.station then
+            isHardSurface = true -- Stations are hard surfaces
+        elseif targetEntity.tag == "station" then
+            isHardSurface = true
+        elseif targetEntity.components and targetEntity.components.interactable and targetEntity.components.interactable.requiresKey == "reward_crate_key" then
+            isHardSurface = true -- Reward crates are hard surfaces
+        elseif targetEntity.subtype == "reward_crate" then
+            isHardSurface = true -- Reward crates are hard surfaces (fallback check)
+        end
+        
+        -- Check if target is a hull surface (station, ship, reward crate, asteroid)
+        local isHullSurface = false
+        if targetEntity.components and targetEntity.components.station then
+            isHullSurface = true -- Stations are hull surfaces
+        elseif targetEntity.tag == "station" then
+            isHullSurface = true
+        elseif targetEntity.components and targetEntity.components.interactable and targetEntity.components.interactable.requiresKey == "reward_crate_key" then
+            isHullSurface = true -- Reward crates are hull surfaces
+        elseif targetEntity.subtype == "reward_crate" then
+            isHullSurface = true -- Reward crates are hull surfaces (fallback check)
+        elseif targetEntity.components and targetEntity.components.mineable then
+            isHullSurface = true -- Asteroids are hull surfaces
+        elseif targetEntity.components and targetEntity.components.health then
+            isHullSurface = true -- Ships with health are hull surfaces (shields are handled separately)
+        end
+        
+        -- Check if this is a bullet weapon
+        local isBulletWeapon = false
+        local bulletType = "cannon"
+        
+        if entity1.components and entity1.components.bullet then
+            local bullet = entity1.components.bullet
+            if bullet.kind then
+                if bullet.kind == "bullet" then
+                    isBulletWeapon = true
+                    bulletType = "cannon" -- All bullet types use cannon effects for now
+                elseif bullet.kind == "rocket" then
+                    isBulletWeapon = true
+                    bulletType = "missile"
+                end
+            end
+        end
+        
+        -- Force bullet detection for testing - remove this after testing
+        if entity1.components and entity1.components.bullet then
+            isBulletWeapon = true
+            bulletType = "cannon"
+        end
+        
+        
+        if (isLaserWeapon or isUtilityBeam) and isHardSurface then
+            -- Create minimal spark effects for laser/beam impacts on hard surfaces
             local impactAngle = math.atan2(targetCollisionY - targetY, targetCollisionX - targetX)
-            Effects.spawnImpact('hull', targetX, targetY, targetRadius, targetCollisionX, targetCollisionY, impactAngle, nil, 'collision', targetEntity, disableSound)
-        elseif Effects.createImpactEffect then
-            Effects.createImpactEffect(targetCollisionX, targetCollisionY, "hull_collision")
+            local sparkColor = {1.0, 0.8, 0.3, 0.8} -- Golden sparks
+            
+            -- Adjust color based on weapon type
+            if isUtilityBeam then
+                if entity1.components.bullet.kind == "mining_laser" then
+                    sparkColor = {1.0, 0.7, 0.2, 0.8} -- Orange for mining
+                elseif entity1.components.bullet.kind == "salvaging_laser" then
+                    sparkColor = {0.2, 1.0, 0.3, 0.8} -- Green for salvaging
+                end
+            elseif isLaserWeapon then
+                sparkColor = {0.3, 0.7, 1.0, 0.8} -- Blue for combat lasers
+            end
+            
+            if Effects.spawnLaserSparks then
+                Effects.spawnLaserSparks(targetCollisionX, targetCollisionY, impactAngle, sparkColor)
+            end
+        elseif isBulletWeapon and isHullSurface then
+            -- Create bullet impact effects for projectiles hitting hull surfaces
+            local impactAngle = math.atan2(targetCollisionY - targetY, targetCollisionX - targetX)
+            local impactColor = {0.8, 0.8, 0.8, 0.9} -- Default bullet color
+            
+            -- Adjust color based on bullet type
+            if bulletType == "cannon" then
+                impactColor = {1.0, 1.0, 0.0, 0.9} -- Yellow for cannon
+            elseif bulletType == "railgun" then
+                impactColor = {0.8, 0.8, 0.9, 0.9} -- Light blue for railgun
+            elseif bulletType == "missile" then
+                impactColor = {1.0, 0.4, 0.1, 0.9} -- Orange-red for missile
+            end
+            
+            Effects.spawnBulletImpact(targetCollisionX, targetCollisionY, impactAngle, bulletType, impactColor)
+        elseif (isLaserWeapon or isUtilityBeam) and not isHardSurface then
+            -- Laser/beam weapons on non-hard surfaces - no effects (they use spark effects instead)
+            -- Do nothing - lasers don't create pulsing effects on soft surfaces
+        else
+            -- No effects for other weapons or non-special surfaces - helps identify what needs specific effects
+            -- Do nothing
         end
     end
 end

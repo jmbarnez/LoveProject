@@ -23,6 +23,168 @@ function Effects.add(part)
   table.insert(fx, part)
 end
 
+-- Spawn dynamic spark effects for laser/beam impacts on hard surfaces
+function Effects.spawnLaserSparks(x, y, angle, color)
+  color = color or {1.0, 0.8, 0.3, 0.8}
+  
+  -- Calculate the surface normal (perpendicular to the impact angle)
+  local normalX = math.cos(angle)
+  local normalY = math.sin(angle)
+  
+  -- Create a cone-shaped spray pattern
+  local coneAngle = math.pi * 0.4 -- 72 degree cone (36 degrees each side of normal)
+  local sparkCount = 8 + math.random(6) -- 8-13 sparks for more visible effect
+  
+  -- Main sparks - spray in a cone pattern from the impact point
+  for i = 1, sparkCount do
+    -- Create cone distribution - more sparks in center, fewer at edges
+    local coneOffset = (math.random() * 2 - 1) * coneAngle
+    local sparkAngle = angle + coneOffset
+    
+    -- Speed varies based on distance from center of cone
+    local centerFactor = 1 - (math.abs(coneOffset) / coneAngle)
+    local speed = 60 + math.random() * 80 + centerFactor * 40 -- Faster sparks in center
+    
+    -- Life varies with speed - faster sparks live longer
+    local life = 0.2 + math.random() * 0.3 + (speed / 200) * 0.2
+    
+    -- Size varies with speed - faster sparks are smaller
+    local size = 1.0 + math.random() * 0.6 - (speed / 300) * 0.4
+    
+    Effects.add({
+      type = 'spark',
+      x = x,
+      y = y,
+      vx = math.cos(sparkAngle) * speed,
+      vy = math.sin(sparkAngle) * speed,
+      t = 0,
+      life = life,
+      color = color,
+      size = math.max(0.3, size),
+    })
+  end
+  
+  -- Secondary sparks - smaller, faster, more scattered
+  for i = 1, 6 do
+    local coneOffset = (math.random() * 2 - 1) * coneAngle * 1.2 -- Wider cone
+    local sparkAngle = angle + coneOffset
+    local speed = 100 + math.random() * 120
+    local life = 0.15 + math.random() * 0.15
+    local size = 0.6 + math.random() * 0.4
+    
+    Effects.add({
+      type = 'spark',
+      x = x,
+      y = y,
+      vx = math.cos(sparkAngle) * speed,
+      vy = math.sin(sparkAngle) * speed,
+      t = 0,
+      life = life,
+      color = {color[1], color[2], color[3], color[4] * 0.7},
+      size = size,
+    })
+  end
+  
+  -- Micro sparks - tiny, very fast, for detail and realism
+  for i = 1, 8 do
+    local coneOffset = (math.random() * 2 - 1) * coneAngle * 1.5 -- Even wider cone
+    local sparkAngle = angle + coneOffset
+    local speed = 150 + math.random() * 100
+    local life = 0.08 + math.random() * 0.08
+    local size = 0.2 + math.random() * 0.3
+    
+    Effects.add({
+      type = 'spark',
+      x = x,
+      y = y,
+      vx = math.cos(sparkAngle) * speed,
+      vy = math.sin(sparkAngle) * speed,
+      t = 0,
+      life = life,
+      color = {color[1], color[2], color[3], color[4] * 0.5},
+      size = size,
+    })
+  end
+end
+
+-- Spawn bullet impact effects for projectiles hitting hull surfaces
+function Effects.spawnBulletImpact(x, y, angle, bulletType, color)
+  color = color or {0.8, 0.8, 0.8, 0.9}
+  
+  -- Create impact flash
+  Effects.add({
+    type = 'ring',
+    x = x,
+    y = y,
+    r0 = 2,
+    r1 = 12,
+    w0 = 3,
+    w1 = 1,
+    t = 0,
+    life = 0.15,
+    color = {color[1], color[2], color[3], 0.6}
+  })
+  
+  -- Create sparks based on bullet type
+  local sparkCount = 3
+  local sparkSize = 1.0
+  local sparkSpeed = 60
+  
+  if bulletType == "cannon" then
+    sparkCount = 4
+    sparkSize = 1.2
+    sparkSpeed = 80
+  elseif bulletType == "railgun" then
+    sparkCount = 6
+    sparkSize = 0.8
+    sparkSpeed = 120
+  elseif bulletType == "missile" then
+    sparkCount = 8
+    sparkSize = 1.5
+    sparkSpeed = 100
+  end
+  
+  -- Main impact sparks
+  for i = 1, sparkCount do
+    local spread = (math.random() * 2 - 1) * 0.6
+    local sparkAngle = angle + math.pi + spread
+    local speed = sparkSpeed + math.random() * 40
+    
+    Effects.add({
+      type = 'spark',
+      x = x,
+      y = y,
+      vx = math.cos(sparkAngle) * speed,
+      vy = math.sin(sparkAngle) * speed,
+      t = 0,
+      life = 0.2 + math.random() * 0.1,
+      color = color,
+      size = sparkSize + math.random() * 0.4,
+    })
+  end
+  
+  -- Add some debris particles for larger impacts
+  if bulletType == "missile" or bulletType == "cannon" then
+    for i = 1, 3 do
+      local spread = (math.random() * 2 - 1) * 1.0
+      local sparkAngle = angle + math.pi + spread
+      local speed = 40 + math.random() * 30
+      
+      Effects.add({
+        type = 'spark',
+        x = x,
+        y = y,
+        vx = math.cos(sparkAngle) * speed,
+        vy = math.sin(sparkAngle) * speed,
+        t = 0,
+        life = 0.3 + math.random() * 0.2,
+        color = {color[1] * 0.7, color[2] * 0.7, color[3] * 0.7, 0.6},
+        size = 0.6 + math.random() * 0.3,
+      })
+    end
+  end
+end
+
 -- Spawn a detonation visual burst
 function Effects.spawnDetonation(x, y, kind, color)
   -- Play explosion sound
@@ -120,9 +282,10 @@ function Effects.spawnImpact(kind, cx, cy, r, hx, hy, angle, style, bulletKind, 
   end
 
   local hullStyle = 'default'
+  -- Disable pulsing effects for laser weapons - they now use spark effects instead
   if kind == 'hull' and bulletKind then
     if bulletKind == 'laser' or bulletKind == 'mining_laser' or bulletKind == 'salvaging_laser' then
-      hullStyle = 'laser'
+      hullStyle = 'none' -- No pulsing effects for lasers
     end
   end
 
@@ -263,6 +426,9 @@ function Effects.update(dt)
             size = 1.4,
           })
         end
+      elseif p.kind == 'hull' and p.hullStyle == 'none' then
+        -- No pulsing effects for laser weapons - they use spark effects instead
+        -- Do nothing
       end
     end
   end
@@ -276,8 +442,12 @@ function Effects.update(dt)
       if f.type == 'spark' then
         f.x = f.x + (f.vx or 0) * dt
         f.y = f.y + (f.vy or 0) * dt
-        f.vx = (f.vx or 0) * 0.90
-        f.vy = (f.vy or 0) * 0.90 + 18 * dt
+        -- More realistic spark physics with air resistance and gravity
+        f.vx = (f.vx or 0) * 0.85 -- Air resistance
+        f.vy = (f.vy or 0) * 0.85 + 25 * dt -- Gravity effect
+        -- Add some random turbulence for more realistic movement
+        f.vx = f.vx + (math.random() * 2 - 1) * 5 * dt
+        f.vy = f.vy + (math.random() * 2 - 1) * 5 * dt
       elseif f.type == 'smoke' then
         f.y = f.y - 8 * dt
       end
@@ -397,6 +567,9 @@ function Effects.draw()
             )
           end
           love.graphics.setLineWidth(1)
+        elseif p.hullStyle == 'none' then
+          -- No visual effects for laser weapons - they use spark effects instead
+          -- Do nothing
         else
           -- Simple hull impact effect - just a circle (larger)
           local sc = p.hull.spark
@@ -415,8 +588,35 @@ function Effects.draw()
     local a = 1 - (f.t / f.life)
     if a <= 0 then table.remove(fx, i) else
       if f.type == 'spark' then
-        love.graphics.setColor(f.color[1], f.color[2], f.color[3], (f.color[4] or 1) * a)
-        love.graphics.circle('fill', f.x, f.y, f.size or 2)
+        -- Thin spark rendering - use lines instead of circles
+        local alpha = (f.color[4] or 1) * a
+        local size = f.size or 2
+        
+        -- Calculate spark direction from velocity
+        local vx, vy = f.vx or 0, f.vy or 0
+        local length = math.sqrt(vx * vx + vy * vy)
+        if length > 0 then
+          -- Normalize velocity to get direction
+          vx, vy = vx / length, vy / length
+          
+          -- Draw thin spark line
+          love.graphics.setColor(f.color[1], f.color[2], f.color[3], alpha)
+          love.graphics.setLineWidth(1)
+          love.graphics.line(
+            f.x - vx * size * 0.5,
+            f.y - vy * size * 0.5,
+            f.x + vx * size * 0.5,
+            f.y + vy * size * 0.5
+          )
+          
+          -- Draw small bright center dot
+          love.graphics.setColor(1, 1, 1, alpha * 0.9)
+          love.graphics.circle('fill', f.x, f.y, 0.5)
+        else
+          -- Fallback: small dot if no velocity
+          love.graphics.setColor(f.color[1], f.color[2], f.color[3], alpha)
+          love.graphics.circle('fill', f.x, f.y, 0.5)
+        end
       elseif f.type == 'ring' then
         local rr = Util.lerp(f.r0 or 2, f.r1 or 24, f.t / f.life)
         local lw = Util.lerp(f.w0 or 2, f.w1 or 1, f.t / f.life)

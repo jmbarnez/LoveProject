@@ -636,10 +636,40 @@ function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, w
                     bestTarget = entity
                     bestHitX, bestHitY = hx, hy
                     
-                    -- Create collision effects for beam hits
+                    -- Create spark effects for beam hits on hard surfaces
                     local CollisionEffects = require("src.systems.collision.effects")
+                    local Effects = require("src.systems.effects")
                     local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
-                    if CollisionEffects.canEmitCollisionFX(turret, entity, now) then
+                    
+                    -- Check if target is a hard surface
+                    local isHardSurface = false
+                    if entity.components and entity.components.mineable then
+                        isHardSurface = true -- Asteroids are hard surfaces
+                    elseif entity.components and entity.components.station then
+                        isHardSurface = true -- Stations are hard surfaces
+                    elseif entity.tag == "station" then
+                        isHardSurface = true
+                    elseif entity.components and entity.components.interactable and entity.components.interactable.requiresKey == "reward_crate_key" then
+                        isHardSurface = true -- Reward crates are hard surfaces
+                    elseif entity.subtype == "reward_crate" then
+                        isHardSurface = true -- Reward crates are hard surfaces (fallback check)
+                    end
+                    
+                    if isHardSurface and Effects.spawnLaserSparks then
+                        -- Create minimal spark effects for beam hits on hard surfaces
+                        local impactAngle = math.atan2(hy - startY, hx - startX)
+                        local sparkColor = {1.0, 0.8, 0.3, 0.8} -- Golden sparks
+                        
+                        -- Adjust color based on turret type
+                        if turret.type == "mining_laser" then
+                            sparkColor = {1.0, 0.7, 0.2, 0.8} -- Orange for mining
+                        elseif turret.type == "salvaging_laser" then
+                            sparkColor = {0.2, 1.0, 0.3, 0.8} -- Green for salvaging
+                        end
+                        
+                        Effects.spawnLaserSparks(hx, hy, impactAngle, sparkColor)
+                    elseif CollisionEffects.canEmitCollisionFX(turret, entity, now) then
+                        -- Use regular collision effects for non-hard surfaces
                         local beamRadius = 1 -- Beams are line segments
                         
                         -- Use the precise hit position for collision effects

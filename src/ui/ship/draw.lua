@@ -297,22 +297,15 @@ function DrawShip.render(state, player, x, y, w, h)
                 end
             end
 
-            if dropdownHover or optionsHover then
-                state.hoverTimers[i] = (state.hoverTimers[i] or 0) + love.timer.getDelta()
-                if state.hoverTimers[i] >= state.hoverDelay and not dropdown.open then
-                    dropdown.open = true
-                end
-            else
-                state.hoverTimers[i] = 0
-                if dropdown.open and not dropdownHover and not optionsHover then
-                    local dropdownY = dropdown._dropdownY or (dropdown.y + dropdown.optionHeight + 2)
-                    local totalDropdownHeight = dropdown.optionHeight + dropdown.dropdownHeight + 2
-                    local isOutsideDropdown = not (mx >= dropdown.x and mx <= dropdown.x + dropdown.width and
-                        my >= dropdown.y and my <= dropdown.y + totalDropdownHeight)
+            -- Only close dropdowns on mouse movement, don't open them on hover
+            if dropdown.open and not dropdownHover and not optionsHover then
+                local dropdownY = dropdown._dropdownY or (dropdown.y + dropdown.optionHeight + 2)
+                local totalDropdownHeight = dropdown.optionHeight + dropdown.dropdownHeight + 2
+                local isOutsideDropdown = not (mx >= dropdown.x and mx <= dropdown.x + dropdown.width and
+                    my >= dropdown.y and my <= dropdown.y + totalDropdownHeight)
 
-                    if isOutsideDropdown then
-                        dropdown.open = false
-                    end
+                if isOutsideDropdown then
+                    dropdown.open = false
                 end
             end
 

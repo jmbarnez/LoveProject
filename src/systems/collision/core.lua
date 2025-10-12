@@ -41,6 +41,12 @@ local function determine_body_type(entity)
     if entity.components.bullet then
         return "kinematic"
     end
+    
+    -- Special case for reward crates - they should be dynamic if they have physics component
+    if entity.subtype == "reward_crate" and entity.components.physics then
+        return "dynamic"
+    end
+    
     return "static"
 end
 
