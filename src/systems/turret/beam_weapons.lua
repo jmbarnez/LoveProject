@@ -2,6 +2,7 @@ local CollisionHelpers = require("src.systems.turret.collision_helpers")
 local TurretEffects = require("src.systems.turret.effects")
 local Log = require("src.core.log")
 local TargetUtils = require("src.core.target_utils")
+local Radius = require("src.systems.collision.radius")
 
 local BeamWeapons = {}
 
@@ -135,7 +136,7 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
         endY = sy + math.sin(angle) * beamLength
     end
 
-    local hitTarget, hitX, hitY = BeamWeapons.performLaserHitscan(
+    local hitTarget, hitX, hitY, hitSurface = BeamWeapons.performLaserHitscan(
         sx, sy, endX, endY, turret, world
     )
 
@@ -335,6 +336,7 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
     local bestTarget = nil
     local bestDistance = math.huge
     local bestHitX, bestHitY = endX, endY
+    local bestHitSurface = nil
 
     -- Get ALL collidable entities from world (beam stops at first object hit)
     local entities = world:get_entities_with_components("collidable", "position")
@@ -342,8 +344,23 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
     for _, entity in ipairs(entities) do
         if entity ~= turret.owner and not entity.dead then
 
-            local targetRadius = CollisionHelpers.calculateEffectiveRadius(entity)
-            local hit, hx, hy = CollisionHelpers.performCollisionCheck(
+            -- Use hull radius for laser collision detection, not shield radius
+            -- This ensures lasers hit at the actual ship hull, not in the air around it
+            local collidable = entity.components and entity.components.collidable
+            local targetRadius
+            if collidable then
+                if collidable.vertices then
+                    targetRadius = nil -- let polygon checks handle exact surface hits
+                elseif collidable.radius and collidable.radius > 0 then
+                    targetRadius = collidable.radius
+                end
+            end
+
+            if not targetRadius then
+                targetRadius = Radius.getHullRadius(entity)
+            end
+
+            local hit, hx, hy, hitSurface = CollisionHelpers.performCollisionCheck(
                 startX, startY, endX, endY, entity, targetRadius
             )
 
@@ -353,6 +370,7 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
                     bestDistance = distance
                     bestTarget = entity
                     bestHitX, bestHitY = hx, hy
+                    bestHitSurface = hitSurface or "hull"
                     
                     -- Create spark effects for beam hits on hard surfaces
                     local CollisionEffects = require("src.systems.collision.effects")
@@ -373,35 +391,42 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
                         isHardSurface = true -- Reward crates are hard surfaces (fallback check)
                     end
                     
-                    if isHardSurface and Effects.spawnLaserSparks then
-                        -- Create minimal spark effects for beam hits on hard surfaces
-                        local impactAngle = math.atan2(hy - startY, hx - startX)
-                        local sparkColor = {1.0, 0.8, 0.3, 0.8} -- Golden sparks
-                        
-                        -- Adjust color based on turret type
-                        if turret.type == "mining_laser" then
-                            sparkColor = {1.0, 0.7, 0.2, 0.8} -- Orange for mining
-                        elseif turret.type == "salvaging_laser" then
-                            sparkColor = {0.2, 1.0, 0.3, 0.8} -- Green for salvaging
-                        elseif turret.type == "laser" then
-                            sparkColor = {0.3, 0.7, 1.0, 0.8} -- Blue for combat lasers
+                    -- Check if target is a hull surface (ships with health)
+                    local isHullSurface = false
+                    if entity.components and entity.components.health then
+                        isHullSurface = true -- Ships with health are hull surfaces
+                    end
+                    
+                    if (hitSurface ~= "shield") then
+                        if (isHardSurface or isHullSurface) and Effects.spawnLaserSparks then
+                            -- Create minimal spark effects for beam hits on hard surfaces and hull surfaces
+                            local impactAngle = math.atan2(hy - startY, hx - startX)
+                            local sparkColor = {1.0, 0.8, 0.3, 0.8} -- Golden sparks
+
+                            -- Adjust color based on turret type
+                            if turret.type == "mining_laser" then
+                                sparkColor = {1.0, 0.7, 0.2, 0.8} -- Orange for mining
+                            elseif turret.type == "salvaging_laser" then
+                                sparkColor = {0.2, 1.0, 0.3, 0.8} -- Green for salvaging
+                            elseif turret.type == "laser" then
+                                sparkColor = {0.3, 0.7, 1.0, 0.8} -- Blue for combat lasers
+                            end
+
+                            Effects.spawnLaserSparks(hx, hy, impactAngle, sparkColor)
+                        elseif CollisionEffects.canEmitCollisionFX(turret, entity, now) then
+                            -- Use regular collision effects for other surfaces
+                            local beamRadius = 1 -- Beams are line segments
+
+                            -- Use the precise hit position for collision effects
+                            CollisionEffects.createCollisionEffects(turret, entity, hx, hy, hx, hy, 0, 0, beamRadius, targetRadius, nil, nil, true)
                         end
-                        
-                        Effects.spawnLaserSparks(hx, hy, impactAngle, sparkColor)
-                    elseif CollisionEffects.canEmitCollisionFX(turret, entity, now) then
-                        -- Use regular collision effects for non-hard surfaces
-                        local beamRadius = 1 -- Beams are line segments
-                        local targetRadius = targetRadius
-                        
-                        -- Use the precise hit position for collision effects
-                        CollisionEffects.createCollisionEffects(turret, entity, hx, hy, hx, hy, 0, 0, beamRadius, targetRadius, nil, nil, true)
                     end
                 end
             end
         end
     end
 
-    return bestTarget, bestHitX, bestHitY
+    return bestTarget, bestHitX, bestHitY, bestHitSurface
 end
 
 

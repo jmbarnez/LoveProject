@@ -63,7 +63,7 @@ Systems consume entities, services, and content to drive the game loop. They are
 
 1. **PlayerSystem.update** – Processes movement, dash/boost, turret firing, and warp readiness for the player entity.
 2. **Sound Listener Update** – Positions the listener at the player for positional SFX.
-3. **AISystem.update** – Advances enemy behavior states, targeting, and attack logic.
+3. **AISystem.update** – Advances enemy behavior states, targeting, and attack logic. The simplified loop keeps a single behaviour tier with three phases: patrolling, hunting, and attacking. Enemies wander around their patrol center until the closest player enters the detection radius, drift toward the last seen position, and orbit within weapon range while firing.
 4. **PhysicsSystem.update** – Integrates velocities and applies thruster forces.
 5. **ProjectileLifecycle.update** – Expires timed projectiles and capped-range ordnance.
 6. **BoundarySystem.update** – Prevents entities leaving world bounds.
@@ -186,7 +186,7 @@ The system keeps the player entity authoritative for other subsystems (camera, a
 
 ### AI System (`src/systems/ai.lua`)
 
-* Implements behavior states (idle, hunting, retreating) with configurable aggression.
+* Implements behavior states (idle, hunting, attacking) with configurable aggression.
 * Uses world queries for target acquisition and pathing.
 * Fires projectiles via `world.spawn_projectile` when in range.
 

@@ -625,7 +625,7 @@ function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, w
     for _, entity in ipairs(entities) do
         if entity ~= turret.owner and not entity.dead then
             local targetRadius = CollisionHelpers.calculateEffectiveRadius(entity)
-            local hit, hx, hy = CollisionHelpers.performCollisionCheck(
+            local hit, hx, hy, hitSurface = CollisionHelpers.performCollisionCheck(
                 startX, startY, endX, endY, entity, targetRadius
             )
 
@@ -655,25 +655,27 @@ function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, w
                         isHardSurface = true -- Reward crates are hard surfaces (fallback check)
                     end
                     
-                    if isHardSurface and Effects.spawnLaserSparks then
-                        -- Create minimal spark effects for beam hits on hard surfaces
-                        local impactAngle = math.atan2(hy - startY, hx - startX)
-                        local sparkColor = {1.0, 0.8, 0.3, 0.8} -- Golden sparks
-                        
-                        -- Adjust color based on turret type
-                        if turret.type == "mining_laser" then
-                            sparkColor = {1.0, 0.7, 0.2, 0.8} -- Orange for mining
-                        elseif turret.type == "salvaging_laser" then
-                            sparkColor = {0.2, 1.0, 0.3, 0.8} -- Green for salvaging
+                    if hitSurface ~= "shield" then
+                        if isHardSurface and Effects.spawnLaserSparks then
+                            -- Create minimal spark effects for beam hits on hard surfaces
+                            local impactAngle = math.atan2(hy - startY, hx - startX)
+                            local sparkColor = {1.0, 0.8, 0.3, 0.8} -- Golden sparks
+
+                            -- Adjust color based on turret type
+                            if turret.type == "mining_laser" then
+                                sparkColor = {1.0, 0.7, 0.2, 0.8} -- Orange for mining
+                            elseif turret.type == "salvaging_laser" then
+                                sparkColor = {0.2, 1.0, 0.3, 0.8} -- Green for salvaging
+                            end
+
+                            Effects.spawnLaserSparks(hx, hy, impactAngle, sparkColor)
+                        elseif CollisionEffects.canEmitCollisionFX(turret, entity, now) then
+                            -- Use regular collision effects for non-hard surfaces
+                            local beamRadius = 1 -- Beams are line segments
+
+                            -- Use the precise hit position for collision effects
+                            CollisionEffects.createCollisionEffects(turret, entity, hx, hy, hx, hy, 0, 0, beamRadius, targetRadius, nil, nil, true)
                         end
-                        
-                        Effects.spawnLaserSparks(hx, hy, impactAngle, sparkColor)
-                    elseif CollisionEffects.canEmitCollisionFX(turret, entity, now) then
-                        -- Use regular collision effects for non-hard surfaces
-                        local beamRadius = 1 -- Beams are line segments
-                        
-                        -- Use the precise hit position for collision effects
-                        CollisionEffects.createCollisionEffects(turret, entity, hx, hy, hx, hy, 0, 0, beamRadius, targetRadius, nil, nil, true)
                     end
                 end
             end

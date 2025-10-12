@@ -426,8 +426,8 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
         end
         
         
-        if (isLaserWeapon or isUtilityBeam) and isHardSurface then
-            -- Create minimal spark effects for laser/beam impacts on hard surfaces
+        if (isLaserWeapon or isUtilityBeam) and (isHardSurface or isHullSurface) then
+            -- Create minimal spark effects for laser/beam impacts on hard surfaces and hull surfaces
             local impactAngle = math.atan2(targetCollisionY - targetY, targetCollisionX - targetX)
             local sparkColor = {1.0, 0.8, 0.3, 0.8} -- Golden sparks
             

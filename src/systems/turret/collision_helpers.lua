@@ -30,7 +30,13 @@ function CollisionHelpers.performCollisionCheck(x1, y1, x2, y2, target, targetRa
         return false
     end
 
-    targetRadius = targetRadius or CollisionHelpers.calculateEffectiveRadius(target)
+    if not targetRadius then
+        if collidable and collidable.radius and collidable.radius > 0 then
+            targetRadius = collidable.radius
+        else
+            targetRadius = CollisionHelpers.calculateEffectiveRadius(target)
+        end
+    end
 
     local health = components.health
     -- For players, check shield collision first if they have active shields
@@ -39,7 +45,7 @@ function CollisionHelpers.performCollisionCheck(x1, y1, x2, y2, target, targetRa
         local shieldRadius = Radius.getShieldRadius(target)
         local shield_hit, hx, hy = CollisionHelpers.calculateShieldHitPoint(x1, y1, x2, y2, ex, ey, shieldRadius)
         if shield_hit then
-            return shield_hit, hx, hy
+            return shield_hit, hx, hy, "shield"
         end
         -- If shield miss, continue to check hull collision
     end
@@ -51,12 +57,23 @@ function CollisionHelpers.performCollisionCheck(x1, y1, x2, y2, target, targetRa
         -- Use more precise polygon collision detection
         local hit, hitX, hitY = CollisionHelpers.segPolygonHit(x1, y1, x2, y2, wverts)
         if hit then
-            return hit, hitX, hitY
+            return hit, hitX, hitY, "hull"
+        end
+        
+        -- For mineable entities (asteroids), only use polygon collision - no circular fallback
+        -- This prevents mining lasers from hitting circular hitboxes that extend beyond the actual asteroid shape
+        if components.mineable then
+            return false
         end
     end
 
-    -- Use more precise circular collision detection
-    return Physics.segCircleHit(x1, y1, x2, y2, ex, ey, targetRadius)
+    -- Use more precise circular collision detection for non-mineable entities
+    local hit, hitX, hitY = Physics.segCircleHit(x1, y1, x2, y2, ex, ey, targetRadius)
+    if hit then
+        return hit, hitX, hitY, "hull"
+    end
+
+    return false
 end
 
 return CollisionHelpers

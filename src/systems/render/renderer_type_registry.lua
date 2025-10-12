@@ -138,7 +138,16 @@ local registry = {
     
     {
         check = function(entity)
-            return entity.components and entity.components.lootable ~= nil
+            if not (entity and entity.components) then
+                return false
+            end
+
+            -- Live enemies often carry loot definitions; keep rendering them as ships until they are gone.
+            if entity.components.ai and not entity.dead then
+                return false
+            end
+
+            return entity.components.lootable ~= nil
         end,
         type = "lootContainer",
         priority = 14
