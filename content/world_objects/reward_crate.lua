@@ -27,7 +27,7 @@ return {
             10, -20,   -- Top-right
             -10, -20,  -- Top-left
         },
-        isTrigger = true
+        isTrigger = false
     },
     
     interactable = {
@@ -36,7 +36,7 @@ return {
     },
     
     physics = {
-        mass = 50,
+        mass = 200,
         radius = 25
     }
 }
