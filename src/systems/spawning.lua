@@ -299,6 +299,49 @@ local function logEnemyComponents(enemy)
     end
 end
 
+-- Spawns a healing drone near a given position (basic drone with healing laser)
+local function spawnHealingDroneNear(nearX, nearY, world, hub)
+  local offsetDistance = 60 + math.random(40) -- 60-100 units away
+  local angle = math.random() * math.pi * 2
+  local x = nearX + math.cos(angle) * offsetDistance
+  local y = nearY + math.sin(angle) * offsetDistance
+  
+  -- Ensure the healing drone is within world bounds
+  local margin = 50
+  x = math.max(margin, math.min(world.width - margin, x))
+  y = math.max(margin, math.min(world.height - margin, y))
+  
+  -- Check if position is safe from stations
+  if not isPositionSafeFromStations(x, y, world, hub) then
+    return -- Don't spawn if too close to stations
+  end
+  
+  -- Create a basic drone but force it to have a healing laser
+  local healingDrone = EntityFactory.createEnemy("basic_drone", x, y)
+  if healingDrone then
+    -- Force the drone to equip a healing laser
+    local equipment = healingDrone.components.equipment
+    if equipment and equipment.grid then
+      for _, slot in ipairs(equipment.grid) do
+        if slot and slot.type == "turret" then
+          -- Replace the random turret with a healing laser
+          local TurretSystem = require("src.systems.turret.system")
+          local healingLaserDef = require("content.turrets.healing_laser")
+          local healingTurret = TurretSystem.spawn(healingDrone, healingLaserDef)
+          if healingTurret then
+            slot.module = healingTurret
+            slot.enabled = true
+            slot.id = "healing_laser"
+          end
+          break -- Only replace the first turret slot
+        end
+      end
+    end
+    
+    world:addEntity(healingDrone)
+    Log.info("Spawned healing drone at (%d, %d) near basic drone at (%d, %d)", x, y, nearX, nearY)
+  end
+end
 
 -- Spawns a basic drone enemy
 local function spawnEnemy(player, hub, world)
@@ -350,8 +393,10 @@ local function spawnEnemy(player, hub, world)
           Log.error("Enemy spawned without AI component!")
       end
       
-      -- Basic drones now have modular behavior based on their weapon modules
-      -- No need to spawn separate healing drones
+      -- 25% chance to spawn a healing drone nearby
+      if math.random() < 0.25 then
+        spawnHealingDroneNear(x, y, world, hub)
+      end
   end
 end
 
