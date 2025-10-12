@@ -3,11 +3,9 @@ local Geometry = require("src.systems.collision.geometry")
 local Radius = require("src.systems.collision.radius")
 local StationShields = require("src.systems.collision.station_shields")
 local Log = require("src.core.log")
+local Config = require("src.content.config")
 
 local ProjectileUtils = {}
-
--- Debug flag for projectile collision detection
-local DEBUG_PROJECTILE_COLLISION = false
 
 function ProjectileUtils.emit_event(projectile, event, payload)
     if not projectile or not projectile.components then return end
@@ -114,7 +112,7 @@ function ProjectileUtils.circleToCircleHit(x1, y1, x2, y2, cx, cy, target_radius
     local total_radius = projectile_radius + target_radius
     
     -- Debug logging to help identify collision issues
-    if DEBUG_PROJECTILE_COLLISION then
+    if Config.DEBUG.PROJECTILE_COLLISION then
         local distance = math.sqrt((x2 - cx)^2 + (y2 - cy)^2)
         Log.debug(string.format("Projectile collision check: proj_radius=%.2f, target_radius=%.2f, total_radius=%.2f, distance=%.2f", 
             projectile_radius, target_radius, total_radius, distance))
@@ -145,7 +143,8 @@ end
 
 -- Function to enable/disable debug logging
 function ProjectileUtils.setDebugEnabled(enabled)
-    DEBUG_PROJECTILE_COLLISION = enabled
+    -- Debug logging is now controlled via Config.DEBUG.PROJECTILE_COLLISION
+    -- This function is kept for compatibility but no longer does anything
 end
 
 return ProjectileUtils

@@ -43,6 +43,9 @@ Config.QUESTS = {
 Config.DEBUG = {
   FAST_SHIP = false,
   DRAW_BOUNDS = false,
+  COLLISION_EFFECTS = false,
+  PROJECTILE_COLLISION = false,
+  PLAYER_SYSTEM = false,
 }
 
 -- Render options

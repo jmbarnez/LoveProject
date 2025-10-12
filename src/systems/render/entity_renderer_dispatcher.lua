@@ -1,5 +1,6 @@
 local RenderUtils = require("src.systems.render.utils")
 local Viewport = require("src.core.viewport")
+local RendererTypeRegistry = require("src.systems.render.renderer_type_registry")
 
 local Dispatcher = {}
 
@@ -37,43 +38,8 @@ end
 -- Cache entity renderer type to avoid repeated component checks
 local function getRendererType(entity)
     if not entity._rendererType then
-        if entity.isRemotePlayer then
-            entity._rendererType = "remote_player"
-        elseif entity.components.ai then
-            entity._rendererType = "enemy"
-        elseif entity.components.warp_gate then
-            entity._rendererType = "warp_gate"
-        elseif entity.components.mineable then
-            entity._rendererType = "asteroid"
-        elseif entity.isItemPickup or entity.components.item_pickup then
-            entity._rendererType = "item_pickup"
-        elseif entity.components.xp_pickup then
-            entity._rendererType = "xp_pickup"
-        elseif entity.components.wreckage then
-            entity._rendererType = "wreckage"
-        elseif entity.components.lootable and entity.isWreckage then
-            entity._rendererType = "wreckage"
-        elseif entity.components.bullet then
-            -- Check if it's a wave projectile
-            local renderable = entity.components.renderable
-            if renderable and renderable.type == "wave" then
-                entity._rendererType = "wave"
-            else
-                entity._rendererType = "bullet"
-            end
-        elseif entity.isStation then
-            entity._rendererType = "station"
-        elseif entity.isTurret or entity.type == "stationary_turret" or entity.aiType == "turret" then
-            entity._rendererType = "stationary_turret"
-        elseif entity.type == "world_object" and entity.subtype == "planet_massive" then
-            entity._rendererType = "planet"
-        elseif entity.type == "world_object" and entity.subtype == "reward_crate" then
-            entity._rendererType = "reward_crate"
-        elseif entity.components.lootable then
-            entity._rendererType = "lootContainer"
-        else
-            entity._rendererType = "fallback"
-        end
+        -- Use the data-driven registry to determine renderer type
+        entity._rendererType = RendererTypeRegistry.getTypeForEntity(entity)
 
         trackedEntities[entity] = true
         rendererCounter = rendererCounter + 1
@@ -139,6 +105,19 @@ end
 
 function Dispatcher.clearCache()
     clearRendererCache()
+end
+
+-- Expose registry functionality for external use
+function Dispatcher.registerRendererType(checkFunction, rendererType, priority)
+    return RendererTypeRegistry.register(checkFunction, rendererType, priority)
+end
+
+function Dispatcher.getRegisteredTypes()
+    return RendererTypeRegistry.getRegisteredTypes()
+end
+
+function Dispatcher.debugEntity(entity)
+    return RendererTypeRegistry.debugEntity(entity)
 end
 
 -- Define render layer priorities (lower numbers render first/behind)

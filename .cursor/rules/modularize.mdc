@@ -1,0 +1,4 @@
+---
+alwaysApply: true
+Keep things modular with small files and very organized.. Don't create tests, and don't debug/write debug code unless I tell you to. 
+---

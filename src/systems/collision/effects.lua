@@ -6,14 +6,7 @@ local Radius = require("src.systems.collision.radius")
 
 local CollisionEffects = {}
 
--- Debug flag to help identify collision effect issues
-local DEBUG_COLLISION_EFFECTS = true
-
-local function debugLog(message)
-    if DEBUG_COLLISION_EFFECTS then
-        print("[CollisionEffects] " .. tostring(message))
-    end
-end
+-- Debug logging is now controlled via Config.DEBUG.COLLISION_EFFECTS
 
 -- Find the closest point on a polygon to a given direction
 function CollisionEffects.findClosestPointOnPolygon(centerX, centerY, dirX, dirY, vertices, angle)
@@ -299,17 +292,23 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
     local e2Distance = math.sqrt((e2CollisionX - e2x)^2 + (e2CollisionY - e2y)^2)
     
     if e1Distance > maxDistance then
-        debugLog(string.format("Entity1 collision point too far: distance=%.2f, max=%.2f, using fallback", e1Distance, maxDistance))
+        if Config.DEBUG.COLLISION_EFFECTS then
+            print(string.format("[CollisionEffects] Entity1 collision point too far: distance=%.2f, max=%.2f, using fallback", e1Distance, maxDistance))
+        end
         e1CollisionX, e1CollisionY = e1x + nx * (e1Radius or 10), e1y + ny * (e1Radius or 10)
     end
     
     if e2Distance > maxDistance then
-        debugLog(string.format("Entity2 collision point too far: distance=%.2f, max=%.2f, using fallback", e2Distance, maxDistance))
+        if Config.DEBUG.COLLISION_EFFECTS then
+            print(string.format("[CollisionEffects] Entity2 collision point too far: distance=%.2f, max=%.2f, using fallback", e2Distance, maxDistance))
+        end
         e2CollisionX, e2CollisionY = e2x - nx * (e2Radius or 10), e2y - ny * (e2Radius or 10)
     end
 
-    debugLog(string.format("Collision effects: e1(%.1f,%.1f)->(%.1f,%.1f), e2(%.1f,%.1f)->(%.1f,%.1f), normal(%.2f,%.2f)", 
-        e1x, e1y, e1CollisionX, e1CollisionY, e2x, e2y, e2CollisionX, e2CollisionY, nx, ny))
+    if Config.DEBUG.COLLISION_EFFECTS then
+        print(string.format("[CollisionEffects] Collision effects: e1(%.1f,%.1f)->(%.1f,%.1f), e2(%.1f,%.1f)->(%.1f,%.1f), normal(%.2f,%.2f)", 
+            e1x, e1y, e1CollisionX, e1CollisionY, e2x, e2y, e2CollisionX, e2CollisionY, nx, ny))
+    end
 
     -- Determine if each entity has shields active
     local e1HasShield = CollisionEffects.hasShield(entity1)
@@ -606,7 +605,8 @@ end
 
 -- Function to enable/disable debug logging
 function CollisionEffects.setDebugEnabled(enabled)
-    DEBUG_COLLISION_EFFECTS = enabled
+    -- Debug logging is now controlled via Config.DEBUG.COLLISION_EFFECTS
+    -- This function is kept for compatibility but no longer does anything
 end
 
 return CollisionEffects

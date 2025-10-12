@@ -50,17 +50,6 @@ function PhysicsResolution.pushEntity(entity, pushX, pushY, normalX, normalY, dt
             local delta = -(1 + restitution) * vn
             body.vx = vx + delta * normalX
             body.vy = vy + delta * normalY
-            
-            -- Only apply minimum velocity boost for high restitution objects (shields)
-            if restitution > 0.8 then
-                local newVn = body.vx * normalX + body.vy * normalY
-                local minOut = 40 -- Reduced from 60 for more realistic physics
-                if newVn < minOut then
-                    local add = (minOut - newVn)
-                    body.vx = body.vx + add * normalX
-                    body.vy = body.vy + add * normalY
-                end
-            end
         end
     else
         entity.components.position.x = entity.components.position.x + pushX
@@ -76,17 +65,6 @@ function PhysicsResolution.pushEntity(entity, pushX, pushY, normalX, normalY, dt
                 local delta = -(1 + restitution) * vn
                 vel.x = vx + delta * normalX
                 vel.y = vy + delta * normalY
-                
-                -- Only apply minimum velocity boost for high restitution objects (shields)
-                if restitution > 0.8 then
-                    local newVn = vel.x * normalX + vel.y * normalY
-                    local minOut = 40 -- Reduced from 60 for more realistic physics
-                    if newVn < minOut then
-                        local add = (minOut - newVn)
-                        vel.x = vel.x + add * normalX
-                        vel.y = vel.y + add * normalY
-                    end
-                end
             end
         end
     end
@@ -94,14 +72,46 @@ end
 
 -- Collision damage system has been removed for simplified physics
 
--- Get restitution values for entities
+-- Get restitution values for entities based on surface type
 function PhysicsResolution.getRestitution(entity1, entity2)
     local StationShields = require("src.systems.collision.station_shields")
+    local Constants = require("src.systems.collision.constants")
     
-    local HULL_REST = getCombatValue("HULL_RESTITUTION") or 0.28
-    local SHIELD_REST = getCombatValue("SHIELD_RESTITUTION") or 0.88
-    local e1Rest = StationShields.hasActiveShield(entity1) and SHIELD_REST or HULL_REST
-    local e2Rest = StationShields.hasActiveShield(entity2) and SHIELD_REST or HULL_REST
+    -- Base restitution values for different surface types
+    local HULL_REST = getCombatValue("HULL_RESTITUTION") or Constants.HULL_RESTITUTION
+    local SHIELD_REST = getCombatValue("SHIELD_RESTITUTION") or Constants.SHIELD_RESTITUTION
+    local ASTEROID_REST = Constants.ASTEROID_RESTITUTION
+    local STATION_REST = Constants.STATION_RESTITUTION
+    local WRECKAGE_REST = Constants.WRECKAGE_RESTITUTION
+    local PLANET_REST = Constants.PLANET_RESTITUTION
+    
+    -- Determine surface type for entity1
+    local e1Rest = HULL_REST
+    if StationShields.hasActiveShield(entity1) then
+        e1Rest = SHIELD_REST
+    elseif entity1.components and entity1.components.mineable then
+        e1Rest = ASTEROID_REST
+    elseif entity1.tag == "station" or (entity1.components and entity1.components.station) then
+        e1Rest = STATION_REST
+    elseif entity1.components and entity1.components.wreckage then
+        e1Rest = WRECKAGE_REST
+    elseif entity1.type == "world_object" and entity1.subtype == "planet_massive" then
+        e1Rest = PLANET_REST
+    end
+    
+    -- Determine surface type for entity2
+    local e2Rest = HULL_REST
+    if StationShields.hasActiveShield(entity2) then
+        e2Rest = SHIELD_REST
+    elseif entity2.components and entity2.components.mineable then
+        e2Rest = ASTEROID_REST
+    elseif entity2.tag == "station" or (entity2.components and entity2.components.station) then
+        e2Rest = STATION_REST
+    elseif entity2.components and entity2.components.wreckage then
+        e2Rest = WRECKAGE_REST
+    elseif entity2.type == "world_object" and entity2.subtype == "planet_massive" then
+        e2Rest = PLANET_REST
+    end
     
     return e1Rest, e2Rest
 end

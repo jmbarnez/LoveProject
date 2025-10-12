@@ -25,6 +25,7 @@ end
 
 -- Handle ship-to-ship collision
 function ShipCollision.handleShipToShip(entity1, entity2, collision, dt)
+    local Constants = require("src.systems.collision.constants")
     local nx = collision.normalX or 0
     local ny = collision.normalY or 0
     local overlap = collision.overlap or 0
@@ -49,13 +50,13 @@ function ShipCollision.handleShipToShip(entity1, entity2, collision, dt)
     
     local pushDistance
     if e1HasPolygon or e2HasPolygon then
-        pushDistance = overlap * (isStationCollision and 0.3 or 0.2)
+        pushDistance = overlap * (isStationCollision and Constants.POLYGON_PUSH_STATION or Constants.POLYGON_PUSH_NORMAL)
     else
-        pushDistance = overlap * (isStationCollision and 0.25 or 0.15)
+        pushDistance = overlap * (isStationCollision and Constants.CIRCLE_PUSH_STATION or Constants.CIRCLE_PUSH_NORMAL)
     end
     
     if isStationCollision then
-        pushDistance = math.max(pushDistance, 1)
+        pushDistance = math.max(pushDistance, Constants.MIN_STATION_PUSH)
     end
     
     -- Enhanced momentum-based collision resolution
@@ -102,8 +103,11 @@ function ShipCollision.applyMomentumTransfer(entity1, entity2, nx, ny, e1Rest, e
             local mass1 = PhysicsResolution.getEntityMass(entity1)
             local mass2 = PhysicsResolution.getEntityMass(entity2)
             
+            -- Calculate effective restitution (geometric mean for more realistic physics)
+            local effectiveRestitution = math.sqrt(e1Rest * e2Rest)
+            
             -- Calculate impulse magnitude for natural momentum transfer
-            local impulse = -(1 + math.min(e1Rest, e2Rest)) * relVelAlongNormal
+            local impulse = -(1 + effectiveRestitution) * relVelAlongNormal
             impulse = impulse / (1/mass1 + 1/mass2)
             
             -- Apply impulse
@@ -125,48 +129,42 @@ function ShipCollision.handleShipDebrisPush(player, debris, collision, nx, ny, o
     
     if not playerBody or not debrisBody then return end
     
+    local Constants = require("src.systems.collision.constants")
     local playerVx, playerVy = playerBody.vx, playerBody.vy
     local playerSpeed = math.sqrt(playerVx * playerVx + playerVy * playerVy)
     
     -- Apply momentum even at low speeds for better responsiveness
     if playerSpeed > 0.5 then
-        -- Calculate collision normal for directional pushing
+        -- Calculate velocity component along collision normal
         local normalX = nx or 0
         local normalY = ny or 0
-        
-        -- Calculate velocity component along collision normal
         local velocityAlongNormal = playerVx * normalX + playerVy * normalY
         
-        -- Apply momentum transfer in the direction of player movement
-        local baseTransfer = 1.2 -- Increased for more responsive pushing
-        
-        -- Scale by collision overlap for more realistic physics
-        local overlapFactor = math.min(1.0, (overlap or 0) / 2.0)
-        
-        -- Scale by player speed for more dynamic pushing
-        local speedFactor = math.min(2.5, playerSpeed / 30.0)
+        -- Calculate transfer factors
+        local overlapFactor = math.min(Constants.DEBRIS_OVERLAP_FACTOR_MAX, (overlap or 0) / Constants.DEBRIS_OVERLAP_DIVISOR)
+        local speedFactor = math.min(Constants.DEBRIS_SPEED_FACTOR_MAX, playerSpeed / Constants.DEBRIS_SPEED_DIVISOR)
         
         -- Mass ratio consideration (heavier debris is harder to push)
         local playerMass = playerBody.mass or 500
         local debrisMass = debrisBody.mass or 60
         local massRatio = playerMass / debrisMass
-        local massFactor = math.min(2.0, massRatio / 1.5)
+        local massFactor = math.min(Constants.DEBRIS_MASS_FACTOR_MAX, massRatio / Constants.DEBRIS_MASS_DIVISOR)
         
         -- Calculate final transfer rate
-        local finalTransfer = baseTransfer * overlapFactor * speedFactor * massFactor
+        local finalTransfer = Constants.DEBRIS_BASE_TRANSFER * overlapFactor * speedFactor * massFactor
         
-        -- Apply momentum transfer in the direction of player movement
+        -- Apply momentum transfer
         debrisBody.vx = (debrisBody.vx or 0) + playerVx * finalTransfer
         debrisBody.vy = (debrisBody.vy or 0) + playerVy * finalTransfer
         
-        -- Apply slight resistance to player movement (realistic physics)
-        local playerResistance = finalTransfer * 0.05 -- Reduced resistance for smoother pushing
+        -- Apply slight resistance to player movement
+        local playerResistance = finalTransfer * Constants.DEBRIS_PLAYER_RESISTANCE
         playerBody.vx = playerBody.vx * (1 - playerResistance)
         playerBody.vy = playerBody.vy * (1 - playerResistance)
         
-        -- Add some angular momentum to make debris spin when pushed
-        local angularTransfer = finalTransfer * 0.3
-        debrisBody.angularVel = (debrisBody.angularVel or 0) + (playerVx - playerVy) * angularTransfer * 0.01
+        -- Add angular momentum for realistic spinning
+        local angularTransfer = finalTransfer * Constants.DEBRIS_ANGULAR_TRANSFER
+        debrisBody.angularVel = (debrisBody.angularVel or 0) + (playerVx - playerVy) * angularTransfer * Constants.DEBRIS_ANGULAR_SCALE
     end
 end
 

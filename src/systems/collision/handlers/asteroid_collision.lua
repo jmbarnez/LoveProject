@@ -3,6 +3,7 @@
 
 local PhysicsResolution = require("src.systems.collision.physics.physics_resolution")
 local Sound = require("src.core.sound")
+local Constants = require("src.systems.collision.constants")
 
 local AsteroidCollision = {}
 
@@ -25,13 +26,12 @@ function AsteroidCollision.handleAsteroidToAsteroid(entity1, entity2, collision,
     local relativeVelY = v1y - v2y
     local relativeSpeed = math.sqrt(relativeVelX * relativeVelX + relativeVelY * relativeVelY)
     
-    -- Only play sound for significant impacts (speed > 50 units/sec)
-    -- and implement cooldown to prevent spam
+    -- Only play sound for significant impacts and implement cooldown to prevent spam
     local currentTime = love.timer.getTime()
     local lastCollisionTime = (entity1._lastAsteroidCollision or 0) + (entity2._lastAsteroidCollision or 0)
     local timeSinceLastCollision = currentTime - (lastCollisionTime / 2)
     
-    if relativeSpeed > 50 and timeSinceLastCollision > 0.5 then
+    if relativeSpeed > Constants.ASTEROID_SOUND_THRESHOLD and timeSinceLastCollision > Constants.ASTEROID_SOUND_COOLDOWN then
         local e1x = entity1.components.position.x
         local e1y = entity1.components.position.y
         local e2x = entity2.components.position.x
@@ -40,8 +40,9 @@ function AsteroidCollision.handleAsteroidToAsteroid(entity1, entity2, collision,
         local impactX = (e1x + e2x) / 2
         local impactY = (e1y + e2y) / 2
         
-        -- Scale volume based on impact speed (0.1 to 0.8 range)
-        local volumeScale = math.min(0.8, math.max(0.1, relativeSpeed / 200))
+        -- Scale volume based on impact speed
+        local volumeScale = math.min(Constants.ASTEROID_SOUND_VOLUME_MAX, 
+                                   math.max(Constants.ASTEROID_SOUND_VOLUME_MIN, relativeSpeed / Constants.ASTEROID_SOUND_SCALE))
         Sound.triggerEventAt('impact_rock', impactX, impactY, volumeScale)
         
         -- Update collision timestamps

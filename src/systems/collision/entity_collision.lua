@@ -8,17 +8,9 @@ local ShipCollision = require("src.systems.collision.handlers.ship_collision")
 local AsteroidCollision = require("src.systems.collision.handlers.asteroid_collision")
 local ProjectileCollision = require("src.systems.collision.handlers.projectile_collision")
 local StationCollision = require("src.systems.collision.handlers.station_collision")
+local Config = require("src.content.config")
 
 local EntityCollision = {}
-
--- Debug flag to help identify collision effect issues
-local DEBUG_COLLISION_EFFECTS = true
-
-local function debugLog(message)
-    if DEBUG_COLLISION_EFFECTS then
-        print("[EntityCollision] " .. tostring(message))
-    end
-end
 
 -- Resolve collision between two entities
 function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
@@ -36,25 +28,15 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
         return
     end
 
-    -- Additional validation: ensure entities are actually overlapping
-    local dx = e1x - e2x
-    local dy = e1y - e2y
-    local distance = math.sqrt(dx * dx + dy * dy)
-    local minDistance = (CollisionShapes.getEntityCollisionRadius(entity1) + CollisionShapes.getEntityCollisionRadius(entity2)) * 0.8
-    
-    if distance > minDistance then
-        -- Entities are too far apart for a real collision
-        return
-    end
-
     local nx = collision.normalX or 0
     local ny = collision.normalY or 0
     if nx == 0 and ny == 0 then
         local dx = e1x - e2x
         local dy = e1y - e2y
         local d = math.sqrt(dx * dx + dy * dy)
-        if d < 0.1 then
-            nx, ny = 1, 0
+        local Constants = require("src.systems.collision.constants")
+        if d < Constants.MIN_NORMAL_MAGNITUDE then
+            nx, ny = Constants.DEFAULT_NORMAL_X, Constants.DEFAULT_NORMAL_Y
         else
             nx, ny = dx / d, dy / d
         end
@@ -129,7 +111,8 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
         if inSameGroup then
             local groupId = EntityGroups.getGroupId(entity1)
             local lastGroupEffectTime = entity1._lastGroupEffectTime or 0
-            if now - lastGroupEffectTime < 0.1 then -- 100ms cooldown for group effects
+            local Constants = require("src.systems.collision.constants")
+            if now - lastGroupEffectTime < Constants.COLLISION_EFFECT_COOLDOWN then
                 shouldCreateEffects = false
             else
                 entity1._lastGroupEffectTime = now
@@ -215,8 +198,10 @@ function EntityCollision.handleEntityCollisions(collisionSystem, entity, world, 
     if entity.components.bullet then
         local vel = entity.components.velocity or {x = 0, y = 0}
         local speed = math.sqrt((vel.x or 0)^2 + (vel.y or 0)^2)
-        -- Add extra radius based on speed to catch fast-moving projectiles
-        queryRadius = entityRadius + (speed * dt * 1.5)
+        -- Add extra radius based on speed to catch fast-moving projectiles, with cap to prevent over-querying
+        local Constants = require("src.systems.collision.constants")
+        local speedExpansion = math.min(Constants.PROJECTILE_MAX_QUERY_EXPANSION, speed * dt * Constants.PROJECTILE_QUERY_MULTIPLIER)
+        queryRadius = entityRadius + speedExpansion
     end
 
     -- Get potential collision targets from quadtree
@@ -309,7 +294,8 @@ end
 
 -- Function to enable/disable debug logging
 function EntityCollision.setDebugEnabled(enabled)
-    DEBUG_COLLISION_EFFECTS = enabled
+    -- Debug logging is now controlled via Config.DEBUG.COLLISION_EFFECTS
+    -- This function is kept for compatibility but no longer does anything
 end
 
 return EntityCollision
