@@ -21,6 +21,7 @@ Debug.flags = {
     spawning = false,
     destruction = false,
     player = false,
+    game = true,
     
     -- UI systems
     ui_manager = false,

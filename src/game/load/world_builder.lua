@@ -310,6 +310,12 @@ local function createWorldObjects(world)
         if crate then
             world:addEntity(crate)
             Debug.info("game", "Created reward crate %d at (%d, %d)", i, pos.x, pos.y)
+            -- Debug physics component
+            if crate.components and crate.components.physics then
+                Debug.info("game", "Reward crate %d has physics component with mass %d", i, crate.components.physics.mass or 0)
+            else
+                Debug.warn("game", "Reward crate %d missing physics component!", i)
+            end
         else
             Debug.warn("game", "Failed to create reward crate %d", i)
         end

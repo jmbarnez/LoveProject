@@ -4,6 +4,7 @@ local Renderable = require("src.components.renderable")
 local Collidable = require("src.components.collidable")
 local Mineable = require("src.components.mineable")
 local Interactable = require("src.components.interactable")
+local Physics = require("src.components.physics")
 local Util = require("src.core.util")
 
 local WorldObject = {}
@@ -55,6 +56,19 @@ function WorldObject.new(x, y, angle, friendly, config)
                 self.components.mineable.isBeingMined = false
                 -- Reset intra-cycle progress slowly handled by system; do not zero here
             end
+        end
+    end
+
+    if config.physics then
+        local physicsConfig = {
+            mass = config.physics.mass or 50,
+            x = x,
+            y = y
+        }
+        self.components.physics = Physics.new(physicsConfig)
+        -- Set the physics body radius if specified
+        if config.physics.radius and self.components.physics.body then
+            self.components.physics.body.radius = config.physics.radius
         end
     end
 

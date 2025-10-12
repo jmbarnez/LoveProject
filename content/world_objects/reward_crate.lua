@@ -33,5 +33,10 @@ return {
     interactable = {
         range = 25,
         requiresKey = "reward_crate_key"
+    },
+    
+    physics = {
+        mass = 50,
+        radius = 25
     }
 }
