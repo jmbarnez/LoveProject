@@ -4,11 +4,11 @@ return {
     type = "module",
     subtype = "shield",
     description = "A basic shield module that provides 5 shield HP when equipped in a shield slot.",
-    value = 100,
-    price = 500,
+    value = 100,        -- GC
+    price = 500,        -- GC
     rarity = "Common",
-    mass = 5,
-    volume = 2,
+    mass = 5,           -- kg
+    volume = 2,         -- u³
     stack = 1,
     tags = {"shield", "module", "defense"},
     flavor = "Standard issue shield generator for civilian vessels.",
@@ -40,8 +40,8 @@ return {
     -- Module properties
     module = {
         type = "shield",
-        shield_hp = 50,
-        shield_regen = 0.8, -- HP per second (much slower)
+        shield_hp = 50,        -- HP
+        shield_regen = 0.8,    -- HP/s - much slower
         slot_type = "shield"
     }
 }

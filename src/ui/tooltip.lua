@@ -100,32 +100,44 @@ function Tooltip.drawItemTooltip(item, x, y)
       local maxDmg = fullItemDef.damage_range.max or minDmg
       stats[#stats + 1] = {name = "Damage", value = math.floor(minDmg) .. "-" .. math.floor(maxDmg)}
     end
-    if fullItemDef.optimal then stats[#stats + 1] = {name = "Range", value = math.floor(fullItemDef.optimal) .. (fullItemDef.falloff and " (" .. math.floor(fullItemDef.falloff) .. " falloff)" or "")} end
-    if fullItemDef.cycle then stats[#stats + 1] = {name = "Cycle Time", value = string.format("%.2f", fullItemDef.cycle) .. "s"} end
-    if fullItemDef.projectileSpeed then stats[#stats + 1] = {name = "Projectile Speed", value = math.floor(fullItemDef.projectileSpeed)} end
+    if fullItemDef.optimal then stats[#stats + 1] = {name = "Range", value = math.floor(fullItemDef.optimal) .. " u" .. (fullItemDef.falloff and " (" .. math.floor(fullItemDef.falloff) .. " u falloff)" or "")} end
+    if fullItemDef.cycle then stats[#stats + 1] = {name = "Cycle Time", value = string.format("%.2f s", fullItemDef.cycle)} end
     if fullItemDef.capCost then stats[#stats + 1] = {name = "Energy Cost", value = math.floor(fullItemDef.capCost)} end
     if fullItemDef.baseAccuracy then stats[#stats + 1] = {name = "Accuracy", value = math.floor(fullItemDef.baseAccuracy * 100) .. "%"} end
-    if fullItemDef.health then stats[#stats + 1] = {name = "Hull", value = math.floor(fullItemDef.health)} end
-    if fullItemDef.shieldCapacity then stats[#stats + 1] = {name = "Shield", value = math.floor(fullItemDef.shieldCapacity)} end
+    if fullItemDef.health then stats[#stats + 1] = {name = "Hull", value = math.floor(fullItemDef.health) .. " HP"} end
+    if fullItemDef.shieldCapacity then stats[#stats + 1] = {name = "Shield", value = math.floor(fullItemDef.shieldCapacity) .. " HP"} end
     if fullItemDef.energyCapacity then stats[#stats + 1] = {name = "Energy", value = math.floor(fullItemDef.energyCapacity)} end
     if fullItemDef.heatMax then stats[#stats + 1] = {name = "Heat Capacity", value = math.floor(fullItemDef.heatMax)} end
 
     -- Add item properties
     if fullItemDef.level then stats[#stats + 1] = {name = "Level", value = fullItemDef.level} end
-    if fullItemDef.value then stats[#stats + 1] = {name = "Value", value = fullItemDef.value} end
-    if fullItemDef.mass then stats[#stats + 1] = {name = "Mass", value = string.format("%.1f", fullItemDef.mass)} end
-    if fullItemDef.volume then stats[#stats + 1] = {name = "Volume", value = string.format("%.1f", fullItemDef.volume)} end
+    if fullItemDef.value then stats[#stats + 1] = {name = "Value", value = fullItemDef.value .. " GC"} end
+    if fullItemDef.mass then stats[#stats + 1] = {name = "Mass", value = string.format("%.1f kg", fullItemDef.mass)} end
+    if fullItemDef.volume then stats[#stats + 1] = {name = "Volume", value = string.format("%.1f u³", fullItemDef.volume)} end
     if fullItemDef.stack then stats[#stats + 1] = {name = "Stack Size", value = fullItemDef.stack} end
 
     -- Module-specific stats (from drawModuleTooltip)
     if fullItemDef.module and fullItemDef.module.shield_hp then
-      stats[#stats+1] = { name = "Shield HP", value = fullItemDef.module.shield_hp }
+      stats[#stats+1] = { name = "Shield HP", value = fullItemDef.module.shield_hp .. " HP" }
     end
     if fullItemDef.module and fullItemDef.module.shield_regen then
-      stats[#stats+1] = { name = "Shield Regen", value = fullItemDef.module.shield_regen .. "/s" }
+      stats[#stats+1] = { name = "Shield Regen", value = fullItemDef.module.shield_regen .. " HP/s" }
     end
     if fullItemDef.module and fullItemDef.module.slot_type then
       stats[#stats+1] = { name = "Slot Type", value = fullItemDef.module.slot_type }
+    end
+    -- Dash module stats
+    if fullItemDef.module and fullItemDef.module.dash_speed_multiplier then
+      stats[#stats+1] = { name = "Speed Multiplier", value = string.format("%.1fx", fullItemDef.module.dash_speed_multiplier) }
+    end
+    if fullItemDef.module and fullItemDef.module.dash_cooldown_reduction then
+      stats[#stats+1] = { name = "Cooldown Reduction", value = string.format("%.1f%%", fullItemDef.module.dash_cooldown_reduction * 100) }
+    end
+    if fullItemDef.module and fullItemDef.module.dash_energy_reduction then
+      stats[#stats+1] = { name = "Energy Reduction", value = string.format("%.1f%%", fullItemDef.module.dash_energy_reduction * 100) }
+    end
+    if fullItemDef.module and fullItemDef.module.dash_iframes_bonus then
+      stats[#stats+1] = { name = "Iframes Bonus", value = string.format("%.2f s", fullItemDef.module.dash_iframes_bonus) }
     end
 
     -- Special handling for turrets

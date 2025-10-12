@@ -4,10 +4,10 @@ return {
   type = "material",
   rarity = "Common",
   stack = 9999,
-  value = 5,
-  price = 8, -- Shop price based on market buy price
+  value = 5,        -- GC
+  price = 8,        -- GC - Shop price based on market buy price
   mass = 1.2,       -- kg per unit
-  volume = 0.5,     -- m^3 per unit
+  volume = 0.5,     -- u³ per unit
   market = { buy = 4, sell = 6, volatility = 0.08 },
   tags = { "ore", "industrial", "hull-alloy" },
   description = "A ubiquitous, resilient ore refined into tritanium alloys for hull plating and bulkheads.",

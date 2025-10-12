@@ -4,10 +4,10 @@ return {
   type = "material",
   rarity = "Rare",
   stack = 9999,
-  value = 25,
-  price = 35, -- Shop price based on market sell price
+  value = 25,       -- GC
+  price = 35,       -- GC - Shop price based on market sell price
   mass = 1.8,       -- kg per unit
-  volume = 0.5,     -- m^3 per unit
+  volume = 0.5,     -- u³ per unit
   market = { buy = 20, sell = 30, volatility = 0.12 },
   tags = { "ore", "precious", "catalyst" },
   description = "A rare, silvery-white metal used in advanced electronics and catalytic converters.",

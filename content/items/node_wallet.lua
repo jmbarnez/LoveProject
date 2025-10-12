@@ -4,10 +4,10 @@ return {
   type = "consumable",
   rarity = "Uncommon",
   stack = 10,
-  value = 50,
-  price = nil, -- Not sold in shops
-  mass = 0.1,
-  volume = 0.1,
+  value = 50,       -- GC
+  price = nil,      -- GC - Not sold in shops
+  mass = 0.1,       -- kg
+  volume = 0.1,     -- u³
   tags = { "crypto", "consumable", "node" },
   description = "A secured wallet containing access credentials for 1-3 random network nodes. Use to establish connections.",
   flavor = "Encrypted keys to the digital frontier.",

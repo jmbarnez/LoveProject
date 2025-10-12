@@ -4,11 +4,11 @@ return {
     type = "module",
     subtype = "ability",
     description = "A basic dash module that provides enhanced dash capabilities when equipped in an ability slot.",
-    value = 150,
-    price = 750,
+    value = 150,        -- GC
+    price = 750,        -- GC
     rarity = "Common",
-    mass = 3,
-    volume = 1.5,
+    mass = 3,           -- kg
+    volume = 1.5,       -- u³
     stack = 1,
     tags = {"ability", "module", "movement", "dash"},
     flavor = "Standard issue thruster enhancement for improved maneuverability.",
@@ -65,11 +65,6 @@ return {
     module = {
         type = "ability",
         ability_type = "dash",
-        slot_type = "ability",
-        -- Dash enhancements
-        dash_speed_multiplier = 1.2,  -- 20% faster dash
-        dash_cooldown_reduction = 0.1, -- 10% faster cooldown
-        dash_energy_reduction = 0.1,   -- 10% less energy cost
-        dash_iframes_bonus = 0.05      -- 0.05s extra iframes
+        slot_type = "ability"
     }
 }

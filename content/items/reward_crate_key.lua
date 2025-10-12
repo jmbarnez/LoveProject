@@ -4,10 +4,10 @@ return {
     type = "material",
     rarity = "Uncommon",
     stack = 20,
-    value = 0,
-    price = nil, -- Not sold in shops - only obtainable from MILA
-    mass = 0.1,
-    volume = 0.05,
+    value = 0,       -- GC
+    price = nil,     -- GC - Not sold in shops - only obtainable from MILA
+    mass = 0.1,      -- kg
+    volume = 0.05,   -- u³
     tags = { "key", "reward" },
     description = "A precision-cut key that unlocks sealed reward crates found across the sector.",
     flavor = "Its edges pulse faintly when a crate is nearby.",

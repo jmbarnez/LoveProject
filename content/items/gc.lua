@@ -4,9 +4,9 @@ return {
   type = "currency",
   rarity = "Common",
   stack = 999999,
-  value = 1,
-  mass = 0.0,
-  volume = 0.0,
+  value = 1,        -- GC
+  mass = 0.0,       -- kg
+  volume = 0.0,     -- u³
   tags = { "currency", "credits", "money" },
   description = "The standard currency used throughout the galaxy for trade and commerce.",
   flavor = "Trusted by traders across the stars.",

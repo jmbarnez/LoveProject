@@ -29,10 +29,10 @@ return {
 
   -- Basic drone stats
   hull = { hp = 100, shield = 50, cap = 110 },
-  -- Much lighter for better maneuverability: lower mass, higher accel
-  engine = { accel = 1200, maxSpeed = 500, drag = 0.985, mass = 150 },
-  sig = 110,
-  cargo = { capacity = 120, volumeLimit = 50.0 }, -- 50 m^3 cargo hold
+  -- Reduced thrust power for more tactical gameplay
+  engine = { accel = 400, maxSpeed = 300, drag = 0.98, mass = 150 }, -- accel: u/s², maxSpeed: u/s, mass: kg
+  sig = 110, -- u - signature radius
+  cargo = { capacity = 120, volumeLimit = 50.0 }, -- capacity: units, volumeLimit: u³
   equipmentSlots = 5,
   equipmentLayout = {
     { slot = 1, type = "turret" },

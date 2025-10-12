@@ -4,10 +4,10 @@ return {
   type = "material",
   rarity = "Common",
   stack = 9999,
-  value = 5,
-  price = 7, -- Shop price based on market sell price
-  mass = 0.8,
-  volume = 0.5,
+  value = 5,        -- GC
+  price = 7,        -- GC - Shop price based on market sell price
+  mass = 0.8,       -- kg
+  volume = 0.5,     -- u³
   market = { buy = 4, sell = 6, volatility = 0.2 },
   tags = { "material", "salvage", "trade" },
   description = "A collection of salvaged materials, useful for basic crafting and repairs.",

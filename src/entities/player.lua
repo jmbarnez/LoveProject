@@ -499,23 +499,17 @@ function Player:updateAbilityModules()
         return
     end
 
-    -- Reset ability module bonuses
+    -- Reset ability modules - just track which abilities are available
     self.abilityModules = {
-        dash_speed_multiplier = 1.0,
-        dash_cooldown_reduction = 0.0,
-        dash_energy_reduction = 0.0,
-        dash_iframes_bonus = 0.0
+        dash_available = false
     }
 
-    -- Calculate bonuses from equipped ability modules
+    -- Check which abilities are equipped
     for _, gridData in ipairs(self.components.equipment.grid) do
         if gridData.type == "ability" and gridData.module and gridData.module.module then
             local moduleData = gridData.module.module
             if moduleData.ability_type == "dash" then
-                self.abilityModules.dash_speed_multiplier = self.abilityModules.dash_speed_multiplier * (moduleData.dash_speed_multiplier or 1.0)
-                self.abilityModules.dash_cooldown_reduction = self.abilityModules.dash_cooldown_reduction + (moduleData.dash_cooldown_reduction or 0.0)
-                self.abilityModules.dash_energy_reduction = self.abilityModules.dash_energy_reduction + (moduleData.dash_energy_reduction or 0.0)
-                self.abilityModules.dash_iframes_bonus = self.abilityModules.dash_iframes_bonus + (moduleData.dash_iframes_bonus or 0.0)
+                self.abilityModules.dash_available = true
             end
         end
     end

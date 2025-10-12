@@ -12,19 +12,19 @@ Config.SPAWN = setmetatable({
 }, { __index = Constants.SPAWNING })
 
 Config.MISSILE = {
-  EXPLODE_RADIUS = 48,
-  LIFE = 3.5,
+  EXPLODE_RADIUS = 48,  -- u
+  LIFE = 3.5,           -- s
 }
 
 Config.LASER = {
-  MAX_LENGTH = 1500,
-  DEFAULT_DIST = 1500,
-  LIFE = 0.06,
+  MAX_LENGTH = 1500,    -- u
+  DEFAULT_DIST = 1500,  -- u
+  LIFE = 0.06,          -- s
 }
 
 Config.BULLET = {
-  HIT_BUFFER = 0.0,
-  TRACER_SPEED = 4800,
+  HIT_BUFFER = 0.0,     -- s
+  TRACER_SPEED = 4800,  -- u/s
 }
 
 -- Player combat tuning
@@ -37,7 +37,7 @@ Config.HUB = {
 -- Quest system settings
 Config.QUESTS = {
   STATION_SLOTS = 3,                 -- number of procedural quest slots at stations
-  REFRESH_AFTER_TURNIN_SEC = 15 * 60 -- 15 minutes cooldown after turn-in
+  REFRESH_AFTER_TURNIN_SEC = 15 * 60 -- s - 15 minutes cooldown after turn-in
 }
 
 Config.DEBUG = {
@@ -58,10 +58,10 @@ Config.AUDIO = Constants.AUDIO
 
 -- Dash system configuration
 Config.DASH = {
-    SPEED = 225,           -- Base dash speed (1/4th of original 900)
-    COOLDOWN = 8.0,        -- Base cooldown in seconds
-    ENERGY_COST = 50,      -- Base energy cost
-    IFRAMES = 0.25,        -- Base invincibility frames duration
+    SPEED = 100,           -- Base dash speed (u/s) - much weaker
+    COOLDOWN = 15.0,       -- Base cooldown in seconds - very long
+    ENERGY_COST = 75,      -- Base energy cost - very high
+    IFRAMES = 0.15,        -- Base invincibility frames duration (s) - shorter
 }
 
 return Config

@@ -13,6 +13,11 @@ function DashSystem.processDash(player, state, input, body, dt, modalActive)
         return -- Don't process dash when modal is active
     end
 
+    -- Check if player has dash ability equipped
+    if not DashSystem.hasDashAbility(player) then
+        return -- Player doesn't have dash ability
+    end
+
     -- Update cooldown
     state.dash_cooldown = math.max(0, (state.dash_cooldown or 0) - dt)
     
@@ -33,9 +38,7 @@ function DashSystem.processDash(player, state, input, body, dt, modalActive)
     -- Check energy requirements
     local energy = player.components and player.components.energy
     local dashConfig = Config.DASH or {}
-    local baseEnergyCost = dashConfig.ENERGY_COST or 0
-    local abilityModules = player.abilityModules or {}
-    local energyCost = baseEnergyCost * (1.0 - (abilityModules.dash_energy_reduction or 0.0))
+    local energyCost = dashConfig.ENERGY_COST or 0
     local canEnergy = not energy or (energy.energy or 0) >= energyCost
     
     if not canEnergy then
@@ -84,21 +87,14 @@ end
 function DashSystem.executeDash(player, state, body, dashDirX, dashDirY, health)
     -- Get dash configuration
     local dashConfig = Config.DASH or {}
-    local baseSpeed = dashConfig.SPEED or 900
-    local baseIframes = dashConfig.IFRAMES or 0.25
-    local baseCooldown = dashConfig.COOLDOWN or 0.9
-    local baseEnergyCost = dashConfig.ENERGY_COST or 0
-    
-    -- Apply ability module bonuses
-    local abilityModules = player.abilityModules or {}
-    local desiredSpeed = baseSpeed * (abilityModules.dash_speed_multiplier or 1.0)
-    local iframes = baseIframes + (abilityModules.dash_iframes_bonus or 0.0)
-    local cooldown = baseCooldown * (1.0 - (abilityModules.dash_cooldown_reduction or 0.0))
-    local energyCost = baseEnergyCost * (1.0 - (abilityModules.dash_energy_reduction or 0.0))
+    local speed = dashConfig.SPEED or 900
+    local iframes = dashConfig.IFRAMES or 0.25
+    local cooldown = dashConfig.COOLDOWN or 0.9
+    local energyCost = dashConfig.ENERGY_COST or 0
     
     -- Apply dash impulse
-    local impulseX = dashDirX * desiredSpeed * (body.mass or 500)
-    local impulseY = dashDirY * desiredSpeed * (body.mass or 500)
+    local impulseX = dashDirX * speed * (body.mass or 500)
+    local impulseY = dashDirY * speed * (body.mass or 500)
     
     if body.applyImpulse then 
         body:applyImpulse(impulseX, impulseY) 
@@ -136,13 +132,24 @@ function DashSystem.queueDash(player)
     player._dashQueued = true
 end
 
--- Check if dash is available (not on cooldown and has energy)
+-- Check if player has dash ability equipped
+function DashSystem.hasDashAbility(player)
+    if not player or not player.abilityModules then
+        return false
+    end
+    
+    return player.abilityModules.dash_available == true
+end
+
+-- Check if dash is available (has ability, not on cooldown, and has energy)
 function DashSystem.isDashAvailable(player, state)
+    if not DashSystem.hasDashAbility(player) then
+        return false
+    end
+    
     local energy = player.components and player.components.energy
     local dashConfig = Config.DASH or {}
-    local baseEnergyCost = dashConfig.ENERGY_COST or 0
-    local abilityModules = player.abilityModules or {}
-    local energyCost = baseEnergyCost * (1.0 - (abilityModules.dash_energy_reduction or 0.0))
+    local energyCost = dashConfig.ENERGY_COST or 0
     local hasEnergy = not energy or (energy.energy or 0) >= energyCost
     local offCooldown = (state.dash_cooldown or 0) <= 0
     

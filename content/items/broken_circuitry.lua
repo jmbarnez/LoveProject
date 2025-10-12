@@ -4,10 +4,10 @@ return {
   type = "material",
   rarity = "Common",
   stack = 9999,
-  value = 8,
-  price = 12, -- Shop price based on market sell price
-  mass = 0.3,
-  volume = 0.2,
+  value = 8,        -- GC
+  price = 12,       -- GC - Shop price based on market sell price
+  mass = 0.3,       -- kg
+  volume = 0.2,     -- u³
   market = { buy = 8, sell = 10, volatility = 0.15 },
   tags = { "material", "salvage", "electronic", "trade" },
   description = "Damaged electronic components salvaged from destroyed ships. Still useful for basic repairs and crafting.",

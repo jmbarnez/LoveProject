@@ -32,6 +32,106 @@ local function resolveTurretSubject(module, fallback)
   return fallback
 end
 
+local function resolveAbilitySubject(module, fallback)
+  if not module then return fallback end
+  -- For ability modules, the module IS the item definition
+  if module.id then return module.id end
+  return fallback
+end
+
+-- Generic slot type handlers
+local slotHandlers = {
+  turret = function(gridData, player, rx, ry, size)
+    local t = gridData.module
+    local subject = resolveTurretSubject(t, gridData.id)
+    drawIcon({ subject, (t and t.id), "basic_gun" }, rx + 4, ry + 4, size - 8)
+    return true
+  end,
+  
+  ability = function(gridData, player, rx, ry, size)
+    local module = gridData.module
+    local subject = resolveAbilitySubject(module, gridData.id)
+    drawIcon({ subject, "basic_gun" }, rx + 4, ry + 4, size - 8)
+    return true
+  end,
+  
+  shield = function(gridData, player, rx, ry, size)
+    drawShieldIcon(rx + 4, ry + 4, size - 8, player and player.shieldChannel)
+    return true
+  end
+}
+
+-- Generic function to handle equipment slots
+local function drawEquipmentSlot(gridData, player, rx, ry, size)
+  if not gridData or not gridData.module or not gridData.type then
+    return false
+  end
+  
+  local handler = slotHandlers[gridData.type]
+  if handler then
+    return handler(gridData, player, rx, ry, size)
+  end
+  
+  return false
+end
+
+-- Cooldown handlers for different slot types
+local cooldownHandlers = {
+  ability = function(gridData, player, rx, ry, size)
+    if gridData.module and gridData.module.module then
+      local moduleData = gridData.module.module
+      if moduleData.ability_type == "dash" then
+        local state = player.components.player_state
+        if state and state.dash_cooldown and state.dash_cooldown > 0 then
+          local dashConfig = require("src.content.config").DASH or {}
+          local cooldown = dashConfig.COOLDOWN or 0.9
+          local cooldownPct = math.max(0, math.min(1, state.dash_cooldown / cooldown))
+          if cooldownPct > 0 then
+            local barHeight = math.floor(size * cooldownPct)
+            -- Use orange for dash cooldown bar
+            love.graphics.setColor(0.8, 0.4, 0.1, 0.8)
+            love.graphics.rectangle('fill', rx, ry + size - barHeight, size, barHeight)
+            love.graphics.setColor(1.0, 0.6, 0.2, 1.0)
+            love.graphics.setLineWidth(2)
+            love.graphics.rectangle('line', rx, ry + size - barHeight, size, barHeight)
+
+            -- Numeric cooldown
+            local text = string.format("%.1f", state.dash_cooldown)
+            local fOld = love.graphics.getFont()
+            if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
+            local font = love.graphics.getFont()
+            local metrics = UIUtils.getCachedTextMetrics(text, font)
+            local fw = metrics.width
+            local fh = metrics.height
+            local tx, ty = rx + (size - fw) * 0.5, ry + (size - fh) * 0.5
+            local Theme = require("src.core.theme")
+            Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.7))
+            love.graphics.print(text, tx + 1, ty + 1)
+            Theme.setColor(Theme.colors.text)
+            love.graphics.print(text, tx, ty)
+            if fOld then love.graphics.setFont(fOld) end
+          end
+        end
+      end
+    end
+  end
+}
+
+-- Generic function to handle cooldowns
+local function drawCooldownOverlay(gridData, player, rx, ry, size)
+  if not gridData or not gridData.type then
+    return false
+  end
+  
+  local handler = cooldownHandlers[gridData.type]
+  if handler then
+    handler(gridData, player, rx, ry, size)
+    return true
+  end
+  
+  return false
+end
+
 local function drawBoostIcon(x, y, size, active)
   local cx, cy = x + size * 0.5, y + size * 0.5
   local flame = active and Theme.colors.warning or Theme.colors.textSecondary
@@ -137,9 +237,8 @@ function Hotbar.draw(player)
             drawIcon({ subject, (t and t.id), "basic_gun" }, rx + 4, ry + 4, size - 8)
             drewIcon = true
           else
-            -- Handle other modules (shields, etc.)
-            if gridData.type == "shield" then
-              drawShieldIcon(rx + 4, ry + 4, size - 8, player and player.shieldChannel)
+            -- Handle other modules (shields, etc.) using the modular system
+            if drawEquipmentSlot(gridData, player, rx, ry, size) then
               drewIcon = true
             end
           end
@@ -177,13 +276,8 @@ function Hotbar.draw(player)
       local idx = tonumber(slot.item:match('^ability_slot_(%d+)$'))
       if player and player.components and player.components.equipment and player.components.equipment.grid and idx then
         local gridData = player.components.equipment.grid[idx]
-        if gridData and gridData.module then
-          -- Use the module's icon definition
-          local moduleIcon = gridData.module.icon
-          if moduleIcon then
-            drawIcon({ moduleIcon }, rx + 4, ry + 4, size - 8)
-            drewIcon = true
-          end
+        if drawEquipmentSlot(gridData, player, rx, ry, size) then
+          drewIcon = true
         end
       end
     elseif slot.item == "boost" then
@@ -351,48 +445,11 @@ function Hotbar.draw(player)
           end
         end
       elseif type(slot.item) == 'string' and slot.item:match('^ability_slot_%d+$') then
-        -- Ability module cooldown (dash)
+        -- Ability module cooldown using modular system
         local idx = tonumber(slot.item:match('^ability_slot_(%d+)$'))
         if player and player.components and player.components.equipment and player.components.equipment.grid and idx then
           local gridData = player.components.equipment.grid[idx]
-          if gridData and gridData.module and gridData.module.module then
-            local moduleData = gridData.module.module
-            if moduleData.ability_type == "dash" then
-              local state = player.components.player_state
-              if state and state.dash_cooldown and state.dash_cooldown > 0 then
-                local dashConfig = require("src.content.config").DASH or {}
-                local baseCooldown = dashConfig.COOLDOWN or 0.9
-                local abilityModules = player.abilityModules or {}
-                local cooldown = baseCooldown * (1.0 - (abilityModules.dash_cooldown_reduction or 0.0))
-                local cooldownPct = math.max(0, math.min(1, state.dash_cooldown / cooldown))
-                if cooldownPct > 0 then
-                  local barHeight = math.floor(size * cooldownPct)
-                  -- Use orange for dash cooldown bar
-                  love.graphics.setColor(0.8, 0.4, 0.1, 0.8)
-                  love.graphics.rectangle('fill', rx, ry + size - barHeight, size, barHeight)
-                  love.graphics.setColor(1.0, 0.6, 0.2, 1.0)
-                  love.graphics.setLineWidth(2)
-                  love.graphics.rectangle('line', rx, ry + size - barHeight, size, barHeight)
-
-                  -- Numeric cooldown
-                  local text = string.format("%.1f", state.dash_cooldown)
-                  local fOld = love.graphics.getFont()
-                  if Theme.fonts and Theme.fonts.small then love.graphics.setFont(Theme.fonts.small) end
-                  local font = love.graphics.getFont()
-                  local metrics = UIUtils.getCachedTextMetrics(text, font)
-                  local fw = metrics.width
-                  local fh = metrics.height
-                  local tx, ty = rx + (size - fw) * 0.5, ry + (size - fh) * 0.5
-                  local Theme = require("src.core.theme")
-                  Theme.setColor(Theme.withAlpha(Theme.colors.shadow, 0.7))
-                  love.graphics.print(text, tx + 1, ty + 1)
-                  Theme.setColor(Theme.colors.text)
-                  love.graphics.print(text, tx, ty)
-                  if fOld then love.graphics.setFont(fOld) end
-                end
-              end
-            end
-          end
+          drawCooldownOverlay(gridData, player, rx, ry, size)
         end
       elseif slot.item == 'turret' then
         -- Aggregate primary turret cooldown (max ratio across installed turrets that are not overheated)
