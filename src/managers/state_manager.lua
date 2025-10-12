@@ -293,15 +293,19 @@ local function getGameState()
       xp = currentPlayer.xp or 0,
       gc = currentPlayer.gc or 0,
       
-      -- Health/shields
-      health = currentPlayer.components and currentPlayer.components.health and {
-        hp = currentPlayer.components.health.hp or 100,
-        maxHp = currentPlayer.components.health.maxHP or 100,
-        shield = currentPlayer.components.health.shield or 0,
-        maxShield = currentPlayer.components.health.maxShield or 0,
-        energy = currentPlayer.components.health.energy or 0,
-        maxEnergy = currentPlayer.components.health.maxEnergy or 0
-      } or {hp = 100, maxHp = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0},
+      -- Hull/shields/energy
+      hull = currentPlayer.components and currentPlayer.components.hull and {
+        hp = currentPlayer.components.hull.hp or 100,
+        maxHp = currentPlayer.components.hull.maxHP or 100
+      } or {hp = 100, maxHp = 100},
+      shield = currentPlayer.components and currentPlayer.components.shield and {
+        shield = currentPlayer.components.shield.shield or 0,
+        maxShield = currentPlayer.components.shield.maxShield or 0
+      } or {shield = 0, maxShield = 0},
+      energy = currentPlayer.components and currentPlayer.components.energy and {
+        energy = currentPlayer.components.energy.energy or 0,
+        maxEnergy = currentPlayer.components.energy.maxEnergy or 100
+      } or {energy = 0, maxEnergy = 100},
 
       -- Cargo hold (safe copy)
       cargo = currentPlayer.components and currentPlayer.components.cargo and currentPlayer.components.cargo:serialize() or nil,
@@ -384,17 +388,17 @@ local function applyGameState(state, player, world)
   player.gc = playerData.gc or 0
   
   -- Restore health
-  if playerData.health and player.components.health then
-    player.components.health.hp = playerData.health.hp
-    player.components.health.maxHP = playerData.health.maxHp
-    player.components.health.shield = playerData.health.shield
-    player.components.health.maxShield = playerData.health.maxShield
-    if playerData.health.energy ~= nil then
-      player.components.health.energy = playerData.health.energy
-    end
-    if playerData.health.maxEnergy ~= nil then
-      player.components.health.maxEnergy = playerData.health.maxEnergy
-    end
+  if playerData.hull and player.components.hull then
+    player.components.hull.hp = playerData.hull.hp
+    player.components.hull.maxHP = playerData.hull.maxHp
+  end
+  if playerData.shield and player.components.shield then
+    player.components.shield.shield = playerData.shield.shield
+    player.components.shield.maxShield = playerData.shield.maxShield
+  end
+  if playerData.energy and player.components.energy then
+    player.components.energy.energy = playerData.energy.energy
+    player.components.energy.maxEnergy = playerData.energy.maxEnergy
   end
 
   if player.components and player.components.cargo then
@@ -507,18 +511,22 @@ local function createGameFromSave(state)
   end
 
   -- Set health
-  if playerData.health then
-    if player.components.health then
-      player.components.health.hp = playerData.health.hp
-      player.components.health.maxHP = playerData.health.maxHp
-      player.components.health.shield = playerData.health.shield
-      player.components.health.maxShield = playerData.health.maxShield
-      if playerData.health.energy ~= nil then
-        player.components.health.energy = playerData.health.energy
+  if playerData.hull then
+    if player.components.hull then
+      player.components.hull.hp = playerData.hull.hp
+      player.components.hull.maxHP = playerData.hull.maxHp
+      if playerData.hull.energy ~= nil then
+        player.components.hull.energy = playerData.hull.energy
       end
-      if playerData.health.maxEnergy ~= nil then
-        player.components.health.maxEnergy = playerData.health.maxEnergy
+      if playerData.hull.maxEnergy ~= nil then
+        player.components.hull.maxEnergy = playerData.hull.maxEnergy
       end
+    end
+  end
+  if playerData.shield then
+    if player.components.shield then
+      player.components.shield.shield = playerData.shield.shield
+      player.components.shield.maxShield = playerData.shield.maxShield
     end
   end
 
@@ -768,8 +776,8 @@ function StateManager.canAutoSave()
   if currentPlayer.aggro then return false end
   
   -- Don't auto-save if player health is critically low (less than 10%)
-  if currentPlayer.components.health then
-    local healthPercent = currentPlayer.components.health.hp / currentPlayer.components.health.maxHP
+  if currentPlayer.components.hull then
+    local healthPercent = currentPlayer.components.hull.hp / currentPlayer.components.hull.maxHP
     if healthPercent < 0.1 then return false end
   end
   

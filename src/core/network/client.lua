@@ -33,7 +33,7 @@ local function sanitiseState(state)
             x = tonumber(velocity.x) or 0,
             y = tonumber(velocity.y) or 0
         },
-        health = state.health,
+        durability = state.durability,
         shieldChannel = state.shieldChannel == true,
         name = state.name,
         thrusterState = {
@@ -635,3 +635,4 @@ function NetworkClient:sendWeaponFireRequest(requestData)
 end
 
 return NetworkClient
+

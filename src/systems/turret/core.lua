@@ -228,9 +228,9 @@ function Turret:update(dt, target, locked, world)
         -- Check energy requirements only when actually trying to fire
         if not config.skipEnergyCheck
             and self.capCost and self.capCost > 0
-            and self.owner and self.owner.components and self.owner.components.health
+            and self.owner and self.owner.components and self.owner.components.energy
             and self.owner.isPlayer then
-            local currentEnergy = self.owner.components.health.energy or 0
+            local currentEnergy = self.owner.components.energy.energy or 0
             if currentEnergy < self.capCost then
                 -- Show notification for insufficient energy (only for player) with spam protection
                 local currentTime = love.timer.getTime()

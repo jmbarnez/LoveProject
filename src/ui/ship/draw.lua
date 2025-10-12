@@ -84,16 +84,18 @@ function DrawShip.render(state, player, x, y, w, h)
     Theme.setColor(Theme.colors.bg2)
     love.graphics.rectangle("fill", statsX, statsY, statsInnerWidth, statsViewHeight, 4, 4)
 
-    local hComp = player.components and player.components.health or {}
+    local hullComp = player.components and player.components.hull or {}
+    local shieldComp = player.components and player.components.shield or {}
+    local energyComp = player.components and player.components.energy or {}
     local statsList = {}
-    if hComp.maxHP and hComp.maxHP > 0 then
-        table.insert(statsList, { label = "Hull HP", value = hComp.maxHP, color = Theme.colors.statusHull })
+    if hullComp.maxHP and hullComp.maxHP > 0 then
+        table.insert(statsList, { label = "Hull HP", value = hullComp.maxHP, color = Theme.colors.statusHull })
     end
-    if hComp.maxShield and hComp.maxShield > 0 then
-        table.insert(statsList, { label = "Shield HP", value = hComp.maxShield, color = Theme.colors.statusShield })
+    if shieldComp.maxShield and shieldComp.maxShield > 0 then
+        table.insert(statsList, { label = "Shield HP", value = shieldComp.maxShield, color = Theme.colors.statusShield })
     end
-    if hComp.maxEnergy and hComp.maxEnergy > 0 then
-        table.insert(statsList, { label = "Capacitor", value = hComp.maxEnergy, color = Theme.colors.statusCapacitor })
+    if energyComp.maxEnergy and energyComp.maxEnergy > 0 then
+        table.insert(statsList, { label = "Capacitor", value = energyComp.maxEnergy, color = Theme.colors.statusCapacitor })
     end
 
     local lineHeight = 22

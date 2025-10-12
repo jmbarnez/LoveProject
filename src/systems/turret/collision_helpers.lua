@@ -38,7 +38,8 @@ function CollisionHelpers.performCollisionCheck(x1, y1, x2, y2, target, targetRa
         end
     end
 
-    local health = components.health
+    local hull = components.hull
+    local shield = components.shield
     -- For players, check shield collision first if they have active shields
     -- This ensures remote projectiles properly detect shield hits even with stale shield data
     if health and (health.shield or 0) > 0 then

@@ -4,13 +4,13 @@ local Log = require("src.core.log")
 local Position = require("src.components.position")
 local Collidable = require("src.components.collidable")
 local Velocity = require("src.components.velocity")
-local Health = require("src.components.health")
+local Hull = require("src.components.hull")
+local Shield = require("src.components.shield")
+local Energy = require("src.components.energy")
 local Equipment = require("src.components.equipment")
 local Renderable = require("src.components.renderable")
 local PhysicsComponent = require("src.components.physics")
 local Collidable = require("src.components.collidable")
-local Health = require("src.components.health")
-local Equipment = require("src.components.equipment")
 local Velocity = require("src.components.velocity")
 local Lootable = require("src.components.lootable")
 local PlayerComponent = require("src.components.player")
@@ -88,7 +88,7 @@ function Ship.new(x, y, angle, friendly, shipConfig)
   -- Keep reference to config fragments for UI (engine/misc)
   self.engine = shipConfig.engine or { mass = 1000, accel = 500 }
 
-  -- Hull stats (standardize via components.health)
+  -- Hull stats (standardize via components.hull)
   local maxHP, maxShield, maxEnergy
   if shipConfig.hull then
     maxHP = shipConfig.hull.hp or 100
@@ -135,7 +135,9 @@ function Ship.new(x, y, angle, friendly, shipConfig)
       }),
       physics = physics,
       velocity = Velocity.new({ x = 0, y = 0 }),
-      health = Health.new({ maxHP = maxHP, maxShield = maxShield, maxEnergy = maxEnergy, hp = hp, shield = shield, energy = energy }),
+      hull = Hull.new({ maxHP = maxHP, hp = hp }),
+      shield = Shield.new({ maxShield = maxShield, shield = shield }),
+      energy = Energy.new({ maxEnergy = maxEnergy, energy = energy }),
       equipment = equipment,
       renderable = Renderable.new(
           "enemy", -- Use the 'enemy' renderer by default
@@ -318,21 +320,27 @@ end
 
 -- Damage handling
 function Ship:hit(damage)
-  local h = self.components and self.components.health
-  if not h then return damage end
-  local shieldAbsorbed = math.min(h.shield or 0, damage or 0)
-  h.shield = math.max(0, (h.shield or 0) - shieldAbsorbed)
+  local hull = self.components and self.components.hull
+  local shield = self.components and self.components.shield
+  if not hull then return damage end
+  
+  local shieldAbsorbed = 0
+  if shield then
+    shieldAbsorbed = math.min(shield.shield or 0, damage or 0)
+    shield.shield = math.max(0, (shield.shield or 0) - shieldAbsorbed)
+  end
+  
   local remainingDamage = (damage or 0) - shieldAbsorbed
   if remainingDamage > 0 then
-    h.hp = math.max(0, (h.hp or 0) - remainingDamage)
-    if (h.hp or 0) <= 0 then self.dead = true end
+    hull.hp = math.max(0, (hull.hp or 0) - remainingDamage)
+    if (hull.hp or 0) <= 0 then self.dead = true end
   end
   return damage
 end
 
 function Ship:isAlive()
-  local h = self.components and self.components.health
-  return not self.dead and h and (h.hp or 0) > 0
+  local hull = self.components and self.components.hull
+  return not self.dead and hull and (hull.hp or 0) > 0
 end
 
 function Ship:getTurretInSlot(slotNum)

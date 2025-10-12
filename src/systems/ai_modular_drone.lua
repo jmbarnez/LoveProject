@@ -15,16 +15,16 @@ local function findInjuredAlly(world, healer)
     local bestDistance = math.huge
     local healingRange = 1000 -- Range to search for allies (healing laser max range)
     
-    -- Get all entities with health components (potential allies)
-    local entities = world:get_entities_with_components("health", "position")
+    -- Get all entities with hull components (potential allies)
+    local entities = world:get_entities_with_components("hull", "position")
     
     for _, entity in ipairs(entities) do
-        if entity ~= healer and not entity.dead and entity.components.health then
-            local health = entity.components.health
+        if entity ~= healer and not entity.dead and entity.components.hull then
+            local hull = entity.components.hull
             local pos = entity.components.position
             
             -- Check if entity needs healing (hull below max)
-            if health.hp and health.maxHp and health.hp < health.maxHp then
+            if hull.hp and hull.maxHP and hull.hp < hull.maxHP then
                 local dx = pos.x - healerPos.x
                 local dy = pos.y - healerPos.y
                 local distance = math.sqrt(dx * dx + dy * dy)

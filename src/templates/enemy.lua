@@ -1,6 +1,7 @@
 local Position = require("src.components.position")
 local Collidable = require("src.components.collidable")
-local Health = require("src.components.health")
+local Hull = require("src.components.hull")
+local Energy = require("src.components.energy")
 local PhysicsComponent = require("src.components.physics")
 local Renderable = require("src.components.renderable")
 local AI = require("src.components.ai")
@@ -45,7 +46,8 @@ function Enemy.new(x, y, options)
     self.components = {
         position   = Position.new({ x = x, y = y, angle = 0 }),
         collidable = Collidable.new({ radius = physics.body.radius, friendly = options.friendly, signature = self.sig }),
-        health     = Health.new({ hp = 5, maxHP = 5, shield = 3, maxShield = 3, energy = 0, maxEnergy = 0 }),
+        hull       = Hull.new({ hp = 5, maxHP = 5 }),
+        energy     = Energy.new({ energy = 0, maxEnergy = 0 }),
         physics    = physics,
         renderable = Renderable.new("enemy", { visuals = self.visuals }),
         ai         = AI.new({
@@ -66,15 +68,10 @@ function Enemy.new(x, y, options)
 end
 
 function Enemy:hit(dmg)
-  local h = self.components and self.components.health
-  if h then
-    local s = math.min((h.shield or 0), dmg or 0)
-    h.shield = math.max(0, (h.shield or 0) - s)
-    local rem = (dmg or 0) - s
-    if rem > 0 then
-      h.hp = math.max(0, (h.hp or 0) - rem)
-      if (h.hp or 0) <= 0 then self.dead = true end
-    end
+  local hull = self.components and self.components.hull
+  if hull then
+    hull.hp = math.max(0, (hull.hp or 0) - (dmg or 0))
+    if (hull.hp or 0) <= 0 then self.dead = true end
   end
   -- Taking damage triggers aggro and marks as attacked for neutral AIs
   if not self.aggro then self.aggro = true end

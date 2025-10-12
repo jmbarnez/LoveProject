@@ -29,7 +29,9 @@ love.graphics.draw = function() end
 _G.love = love
 
 local Collidable = require("src.components.collidable")
-local Health = require("src.components.health")
+local Hull = require("src.components.hull")
+local Shield = require("src.components.shield")
+local Energy = require("src.components.energy")
 local Equipment = require("src.components.equipment")
 local Velocity = require("src.components.velocity")
 local Lootable = require("src.components.lootable")
@@ -109,7 +111,9 @@ local function test_ship_factory()
     assert(ship, "ship should be created")
 
     assert_metatable(ship.components.collidable, Collidable, "collidable")
-    assert_metatable(ship.components.health, Health, "health")
+    assert_metatable(ship.components.hull, Hull, "hull")
+    assert_metatable(ship.components.shield, Shield, "shield")
+    assert_metatable(ship.components.energy, Energy, "energy")
     assert_metatable(ship.components.equipment, Equipment, "equipment")
     assert_metatable(ship.components.velocity, Velocity, "velocity")
     assert_metatable(ship.components.lootable, Lootable, "lootable")

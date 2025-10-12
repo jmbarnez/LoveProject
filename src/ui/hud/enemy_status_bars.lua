@@ -41,32 +41,45 @@ local function drawOverheadBar(x, y, w, h, hullPct, shieldPct)
   love.graphics.setLineWidth(1)
   love.graphics.rectangle("line", innerX, innerY, innerW, innerH, 2, 2)
 
-  -- Hull fill - dynamic color from green->yellow->red (like player HUD)
+  -- Hull fill - green gradient (like player HUD but more vibrant)
   if hullPct > 0 then
-    local r, g, b
-    if hullPct > 0.6 then
-      -- Green to yellow transition
-      local t = (hullPct - 0.6) / 0.4
-      r, g, b = t, 1, 0.2
-    else
-      -- Yellow to red transition
-      local t = hullPct / 0.6
-      r, g, b = 1, t, 0.1
-    end
-    local hullColor = { r, g, b, 0.9 }
-    love.graphics.setColor(hullColor)
-    love.graphics.rectangle("fill", innerX, innerY, innerW * hullPct, innerH, 2, 2)
+    local hullWidth = innerW * hullPct
+    
+    -- Base green color with gradient
+    local baseR, baseG, baseB = 0.2, 0.8, 0.3  -- Nice green
+    
+    -- Create gradient from darker green to lighter green
+    love.graphics.setColor({baseR * 0.6, baseG * 0.6, baseB * 0.6, 0.9})
+    love.graphics.rectangle("fill", innerX, innerY, hullWidth, innerH, 2, 2)
+    
+    -- Mid-tone gradient overlay
+    love.graphics.setColor({baseR * 0.8, baseG * 0.8, baseB * 0.8, 0.7})
+    love.graphics.rectangle("fill", innerX, innerY, hullWidth * 0.7, innerH, 2, 2)
+    
+    -- Bright highlight on top
+    love.graphics.setColor({baseR, baseG, baseB, 0.8})
+    love.graphics.rectangle("fill", innerX, innerY, hullWidth * 0.4, innerH, 2, 2)
+    
+    -- Subtle top highlight
+    love.graphics.setColor(1.0, 1.0, 1.0, 0.2)
+    love.graphics.rectangle("fill", innerX, innerY, hullWidth, 1, 2, 2)
   end
 
   -- Shield overlay - blue overlay on top of hull (like player HUD)
   if shieldPct > 0 and innerW > 0 then
     local shieldWidth = innerW * shieldPct
     local shieldColor = Theme.semantic.statusShield
-    love.graphics.setColor({shieldColor[1], shieldColor[2], shieldColor[3], 0.85})
+    
+    -- Semi-transparent blue overlay
+    love.graphics.setColor({shieldColor[1], shieldColor[2], shieldColor[3], 0.7})
     love.graphics.rectangle("fill", innerX, innerY, shieldWidth, innerH, 2, 2)
     
-    -- Subtle highlight on shield
-    love.graphics.setColor(1.0, 1.0, 1.0, 0.15)
+    -- Bright blue highlight
+    love.graphics.setColor({shieldColor[1], shieldColor[2], shieldColor[3], 0.9})
+    love.graphics.rectangle("fill", innerX, innerY, shieldWidth * 0.4, innerH, 2, 2)
+    
+    -- Subtle shield highlight
+    love.graphics.setColor(1.0, 1.0, 1.0, 0.25)
     love.graphics.rectangle("fill", innerX, innerY, shieldWidth, 1, 2, 2)
   end
 
@@ -182,10 +195,11 @@ local function drawOverheadBarWithText(x, y, w, h, hullPct, shieldPct, text, ene
   end
 end
 
--- Draw small screen-aligned shield/health bars above any entity with health.
+-- Draw small screen-aligned shield/hull bars above any entity with durability stats.
 function EnemyStatusBars.drawMiniBars(entity)
   if not entity or not entity.components then return end
-  local h = entity.components.health
+  local h = entity.components.hull
+  local shield = entity.components.shield
   local col = entity.components.collidable
   if not h then return end
 
@@ -195,12 +209,12 @@ function EnemyStatusBars.drawMiniBars(entity)
   -- Check if this is a projectile
   local isProjectile = entity.components.bullet ~= nil
   
-  -- For players, always show health bars
+-- For players, always show durability bars
   if isPlayer then
     -- Always show for players
   elseif isProjectile then
     -- For projectiles, show if damaged OR recently created (for visibility)
-    local hpPct = (h.hp or 0) / math.max(1, h.maxHP or 1)
+    local hpPct = (h.hull or 0) / math.max(1, h.maxHull or 1)
     local showTime = 1.0 -- Show for 1 second after creation
     local last = entity._hudDamageTime or -1e9
     local timeSinceDamage = love.timer.getTime() - last
@@ -210,7 +224,7 @@ function EnemyStatusBars.drawMiniBars(entity)
       return -- Don't show health bar for undamaged projectiles unless recently created
     end
   else
-    -- For other entities (enemies, stations, etc.), show bars if recently damaged OR if low on health/shield
+    -- For other entities (enemies, stations, etc.), show bars if recently damaged OR if low on hull/shield
     local showTime = getCombatValue("ENEMY_BAR_VIS_TIME") or 2.5
     local last = entity._hudDamageTime or -1e9
     local timeSinceDamage = love.timer.getTime() - last
@@ -218,21 +232,19 @@ function EnemyStatusBars.drawMiniBars(entity)
     -- Always show if recently damaged
     local recentlyDamaged = timeSinceDamage <= showTime
     
-    -- Also show if entity is low on health or has shields (for better visibility)
+    -- Also show if entity is low on hull (for better visibility)
     local hpPct = (h.hp or 0) / math.max(1, h.maxHP or 100)
-    local shieldPct = (h.shield or 0) / math.max(1, h.maxShield or 1)
-    local isLowHealth = hpPct < 0.8  -- Show if below 80% health
-    local hasShields = (h.maxShield or 0) > 0 and (h.shield or 0) > 0  -- Show if has shields
+    local isLowHull = hpPct < 0.8  -- Show if below 80% hull
     
-    if not recentlyDamaged and not isLowHealth and not hasShields then
+    if not recentlyDamaged and not isLowHull then
       return
     end
   end
 
-  local hp = h.hp or h.current or 0
-  local maxHP = h.maxHP or h.max or 100
-  local shield = h.shield or 0
-  local maxShield = h.maxShield or 0
+  local hp = h.hp or 0
+  local maxHP = h.maxHP or 100
+  local shieldHP = shield and (shield.shield or 0) or 0
+  local maxShield = shield and (shield.maxShield or 0) or 0
 
   -- Calculate radius - use collidable radius if available, otherwise estimate from entity type
   local radius = 12 -- Default radius
@@ -280,20 +292,20 @@ function EnemyStatusBars.drawMiniBars(entity)
     x0 = -barW/2
   end
 
-  -- Combined hull + shield bar (like player) - shield overlays hull
+  -- Combined hull + shield bar (shield overlays hull)
   local hpPct = math.max(0, math.min(1, hp / math.max(1, maxHP)))
-  local shieldPct = maxShield > 0 and math.max(0, math.min(1, shield / math.max(1, maxShield))) or 0
+  local shieldPct = maxShield > 0 and math.max(0, math.min(1, shieldHP / math.max(1, maxShield))) or 0
 
-  -- Draw health bar
+  -- Draw combined hull + shield bar
   drawOverheadBar(x0, baseY, barW, barH, hpPct, shieldPct)
   
-  -- Draw level indicator next to the health bar
+  -- Draw level indicator next to the hull bar
   local enemyLevel = entity.components.enemy_level
   if enemyLevel then
     local levelText = tostring(enemyLevel.level or 1)
     local threatColor = enemyLevel:getThreatColor()
     
-    -- Position level indicator to the right of the health bar
+    -- Position level indicator to the right of the hull bar
     local levelX = x0 + barW + 8
     local levelY = baseY
     
@@ -310,7 +322,7 @@ function EnemyStatusBars.drawMiniBars(entity)
     local badgeW = textWidth + 6
     local badgeH = textHeight + 3
     local badgeX = levelX
-    local badgeY = levelY + (barH - badgeH) / 2 -- Center vertically with health bar
+    local badgeY = levelY + (barH - badgeH) / 2 -- Center vertically with hull bar
     
     -- Badge background with threat color
     love.graphics.setColor(threatColor[1], threatColor[2], threatColor[3], 0.9)
@@ -340,4 +352,7 @@ end
 
 
 return EnemyStatusBars
+
+
+
 

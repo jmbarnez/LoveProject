@@ -222,7 +222,8 @@ function NetworkServer:_handleHello(peer, message)
     if hostPlayer and hostPlayer.components then
         local position = hostPlayer.components.position
         local velocity = hostPlayer.components.velocity
-        local health = hostPlayer.components.health
+        local hull = hostPlayer.components.hull
+        local shield = hostPlayer.components.shield
         
         
         local currentState = {

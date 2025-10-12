@@ -270,7 +270,8 @@ end
 
 function ConstructionSystem.hasRequiredResources(player, itemType)
     if itemType == "holographic_turret" then
-        local health = player.components.health
+        local hull = player.components.hull
+        local shield = player.components.shield
         if not health then return false end
         
         return (health.energy or 0) >= 50
@@ -281,7 +282,8 @@ end
 
 function ConstructionSystem.deductResources(player, itemType)
     if itemType == "holographic_turret" then
-        local health = player.components.health
+        local hull = player.components.hull
+        local shield = player.components.shield
         if health then
             health.energy = math.max(0, (health.energy or 0) - 50)
         end

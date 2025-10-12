@@ -133,7 +133,7 @@ function StateValidator.validateForRegeneration(player)
         return ValidationResult.new(false, "No player entity provided")
     end
 
-    if not player.components.health then
+    if not player.components.hull then
         return ValidationResult.new(false, "Player missing health component")
     end
 

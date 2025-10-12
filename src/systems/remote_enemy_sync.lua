@@ -116,16 +116,15 @@ local function sanitiseEnemySnapshot(snapshot)
             }
 
             -- Include health data if available
-            if enemy.health then
-                sanitisedEnemy.health = {
-                    hp = tonumber(enemy.health.hp) or 100,
-                    maxHP = tonumber(enemy.health.maxHP) or 100,
-                    shield = tonumber(enemy.health.shield) or 0,
-                    maxShield = tonumber(enemy.health.maxShield) or 0,
-                    energy = tonumber(enemy.health.energy) or 0,
-                    maxEnergy = tonumber(enemy.health.maxEnergy) or 0
+            if enemy.hull then
+                sanitisedEnemy.hull = {
+                    hp = tonumber(enemy.hull.hp) or 100,
+                    maxHP = tonumber(enemy.hull.maxHP) or 100,
+                    energy = tonumber(enemy.hull.energy) or 0,
+                    maxEnergy = tonumber(enemy.hull.maxEnergy) or 0
                 }
             end
+            -- Enemies don't have shields
 
             -- Include AI state if available
             if enemy.ai then
@@ -163,7 +162,7 @@ local function buildEnemySnapshotFromWorld(world)
             
             local position = entity.components.position
             local velocity = entity.components.velocity
-            local health = entity.components.health
+            local hull = entity.components.hull
             local ai = entity.components.ai
 
             local enemyData = {
@@ -180,17 +179,16 @@ local function buildEnemySnapshotFromWorld(world)
                 }
             }
 
-            -- Include health data
-            if health then
-                enemyData.health = {
-                    hp = health.hp or 100,
-                    maxHP = health.maxHP or 100,
-                    shield = health.shield or 0,
-                    maxShield = health.maxShield or 0,
-                    energy = health.energy or 0,
-                    maxEnergy = health.maxEnergy or 0
+            -- Include hull data
+            if hull then
+                enemyData.hull = {
+                    hp = hull.hp or 100,
+                    maxHP = hull.maxHP or 100,
+                    energy = hull.energy or 0,
+                    maxEnergy = hull.maxEnergy or 0
                 }
             end
+            -- Enemies don't have shields
 
             -- Include AI state
             if ai then
@@ -354,14 +352,13 @@ local function updateEnemyFromSnapshot(entity, enemyData)
     end
 
     -- Update health
-    if entity.components and entity.components.health and enemyData.health then
-        entity.components.health.hp = enemyData.health.hp
-        entity.components.health.maxHP = enemyData.health.maxHP
-        entity.components.health.shield = enemyData.health.shield
-        entity.components.health.maxShield = enemyData.health.maxShield
-        entity.components.health.energy = enemyData.health.energy
-        entity.components.health.maxEnergy = enemyData.health.maxEnergy
+    if entity.components and entity.components.hull and enemyData.hull then
+        entity.components.hull.hp = enemyData.hull.hp
+        entity.components.hull.maxHP = enemyData.hull.maxHP
+        entity.components.hull.energy = enemyData.hull.energy
+        entity.components.hull.maxEnergy = enemyData.hull.maxEnergy
     end
+    -- Enemies don't have shields
 
     -- Update AI state (but don't let it run - it's just for display)
     if entity.components and entity.components.ai and enemyData.ai then

@@ -26,9 +26,9 @@ end
 
 function StationShields.hasActiveShield(entity)
     -- Check for active shield component/state
-    if entity.components and entity.components.health then
-        local health = entity.components.health
-        if health.shield and health.shield > 0 then
+    if entity.components and entity.components.shield then
+        local shield = entity.components.shield
+        if shield.shield and shield.shield > 0 then
             return true
         end
     end
@@ -79,7 +79,7 @@ function StationShields.handleStationShieldCollision(entity1, entity2)
             -- Kill the enemy instantly
             enemyEntity.dead = true
             enemyEntity._killedBy = "station_shield"
-            enemyEntity._finalDamage = enemyEntity.components.health.hp -- Mark as instant death
+            enemyEntity._finalDamage = enemyEntity.components.hull.hp -- Mark as instant death
             -- Mark that this entity was killed by an unfriendly station to prevent drops
             enemyEntity._killedByUnfriendlyStation = true
             return true -- Indicates special handling occurred

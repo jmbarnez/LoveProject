@@ -1,7 +1,9 @@
 -- Generic world object template (ECS-compatible)
 local Position = require("src.components.position")
 local Collidable = require("src.components.collidable")
-local Health = require("src.components.health")
+local Hull = require("src.components.hull")
+local Shield = require("src.components.shield")
+local Energy = require("src.components.energy")
 
 local Object = {}
 Object.__index = Object
@@ -17,7 +19,9 @@ function Object.new(props)
   self.components = {
     position = Position.new({ x = x, y = y, angle = 0 }),
     collidable = Collidable.new({ radius = r }),
-    health = Health.new({ hp = hp, maxHP = maxHP })
+    hull = Hull.new({ hp = hp, maxHP = maxHP }),
+    shield = Shield.new({ shield = 0, maxShield = 0 }),
+    energy = Energy.new({ energy = 0, maxEnergy = 0 })
   }
   self.dead = false
 
@@ -28,17 +32,20 @@ function Object.new(props)
 end
 
 function Object:hit(dmg)
-  local h = self.components and self.components.health
-  if h then
+  local hull = self.components and self.components.hull
+  local shield = self.components and self.components.shield
+  if hull then
     local damage = dmg or 0
-    local shieldBefore = h.shield or 0
+    local shieldBefore = shield and (shield.shield or 0) or 0
     local shieldAbsorbed = math.min(shieldBefore, damage)
-    h.shield = math.max(0, shieldBefore - shieldAbsorbed)
+    if shield then
+      shield.shield = math.max(0, shieldBefore - shieldAbsorbed)
+    end
     local remainingDamage = damage - shieldAbsorbed
     if remainingDamage > 0 then
-      h.hp = math.max(0, (h.hp or 0) - remainingDamage)
+      hull.hp = math.max(0, (hull.hp or 0) - remainingDamage)
     end
-    if (h.hp or 0) <= 0 then self.dead = true end
+    if (hull.hp or 0) <= 0 then self.dead = true end
   end
 end
 

@@ -238,7 +238,7 @@ function TurretEffects.createImpactEffect(turret, x, y, target, impactType)
 
     -- Determine whether the hit affected shields
     local hasShields = false
-    if target.components and target.components.health and target.components.health.shield > 0 then
+    if target.components and target.components.shield and target.components.shield.shield > 0 then
         hasShields = true
     elseif StationShields and StationShields.hasActiveShield and StationShields.isStation(target) and StationShields.hasActiveShield(target) then
         hasShields = true

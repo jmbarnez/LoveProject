@@ -176,8 +176,8 @@ function Dispatcher.draw(world, camera, player)
 
         love.graphics.pop()
 
-        -- Draw health bars for all entities with health components
-        if entity.components.health then
+        -- Draw health bars for all entities with hull components
+        if entity.components.hull then
             local EnemyStatusBars = require("src.ui.hud.enemy_status_bars")
             EnemyStatusBars.drawMiniBars(entity)
         end

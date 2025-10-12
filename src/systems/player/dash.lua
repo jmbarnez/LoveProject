@@ -31,11 +31,11 @@ function DashSystem.processDash(player, state, input, body, dt, modalActive)
     end
 
     -- Check energy requirements
-    local h = player.components and player.components.health
-    local canEnergy = not h or (h.energy or 0) >= ((Config.DASH and Config.DASH.ENERGY_COST) or 0)
+    local energy = player.components and player.components.energy
+    local canEnergy = not energy or (energy.energy or 0) >= ((Config.DASH and Config.DASH.ENERGY_COST) or 0)
     
     if not canEnergy then
-        PlayerDebug.logDash(true, 0, false, h and h.energy or 0)
+        PlayerDebug.logDash(true, 0, false, energy and energy.energy or 0)
         return
     end
 
@@ -47,9 +47,9 @@ function DashSystem.processDash(player, state, input, body, dt, modalActive)
     end
 
     -- Execute dash
-    DashSystem.executeDash(player, state, body, dashDirX, dashDirY, h)
+    DashSystem.executeDash(player, state, body, dashDirX, dashDirY, energy)
     
-    PlayerDebug.logDash(true, 0, true, h and h.energy or 0)
+    PlayerDebug.logDash(true, 0, true, energy and energy.energy or 0)
 end
 
 -- Calculate dash direction (toward cursor or forward)
@@ -127,8 +127,8 @@ end
 
 -- Check if dash is available (not on cooldown and has energy)
 function DashSystem.isDashAvailable(player, state)
-    local h = player.components and player.components.health
-    local hasEnergy = not h or (h.energy or 0) >= ((Config.DASH and Config.DASH.ENERGY_COST) or 0)
+    local energy = player.components and player.components.energy
+    local hasEnergy = not energy or (energy.energy or 0) >= ((Config.DASH and Config.DASH.ENERGY_COST) or 0)
     local offCooldown = (state.dash_cooldown or 0) <= 0
     
     return hasEnergy and offCooldown

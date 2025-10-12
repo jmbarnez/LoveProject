@@ -498,9 +498,11 @@ function DestructionSystem.update(world, gameState, hub)
           end
           
           -- Restore full health and shields
-          if e.components.health then
-            e.components.health.hp = e.components.health.maxHP
-            e.components.health.shield = e.components.health.maxShield
+          if e.components.hull then
+            e.components.hull.hp = e.components.hull.maxHP
+          end
+          if e.components.shield then
+            e.components.shield.shield = e.components.shield.maxShield
           end
 
           if e.isPlayer then

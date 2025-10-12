@@ -105,7 +105,7 @@ function Tooltip.drawItemTooltip(item, x, y)
     if fullItemDef.projectileSpeed then stats[#stats + 1] = {name = "Projectile Speed", value = math.floor(fullItemDef.projectileSpeed)} end
     if fullItemDef.capCost then stats[#stats + 1] = {name = "Energy Cost", value = math.floor(fullItemDef.capCost)} end
     if fullItemDef.baseAccuracy then stats[#stats + 1] = {name = "Accuracy", value = math.floor(fullItemDef.baseAccuracy * 100) .. "%"} end
-    if fullItemDef.health then stats[#stats + 1] = {name = "Health", value = math.floor(fullItemDef.health)} end
+    if fullItemDef.health then stats[#stats + 1] = {name = "Hull", value = math.floor(fullItemDef.health)} end
     if fullItemDef.shieldCapacity then stats[#stats + 1] = {name = "Shield", value = math.floor(fullItemDef.shieldCapacity)} end
     if fullItemDef.energyCapacity then stats[#stats + 1] = {name = "Energy", value = math.floor(fullItemDef.energyCapacity)} end
     if fullItemDef.heatMax then stats[#stats + 1] = {name = "Heat Capacity", value = math.floor(fullItemDef.heatMax)} end

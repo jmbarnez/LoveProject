@@ -86,8 +86,8 @@ stub_module('src.systems.collision.radius', {
 
 local stationShieldsStub = {
     hasActiveShield = function(entity)
-        local health = entity.components and entity.components.health
-        return health and (health.shield or 0) > 0
+        local shield = entity.components and entity.components.shield
+        return shield and (shield.shield or 0) > 0
     end,
     isStation = function(entity)
         return entity.tag == 'station'
@@ -105,17 +105,18 @@ local collisionEffectsLog = {
 
 stub_module('src.systems.collision.effects', {
     hasShield = function(entity)
-        local health = entity.components and entity.components.health
-        return health and (health.shield or 0) > 0
+        local shield = entity.components and entity.components.shield
+        return shield and (shield.shield or 0) > 0
     end,
     applyDamage = function(entity, amount)
-        local health = entity.components and entity.components.health
-        if not health then return false end
-        if health.shield and health.shield > 0 then
-            health.shield = math.max(0, health.shield - amount)
+        local hull = entity.components and entity.components.hull
+        local shield = entity.components and entity.components.shield
+        if not hull then return false end
+        if shield and shield.shield and shield.shield > 0 then
+            shield.shield = math.max(0, shield.shield - amount)
             return true
         end
-        health.hp = (health.hp or 0) - amount
+        hull.hp = (hull.hp or 0) - amount
         table.insert(collisionEffectsLog.damage, amount)
         return false
     end,
@@ -250,7 +251,7 @@ local function test_projectile_hits_entity()
     system:update(world, 0.1)
 
     assert_true(projectile.dead, 'projectile should be flagged dead after collision')
-    assert_true(target.components.health.hp == 16, 'damage should reduce target hp by 4')
+    assert_true(target.components.hull.hp == 16, 'damage should reduce target hull by 4')
     local dispatcher = projectile.components.projectile_events.dispatcher
     assert_true(#dispatcher.emitted == 1 and dispatcher.emitted[1].event == 'hit', 'projectile hit event expected')
     assert_true(effectsLog.impacts > 0, 'impact effect should be spawned')

@@ -9,14 +9,14 @@ function Sanitizers.sanitisePlayerState(state)
         return {
             position = { x = 0, y = 0, angle = 0 },
             velocity = { x = 0, y = 0 },
-            health = { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 },
+            durability = { hull = 100, maxHull = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 },
             shieldChannel = false
         }
     end
 
     local position = state.position or {}
     local velocity = state.velocity or {}
-    local health = state.health or {}
+    local durability = state.durability or {}
     local thrusterState = state.thrusterState or {}
     local timestamp = tonumber(state.timestamp)
     local updateInterval = tonumber(state.updateInterval)
@@ -32,13 +32,13 @@ function Sanitizers.sanitisePlayerState(state)
             x = tonumber(velocity.x) or 0,
             y = tonumber(velocity.y) or 0
         },
-        health = {
-            hp = tonumber(health.hp) or 100,
-            maxHP = tonumber(health.maxHP) or 100,
-            shield = tonumber(health.shield) or 0,
-            maxShield = tonumber(health.maxShield) or 0,
-            energy = tonumber(health.energy) or 0,
-            maxEnergy = tonumber(health.maxEnergy) or 0
+        durability = {
+            hull = tonumber(durability.hull) or 100,
+            maxHull = tonumber(durability.maxHull) or 100,
+            shield = tonumber(durability.shield) or 0,
+            maxShield = tonumber(durability.maxShield) or 0,
+            energy = tonumber(durability.energy) or 0,
+            maxEnergy = tonumber(durability.maxEnergy) or 0
         },
         shieldChannel = state.shieldChannel == true,
         thrusterState = {
@@ -210,14 +210,15 @@ function Sanitizers.sanitiseEnemySnapshot(snapshot)
                 }
             }
 
-            if enemy.health then
-                sanitisedEnemy.health = {
-                    hp = tonumber(enemy.health.hp) or 100,
-                    maxHP = tonumber(enemy.health.maxHP) or 100,
-                    shield = tonumber(enemy.health.shield) or 0,
-                    maxShield = tonumber(enemy.health.maxShield) or 0,
-                    energy = tonumber(enemy.health.energy) or 0,
-                    maxEnergy = tonumber(enemy.health.maxEnergy) or 0
+            if enemy.durability or enemy.hull then
+                local durability = enemy.durability or enemy.hull
+                sanitisedEnemy.durability = {
+                    hull = tonumber(durability.hull) or 100,
+                    maxHull = tonumber(durability.maxHull) or 100,
+                    shield = tonumber(durability.shield) or 0,
+                    maxShield = tonumber(durability.maxShield) or 0,
+                    energy = tonumber(durability.energy) or 0,
+                    maxEnergy = tonumber(durability.maxEnergy) or 0
                 }
             end
 
@@ -344,3 +345,4 @@ function Sanitizers.sanitiseProjectileSnapshot(snapshot)
 end
 
 return Sanitizers
+

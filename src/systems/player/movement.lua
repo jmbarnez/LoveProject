@@ -114,13 +114,13 @@ end
 function MovementSystem.handleBoostDrain(player, boosting, dt)
     if not boosting then return end
 
-    local h = player.components and player.components.health
-    if h then
+    local energy = player.components and player.components.energy
+    if energy then
         local drain = getCombatValue("BOOST_ENERGY_DRAIN") or 20
-        h.energy = math.max(0, (h.energy or 0) - drain * dt)
+        energy.energy = math.max(0, (energy.energy or 0) - drain * dt)
         
         -- Stop boosting if energy is depleted
-        if (h.energy or 0) <= 0 then
+        if (energy.energy or 0) <= 0 then
             return false -- Return false to indicate boosting should stop
         end
     end
@@ -141,8 +141,8 @@ end
 
 -- Check if player is boosting
 function MovementSystem.isBoosting(player, boostHeld)
-    local h = player.components and player.components.health
-    return (boostHeld and ((not h) or ((h.energy or 0) > 0))) or false
+    local energy = player.components and player.components.energy
+    return (boostHeld and ((not energy) or ((energy.energy or 0) > 0))) or false
 end
 
 -- Get movement inputs from intent

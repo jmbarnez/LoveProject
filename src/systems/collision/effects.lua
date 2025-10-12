@@ -95,7 +95,7 @@ local function get_health(entity)
     if not entity or not entity.components then
         return nil
     end
-    return entity.components.health
+    return entity.components.hull
 end
 
 function CollisionEffects.isPlayerShieldActive(entity)
@@ -398,7 +398,7 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
             isHullSurface = true -- Reward crates are hull surfaces (fallback check)
         elseif targetEntity.components and targetEntity.components.mineable then
             isHullSurface = true -- Asteroids are hull surfaces
-        elseif targetEntity.components and targetEntity.components.health then
+        elseif targetEntity.components and targetEntity.components.hull then
             isHullSurface = true -- Ships with health are hull surfaces (shields are handled separately)
         end
         
@@ -471,12 +471,13 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
 end
 
 function CollisionEffects.applyDamage(entity, damageValue, source)
-    if not entity.components.health then return false end
+    if not entity.components.hull then return false end
 
-    local health = entity.components.health
+    local hull = entity.components.hull
+    local shield = entity.components.shield
     -- Player invulnerability during dash
     if (entity.isPlayer or entity.isRemotePlayer) and (entity.iFrames or 0) > 0 then
-        return (health.shield or 0) > 0
+        return shield and (shield.shield or 0) > 0
     end
 
     -- Handle damage value - could be a number or a table with min/max
@@ -515,41 +516,47 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         end
     end
 
-    local hadShield = (health.shield or 0) > 0
-    local shieldBefore = health.shield or 0
+    local hadShield = shield and (shield.shield or 0) > 0
+    local shieldBefore = shield and (shield.shield or 0) or 0
     
     -- Apply weapon-specific damage modifiers
     local shieldDamage, remainingDamage
-    if isLaserWeapon then
-        -- Laser weapons: 15% more damage to shields, half damage to hulls
-        shieldDamage = math.min(shieldBefore, incoming * 1.15) -- 15% more damage to shields
-        remainingDamage = incoming - (shieldDamage / 1.15) -- Convert back to original damage for hull calculation
-        if remainingDamage > 0 then
-            remainingDamage = remainingDamage * 0.5 -- Half damage to hull
-        end
-    elseif isGunWeapon then
-        -- Gun weapons: half damage to shields, 15% more damage to hulls
-        shieldDamage = math.min(shieldBefore, incoming * 0.5) -- Half damage to shields
-        remainingDamage = incoming - (shieldDamage * 2) -- Convert back to original damage for hull calculation
-        if remainingDamage > 0 then
-            remainingDamage = remainingDamage * 1.15 -- 15% more damage to hull
+    if shield and hadShield then
+        if isLaserWeapon then
+            -- Laser weapons: 15% more damage to shields, half damage to hulls
+            shieldDamage = math.min(shieldBefore, incoming * 1.15) -- 15% more damage to shields
+            remainingDamage = incoming - (shieldDamage / 1.15) -- Convert back to original damage for hull calculation
+            if remainingDamage > 0 then
+                remainingDamage = remainingDamage * 0.5 -- Half damage to hull
+            end
+        elseif isGunWeapon then
+            -- Gun weapons: half damage to shields, 15% more damage to hulls
+            shieldDamage = math.min(shieldBefore, incoming * 0.5) -- Half damage to shields
+            remainingDamage = incoming - (shieldDamage * 2) -- Convert back to original damage for hull calculation
+            if remainingDamage > 0 then
+                remainingDamage = remainingDamage * 1.15 -- 15% more damage to hull
+            end
+        else
+            -- Normal damage calculation for other weapons
+            shieldDamage = math.min(shieldBefore, incoming)
+            remainingDamage = incoming - shieldDamage
         end
     else
-        -- Normal damage calculation for other weapons
-        shieldDamage = math.min(shieldBefore, incoming)
-        remainingDamage = incoming - shieldDamage
+        -- No shield component - all damage goes to hull
+        shieldDamage = 0
+        remainingDamage = incoming
     end
 
     local newShield = math.max(0, shieldBefore - shieldDamage)
-    if newShield ~= shieldBefore then
-        health.shield = newShield
+    if shield and newShield ~= shieldBefore then
+        shield.shield = newShield
         Radius.invalidateCache(entity)
-    else
-        health.shield = newShield
+    elseif shield then
+        shield.shield = newShield
     end
 
     if remainingDamage > 0 then
-        health.hp = math.max(0, (health.hp or 0) - remainingDamage)
+        hull.hp = math.max(0, (hull.hp or 0) - remainingDamage)
     end
 
     -- Emit damage event
@@ -576,7 +583,7 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         Events.emit(Events.GAME_EVENTS.ENTITY_DAMAGED, eventData)
     end
 
-    if (health.hp or 0) <= 0 then
+    if (hull.hp or 0) <= 0 then
         -- Mark as dead and stash context for DestructionSystem to handle uniformly
         entity.dead = true
         entity._killedBy = source

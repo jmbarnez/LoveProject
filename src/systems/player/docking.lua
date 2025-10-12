@@ -32,10 +32,11 @@ function Docking.dock(player, station)
   end
 
   -- Instant shield recharge when docking
-  if player.components and player.components.health then
-    local h = player.components.health
-    if h.maxShield and h.maxShield > 0 then
-      h.shield = h.maxShield  -- Full shield recharge
+  if player.components and player.components.hull then
+    local hull = player.components.hull
+    local shield = player.components.shield
+    if shield and shield.maxShield and shield.maxShield > 0 then
+      shield.shield = shield.maxShield  -- Full shield recharge
       
       -- Trigger shield recharge visual effect
       local Effects = require("src.systems.effects")

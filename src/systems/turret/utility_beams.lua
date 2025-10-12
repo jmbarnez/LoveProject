@@ -103,11 +103,11 @@ local function updateEnergyAndWarnings(turret, dt, weaponName)
 
     local owner = turret.owner
     local ownerComponents = owner and owner.components
-    local health = ownerComponents and ownerComponents.health
+    local energy = ownerComponents and ownerComponents.energy
 
-    if turret.energyPerSecond and health and owner.isPlayer then
-        local currentEnergy = health.energy or 0
-        local maxEnergy = health.maxEnergy or 100
+    if turret.energyPerSecond and energy and owner.isPlayer then
+        local currentEnergy = energy.energy or 0
+        local maxEnergy = energy.maxEnergy or 100
         local energyCost = turret.energyPerSecond * dt
         local resumeMultiplier = turret.resumeEnergyMultiplier or 2
         local resumeThreshold = turret.minResumeEnergy or (resumeMultiplier * energyCost)
@@ -148,7 +148,7 @@ local function updateEnergyAndWarnings(turret, dt, weaponName)
                     shouldCutOff = true
                 end
             else
-                health.energy = math.max(0, currentEnergy - energyCost)
+                energy.energy = math.max(0, currentEnergy - energyCost)
             end
         end
 
@@ -803,10 +803,10 @@ function UtilityBeams.updateHealingLaser(turret, dt, target, locked, world)
             TurretEffects.stopHealingSound(turret)
         end
         if world then
-            local entities = world:get_entities_with_components("health")
+            local entities = world:get_entities_with_components("hull")
             for _, entity in ipairs(entities) do
-                if entity.components and entity.components.health then
-                    entity.components.health.isBeingHealed = false
+                if entity.components and entity.components.hull then
+                    entity.components.hull.isBeingHealed = false
                 end
             end
         end
@@ -862,8 +862,8 @@ function UtilityBeams.updateHealingLaser(turret, dt, target, locked, world)
     local healingRate = healingPower / cycle
 
     if beamData.hitTarget then
-        if beamData.hitTarget.components and beamData.hitTarget.components.health then
-            beamData.hitTarget.components.health.isBeingHealed = true
+        if beamData.hitTarget.components and beamData.hitTarget.components.hull then
+            beamData.hitTarget.components.hull.isBeingHealed = true
 
             local healingValue = healingRate * dt
             UtilityBeams.applyHealingDamage(
@@ -884,10 +884,10 @@ function UtilityBeams.updateHealingLaser(turret, dt, target, locked, world)
             )
         end
     else
-        local entities = world:get_entities_with_components("health")
+        local entities = world:get_entities_with_components("hull")
         for _, entity in ipairs(entities) do
-            if entity.components and entity.components.health then
-                entity.components.health.isBeingHealed = false
+            if entity.components and entity.components.hull then
+                entity.components.hull.isBeingHealed = false
             end
         end
     end
@@ -899,21 +899,21 @@ end
 
 -- Apply healing damage to target (hull only, not shield)
 function UtilityBeams.applyHealingDamage(target, healing, source, world, impactX, impactY)
-    if not target.components or not target.components.health then
+    if not target.components or not target.components.hull then
         return
     end
 
-    local health = target.components.health
-    local oldHp = health.hp or 0
+    local hull = target.components.hull
+    local oldHp = hull.hp or 0
 
     -- Only heal hull, not shield
-    if health.hp and health.hp < (health.maxHp or 0) then
-        local hullHealing = math.min(healing, (health.maxHp or 0) - health.hp)
-        health.hp = health.hp + hullHealing
+    if hull.hp and hull.hp < (hull.maxHP or 0) then
+        local hullHealing = math.min(healing, (hull.maxHP or 0) - hull.hp)
+        hull.hp = hull.hp + hullHealing
     end
 
     -- Create healing visual effects
-    if (health.hp or 0) > oldHp then
+    if (hull.hp or 0) > oldHp then
         local Effects = require("src.systems.effects")
         if Effects.spawnHealingParticles then
             Effects.spawnHealingParticles(impactX, impactY)

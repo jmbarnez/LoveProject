@@ -455,16 +455,16 @@ function Player:updateShieldHP()
         end
     end
 
-    -- Update the health component
-    if self.components.health then
-        local oldMaxShield = self.components.health.maxShield
-        local oldShield = self.components.health.shield
-        self.components.health.maxShield = totalShieldHP
+    -- Update the shield component
+    if self.components.shield then
+        local oldMaxShield = self.components.shield.maxShield
+        local oldShield = self.components.shield.shield
+        self.components.shield.maxShield = totalShieldHP
         -- Initialize current shield to max if it's 0 (new player) or ensure it doesn't exceed max
-        if self.components.health.shield == 0 and totalShieldHP > 0 then
-            self.components.health.shield = totalShieldHP
-        elseif self.components.health.shield > totalShieldHP then
-            self.components.health.shield = totalShieldHP
+        if self.components.shield.shield == 0 and totalShieldHP > 0 then
+            self.components.shield.shield = totalShieldHP
+        elseif self.components.shield.shield > totalShieldHP then
+            self.components.shield.shield = totalShieldHP
         end
         
     end

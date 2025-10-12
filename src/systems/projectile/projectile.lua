@@ -5,7 +5,9 @@ local Renderable = require("src.components.renderable")
 local Collidable = require("src.components.collidable")
 local Damage = require("src.components.damage")
 local TimedLife = require("src.components.timed_life")
-local Health = require("src.components.health")
+local Hull = require("src.components.hull")
+local Shield = require("src.components.shield")
+local Energy = require("src.components.energy")
 local ProjectileComponents = require("src.components.projectile.registry")
 local EventDispatcher = require("src.systems.projectile.event_dispatcher")
 local EffectManager = require("src.systems.projectile.effect_manager")
@@ -215,12 +217,20 @@ function Projectile.new(x, y, angle, friendly, config)
             
             -- Only rockets and missiles get health components
             if kind == "rocket" or kind == "missile" then
-                return Health.new({
-                    hp = 5,
-                    maxHP = 5,
-                    shield = 0,
-                    maxShield = 0
-                })
+                return {
+                    hull = Hull.new({
+                        hp = 5,
+                        maxHP = 5
+                    }),
+                    shield = Shield.new({
+                        shield = 0,
+                        maxShield = 0
+                    }),
+                    energy = Energy.new({
+                        energy = 0,
+                        maxEnergy = 0
+                    })
+                }
             end
             
             return nil -- No health component for other projectiles

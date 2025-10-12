@@ -64,7 +64,7 @@ local function render(entity, player)
     end
 
     -- Use the same health/shield bar system as enemies for consistent display
-    if entity.components and entity.components.health then
+    if entity.components and entity.components.hull then
         EnemyStatusBars.drawMiniBars(entity)
     end
 

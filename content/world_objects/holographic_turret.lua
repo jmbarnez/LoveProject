@@ -98,10 +98,12 @@ return {
         angle = 0
     },
     
-    -- Health
-    health = {
-        hp = 50,
-        maxHP = 50,
+    -- Durability
+    hull = {
+        hull = 50,
+        maxHull = 50
+    },
+    shield = {
         shield = 0,
         maxShield = 0
     },

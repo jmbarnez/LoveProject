@@ -148,9 +148,9 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
     local energyStarved = false
     local energyLevel = 1.0 -- Full energy by default
     
-    if turret.energyPerSecond and turret.energyPerSecond > 0 and turret.owner and turret.owner.components and turret.owner.components.health and turret.owner.isPlayer then
-        local currentEnergy = turret.owner.components.health.energy or 0
-        local maxEnergy = turret.owner.components.health.maxEnergy or 100
+    if turret.energyPerSecond and turret.energyPerSecond > 0 and turret.owner and turret.owner.components and turret.owner.components.energy and turret.owner.isPlayer then
+        local currentEnergy = turret.owner.components.energy.energy or 0
+        local maxEnergy = turret.owner.components.energy.maxEnergy or 100
         local energyCost = turret.energyPerSecond * dt
         local resumeMultiplier = turret.resumeEnergyMultiplier or 2
         local resumeThreshold = turret.minResumeEnergy or (resumeMultiplier * energyCost)
@@ -196,7 +196,7 @@ function BeamWeapons.updateLaserTurret(turret, dt, target, locked, world)
                 end
             else
                 -- We have enough energy, consume it
-                turret.owner.components.health.energy = math.max(0, currentEnergy - energyCost)
+                turret.owner.components.energy.energy = math.max(0, currentEnergy - energyCost)
             end
         end
         
@@ -393,7 +393,7 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
                     
                     -- Check if target is a hull surface (ships with health)
                     local isHullSurface = false
-                    if entity.components and entity.components.health then
+                    if entity.components and entity.components.hull then
                         isHullSurface = true -- Ships with health are hull surfaces
                     end
                     
@@ -432,7 +432,7 @@ end
 
 -- Apply damage from laser weapons
 function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMeta)
-    if not target.components or not target.components.health then
+    if not target.components or not target.components.hull then
         return
     end
 
@@ -441,7 +441,7 @@ function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMet
         return -- No damage to apply
     end
 
-    local health = target.components.health
+    local hull = target.components.hull
 
     -- Apply global enemy damage multiplier (x2)
     local baseDamage = damage

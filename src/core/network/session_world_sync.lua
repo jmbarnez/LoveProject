@@ -29,7 +29,8 @@ local function sanitisePlayerNetworkState(playerState)
 
     local position = playerState.position or {}
     local velocity = playerState.velocity or {}
-    local health = playerState.health
+    local hull = playerState.hull
+    local shield = playerState.shield
 
     local sanitised = {
         position = {
@@ -43,14 +44,17 @@ local function sanitisePlayerNetworkState(playerState)
         },
     }
 
-    if type(health) == "table" then
-        sanitised.health = {
-            hp = tonumber(health.hp) or 100,
-            maxHP = tonumber(health.maxHP) or 100,
-            shield = tonumber(health.shield) or 0,
-            maxShield = tonumber(health.maxShield) or 0,
-            energy = tonumber(health.energy) or 0,
-            maxEnergy = tonumber(health.maxEnergy) or 0,
+    if type(hull) == "table" then
+        sanitised.hull = {
+            hp = tonumber(hull.hp) or 100,
+            maxHP = tonumber(hull.maxHP) or 100,
+        }
+    end
+    
+    if type(energy) == "table" then
+        sanitised.energy = {
+            energy = tonumber(energy.energy) or 0,
+            maxEnergy = tonumber(energy.maxEnergy) or 100,
         }
     end
 
@@ -156,10 +160,23 @@ local function applySelfNetworkStateIfAvailable(state)
         end
     end
 
-    if pendingState.health and player.components and player.components.health then
-        local healthComponent = player.components.health
-        for key, value in pairs(pendingState.health) do
-            healthComponent[key] = value
+    if pendingState.hull and player.components and player.components.hull then
+        local hullComponent = player.components.hull
+        for key, value in pairs(pendingState.hull) do
+            hullComponent[key] = value
+        end
+    end
+    
+    if pendingState.energy and player.components and player.components.energy then
+        local energyComponent = player.components.energy
+        for key, value in pairs(pendingState.energy) do
+            energyComponent[key] = value
+        end
+    end
+    if pendingState.shield and player.components and player.components.shield then
+        local shieldComponent = player.components.shield
+        for key, value in pairs(pendingState.shield) do
+            shieldComponent[key] = value
         end
     end
 

@@ -9,24 +9,24 @@ local RegenSystem = {}
 -- Process energy regeneration
 function RegenSystem.processEnergyRegen(player, dt)
     local regenRate = player.energyRegen or 10
-    local health = player.components.health
+    local energy = player.components.energy
     
-    if health then
-        local newEnergy = health.energy + regenRate * dt
-        health.energy = math.min(health.maxEnergy, newEnergy)
+    if energy then
+        local newEnergy = energy.energy + regenRate * dt
+        energy.energy = math.min(energy.maxEnergy, newEnergy)
         
-        PlayerDebug.logRegeneration(regenRate, 0, health.energy, 0)
+        PlayerDebug.logRegeneration(regenRate, 0, energy.energy, 0)
     end
 end
 
 -- Process shield regeneration with non-linear slowdown
 function RegenSystem.processShieldRegen(player, dt)
     local shieldRegenRate = player:getShieldRegen()
-    local health = player.components.health
+    local shield = player.components.shield
     
-    if shieldRegenRate > 0 and health then
-        local currentShield = health.shield or 0
-        local maxShield = health.maxShield or 0
+    if shieldRegenRate > 0 and shield then
+        local currentShield = shield.shield or 0
+        local maxShield = shield.maxShield or 0
         
         if currentShield < maxShield then
             -- Calculate non-linear regeneration rate
@@ -37,9 +37,9 @@ function RegenSystem.processShieldRegen(player, dt)
             -- Apply regeneration with multiplier
             local actualRegen = shieldRegenRate * regenMultiplier * dt
             local newShield = currentShield + actualRegen
-            health.shield = math.min(maxShield, newShield)
+            shield.shield = math.min(maxShield, newShield)
             
-            PlayerDebug.logRegeneration(0, shieldRegenRate, 0, health.shield)
+            PlayerDebug.logRegeneration(0, shieldRegenRate, 0, shield.shield)
         end
     end
 end
@@ -76,34 +76,34 @@ end
 
 -- Check if energy is at maximum
 function RegenSystem.isEnergyAtMax(player)
-    local health = player.components.health
-    if not health then return false end
+    local energy = player.components.energy
+    if not energy then return false end
     
-    return health.energy >= health.maxEnergy
+    return energy.energy >= energy.maxEnergy
 end
 
 -- Check if shield is at maximum
 function RegenSystem.isShieldAtMax(player)
-    local health = player.components.health
-    if not health then return false end
+    local shield = player.components.shield
+    if not shield then return false end
     
-    return (health.shield or 0) >= (health.maxShield or 0)
+    return (shield.shield or 0) >= (shield.maxShield or 0)
 end
 
 -- Get current energy percentage
 function RegenSystem.getEnergyPercentage(player)
-    local health = player.components.health
-    if not health or health.maxEnergy <= 0 then return 0 end
+    local energy = player.components.energy
+    if not energy or energy.maxEnergy <= 0 then return 0 end
     
-    return health.energy / health.maxEnergy
+    return energy.energy / energy.maxEnergy
 end
 
 -- Get current shield percentage
 function RegenSystem.getShieldPercentage(player)
-    local health = player.components.health
-    if not health or (health.maxShield or 0) <= 0 then return 0 end
+    local shield = player.components.shield
+    if not shield or (shield.maxShield or 0) <= 0 then return 0 end
     
-    return (health.shield or 0) / health.maxShield
+    return (shield.shield or 0) / shield.maxShield
 end
 
 -- Set energy regeneration rate
@@ -113,17 +113,17 @@ end
 
 -- Force energy regeneration (for testing/debugging)
 function RegenSystem.forceEnergyRegen(player, amount)
-    local health = player.components.health
-    if health then
-        health.energy = math.min(health.maxEnergy, health.energy + amount)
+    local energy = player.components.energy
+    if energy then
+        energy.energy = math.min(energy.maxEnergy, energy.energy + amount)
     end
 end
 
 -- Force shield regeneration (for testing/debugging)
 function RegenSystem.forceShieldRegen(player, amount)
-    local health = player.components.health
-    if health then
-        health.shield = math.min(health.maxShield, (health.shield or 0) + amount)
+    local shield = player.components.shield
+    if shield then
+        shield.shield = math.min(shield.maxShield, (shield.shield or 0) + amount)
     end
 end
 

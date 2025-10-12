@@ -41,7 +41,8 @@ local function sanitiseSnapshot(snapshot)
         return {
             position = { x = 0, y = 0, angle = 0 },
             velocity = { x = 0, y = 0 },
-            health = { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 },
+            hull = { hp = 100, maxHP = 100, energy = 0, maxEnergy = 0 },
+            shield = { shield = 0, maxShield = 0 },
             shieldChannel = false,
             thrusterState = { isThrusting = false, forward = 0, reverse = 0, strafeLeft = 0, strafeRight = 0, boost = 0 },
             timestamp = now(),
@@ -51,7 +52,8 @@ local function sanitiseSnapshot(snapshot)
 
     local position = snapshot.position or {}
     local velocity = snapshot.velocity or {}
-    local health = snapshot.health or {}
+    local hull = snapshot.hull or {}
+    local shield = snapshot.shield or {}
     local shieldChannel = snapshot.shieldChannel
     local thrusterState = snapshot.thrusterState or {}
     local timestamp = tonumber(snapshot.timestamp)
@@ -79,13 +81,15 @@ local function sanitiseSnapshot(snapshot)
             x = tonumber(velocity.x) or 0,
             y = tonumber(velocity.y) or 0
         },
-        health = {
-            hp = tonumber(health.hp) or 100,
-            maxHP = tonumber(health.maxHP) or 100,
-            shield = tonumber(health.shield) or 0,
-            maxShield = tonumber(health.maxShield) or 0,
-            energy = tonumber(health.energy) or 0,
-            maxEnergy = tonumber(health.maxEnergy) or 0
+        hull = {
+            hp = tonumber(hull.hp) or 100,
+            maxHP = tonumber(hull.maxHP) or 100,
+            energy = tonumber(hull.energy) or 0,
+            maxEnergy = tonumber(hull.maxEnergy) or 0
+        },
+        shield = {
+            shield = tonumber(shield.shield) or 0,
+            maxShield = tonumber(shield.maxShield) or 0
         },
         shieldChannel = shieldChannel == true,
         thrusterState = {
@@ -110,7 +114,9 @@ local function snapshotsDiffer(a, b)
 
     local posA, posB = a.position or {}, b.position or {}
     local velA, velB = a.velocity or {}, b.velocity or {}
-    local healthA, healthB = a.health or {}, b.health or {}
+    local hullA, hullB = a.hull or {}, b.hull or {}
+    local shieldA, shieldB = a.shield or {}, b.shield or {}
+    local energyA, energyB = a.energy or {}, b.energy or {}
     local thrusterA, thrusterB = a.thrusterState or {}, b.thrusterState or {}
 
     local posDelta = math.abs((posA.x or 0) - (posB.x or 0)) + math.abs((posA.y or 0) - (posB.y or 0))
@@ -118,12 +124,12 @@ local function snapshotsDiffer(a, b)
     local velDelta = math.abs((velA.x or 0) - (velB.x or 0)) + math.abs((velA.y or 0) - (velB.y or 0))
 
     -- Health changes are significant enough to always send
-    local healthChanged = (healthA.hp or 100) ~= (healthB.hp or 100) or
-                         (healthA.maxHP or 100) ~= (healthB.maxHP or 100) or
-                         (healthA.shield or 0) ~= (healthB.shield or 0) or
-                         (healthA.maxShield or 0) ~= (healthB.maxShield or 0) or
-                         (healthA.energy or 0) ~= (healthB.energy or 0) or
-                         (healthA.maxEnergy or 0) ~= (healthB.maxEnergy or 0)
+    local hullChanged = (hullA.hp or 100) ~= (hullB.hp or 100) or
+                       (hullA.maxHP or 100) ~= (hullB.maxHP or 100)
+    local energyChanged = (energyA.energy or 0) ~= (energyB.energy or 0) or
+                         (energyA.maxEnergy or 100) ~= (energyB.maxEnergy or 100)
+    local shieldChanged = (shieldA.shield or 0) ~= (shieldB.shield or 0) or
+                         (shieldA.maxShield or 0) ~= (shieldB.maxShield or 0)
 
     local shieldChannelChanged = (a.shieldChannel or false) ~= (b.shieldChannel or false)
 
@@ -135,7 +141,7 @@ local function snapshotsDiffer(a, b)
         or math.abs((thrusterA.strafeRight or 0) - (thrusterB.strafeRight or 0)) > thrusterThreshold
         or math.abs((thrusterA.boost or 0) - (thrusterB.boost or 0)) > thrusterThreshold
 
-    return posDelta > 1 or angleDelta > 0.01 or velDelta > 0.5 or healthChanged or shieldChannelChanged or thrusterChanged
+    return posDelta > 1 or angleDelta > 0.01 or velDelta > 0.5 or hullChanged or shieldChanged or energyChanged or shieldChannelChanged or thrusterChanged
 end
 
 local function ensureRemoteEntity(playerId, playerData, world)
@@ -269,28 +275,43 @@ local function updateEntityFromSnapshot(entity, snapshot)
         end
     end
 
-    -- Apply health data to remote player entities
+    -- Apply hull and shield data to remote player entities
     local invalidateRadius = false
 
-    if entity.components and entity.components.health and data.health then
-        local health = entity.components.health
-        local oldShield = health.shield
-        local oldMaxShield = health.maxShield
-        local oldHP = health.hp
+    if entity.components and entity.components.hull and data.hull then
+        local hull = entity.components.hull
+        local oldHP = hull.hp
 
-        health.hp = data.health.hp
-        health.maxHP = data.health.maxHP
-        health.shield = data.health.shield
-        health.maxShield = data.health.maxShield
-        health.energy = data.health.energy
-        health.maxEnergy = data.health.maxEnergy
+        hull.hp = data.hull.hp
+        hull.maxHP = data.hull.maxHP
 
-        -- Detect damage for remote players and show overhead bars (only on health decrease, not healing)
+        -- Detect damage for remote players and show overhead bars (only on hull decrease, not healing)
         if entity.isRemotePlayer then
-            local shieldDecreased = (oldShield or 0) > (health.shield or 0)
-            local hpDecreased = (oldHP or 0) > (health.hp or 0)
+            local hpDecreased = (oldHP or 0) > (hull.hp or 0)
             
-            if shieldDecreased or hpDecreased then
+            if hpDecreased then
+                if love and love.timer and love.timer.getTime then
+                    entity._hudDamageTime = love.timer.getTime()
+                else
+                    entity._hudDamageTime = os.clock()
+                end
+            end
+        end
+    end
+
+    if entity.components and entity.components.shield and data.shield then
+        local shield = entity.components.shield
+        local oldShield = shield.shield
+        local oldMaxShield = shield.maxShield
+
+        shield.shield = data.shield.shield
+        shield.maxShield = data.shield.maxShield
+
+        -- Detect shield damage for remote players
+        if entity.isRemotePlayer then
+            local shieldDecreased = (oldShield or 0) > (shield.shield or 0)
+            
+            if shieldDecreased then
                 if love and love.timer and love.timer.getTime then
                     entity._hudDamageTime = love.timer.getTime()
                 else
@@ -299,9 +320,15 @@ local function updateEntityFromSnapshot(entity, snapshot)
             end
         end
 
-        if (oldShield or 0) ~= (health.shield or 0) or (oldMaxShield or 0) ~= (health.maxShield or 0) then
+        if (oldShield or 0) ~= (shield.shield or 0) or (oldMaxShield or 0) ~= (shield.maxShield or 0) then
             invalidateRadius = true
         end
+    end
+
+    if entity.components and entity.components.energy and data.energy then
+        local energy = entity.components.energy
+        energy.energy = data.energy.energy
+        energy.maxEnergy = data.energy.maxEnergy
     end
 
     if data.shieldChannel ~= nil then
@@ -454,7 +481,9 @@ function NetworkSync.update(dt, player, world, networkManager)
     if player and player.components and player.components.position then
         local position = player.components.position
         local velocity = player.components.velocity
-        local health = player.components.health
+        local hull = player.components.hull
+        local shield = player.components.shield
+        local energy = player.components.energy
 
 
         -- Get thruster state for engine trail synchronization
@@ -464,14 +493,18 @@ function NetworkSync.update(dt, player, world, networkManager)
         local snapshot = {
             position = { x = position.x, y = position.y, angle = position.angle or 0 },
             velocity = velocity and { x = velocity.x or 0, y = velocity.y or 0 } or { x = 0, y = 0 },
-            health = health and {
-                hp = health.hp or 100,
-                maxHP = health.maxHP or 100,
-                shield = health.shield or 0,
-                maxShield = health.maxShield or 0,
-                energy = health.energy or 0,
-                maxEnergy = health.maxEnergy or 0
-            } or { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 },
+            hull = hull and {
+                hp = hull.hp or 100,
+                maxHP = hull.maxHP or 100
+            } or { hp = 100, maxHP = 100 },
+            energy = energy and {
+                energy = energy.energy or 0,
+                maxEnergy = energy.maxEnergy or 100
+            } or { energy = 0, maxEnergy = 100 },
+            shield = shield and {
+                shield = shield.shield or 0,
+                maxShield = shield.maxShield or 0
+            } or { shield = 0, maxShield = 0 },
             shieldChannel = player.shieldChannel or false,
             thrusterState = {
                 isThrusting = thrusterState.isThrusting or false,

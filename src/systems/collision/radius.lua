@@ -210,7 +210,7 @@ end
 
 function Radius.calculateEffectiveRadius(entity)
     local effective = Radius.getHullRadius(entity)
-    local health = entity.components and entity.components.health
+    local hull = entity.components and entity.components.hull
     
     -- For players with polygon collision shapes, use more precise radius calculation
     local collidable = entity.components and entity.components.collidable

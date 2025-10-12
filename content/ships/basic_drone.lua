@@ -55,7 +55,6 @@ return {
 
   hull = {
     hp = 50,
-    shield = 50, -- Give basic shield HP
     cap = 0, -- No energy system for basic enemies
   },
 
@@ -68,10 +67,8 @@ return {
 
     xpReward = 10,
     cargo = { capacity = 20, volumeLimit = 8.0 }, -- 8 m^3 cargo hold for basic drone
-    equipmentSlots = 1, -- One shield slot
-    equipmentLayout = {
-        { slot = 1, type = "shield", label = "Shield Generator" },
-    },
+    equipmentSlots = 0, -- No equipment slots for basic drones
+    equipmentLayout = {},
 
     collidable = {
         shape = "polygon",
@@ -119,7 +116,7 @@ return {
             name = "Guard Drone",
             ai = { intelligenceLevel = "STANDARD", aggressiveType = "aggressive" },
             xpReward = 15,
-            hull = { hp = 80, shield = 100, cap = 0 } -- Increased shield for guard variant
+            hull = { hp = 80, cap = 0 } -- Increased hull for guard variant
         }
     }
 }

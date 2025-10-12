@@ -301,12 +301,12 @@ local function updateBossBar(dt, player, world)
     end
 
     if nearest and nearestDistSq and nearestDistSq <= BOSS_BAR_RANGE_SQ then
-        local h = nearest.components.health
-        if h then
-            local hp = h.hp or h.current or 0
-            local maxHp = h.maxHP or h.max or math.max(1, hp)
-            local shield = h.shield or 0
-            local maxShield = h.maxShield or 0
+        local hull = nearest.components.hull
+        if hull then
+            local hp = hull.hp or hull.current or 0
+            local maxHp = hull.maxHP or hull.max or math.max(1, hp)
+            local shield = nearest.components.shield and (nearest.components.shield.shield or 0) or 0
+            local maxShield = nearest.components.shield and (nearest.components.shield.maxShield or 0) or 0
 
             if bossState.entity ~= nearest then
                 bossState.smoothHp = hp
@@ -338,8 +338,8 @@ local function updateBossBar(dt, player, world)
             bossState.label = nil
             bossState.displayTimer = 0
         else
-            local h = bossState.entity.components and bossState.entity.components.health
-            if (not h) or (h.hp or h.current or 0) <= 0 or bossState.entity.dead then
+            local hull = bossState.entity.components and bossState.entity.components.hull
+            if (not hull) or (hull.hp or hull.current or 0) <= 0 or bossState.entity.dead then
                 bossState.entity = nil
             end
         end
@@ -425,15 +425,17 @@ end
 
 function HUDStatusBars.update(dt, player, world)
     if not initialized then initialize() end
-    if not player or not player.components or not player.components.health then return end
+    if not player or not player.components or not player.components.hull then return end
 
-    local h = player.components.health
-    local currentHP = h.hp or 0
-    local maxHP = h.maxHP or 100  -- Use a proper default instead of current HP
-    local currentShield = h.shield or 0
-    local maxShield = h.maxShield or 0
-    local currentEnergy = h.energy or 0
-    local maxEnergy = h.maxEnergy or 0
+    local hull = player.components.hull
+    local shield = player.components.shield
+    local energy = player.components.energy
+    local currentHP = hull.hp or 0
+    local maxHP = hull.maxHP or 100  -- Use a proper default instead of current HP
+    local currentShield = shield and (shield.shield or 0) or 0
+    local maxShield = shield and (shield.maxShield or 0) or 0
+    local currentEnergy = energy and (energy.energy or 0) or 0
+    local maxEnergy = energy and (energy.maxEnergy or 0) or 0
     
     bars.hull:setValue(currentHP, maxHP)
     bars.shield:setValue(currentShield, maxShield)
@@ -444,7 +446,7 @@ function HUDStatusBars.update(dt, player, world)
     end
 
     -- Update energy animation
-    local targetEnergyPct = (h.energy or 0) / math.max(1, h.maxEnergy or h.energy or 1)
+    local targetEnergyPct = (energy.energy or 0) / math.max(1, energy.maxEnergy or energy.energy or 1)
     energyAnimation.target = targetEnergyPct
     
     -- Smooth animation with snap-to-target to avoid never reaching 0%/100%
@@ -469,7 +471,7 @@ end
 
 function HUDStatusBars.draw(player, world)
     if not initialized then initialize() end
-    if not player or not player.components or not player.components.health then return end
+    if not player or not player.components or not player.components.hull then return end
 
     local sw, sh = Viewport.getDimensions()
     local s = math.min(sw / 1920, sh / 1080)
@@ -477,26 +479,28 @@ function HUDStatusBars.draw(player, world)
     local barWidth = 250
     local barHeight, gap = math.floor(18 * s), math.floor(4 * s)
 
-    local h = player.components.health
+    local hull = player.components.hull
+    local shield = player.components.shield
+    local energy = player.components.energy
 
     -- Combined hull + shield bar (shield overlays hull)
     local topLeftX = 16 -- 16px from left edge
     local topLeftY = 16 -- 16px from top edge
     
     -- Calculate hull and shield percentages
-    local hull = h.hp or 0
-    local maxHull = h.maxHP or 100
-    local hullPct = maxHull > 0 and (hull / maxHull) or 0
+    local hullHP = hull.hp or 0
+    local maxHull = hull.maxHP or 100
+    local hullPct = maxHull > 0 and (hullHP / maxHull) or 0
     
-    local shield = h.shield or 0
-    local maxShield = h.maxShield or (h.shield or 0)
-    local shieldPct = maxShield > 0 and (shield / maxShield) or 0
+    local shieldHP = shield and (shield.shield or 0) or 0
+    local maxShield = shield and (shield.maxShield or 0) or 0
+    local shieldPct = maxShield > 0 and (shieldHP / maxShield) or 0
     
     -- Draw hull bar as base (red, actual hull percentage)
     Theme.drawSciFiBar(topLeftX, topLeftY, barWidth, barHeight, hullPct, Theme.semantic.statusHull)
     
     -- Draw shield bar overlaying hull (blue overlay, only shield portion)
-    if shield > 0 then
+    if shieldHP > 0 then
         local shieldWidth = shieldPct * barWidth
         Theme.drawSciFiBar(topLeftX, topLeftY, shieldWidth, barHeight, 1.0, Theme.semantic.statusShield)
     end
@@ -506,9 +510,9 @@ function HUDStatusBars.draw(player, world)
     local slimGap = math.floor(4 * s)
     local energyY = topLeftY + barHeight + slimGap
     
-    local energy = h.energy or 0
-    local maxEnergy = h.maxEnergy or (h.energy or 0)
-    local energyPct = maxEnergy > 0 and (energy / maxEnergy) or 0
+    local energyHP = energy.energy or 0
+    local maxEnergy = energy.maxEnergy or (energy.energy or 0)
+    local energyPct = maxEnergy > 0 and (energyHP / maxEnergy) or 0
     
     -- Make energy bar shorter than hull/shield bar
     local energyBarWidth = math.floor(barWidth * 0.7) -- 70% of hull/shield bar width

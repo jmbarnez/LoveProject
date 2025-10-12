@@ -93,8 +93,9 @@ function ProjectileUtils.perform_collision_check(x1, y1, x2, y2, target, target_
     target_radius = ProjectileUtils.validate_target_radius(target_radius)
     projectile_radius = projectile_radius or 2.0 -- Default projectile radius
 
-    local health = components.health
-    if health and (health.shield or 0) > 0 then
+    local hull = components.hull
+    local shield = components.shield
+    if shield and (shield.shield or 0) > 0 then
         local shield_radius = Radius.getShieldRadius(target)
         local shield_hit, hx, hy = Geometry.calculateShieldHitPoint(x1, y1, x2, y2, ex, ey, shield_radius)
         if shield_hit then

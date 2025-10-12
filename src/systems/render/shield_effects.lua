@@ -113,7 +113,8 @@ function ShieldEffects.drawShieldBubble(entity)
     if not entity or not entity.components then return end
     if entity.tag == "station" then return end  -- No shields for stations
     
-    local h = entity.components.health
+    local hull = entity.components.hull
+    local shield = entity.components.shield
     local col = entity.components.collidable
     
     -- Draw only on recent impact or when shields are actually active
