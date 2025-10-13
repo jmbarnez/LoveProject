@@ -96,6 +96,31 @@ function Settings.applyGraphicsSettings(newSettings)
         end
     end
 
+    -- Coerce resolution dimensions to numbers so love.window.setMode receives
+    -- valid values even if the settings UI feeds us stringified numbers.
+    if sanitized.resolution then
+        local function coerceDimension(value, fallback)
+            local numeric = tonumber(value)
+            if numeric and numeric > 0 then
+                return numeric
+            end
+            return fallback
+        end
+
+        local defaultsResolution = (defaults and defaults.resolution) or {}
+        local oldResolution = (oldSettings and oldSettings.resolution) or defaultsResolution
+
+        sanitized.resolution.width = coerceDimension(
+            sanitized.resolution.width,
+            oldResolution.width or defaultsResolution.width or Constants.RESOLUTION.DEFAULT_WIDTH
+        )
+
+        sanitized.resolution.height = coerceDimension(
+            sanitized.resolution.height,
+            oldResolution.height or defaultsResolution.height or Constants.RESOLUTION.DEFAULT_HEIGHT
+        )
+    end
+
     settings.graphics = sanitized
 
     local function getResolutionPair(data)
