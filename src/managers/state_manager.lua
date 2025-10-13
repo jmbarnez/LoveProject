@@ -807,9 +807,18 @@ end
 -- Get save statistics
 function StateManager.getStats()
   local slots = StateManager.getSaveSlots()
+  local lastSaveTime = "Never"
+  if slots and #slots > 0 then
+    local latest = slots[1]
+    if latest.realTime and latest.realTime ~= "" then
+      lastSaveTime = latest.realTime
+    elseif latest.timestamp then
+      lastSaveTime = os.date("%Y-%m-%d %H:%M:%S", latest.timestamp)
+    end
+  end
   return {
     totalSaves = #slots,
-    lastSave = slots and slots.realTime or "Never",
+    lastSave = lastSaveTime,
     autoSaveEnabled = saveEnabled,
     nextAutoSave = AUTO_SAVE_INTERVAL - autoSaveTimer
   }
