@@ -20,7 +20,7 @@ function ItemPickup.new(x, y, itemId, qty, sizeScale, vx, vy, meta)
   self.components.item_pickup = { 
     itemId = itemId or "ore_tritanium", 
     qty = qty or 1,
-    meta = meta -- Store metadata for weapon modules
+    meta = meta -- Store metadata for turret modules
   }
   -- Velocity for initial explosion spread
   local Velocity = require("src.components.velocity")

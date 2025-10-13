@@ -255,10 +255,10 @@ function ConstructionSystem.equipTurret(entity, turretType)
         fireMode = turretDef.fireMode or "manual"
     })
     
-    -- Add weapon to equipment grid
+    -- Add turret to equipment grid
     table.insert(entity.components.equipment.grid, {
         slot = 1,
-        type = "weapon",
+        type = "turret",
         module = turretModule,
         id = turretType
     })

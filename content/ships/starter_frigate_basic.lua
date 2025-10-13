@@ -33,10 +33,16 @@ return {
   engine = { accel = 400, maxSpeed = 300, drag = 0.98, mass = 150 }, -- accel: u/s², maxSpeed: u/s, mass: kg
   sig = 110, -- u - signature radius
   cargo = { capacity = 120, volumeLimit = 50.0 }, -- capacity: units, volumeLimit: u³
-  equipmentSlots = 2,
+  equipmentSlots = 4,
   equipmentLayout = {
-    { slot = 1, type = "module", label = "Universal" },
-    { slot = 2, type = "module", label = "Universal" },
+    { slot = 1, type = "turret", label = "Turret Hardpoint A" },
+    { slot = 2, type = "turret", label = "Turret Hardpoint B" },
+    { slot = 3, type = "module", label = "Module Slot 1" },
+    { slot = 4, type = "module", label = "Module Slot 2" },
+  },
+  hardpoints = {
+    { slot = 1 },
+    { slot = 2 },
   },
   
   targeting = { lockTime = 2.0 },

@@ -109,23 +109,23 @@ end
 
 -- Spawn healing particles for healing laser effects
 function Effects.spawnHealingParticles(x, y)
-  local color = {0.0, 1.0, 0.5, 0.8} -- Lime green
+  local color = {0.3, 0.95, 0.6, 0.55} -- Soft lime green
   
   -- Create gentle upward floating particles
-  local particleCount = 6 + math.random(4) -- 6-9 particles
+  local particleCount = 2 + math.random(2) -- 2-4 particles
   
   for i = 1, particleCount do
-    local angle = (math.random() * 2 - 1) * math.pi * 0.3 -- Gentle spread
-    local speed = 20 + math.random() * 30 -- Slow, gentle movement
-    local life = 0.8 + math.random() * 0.4 -- Longer life for gentle effect
-    local size = 1.2 + math.random() * 0.8 -- Larger, more visible particles
+    local angle = (math.random() * 2 - 1) * math.pi * 0.25 -- Gentle spread
+    local speed = 12 + math.random() * 18 -- Slow, gentle movement
+    local life = 0.7 + math.random() * 0.3 -- Slight variation
+    local size = 0.9 + math.random() * 0.5
     
     Effects.add({
       type = 'healing_particle',
-      x = x + (math.random() * 2 - 1) * 8, -- Small random offset
-      y = y + (math.random() * 2 - 1) * 8,
+      x = x + (math.random() * 2 - 1) * 4, -- Smaller offset
+      y = y + (math.random() * 2 - 1) * 4,
       vx = math.cos(angle) * speed,
-      vy = math.sin(angle) * speed - 10, -- Slight upward bias
+      vy = math.sin(angle) * speed - 8, -- Slight upward bias
       t = 0,
       life = life,
       color = color,
@@ -133,12 +133,13 @@ function Effects.spawnHealingParticles(x, y)
     })
   end
   
-  -- Add some gentle sparkle effects
-  for i = 1, 4 do
+  -- Add subtle sparkle accents
+  local sparkleCount = 1 + math.random(2)
+  for i = 1, sparkleCount do
     local angle = math.random() * 2 * math.pi
-    local speed = 15 + math.random() * 20
-    local life = 0.4 + math.random() * 0.3
-    local size = 0.8 + math.random() * 0.4
+    local speed = 10 + math.random() * 12
+    local life = 0.35 + math.random() * 0.2
+    local size = 0.6 + math.random() * 0.3
     
     Effects.add({
       type = 'healing_sparkle',
@@ -148,10 +149,44 @@ function Effects.spawnHealingParticles(x, y)
       vy = math.sin(angle) * speed,
       t = 0,
       life = life,
-      color = {1.0, 1.0, 1.0, 0.9}, -- White sparkles
+      color = {0.9, 1.0, 0.9, 0.7}, -- Soft white-green sparkles
       size = size,
     })
   end
+end
+
+-- Spawn healing circle around target
+function Effects.spawnHealingCircle(x, y, radius)
+  radius = radius or 30
+  
+  Effects.add({
+    type = 'healing_circle',
+    x = x,
+    y = y,
+    radius = radius,
+    t = 0,
+    life = 0.5, -- Slightly longer duration for persistence
+    color = {0.1, 0.8, 0.3, 0.2}, -- Very faint green circle
+    pulseSpeed = 0, -- No pulsing for subtlety
+  })
+end
+
+-- Spawn floating healing number
+function Effects.spawnHealingNumber(x, y, amount)
+  local color = {0.2, 0.9, 0.4, 0.7} -- Subtle green
+  
+  Effects.add({
+    type = 'healing_number',
+    x = x,
+    y = y,
+    vx = (math.random() - 0.5) * 10, -- Less horizontal drift
+    vy = -20 - math.random() * 10, -- Slower upward movement
+    t = 0,
+    life = 0.8, -- Shorter duration for subtlety
+    color = color,
+    text = string.format("+%.0f", amount), -- No decimal places for cleaner look
+    size = 0.7, -- Smaller text
+  })
 end
 
 -- Spawn bullet impact effects for projectiles hitting hull surfaces
@@ -331,7 +366,7 @@ function Effects.spawnImpact(kind, cx, cy, r, hx, hy, angle, style, bulletKind, 
   local hullStyle = 'default'
   -- Disable pulsing effects for laser weapons - they now use spark effects instead
   if kind == 'hull' and bulletKind then
-    if bulletKind == 'laser' or bulletKind == 'mining_laser' or bulletKind == 'salvaging_laser' then
+    if bulletKind == 'laser' or bulletKind == 'mining_laser' or bulletKind == 'salvaging_laser' or bulletKind == 'healing_laser' then
       hullStyle = 'none' -- No pulsing effects for lasers
     end
   end
@@ -687,6 +722,29 @@ function Effects.draw()
         
         love.graphics.setColor(f.color[1], f.color[2], f.color[3], alpha)
         love.graphics.circle('fill', f.x, f.y, size)
+      elseif f.type == 'healing_circle' then
+        -- Healing circle around target - subtle green circle
+        local alpha = (f.color[4] or 1) * a
+        local radius = f.radius or 30
+        
+        love.graphics.setColor(f.color[1], f.color[2], f.color[3], alpha)
+        love.graphics.setLineWidth(1) -- Thinner line for subtlety
+        love.graphics.circle('line', f.x, f.y, radius)
+        love.graphics.setLineWidth(1)
+      elseif f.type == 'healing_number' then
+        -- Floating healing number - subtle green text that fades upward
+        local alpha = (f.color[4] or 1) * a
+        local text = f.text or "+0"
+        local size = f.size or 0.7
+        
+        love.graphics.setColor(f.color[1], f.color[2], f.color[3], alpha)
+        local oldFont = love.graphics.getFont()
+        -- Use a smaller font for subtlety
+        if Theme.fonts and Theme.fonts.small then 
+          love.graphics.setFont(Theme.fonts.small) 
+        end
+        love.graphics.print(text, f.x, f.y, 0, size, size)
+        if oldFont then love.graphics.setFont(oldFont) end
       elseif f.type == 'ring' then
         local rr = Util.lerp(f.r0 or 2, f.r1 or 24, f.t / f.life)
         local lw = Util.lerp(f.w0 or 2, f.w1 or 1, f.t / f.life)

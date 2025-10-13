@@ -79,9 +79,15 @@ return {
     optimal = 800, falloff = 400,
     damage_range = { min = -3, max = -1 }, -- Healing range
     cycle = 1.0, capCost = 0, -- No per-shot energy cost
-    energyPerSecond = 60, -- Energy consumed per second while beam is active
+    energyPerSecond = 0, -- No energy consumption (replaced by heat)
     maxRange = 1000,
     spread = { minDeg = 0.0, maxDeg = 0.0, decay = 900 },
+    
+    -- Heat system parameters
+    maxHeat = 100,           -- Overheat threshold
+    heatGeneration = 8,      -- Heat per second while firing (moderate for healing)
+    coolingRate = 4,         -- Heat lost per second when not firing
+    overheatPenalty = 8,     -- Seconds of forced cooldown when overheated
     
     -- Volley firing (single shot by default)
     volleyCount = 1,

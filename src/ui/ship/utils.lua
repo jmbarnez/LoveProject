@@ -57,7 +57,7 @@ function ShipUtils.buildHotbarPreview(player, gridOverride)
     local autos = {}
 
     for _, gridData in ipairs(grid) do
-        if gridData.type == "weapon" and gridData.module then
+        if gridData.type == "turret" and gridData.module then
             local entry = {
                 key = "slot_" .. tostring(gridData.slot),
                 label = ShipUtils.resolveModuleDisplayName(gridData) or ("Turret " .. tostring(gridData.slot)),

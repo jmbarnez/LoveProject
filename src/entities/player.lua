@@ -151,7 +151,7 @@ function Player:getTurretInSlot(slotNum)
         return nil
     end
     local gridData = self.components.equipment.grid[slotNum]
-    if gridData and gridData.type == "weapon" then
+    if gridData and gridData.type == "turret" then
         return gridData.module
     end
     return nil
@@ -338,7 +338,7 @@ function Player:equipModule(slotNum, moduleId, turretData)
     if moduleDef and moduleDef.module then
         local declaredType = moduleDef.module.type or "module"
         if declaredType == "turret" then
-            moduleType = "weapon"  -- Always assign turret modules as weapon type
+            moduleType = "turret"  -- Turret modules occupy turret slots
             local sourceDef = turretDef or moduleDef.def or moduleDef
             actualModule = instantiateTurret(sourceDef, moduleId, moduleId)
             if not actualModule then
@@ -349,13 +349,13 @@ function Player:equipModule(slotNum, moduleId, turretData)
             actualModule = moduleDef
         end
     elseif turretDef then
-        moduleType = "weapon"
+        moduleType = "turret"
         actualModule = instantiateTurret(turretDef, moduleId, moduleId)
         if not actualModule then
             return false
         end
     elseif turretData then
-        moduleType = "weapon"
+        moduleType = "turret"
         local baseId = turretData.baseId or turretData.id
         actualModule = instantiateTurret(turretData, moduleId, baseId)
         if not actualModule then
@@ -406,7 +406,7 @@ function Player:equipModule(slotNum, moduleId, turretData)
                 self:updateShieldHP()
                 self:updateAbilityModules()
                 PlayerHotbar.populate(self, moduleId, slotNum)
-            elseif moduleType == "weapon" then
+            elseif moduleType == "turret" then
                 PlayerHotbar.populate(self, moduleId, slotNum)
             end
             return true
@@ -433,7 +433,7 @@ function Player:unequipModule(slotNum)
             -- Return module to cargo (stackable modules handled directly; turrets handled below)
             if moduleId and (moduleType == "shield" or moduleType == "module" or moduleType == "ability") then
                 cargo:add(moduleId, 1)
-            elseif moduleType == "weapon" then
+            elseif moduleType == "turret" then
                 local turretObj = gridData.module
                 if turretObj then
                     local baseId = turretObj.baseId or moduleId
@@ -458,7 +458,7 @@ function Player:unequipModule(slotNum)
                 self:updateShieldHP()
                 self:updateAbilityModules()
                 PlayerHotbar.populate(self, nil, slotNum)
-            elseif moduleType == "weapon" then
+            elseif moduleType == "turret" then
                 PlayerHotbar.populate(self, nil, slotNum)
             end
             return true

@@ -77,7 +77,7 @@ return {
     optimal = 400, falloff = 200,
     damage_range = { min = 10, max = 14 },
     damagePerSecond = 8,
-    cycle = 1.5, capCost = 1,
+    cycle = 1.5, capCost = 0, -- No energy cost (replaced by heat)
     energyPerSecond = 0,
     maxRange = 600,
     spread = { minDeg = 1.0, maxDeg = 2.0, decay = 300 },
@@ -86,12 +86,11 @@ return {
     volleyCount = 1,
     volleySpreadDeg = 0,
     
-    -- Overheating parameters
-    maxHeat = 40,
-    cooldownRate = 20,
-    overheatCooldown = 1.5,
-    heatCycleMult = 0.9,
-    heatEnergyMult = 1.0,
+    -- Heat system parameters
+    maxHeat = 100,           -- Overheat threshold
+    heatGeneration = 15,     -- Heat per shot (projectile weapons generate heat per shot)
+    coolingRate = 5,         -- Heat lost per second when not firing
+    overheatPenalty = 5,     -- Seconds of forced cooldown when overheated
     
     -- Firing mode
     fireMode = "manual",

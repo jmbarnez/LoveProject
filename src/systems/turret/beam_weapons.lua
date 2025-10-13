@@ -405,9 +405,11 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
 
                             -- Adjust color based on turret type
                             if turret.type == "mining_laser" then
-                                sparkColor = {1.0, 0.7, 0.2, 0.8} -- Orange for mining
+                                sparkColor = {1.0, 0.7, 0.2, 0.8} -- Orange for mining (matches beam color)
                             elseif turret.type == "salvaging_laser" then
-                                sparkColor = {0.2, 1.0, 0.3, 0.8} -- Green for salvaging
+                                sparkColor = {1.0, 0.2, 0.6, 0.8} -- Pink for salvaging (matches beam color)
+                            elseif turret.type == "healing_laser" then
+                                sparkColor = {0.0, 1.0, 0.5, 0.8} -- Lime green for healing (matches beam color)
                             elseif turret.type == "laser" then
                                 sparkColor = {0.3, 0.7, 1.0, 0.8} -- Blue for combat lasers
                             end
@@ -442,6 +444,7 @@ function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMet
     end
 
     local hull = target.components.hull
+    local shield = target.components.shield
 
     -- Apply global enemy damage multiplier (x2)
     local baseDamage = damage
@@ -451,7 +454,7 @@ function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMet
 
     -- Laser weapons: 15% more damage to shields, half damage to hulls
     -- Use the same calculation logic as CollisionEffects.applyDamage for consistency
-    local shieldBefore = health.shield or 0
+    local shieldBefore = (shield and shield.shield) or 0
     local shieldDamage = math.min(shieldBefore, baseDamage * 1.15) -- 15% more damage to shields
     local remainingDamage = baseDamage - (shieldDamage / 1.15) -- Convert back to original damage for hull calculation
     local hullDamage = 0
@@ -461,16 +464,16 @@ function BeamWeapons.applyLaserDamage(target, damage, source, skillId, damageMet
     end
 
     -- Apply shield damage
-    if shieldDamage > 0 then
-        health.shield = math.max(0, shieldBefore - shieldDamage)
+    if shieldDamage > 0 and shield then
+        shield.shield = math.max(0, shieldBefore - shieldDamage)
     end
 
     -- Apply hull damage
     local hullDamageApplied = false
     if hullDamage > 0 then
-        health.hp = math.max(0, (health.hp or 0) - hullDamage)
+        hull.hp = math.max(0, (hull.hp or 0) - hullDamage)
         hullDamageApplied = true
-        if health.hp <= 0 then
+        if hull.hp <= 0 then
             target.dead = true
             target._killedBy = source
             if damageMeta then

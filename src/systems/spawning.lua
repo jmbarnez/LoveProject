@@ -3,6 +3,7 @@ local Constants = require("src.core.constants")
 local Config = require("src.content.config")
 local Log = require("src.core.log")
 local Util = require("src.core.util")
+local AISystem = require("src.systems.ai")
 
 local SpawningSystem = {}
 
@@ -316,15 +317,24 @@ local function spawnHealingDroneNear(nearX, nearY, world, hub)
     return -- Don't spawn if too close to stations
   end
   
-  -- Create a basic drone but force it to have a healing laser
+  -- Create a basic drone but force it to have ONLY a healing laser
   local healingDrone = EntityFactory.createEnemy("basic_drone", x, y)
   if healingDrone then
-    -- Force the drone to equip a healing laser
+    -- Clear all existing turrets and equip only a healing laser
     local equipment = healingDrone.components.equipment
     if equipment and equipment.grid then
+      -- Clear all turret slots first
       for _, slot in ipairs(equipment.grid) do
         if slot and slot.type == "turret" then
-          -- Replace the random turret with a healing laser
+          slot.module = nil
+          slot.enabled = false
+          slot.id = nil
+        end
+      end
+      
+      -- Add only a healing laser to the first turret slot
+      for _, slot in ipairs(equipment.grid) do
+        if slot and slot.type == "turret" then
           local TurretSystem = require("src.systems.turret.system")
           local healingLaserDef = require("content.turrets.healing_laser")
           local healingTurret = TurretSystem.spawn(healingDrone, healingLaserDef)
@@ -333,12 +343,16 @@ local function spawnHealingDroneNear(nearX, nearY, world, hub)
             slot.enabled = true
             slot.id = "healing_laser"
           end
-          break -- Only replace the first turret slot
+          break -- Only equip the first turret slot
         end
       end
     end
     
     world:addEntity(healingDrone)
+    
+    -- Register with new AI system as support type
+    AISystem.registerEntity(healingDrone, AISystem.getAITypes().SUPPORT, AISystem.getAIRoles().WINGMAN)
+    
     Log.info("Spawned healing drone at (%d, %d) near basic drone at (%d, %d)", x, y, nearX, nearY)
   end
 end
@@ -393,10 +407,11 @@ local function spawnEnemy(player, hub, world)
           Log.error("Enemy spawned without AI component!")
       end
       
-      -- 25% chance to spawn a healing drone nearby
-      if math.random() < 0.25 then
-        spawnHealingDroneNear(x, y, world, hub)
-      end
+      -- Register with new AI system
+      AISystem.registerEntity(enemyShip, AISystem.getAITypes().FIGHTER, AISystem.getAIRoles().LONE_WOLF)
+      
+      -- Always spawn a healing drone companion
+      spawnHealingDroneNear(x, y, world, hub)
   end
 end
 
@@ -429,6 +444,12 @@ local function spawnBoss(player, hub, world)
   local boss = EntityFactory.createEnemy("boss_drone", x, y)
   if boss then
     world:addEntity(boss)
+    
+    -- Register with new AI system
+    AISystem.registerEntity(boss, AISystem.getAITypes().BOSS, AISystem.getAIRoles().LONE_WOLF)
+    
+    -- Always spawn a healing drone companion for boss drones too
+    spawnHealingDroneNear(x, y, world, hub)
   end
 end
 

@@ -15,7 +15,7 @@ function EngineTrail.new(config)
         color2 = config.color2 or {0.0, 0.0, 0.5, 0.5}       -- Secondary blue
     }
     self.size = config.size or 1.0
-    self.offset = config.offset or 15  -- Distance in front of ship to emit particles
+    self.offset = config.offset or 15  -- Distance behind the ship to emit particles
     local initialIntensity = Util.clamp01(config.intensity or 0)
     self.intensity = initialIntensity
     self.currentIntensity = initialIntensity
@@ -127,10 +127,11 @@ function EngineTrail:updatePosition(x, y, angle)
     self.lastPosition.y = y
     self.lastPosition.angle = angle
 
-    local offsetX = math.cos(angle) * self.offset
-    local offsetY = math.sin(angle) * self.offset
+    local emissionAngle = angle + math.pi
+    local offsetX = math.cos(emissionAngle) * self.offset
+    local offsetY = math.sin(emissionAngle) * self.offset
 
-    self.particleSystem:setDirection(angle)
+    self.particleSystem:setDirection(emissionAngle)
     self.particleSystem:moveTo(x + offsetX, y + offsetY)
 end
 

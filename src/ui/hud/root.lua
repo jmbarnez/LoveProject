@@ -238,7 +238,7 @@ local function hasRequiredTurret(player, requiredType)
   end
   
   for _, gridData in ipairs(player.components.equipment.grid) do
-    if gridData.type == "weapon" and gridData.module and gridData.module.kind == requiredType then
+    if gridData.type == "turret" and gridData.module and gridData.module.kind == requiredType then
       return true
     end
   end

@@ -96,6 +96,57 @@ function Minimap.draw(player, world, additionalEntities)
   local cx, cy = viewport.x + viewport.w/2, viewport.y + viewport.h/2
   love.graphics.line(cx - 5, cy, cx + 5, cy)
   love.graphics.line(cx, cy - 5, cx, cy + 5)
+  
+  -- Draw speed indicator below the minimap
+  if player and player.components and player.components.physics and player.components.physics.body then
+    local body = player.components.physics.body
+    local speed = math.sqrt((body.vx or 0)^2 + (body.vy or 0)^2)
+    local maxSpeed = body.maxSpeed or 500
+    local speedPct = maxSpeed > 0 and math.min(speed / maxSpeed, 1.0) or 0
+    
+    -- Speed indicator dimensions
+    local speedBarWidth = viewport.w
+    local speedBarHeight = 6
+    local speedBarX = viewport.x
+    local speedBarY = viewport.y + viewport.h + 4 -- 4px gap below minimap
+    
+    -- Speed bar background
+    Theme.setColor(Theme.colors.bg1)
+    love.graphics.rectangle("fill", speedBarX, speedBarY, speedBarWidth, speedBarHeight)
+    
+    -- Speed fill (green gradient based on speed)
+    if speedPct > 0 then
+      local fillWidth = speedBarWidth * speedPct
+      local speedColor = {0.2, 0.8, 0.2, 1.0} -- Green for speed
+      if speedPct > 0.8 then
+        speedColor = {0.8, 0.8, 0.2, 1.0} -- Yellow at high speed
+      elseif speedPct > 0.6 then
+        speedColor = {0.6, 0.8, 0.2, 1.0} -- Yellow-green
+      end
+      Theme.setColor(speedColor)
+      love.graphics.rectangle("fill", speedBarX, speedBarY, fillWidth, speedBarHeight)
+    end
+    
+    -- Speed bar border
+    Theme.setColor(Theme.colors.border)
+    love.graphics.setLineWidth(1)
+    love.graphics.rectangle("line", speedBarX, speedBarY, speedBarWidth, speedBarHeight)
+    
+    -- Speed text (optional - shows actual speed value)
+    if Theme.fonts and Theme.fonts.small then
+      local oldFont = love.graphics.getFont()
+      love.graphics.setFont(Theme.fonts.small)
+      local speedText = string.format("SPD: %.0f", speed)
+      local textWidth = Theme.fonts.small:getWidth(speedText)
+      local textX = speedBarX + (speedBarWidth - textWidth) / 2
+      local textY = speedBarY + speedBarHeight + 2
+      
+      Theme.setColor(Theme.colors.text)
+      love.graphics.print(speedText, textX, textY)
+      
+      if oldFont then love.graphics.setFont(oldFont) end
+    end
+  end
 end
 
 function Minimap.mousepressed(x, y, button)

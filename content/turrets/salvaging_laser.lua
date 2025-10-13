@@ -76,7 +76,7 @@ return {
     optimal = 800, falloff = 400,
     damage_range = { min = 1, max = 2 },
     cycle = 2.0, capCost = 0, -- No per-shot energy cost
-    energyPerSecond = 50, -- Energy consumed per second while beam is active
+    energyPerSecond = 0, -- No energy consumption (replaced by heat)
     maxRange = 1200,
     spread = { minDeg = 0.0, maxDeg = 0.0, decay = 900 },
     
@@ -87,6 +87,12 @@ return {
     -- Salvaging parameters
     salvagePower = 3.0,
     beamDuration = 0.08,
+    
+    -- Heat system parameters
+    maxHeat = 100,           -- Overheat threshold
+    heatGeneration = 10,     -- Heat per second while firing (moderate for salvaging)
+    coolingRate = 3.5,       -- Heat lost per second when not firing
+    overheatPenalty = 10,    -- Seconds of forced cooldown when overheated
     
     -- Firing mode
     fireMode = "manual",

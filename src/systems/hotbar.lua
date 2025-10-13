@@ -194,10 +194,10 @@ function Hotbar.keypressed(key, player)
                 if idx and player.components and player.components.equipment and player.components.equipment.grid then
                     local gridData = player.components.equipment.grid[idx]
                     if gridData and gridData.module then
-                        -- Check if this is a weapon module
-                        local isWeapon = (gridData.type == "weapon")
+                        -- Check if this is a turret slot
+                        local isTurret = (gridData.type == "turret")
                         
-                        if isWeapon then
+                        if isTurret then
                             -- Handle weapon firing based on fireMode
                             local TurretSystem = require("src.systems.turret.system")
                             local turret = TurretSystem.getTurretBySlot(player, idx)
@@ -244,10 +244,10 @@ function Hotbar.keyreleased(key, player)
                 if idx and player.components and player.components.equipment and player.components.equipment.grid then
                     local gridData = player.components.equipment.grid[idx]
                     if gridData and gridData.module then
-                        -- Check if this is a weapon module
-                        local isWeapon = (gridData.type == "weapon")
+                        -- Check if this is a turret slot
+                        local isTurret = (gridData.type == "turret")
                         
-                        if isWeapon then
+                        if isTurret then
                             -- Get the turret to check its fireMode
                             local TurretSystem = require("src.systems.turret.system")
                             local turret = TurretSystem.getTurretBySlot(player, idx)

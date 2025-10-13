@@ -11,7 +11,7 @@ local TurretSystem = {}
 function TurretSystem.processTurrets(player, state, modalActive, canFire, dt, world)
     -- Process all turrets from the grid, but apply different rules for weapons vs utility turrets
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "weapon" and gridData.module and gridData.module.update and type(gridData.module.update) == "function" then
+        if gridData.type == "turret" and gridData.module and gridData.module.update and type(gridData.module.update) == "function" then
             local turret = gridData.module
 
             -- Clean up dead assigned targets
@@ -52,7 +52,7 @@ end
 -- Determine firing state for a turret
 function TurretSystem.determineFiringState(turret, gridData, modalActive, canFire)
     local isMissile = turret.kind == 'missile'
-    local isUtility = turret.kind == 'mining_laser' or turret.kind == 'salvaging_laser'
+    local isUtility = turret.kind == 'mining_laser' or turret.kind == 'salvaging_laser' or turret.kind == 'healing_laser'
     local actionName = 'slot_' .. tostring(gridData.slot)
     local perSlotActive = HotbarSystem.isActive(actionName)
     local manualFireAll = false -- Could be made configurable
@@ -99,7 +99,7 @@ end
 
 -- Handle utility beam sound cleanup
 function TurretSystem.handleUtilityBeamCleanup(turret, allow)
-    if not allow and (turret.kind == "mining_laser" or turret.kind == "salvaging_laser") then
+    if not allow and (turret.kind == "mining_laser" or turret.kind == "salvaging_laser" or turret.kind == "healing_laser") then
         local TurretSystemCore = require("src.systems.turret.system")
         TurretSystemCore.stopEffects(turret)
     end
@@ -107,7 +107,7 @@ end
 
 -- Check if turret can fire (weapon vs utility rules)
 function TurretSystem.canTurretFire(turret, canFire)
-    local isUtility = turret.kind == 'mining_laser' or turret.kind == 'salvaging_laser'
+    local isUtility = turret.kind == 'mining_laser' or turret.kind == 'salvaging_laser' or turret.kind == 'healing_laser'
     
     -- Utility turrets can fire even in safe zones
     if isUtility then
@@ -125,7 +125,7 @@ end
 
 -- Check if turret is utility type
 function TurretSystem.isUtilityTurret(turret)
-    return turret.kind == 'mining_laser' or turret.kind == 'salvaging_laser'
+    return turret.kind == 'mining_laser' or turret.kind == 'salvaging_laser' or turret.kind == 'healing_laser'
 end
 
 -- Check if turret is weapon type
@@ -148,7 +148,7 @@ end
 function TurretSystem.getActiveSlots(player)
     local activeSlots = {}
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "weapon" and TurretSystem.isSlotActive(gridData.slot) then
+        if gridData.type == "turret" and TurretSystem.isSlotActive(gridData.slot) then
             table.insert(activeSlots, gridData)
         end
     end
@@ -159,7 +159,7 @@ end
 function TurretSystem.getTurretsByType(player, turretType)
     local turrets = {}
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "weapon" and gridData.module and gridData.module.kind == turretType then
+        if gridData.type == "turret" and gridData.module and gridData.module.kind == turretType then
             table.insert(turrets, gridData)
         end
     end
@@ -170,7 +170,7 @@ end
 function TurretSystem.getUtilityTurrets(player)
     local utilityTurrets = {}
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "weapon" and gridData.module and TurretSystem.isUtilityTurret(gridData.module) then
+        if gridData.type == "turret" and gridData.module and TurretSystem.isUtilityTurret(gridData.module) then
             table.insert(utilityTurrets, gridData)
         end
     end
@@ -181,7 +181,7 @@ end
 function TurretSystem.getWeaponTurrets(player)
     local weaponTurrets = {}
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "weapon" and gridData.module and TurretSystem.isWeaponTurret(gridData.module) then
+        if gridData.type == "turret" and gridData.module and TurretSystem.isWeaponTurret(gridData.module) then
             table.insert(weaponTurrets, gridData)
         end
     end
@@ -191,7 +191,7 @@ end
 -- Stop all turret effects
 function TurretSystem.stopAllEffects(player)
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "weapon" and gridData.module then
+        if gridData.type == "turret" and gridData.module then
             local TurretSystemCore = require("src.systems.turret.system")
             TurretSystemCore.stopEffects(gridData.module)
         end
@@ -201,7 +201,7 @@ end
 -- Pause all turrets
 function TurretSystem.pauseAllTurrets(player)
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "weapon" and gridData.module then
+        if gridData.type == "turret" and gridData.module then
             gridData.module.firing = false
             gridData.module.autoFire = false
         end
@@ -211,7 +211,7 @@ end
 -- Resume all turrets
 function TurretSystem.resumeAllTurrets(player)
     for _, gridData in ipairs(player.components.equipment.grid) do
-        if gridData.type == "weapon" and gridData.module then
+        if gridData.type == "turret" and gridData.module then
             -- Turrets will be updated normally in the next update cycle
         end
     end

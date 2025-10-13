@@ -76,7 +76,7 @@ return {
     optimal = 1000, falloff = 500,
     damage_range = { min = 1, max = 2 },
     cycle = 1.5, capCost = 0, -- No per-shot energy cost
-    energyPerSecond = 40, -- Energy consumed per second while beam is active
+    energyPerSecond = 0, -- No energy consumption (replaced by heat)
     maxRange = 1500,
     spread = { minDeg = 0.0, maxDeg = 0.0, decay = 900 },
     
@@ -89,12 +89,11 @@ return {
     miningCyclesPerResource = 4,
     beamDuration = 0.08,
     
-    -- Overheating parameters
-    maxHeat = 120,
-    cooldownRate = 10,
-    overheatCooldown = 3.0,
-    heatCycleMult = 0.8,
-    heatEnergyMult = 1.2,
+    -- Heat system parameters
+    maxHeat = 100,           -- Overheat threshold
+    heatGeneration = 12,     -- Heat per second while firing (high for mining)
+    coolingRate = 3,         -- Heat lost per second when not firing
+    overheatPenalty = 12,    -- Seconds of forced cooldown when overheated
     
     -- Firing mode
     fireMode = "manual",

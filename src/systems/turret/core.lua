@@ -87,6 +87,15 @@ function Turret.new(owner, params)
     self.salvagePower = params.salvagePower
     self.beamDuration = params.beamDuration
 
+    -- Overheating system parameters
+    self.heatLevel = 0                    -- Current heat (0-100)
+    self.maxHeat = params.maxHeat or 100  -- Overheat threshold
+    self.heatGeneration = params.heatGeneration or 5  -- Heat per second while firing
+    self.coolingRate = params.coolingRate or 3        -- Heat lost per second when not firing
+    self.overheatPenalty = params.overheatPenalty or 10  -- Seconds of forced cooldown when overheated
+    self.isOverheated = false             -- Overheated state
+    self.overheatTimer = 0                -- Timer for overheat penalty
+
     -- Secondary projectile support
     self.secondaryProjectile = params.secondaryProjectile
     self.secondaryProjectileSpeed = params.secondaryProjectileSpeed
@@ -192,6 +201,37 @@ function Turret:update(dt, target, locked, world)
         end
     end
 
+    -- Update overheating system
+    if self.isOverheated then
+        self.overheatTimer = math.max(0, self.overheatTimer - dt)
+        if self.overheatTimer <= 0 then
+            self.isOverheated = false
+            self.heatLevel = 0  -- Reset heat when coming out of overheat
+        end
+    else
+        -- Heat management when not overheated
+        if self.firing then
+            -- Generate heat while firing (per second for beam weapons)
+            self.heatLevel = math.min(self.maxHeat, self.heatLevel + self.heatGeneration * dt)
+            
+            -- Check for overheat
+            if self.heatLevel >= self.maxHeat then
+                self.isOverheated = true
+                self.overheatTimer = self.overheatPenalty
+                self.firing = false  -- Stop firing when overheated
+                self.beamActive = false
+                
+                -- Show overheat notification for player
+                if self.owner and self.owner.isPlayer then
+                    Notifications.add("Weapon overheated! Cooling down...", "warning")
+                end
+            end
+        else
+            -- Cool down when not firing
+            self.heatLevel = math.max(0, self.heatLevel - self.coolingRate * dt)
+        end
+    end
+
     local handler = self:getHandler()
     if handler and handler.preUpdate then
         handler.preUpdate(self, dt, target, locked, world)
@@ -211,6 +251,11 @@ function Turret:update(dt, target, locked, world)
         return
     end
 
+    -- Check if weapon is overheated
+    if self.isOverheated then
+        return
+    end
+
     if not handler then
         return
     end
@@ -225,25 +270,8 @@ function Turret:update(dt, target, locked, world)
             return
         end
 
-        -- Check energy requirements only when actually trying to fire
-        if not config.skipEnergyCheck
-            and self.capCost and self.capCost > 0
-            and self.owner and self.owner.components and self.owner.components.energy
-            and self.owner.isPlayer then
-            local currentEnergy = self.owner.components.energy.energy or 0
-            if currentEnergy < self.capCost then
-                -- Show notification for insufficient energy (only for player) with spam protection
-                local currentTime = love.timer.getTime()
-                local lastEnergyNotification = self._lastEnergyNotification or 0
-                local energyNotificationCooldown = 2.0 -- 2 seconds between notifications
-
-                if currentTime - lastEnergyNotification > energyNotificationCooldown then
-                    Notifications.add("Insufficient energy to fire weapon!", "warning")
-                    self._lastEnergyNotification = currentTime
-                end
-                return -- Not enough energy to fire
-            end
-        end
+        -- Heat management is handled in the main update loop above
+        -- No additional energy checks needed
 
         if handler.update then
             handler.update(self, dt, target, locked, world)
@@ -302,9 +330,9 @@ function Turret:updateSalvagingLaser(dt, target, locked, world)
     return UtilityBeams.updateSalvagingLaser(self, dt, target, locked, world)
 end
 
--- Check if turret can fire (cooldown and heat)
+-- Check if turret can fire (cooldown, heat, and clips)
 function Turret:canFire()
-    local canFire = self.cooldown <= 0
+    local canFire = self.cooldown <= 0 and not self.isOverheated
     -- Check clip status if this turret type requires clips
     local handler = self:getHandler()
     local config = handler and handler.config or EMPTY_TABLE
@@ -333,6 +361,37 @@ function Turret:getClipStatus()
     }
 end
 
+-- Generate heat when firing (for projectile weapons)
+function Turret:generateHeat()
+    if not self.isOverheated then
+        self.heatLevel = math.min(self.maxHeat, self.heatLevel + self.heatGeneration)
+        
+        -- Check for overheat
+        if self.heatLevel >= self.maxHeat then
+            self.isOverheated = true
+            self.overheatTimer = self.overheatPenalty
+            self.firing = false  -- Stop firing when overheated
+            self.beamActive = false
+            
+            -- Show overheat notification for player
+            if self.owner and self.owner.isPlayer then
+                Notifications.add("Weapon overheated! Cooling down...", "warning")
+            end
+        end
+    end
+end
+
+-- Get heat status for UI display
+function Turret:getHeatStatus()
+    return {
+        heatLevel = self.heatLevel,
+        maxHeat = self.maxHeat,
+        isOverheated = self.isOverheated,
+        overheatProgress = self.isOverheated and (1.0 - (self.overheatTimer / self.overheatPenalty)) or 0.0,
+        heatPercentage = (self.heatLevel / self.maxHeat) * 100
+    }
+end
+
 -- Static function to get turret by slot (legacy compatibility)
 function Turret.getTurretBySlot(player, slot)
     if not player or not player.components or not player.components.equipment or not player.components.equipment.grid then
@@ -340,7 +399,7 @@ function Turret.getTurretBySlot(player, slot)
     end
 
     local gridData = player.components.equipment.grid[slot]
-    if gridData and gridData.type == "weapon" then
+    if gridData and gridData.type == "turret" then
         return gridData.module
     end
 

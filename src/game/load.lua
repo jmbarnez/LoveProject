@@ -186,6 +186,9 @@ function Load.load(Game, fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   QuestSystem.init(player)
   StateManager.init(player, world)
 
+  -- Initialize AI system
+  Pipeline.initialize()
+
   State.systemPipeline = Pipeline.build()
 
   updateProgress(1.0, "Complete!")

@@ -188,7 +188,7 @@ function Dispatcher.draw(world, camera, player)
             local screenX, screenY = Viewport.toScreen(x, y)
             local turrets = {}
             for _, gridData in ipairs(entity.components.equipment.grid) do
-                if gridData.type == "weapon" and gridData.module then
+                if gridData.type == "turret" and gridData.module then
                     table.insert(turrets, gridData.module)
                 end
             end
@@ -200,7 +200,7 @@ function Dispatcher.draw(world, camera, player)
         -- Draw enemy laser beams after pop, in world space
         if entity.components.ai and entity.components.equipment and entity.components.equipment.grid then
             for _, gridData in ipairs(entity.components.equipment.grid) do
-                if gridData.type == "weapon" and gridData.module and (gridData.module.kind == "laser" or gridData.module.kind == "mining_laser" or gridData.module.kind == "salvaging_laser") and gridData.module.beamActive then
+                if gridData.type == "turret" and gridData.module and (gridData.module.kind == "laser" or gridData.module.kind == "mining_laser" or gridData.module.kind == "salvaging_laser" or gridData.module.kind == "healing_laser") and gridData.module.beamActive then
                     local turret = gridData.module
                     local TurretEffects = require("src.systems.turret.effects")
                     local Turret = require("src.systems.turret.core")

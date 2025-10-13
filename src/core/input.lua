@@ -249,7 +249,12 @@ end
 
 function Input.update(dt)
     if Map and Map.update then
-        Map.update(dt, gameState.player)
+        -- Get the actual player entity from State instead of gameState
+        local State = require("src.game.state")
+        local player = State.player
+        if player then
+            Map.update(dt, player)
+        end
     end
     
     if mainState.UIManager then

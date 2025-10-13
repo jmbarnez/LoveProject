@@ -66,7 +66,7 @@ local function collect(player, pickup)
   local safeMeta = nil
   if meta and type(meta) == "table" then
     safeMeta = {}
-    -- Only copy essential weapon module data
+    -- Only copy essential turret module data
     if meta.templateId then safeMeta.templateId = meta.templateId end
     if meta.level then safeMeta.level = meta.level end
     if meta.modifiers then safeMeta.modifiers = meta.modifiers end

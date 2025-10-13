@@ -505,64 +505,8 @@ function HUDStatusBars.draw(player, world)
         Theme.drawSciFiBar(topLeftX, topLeftY, shieldWidth, barHeight, 1.0, Theme.semantic.statusShield)
     end
     
-    -- Slim energy bar underneath (shorter than hull/shield bar)
-    local slimBarHeight = math.floor(8 * s)
-    local slimGap = math.floor(4 * s)
-    local energyY = topLeftY + barHeight + slimGap
-    
-    local energyHP = energy.energy or 0
-    local maxEnergy = energy.maxEnergy or (energy.energy or 0)
-    local energyPct = maxEnergy > 0 and (energyHP / maxEnergy) or 0
-    
-    -- Make energy bar shorter than hull/shield bar
-    local energyBarWidth = math.floor(barWidth * 0.7) -- 70% of hull/shield bar width
-    local energyBarX = topLeftX -- Align with left edge of hull/shield bar
-    
-    -- Draw energy bar with no rounded corners
-    Theme.setColor(Theme.colors.bg1)
-    love.graphics.rectangle("fill", energyBarX, energyY, energyBarWidth, slimBarHeight)
-    
-    -- Energy fill (yellow)
-    if energyPct > 0 then
-        local fillWidth = energyBarWidth * energyPct
-        Theme.setColor({1.0, 0.8, 0.2, 1.0}) -- Yellow for energy
-        love.graphics.rectangle("fill", energyBarX, energyY, fillWidth, slimBarHeight)
-    end
-    
-    -- Border
-    Theme.setColor(Theme.colors.border)
-    love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", energyBarX, energyY, energyBarWidth, slimBarHeight)
-    
-    -- Speed indicator at the right end of the energy bar
-    local speedBarWidth = math.floor(barWidth * 0.25) -- 25% of hull/shield bar width
-    local speedBarX = energyBarX + energyBarWidth + 4 -- 4px gap from energy bar
-    local speedBarY = energyY -- Same Y as energy bar
-    
-    -- Calculate speed percentage
-    local speedPct = 0
-    if player.components.physics and player.components.physics.body then
-        local body = player.components.physics.body
-        local speed = math.sqrt((body.vx or 0)^2 + (body.vy or 0)^2)
-        local maxSpeed = body.maxSpeed or 500
-        speedPct = maxSpeed > 0 and math.min(speed / maxSpeed, 1.0) or 0
-    end
-    
-    -- Draw speed bar background
-    Theme.setColor(Theme.colors.bg1)
-    love.graphics.rectangle("fill", speedBarX, speedBarY, speedBarWidth, slimBarHeight)
-    
-    -- Speed fill (green)
-    if speedPct > 0 then
-        local fillWidth = speedBarWidth * speedPct
-        Theme.setColor({0.2, 0.8, 0.2, 1.0}) -- Green for speed
-        love.graphics.rectangle("fill", speedBarX, speedBarY, fillWidth, slimBarHeight)
-    end
-    
-    -- Speed bar border
-    Theme.setColor(Theme.colors.border)
-    love.graphics.setLineWidth(1)
-    love.graphics.rectangle("line", speedBarX, speedBarY, speedBarWidth, slimBarHeight)
+    -- Heat bars moved to hotbar slots - no longer displayed here
+    -- Speed display moved to mini-map area for better navigation hub
 
     -- XP bar at the bottom of the screen
     local xpBarHeight = 4

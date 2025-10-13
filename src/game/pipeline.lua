@@ -29,6 +29,11 @@ local State = require("src.game.state")
 
 local Pipeline = {}
 
+-- Initialize AI system
+function Pipeline.initialize()
+    AISystem.initialize()
+end
+
 local function update_listener_position(player)
     if not player or not player.components then
         return

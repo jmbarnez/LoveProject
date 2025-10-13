@@ -1,7 +1,16 @@
+--[[
+  AI System - Hybrid Utility-Based + Behavior Tree System
+  
+  This is the main AI system that integrates utility-based decision making
+  with behavior trees for all AI entities in the game.
+]]
+
+local AIManager = require("src.systems.ai.ai_manager")
 local AIComponent = require("src.components.ai")
 local SimpleTurretAI = require("src.components.simple_turret_ai")
 local Settings = require("src.core.settings")
 local NetworkSession = require("src.core.network.session")
+local Log = require("src.core.log")
 
 local AISystem = {}
 
@@ -98,6 +107,93 @@ local function isValidTarget(target)
         and not target.dead
         and target.components
         and target.components.position ~= nil
+end
+
+local HEALING_DEFAULT_RANGE = 1000
+
+local function entityHasHealingLaser(entity)
+    local equipment = entity.components and entity.components.equipment
+    if not (equipment and equipment.grid) then
+        return false
+    end
+
+    for _, slot in ipairs(equipment.grid) do
+        if slot and slot.module and slot.type == "turret" and slot.enabled ~= false then
+            local turret = slot.module
+            local slotId = slot.id or slot.moduleId
+            if turret
+                and (turret.kind == "healing_laser"
+                    or turret.type == "healing_laser"
+                    or slotId == "healing_laser") then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+local function isSameFaction(entity, other)
+    if not other or entity == other then
+        return false
+    end
+
+    if entity.isEnemy then
+        return other.isEnemy == true
+    end
+
+    if entity.isPlayer or entity.isRemotePlayer then
+        return other.isPlayer == true or other.isRemotePlayer == true
+    end
+
+    if entity.components and entity.components.ai and not entity.isEnemy then
+        return other.components and other.components.ai and not other.isEnemy
+    end
+
+    return false
+end
+
+local function isValidHealingTarget(target)
+    if not isValidTarget(target) then
+        return false
+    end
+
+    local hull = target.components.hull
+    if not hull or not hull.maxHP or not hull.hp then
+        return false
+    end
+
+    return hull.hp < hull.maxHP
+end
+
+local function findInjuredAlly(world, healer, maxRange)
+    if not (world and world.get_entities_with_components) then
+        return nil, nil
+    end
+
+    local healerPos = getPosition(healer)
+    local maxRangeSq = (maxRange or HEALING_DEFAULT_RANGE) ^ 2
+
+    local bestTarget, bestDistSq = nil, nil
+    local candidates = world:get_entities_with_components("hull", "position")
+
+    for _, candidate in ipairs(candidates) do
+        if candidate ~= healer
+            and isSameFaction(healer, candidate)
+            and isValidHealingTarget(candidate) then
+            local pos = candidate.components.position
+            local dx = pos.x - healerPos.x
+            local dy = pos.y - healerPos.y
+            local distSq = dx * dx + dy * dy
+
+            if distSq <= maxRangeSq and (not bestDistSq or distSq < bestDistSq) then
+                bestTarget = candidate
+                bestDistSq = distSq
+            end
+        end
+    end
+
+    return bestTarget, bestDistSq
 end
 
 local function acquireTarget(world, entity, ai)
@@ -377,7 +473,63 @@ local function canAnyWeaponHitTarget(entity, target)
     return false
 end
 
+local function updateHealingWeapons(entity, ai, dt, world, equipment)
+    entity.weaponsDisabled = false
+
+    local target = ai.target
+    local validTarget = isValidHealingTarget(target)
+    local targetPos = validTarget and target.components and target.components.position or nil
+    local entityPos = getPosition(entity)
+    local distSq = nil
+
+    if targetPos then
+        local dx = targetPos.x - entityPos.x
+        local dy = targetPos.y - entityPos.y
+        distSq = dx * dx + dy * dy
+    end
+
+    for _, slot in ipairs(equipment.grid) do
+        if slot and slot.module and slot.type == "turret" and slot.enabled ~= false then
+            local turret = slot.module
+            if type(turret.update) == "function" then
+                local isHealingTurret = (turret.kind == "healing_laser")
+                    or (turret.type == "healing_laser")
+                    or (slot.id == "healing_laser")
+
+                local turretTarget = (isHealingTurret and validTarget) and target or nil
+                local shouldFire = false
+
+                if turretTarget and distSq then
+                    local maxRange = calculateWeaponMaxRange(turret)
+                    if maxRange <= 0 then
+                        maxRange = HEALING_DEFAULT_RANGE
+                    end
+                    local effectiveRange = maxRange * 1.05
+                    local effectiveRangeSq = effectiveRange * effectiveRange
+                    shouldFire = distSq <= effectiveRangeSq
+                end
+
+                turret.fireMode = "automatic"
+                turret.autoFire = shouldFire
+                local locked = not (shouldFire and turretTarget and isValidTarget(turretTarget))
+                turret:update(dt, turretTarget, locked, world)
+            end
+        end
+    end
+end
+
 local function updateWeapons(entity, ai, dt, world)
+    local equipment = entity.components and entity.components.equipment
+    if not (equipment and equipment.grid) then
+        entity.weaponsDisabled = false
+        return
+    end
+
+    if ai.role == "healer" then
+        updateHealingWeapons(entity, ai, dt, world, equipment)
+        return
+    end
+
     if not isValidTarget(ai.target) then
         updateTurretModules(entity, dt, world, nil, false)
         return
@@ -389,6 +541,62 @@ local function updateWeapons(entity, ai, dt, world)
     updateTurretModules(entity, dt, world, ai.target, shouldFire)
 end
 
+local function updateHealerBehavior(entity, ai, dt, world)
+    ai:updateTimers(dt)
+    ai.role = "healer"
+
+    local searchRange = ai.healingSearchRange or ai.detectionRange or HEALING_DEFAULT_RANGE
+    local target, _ = findInjuredAlly(world, entity, searchRange)
+
+    if target then
+        ai.target = target
+        local targetPos = target.components.position
+        ai.lastKnownTargetPos = ai.lastKnownTargetPos or {}
+        ai.lastKnownTargetPos.x = targetPos.x
+        ai.lastKnownTargetPos.y = targetPos.y
+        ai:setState(STATE.ATTACK)
+
+        local pos = getPosition(entity)
+        local dx = targetPos.x - pos.x
+        local dy = targetPos.y - pos.y
+        local ux, uy, dist = normalise(dx, dy)
+
+        local desired = ai.healingStandoff or 800
+        local speed = (ai.chaseSpeed or 0) * 0.9
+
+        if dist == 0 or speed == 0 then
+            stopMovement(entity)
+        else
+            local minRange = desired * 0.75
+            local maxRange = desired * 1.15
+            local vx, vy
+
+            if dist > maxRange then
+                vx, vy = ux * speed, uy * speed
+            elseif dist < minRange then
+                vx, vy = -ux * speed, -uy * speed
+            else
+                local dir = ai.attackOrbitDir or 1
+                if ai.stateTime and ai.stateTime > 6 then
+                    dir = -dir
+                    ai.attackOrbitDir = dir
+                    ai.stateTime = 0
+                end
+                vx = -uy * speed * dir
+                vy = ux * speed * dir
+            end
+
+            applyMovement(entity, vx, vy)
+        end
+    else
+        ai.target = nil
+        ai:setState(STATE.PATROL)
+        handlePatrol(entity, ai, dt)
+    end
+
+    updateWeapons(entity, ai, dt, world)
+end
+
 local function updateShipEnemy(entity, world, dt)
     local ai = entity.components.ai
     if not ai or getmetatable(ai) == SimpleTurretAI then
@@ -397,6 +605,14 @@ local function updateShipEnemy(entity, world, dt)
 
     if entity.isRemoteEnemy then
         return
+    end
+
+    if entityHasHealingLaser(entity) then
+        updateHealerBehavior(entity, ai, dt, world)
+        return
+    elseif ai.role == "healer" then
+        ai.role = nil
+        ai.target = nil
     end
 
     local _, targetDistSq = acquireTarget(world, entity, ai)
@@ -440,17 +656,48 @@ local function updateTurretEnemy(entity, world, dt)
     updateTurretModules(entity, dt, world, effectiveTarget, canFire)
 end
 
+-- Initialize the AI system
+function AISystem.initialize()
+    AIManager.initialize()
+    Log.info("AI System initialized with hybrid utility + behavior tree system")
+end
+
+-- Register an entity with the AI system
+function AISystem.registerEntity(entity, aiType, aiRole, squadId)
+    return AIManager.registerEntity(entity, aiType, aiRole, squadId)
+end
+
+-- Unregister an entity from the AI system
+function AISystem.unregisterEntity(entity)
+    return AIManager.unregisterEntity(entity)
+end
+
+-- Update the AI system
 function AISystem.update(dt, world)
-    if not (world and world.get_entities_with_components) then
+    if not world then
         return
     end
 
+    -- Check networking settings
     local networkingSettings = Settings.getNetworkingSettings()
     if networkingSettings and networkingSettings.host_authoritative_enemies then
         local manager = NetworkSession.getManager()
         if manager and manager:isMultiplayer() and not manager:isHost() then
             return
         end
+    end
+
+    -- Update the AI manager (handles all AI entities)
+    AIManager.update(dt, world)
+    
+    -- Update legacy AI systems for compatibility
+    AISystem.updateLegacyAI(dt, world)
+end
+
+-- Update legacy AI systems for compatibility
+function AISystem.updateLegacyAI(dt, world)
+    if not (world and world.get_entities_with_components) then
+        return
     end
 
     local entities = world:get_entities_with_components("ai", "position")
@@ -466,6 +713,25 @@ function AISystem.update(dt, world)
             updateShipEnemy(entity, world, dt)
         end
     end
+end
+
+-- Get AI statistics
+function AISystem.getStats()
+    return AIManager.getStats()
+end
+
+-- Create a squad
+function AISystem.createSquad(leader, aiType, role)
+    return AIManager.createSquad(leader, aiType, role)
+end
+
+-- Get AI types and roles
+function AISystem.getAITypes()
+    return AIManager.AI_TYPES
+end
+
+function AISystem.getAIRoles()
+    return AIManager.AI_ROLES
 end
 
 return AISystem

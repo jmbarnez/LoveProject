@@ -10,6 +10,27 @@ local TurretCore = require("src.systems.turret.core")
 
 local UtilityBeams = {}
 
+-- Check if two entities are in the same faction (can heal each other)
+function UtilityBeams.isSameFaction(entity, other)
+    if not other or entity == other then
+        return false
+    end
+
+    if entity.isEnemy then
+        return other.isEnemy == true
+    end
+
+    if entity.isPlayer or entity.isRemotePlayer then
+        return other.isPlayer == true or other.isRemotePlayer == true
+    end
+
+    if entity.components and entity.components.ai and not entity.isEnemy then
+        return other.components and other.components.ai and not other.isEnemy
+    end
+
+    return false
+end
+
 local function resetBeamState(turret)
     turret.beamActive = false
     turret.beamTarget = nil
@@ -98,92 +119,11 @@ local function computeBeamTarget(turret, world)
 end
 
 local function updateEnergyAndWarnings(turret, dt, weaponName)
+    -- Heat management replaces energy system
+    -- Heat is managed in the main turret update loop
+    -- No additional energy checks needed for utility beams
     local energyStarved = false
     local energyLevel = 1.0
-
-    local owner = turret.owner
-    local ownerComponents = owner and owner.components
-    local energy = ownerComponents and ownerComponents.energy
-
-    if turret.energyPerSecond and energy and owner.isPlayer then
-        local currentEnergy = energy.energy or 0
-        local maxEnergy = energy.maxEnergy or 100
-        local energyCost = turret.energyPerSecond * dt
-        local resumeMultiplier = turret.resumeEnergyMultiplier or 2
-        local resumeThreshold = turret.minResumeEnergy or (resumeMultiplier * energyCost)
-        resumeThreshold = math.max(resumeThreshold, energyCost)
-
-        energyLevel = math.max(0, currentEnergy / maxEnergy)
-
-        if not turret._energySmoothing then
-            turret._energySmoothing = {
-                gracePeriod = 0.3,
-                graceTimer = 0,
-                lowEnergyThreshold = 0.15,
-                criticalEnergyThreshold = 0.05,
-                lastEnergyLevel = 1.0
-            }
-        end
-
-        local smoothing = turret._energySmoothing
-
-        if currentEnergy < energyCost then
-            smoothing.graceTimer = smoothing.graceTimer + dt
-        else
-            smoothing.graceTimer = 0
-        end
-
-        local shouldCutOff = false
-        if turret._energyStarved then
-            if currentEnergy >= resumeThreshold then
-                turret._energyStarved = false
-                smoothing.graceTimer = 0
-            else
-                shouldCutOff = true
-            end
-        else
-            if currentEnergy < energyCost then
-                if smoothing.graceTimer >= smoothing.gracePeriod then
-                    turret._energyStarved = true
-                    shouldCutOff = true
-                end
-            else
-                energy.energy = math.max(0, currentEnergy - energyCost)
-            end
-        end
-
-        local currentTime = love.timer.getTime()
-        local lastEnergyWarning = turret._lastEnergyWarning or 0
-        local energyWarningCooldown = 3.0
-        local lastWarningLevel = turret._lastWarningLevel or "none"
-
-        if currentTime - lastEnergyWarning > energyWarningCooldown then
-            local currentWarningLevel = "none"
-            if energyLevel <= smoothing.criticalEnergyThreshold and not turret._energyStarved then
-                currentWarningLevel = "critical"
-            elseif energyLevel <= smoothing.lowEnergyThreshold and not turret._energyStarved then
-                currentWarningLevel = "low"
-            end
-
-            if currentWarningLevel ~= "none" and currentWarningLevel ~= lastWarningLevel then
-                if Notifications and Notifications.add then
-                    if currentWarningLevel == "critical" then
-                        Notifications.add("Critical energy! " .. weaponName .. " power failing!", "warning")
-                    elseif currentWarningLevel == "low" then
-                        Notifications.add("Low energy - " .. weaponName .. " power reduced", "info")
-                    end
-                end
-                turret._lastEnergyWarning = currentTime
-                turret._lastWarningLevel = currentWarningLevel
-            end
-        end
-
-        if energyLevel > smoothing.lowEnergyThreshold then
-            turret._lastWarningLevel = "none"
-        end
-
-        energyStarved = shouldCutOff
-    end
 
     return energyStarved, energyLevel
 end
@@ -624,6 +564,12 @@ function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, w
     
     for _, entity in ipairs(entities) do
         if entity ~= turret.owner and not entity.dead then
+            -- For healing lasers, only target same faction entities
+            if turret.kind == "healing_laser" or turret.type == "healing_laser" then
+                if not UtilityBeams.isSameFaction(turret.owner, entity) then
+                    goto continue -- Skip this entity, it's not the same faction
+                end
+            end
             local targetRadius = CollisionHelpers.calculateEffectiveRadius(entity)
             local hit, hx, hy, hitSurface = CollisionHelpers.performCollisionCheck(
                 startX, startY, endX, endY, entity, targetRadius
@@ -663,9 +609,11 @@ function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, w
 
                             -- Adjust color based on turret type
                             if turret.type == "mining_laser" then
-                                sparkColor = {1.0, 0.7, 0.2, 0.8} -- Orange for mining
+                                sparkColor = {1.0, 0.7, 0.2, 0.8} -- Orange for mining (matches beam color)
                             elseif turret.type == "salvaging_laser" then
-                                sparkColor = {0.2, 1.0, 0.3, 0.8} -- Green for salvaging
+                                sparkColor = {1.0, 0.2, 0.6, 0.8} -- Pink for salvaging (matches beam color)
+                            elseif turret.type == "healing_laser" then
+                                sparkColor = {0.0, 1.0, 0.5, 0.8} -- Lime green for healing (matches beam color)
                             end
 
                             Effects.spawnLaserSparks(hx, hy, impactAngle, sparkColor)
@@ -680,6 +628,7 @@ function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, w
                 end
             end
         end
+        ::continue::
     end
 
     return bestTarget, bestHitX, bestHitY
@@ -869,11 +818,27 @@ function UtilityBeams.updateHealingLaser(turret, dt, target, locked, world)
             UtilityBeams.applyHealingDamage(
                 beamData.hitTarget,
                 healingValue,
-                turret.owner,
+                turret,
                 world,
                 beamData.hitX,
-                beamData.hitY
+                beamData.hitY,
+                dt
             )
+            
+            -- Spawn healing circle while beam is active (less frequently for subtlety)
+            if beamData.hitTarget.components.position then
+                local Effects = require("src.systems.effects")
+                local targetRadius = 25
+                if beamData.hitTarget.components.collidable and beamData.hitTarget.components.collidable.radius then
+                    targetRadius = beamData.hitTarget.components.collidable.radius * 1.5
+                end
+                
+                -- Only spawn circle every 0.2 seconds to avoid spam
+                if not turret._lastCircleSpawn or (love.timer.getTime() - turret._lastCircleSpawn) > 0.2 then
+                    Effects.spawnHealingCircle(beamData.hitTarget.components.position.x, beamData.hitTarget.components.position.y, targetRadius)
+                    turret._lastCircleSpawn = love.timer.getTime()
+                end
+            end
         else
             TurretEffects.createImpactEffect(
                 turret,
@@ -898,9 +863,14 @@ function UtilityBeams.updateHealingLaser(turret, dt, target, locked, world)
 end
 
 -- Apply healing damage to target (hull only, not shield)
-function UtilityBeams.applyHealingDamage(target, healing, source, world, impactX, impactY)
+function UtilityBeams.applyHealingDamage(target, healing, turret, world, impactX, impactY, dt)
     if not target.components or not target.components.hull then
         return
+    end
+
+    dt = dt or 0
+    if turret then
+        turret._healingParticleCooldown = math.max((turret._healingParticleCooldown or 0) - dt, 0)
     end
 
     local hull = target.components.hull
@@ -915,8 +885,32 @@ function UtilityBeams.applyHealingDamage(target, healing, source, world, impactX
     -- Create healing visual effects
     if (hull.hp or 0) > oldHp then
         local Effects = require("src.systems.effects")
-        if Effects.spawnHealingParticles then
+        local canSpawn = true
+        if turret and turret._healingParticleCooldown > 0 then
+            canSpawn = false
+        end
+
+        if canSpawn and Effects.spawnHealingParticles then
             Effects.spawnHealingParticles(impactX, impactY)
+            if turret then
+                local interval = turret.healingParticleInterval or 0.25
+                turret._healingParticleCooldown = interval
+            end
+        end
+        
+        -- Spawn healing circle around target
+        if target.components.position then
+            local targetRadius = 25 -- Base radius for the healing circle
+            if target.components.collidable and target.components.collidable.radius then
+                targetRadius = target.components.collidable.radius * 1.5 -- Make circle slightly larger than target
+            end
+            Effects.spawnHealingCircle(target.components.position.x, target.components.position.y, targetRadius)
+        end
+        
+        -- Spawn floating healing number (only for significant healing amounts)
+        local healingAmount = (hull.hp or 0) - oldHp
+        if healingAmount > 0.5 then -- Only show numbers for healing > 0.5
+            Effects.spawnHealingNumber(impactX, impactY, healingAmount)
         end
     end
 end

@@ -250,7 +250,7 @@ function Ship:update(dt, player, shootCallback, world)
   -- Update weapons from the grid system
   if self.components.equipment and self.components.equipment.grid then
     for _, gridData in ipairs(self.components.equipment.grid) do
-      if gridData.type == "weapon" and gridData.module and gridData.enabled and gridData.module.update and type(gridData.module.update) == "function" then
+      if gridData.type == "turret" and gridData.module and gridData.enabled and gridData.module.update and type(gridData.module.update) == "function" then
         gridData.module:update(dt, self.target, true, world)
       end
     end
@@ -348,7 +348,7 @@ function Ship:getTurretInSlot(slotNum)
         return nil
     end
     local gridData = self.components.equipment.grid[slotNum]
-    if gridData and gridData.type == "weapon" then
+    if gridData and gridData.type == "turret" then
         return gridData.module
     end
     return nil

@@ -439,6 +439,8 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
                 world.spawn_projectile(sx, sy, finalAngle, friendly, spawnConfig)
             end
             
+            -- Generate heat for projectile weapons
+            turret:generateHeat()
         end
     end
 

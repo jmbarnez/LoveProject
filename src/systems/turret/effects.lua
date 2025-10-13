@@ -268,7 +268,10 @@ end
 
 -- Handle beam rendering for continuous weapons
 function TurretEffects.renderBeam(turret, startX, startY, endX, endY, hitTarget)
-    if turret.kind ~= "laser" and turret.kind ~= "mining_laser" and turret.kind ~= "salvaging_laser" then
+    if turret.kind ~= "laser"
+        and turret.kind ~= "mining_laser"
+        and turret.kind ~= "salvaging_laser"
+        and turret.kind ~= "healing_laser" then
         return
     end
 
@@ -323,6 +326,8 @@ function TurretEffects.renderBeam(turret, startX, startY, endX, endY, hitTarget)
     elseif turret.kind == "salvaging_laser" then
         -- Salvaging laser uses wavy beam effect like mining laser
         TurretEffects.renderWavyBeam(startX, startY, endX, endY, color, width, coreRadius, distance, angle)
+    elseif turret.kind == "healing_laser" then
+        TurretEffects.renderHealingBeam(startX, startY, endX, endY, color, width, coreRadius)
     elseif turret.kind == "laser" then
         -- Combat laser uses simple straight beam
         TurretEffects.renderStraightBeam(startX, startY, endX, endY, color, width, coreRadius)
@@ -336,6 +341,11 @@ function TurretEffects.renderBeam(turret, startX, startY, endX, endY, hitTarget)
         if coreRadius > 0 then
             love.graphics.setColor(math.min(1, color[1] + 0.2), math.min(1, color[2] + 0.2), math.min(1, color[3] + 0.2), color[4] * 0.9)
             love.graphics.setLineWidth(coreRadius)
+            love.graphics.line(startX, startY, endX, endY)
+            
+            -- Draw white core for enhanced visibility
+            love.graphics.setColor(1.0, 1.0, 1.0, math.min(1, color[4] * 0.8))
+            love.graphics.setLineWidth(math.max(coreRadius * 0.4, 1))
             love.graphics.line(startX, startY, endX, endY)
         end
     end
@@ -392,6 +402,29 @@ function TurretEffects.renderWavyBeam(startX, startY, endX, endY, color, width, 
         love.graphics.setColor(math.min(1, color[1] + 0.2), math.min(1, color[2] + 0.2), math.min(1, color[3] + 0.2), color[4] * 0.9)
         love.graphics.setLineWidth(coreRadius)
         love.graphics.line(points)
+        
+        -- Draw white core for enhanced visibility
+        love.graphics.setColor(1.0, 1.0, 1.0, math.min(1, color[4] * 0.8))
+        love.graphics.setLineWidth(math.max(coreRadius * 0.4, 1))
+        love.graphics.line(points)
+    end
+end
+
+function TurretEffects.renderHealingBeam(startX, startY, endX, endY, color, width, coreRadius)
+    -- Draw a luminous outer halo
+    love.graphics.setColor(color[1], color[2], color[3], math.min(1, color[4] * 0.45))
+    love.graphics.setLineWidth(math.max(width * 1.6, 2))
+    love.graphics.line(startX, startY, endX, endY)
+
+    -- Draw a narrow, bright core
+    love.graphics.setColor(math.min(1, color[1] + 0.25), math.min(1, color[2] + 0.35), math.min(1, color[3] + 0.25), math.min(1, color[4] * 0.95))
+    love.graphics.setLineWidth(math.max(width * 0.35, 1.2))
+    love.graphics.line(startX, startY, endX, endY)
+
+    if coreRadius and coreRadius > 0 then
+        love.graphics.setColor(1.0, 1.0, 1.0, math.min(1, color[4]))
+        love.graphics.setLineWidth(math.max(coreRadius * 0.4, 1))
+        love.graphics.line(startX, startY, endX, endY)
     end
 end
 
@@ -411,6 +444,11 @@ function TurretEffects.renderStraightBeam(startX, startY, endX, endY, color, wid
     if coreRadius > 0 then
         love.graphics.setColor(math.min(1, color[1] + 0.2), math.min(1, color[2] + 0.2), math.min(1, color[3] + 0.2), color[4])
         love.graphics.setLineWidth(coreRadius)
+        love.graphics.line(startX, startY, endX, endY)
+        
+        -- Draw white core for enhanced visibility
+        love.graphics.setColor(1.0, 1.0, 1.0, math.min(1, color[4] * 0.8))
+        love.graphics.setLineWidth(math.max(coreRadius * 0.4, 1))
         love.graphics.line(startX, startY, endX, endY)
     end
 end
@@ -464,6 +502,11 @@ function TurretEffects.renderTazerBeam(startX, startY, endX, endY, color, width,
     if coreRadius > 0 then
         love.graphics.setColor(math.min(1, color[1] + 0.3), math.min(1, color[2] + 0.3), math.min(1, color[3] + 0.3), color[4])
         love.graphics.setLineWidth(coreRadius)
+        love.graphics.line(points)
+        
+        -- Draw white core for enhanced visibility
+        love.graphics.setColor(1.0, 1.0, 1.0, math.min(1, color[4] * 0.8))
+        love.graphics.setLineWidth(math.max(coreRadius * 0.4, 1))
         love.graphics.line(points)
     end
     

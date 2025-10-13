@@ -1,76 +1,73 @@
 -- Modular AI system for drones based on weapon modules
 -- Drones change behavior based on their equipped weapons
 
-local AISystem = require("src.systems.ai")
 local TurretSystem = require("src.systems.turret.system")
 
 local ModularDroneAI = {}
+local updateHealingBehavior
+local updateCombatBehavior
 
--- Find nearby allies that need healing
-local function findInjuredAlly(world, healer)
-    local healerPos = healer.components.position
-    if not healerPos then return nil end
-    
-    local bestTarget = nil
-    local bestDistance = math.huge
-    local healingRange = 1000 -- Range to search for allies (healing laser max range)
-    
-    -- Get all entities with hull components (potential allies)
-    local entities = world:get_entities_with_components("hull", "position")
-    
-    for _, entity in ipairs(entities) do
-        if entity ~= healer and not entity.dead and entity.components.hull then
-            local hull = entity.components.hull
-            local pos = entity.components.position
-            
-            -- Check if entity needs healing (hull below max)
-            if hull.hp and hull.maxHP and hull.hp < hull.maxHP then
-                local dx = pos.x - healerPos.x
-                local dy = pos.y - healerPos.y
-                local distance = math.sqrt(dx * dx + dy * dy)
-                
-                if distance <= healingRange and distance < bestDistance then
-                    bestTarget = entity
-                    bestDistance = distance
-                end
-            end
+local function iterateTurrets(drone, handler)
+    local equipment = drone.components and drone.components.equipment
+    if not (equipment and equipment.grid) then
+        return
+    end
+
+    for _, slot in ipairs(equipment.grid) do
+        if slot and slot.module and slot.type == "turret" and slot.enabled ~= false then
+            handler(slot, slot.module)
         end
     end
-    
-    return bestTarget, bestDistance
 end
 
--- Find nearby enemies to attack
-local function findEnemyTarget(world, attacker)
-    local attackerPos = attacker.components.position
-    if not attackerPos then return nil end
-    
-    local bestTarget = nil
-    local bestDistance = math.huge
-    local attackRange = 600 -- Range to search for enemies
-    
-    -- Get all entities with AI components (potential enemies)
-    local entities = world:get_entities_with_components("ai", "position")
-    
-    for _, entity in ipairs(entities) do
-        if entity ~= attacker and not entity.dead and entity.components.ai then
-            local pos = entity.components.position
-            local dx = pos.x - attackerPos.x
-            local dy = pos.y - attackerPos.y
-            local distance = math.sqrt(dx * dx + dy * dy)
-            
-            if distance <= attackRange and distance < bestDistance then
-                bestTarget = entity
-                bestDistance = distance
-            end
+local function findTurret(drone, predicate)
+    local result
+    iterateTurrets(drone, function(slot, turret)
+        if not result and predicate(turret, slot) then
+            result = turret
+        end
+    end)
+    return result
+end
+
+local function getTurretRange(turret)
+    if not turret then
+        return 0
+    end
+
+    if turret.maxRange and turret.maxRange > 0 then
+        return turret.maxRange
+    end
+
+    if turret.optimal and turret.optimal > 0 then
+        return turret.optimal
+    end
+
+    if turret.projectile and type(turret.projectile) == "table" then
+        local proj = turret.projectile
+        local speed = proj.physics and proj.physics.speed
+        local lifetime = proj.timed_life and proj.timed_life.duration
+        if speed and speed > 0 and lifetime and lifetime > 0 then
+            return speed * lifetime
         end
     end
-    
-    return bestTarget, bestDistance
+
+    if turret.projectileSpeed and turret.cycle then
+        return turret.projectileSpeed * turret.cycle
+    end
+
+    return 0
+end
+
+local function resolveRange(base, fallback)
+    if base and base > 0 then
+        return base
+    end
+    return fallback or 0
 end
 
 -- Calculate orbit position around a target
-local function calculateOrbitPosition(target, drone, orbitRadius, orbitSpeed)
+local function calculateOrbitPosition(target, drone, orbitRadius, orbitSpeed, dt)
     local targetPos = target.components.position
     local dronePos = drone.components.position
     
@@ -82,7 +79,7 @@ local function calculateOrbitPosition(target, drone, orbitRadius, orbitSpeed)
     end
     
     -- Update orbit angle
-    drone.orbitAngle = drone.orbitAngle + orbitSpeed * 0.016 -- Assuming 60 FPS
+    drone.orbitAngle = drone.orbitAngle + (orbitSpeed or 0) * dt
     
     -- Calculate orbit position
     local orbitX = targetPos.x + math.cos(drone.orbitAngle) * orbitRadius
@@ -92,7 +89,7 @@ local function calculateOrbitPosition(target, drone, orbitRadius, orbitSpeed)
 end
 
 -- Move towards a target position using physics system
-local function moveTowards(entity, targetX, targetY, dt)
+local function moveTowards(entity, targetX, targetY, dt, tolerance)
     local pos = entity.components.position
     if not pos then return end
     
@@ -100,214 +97,323 @@ local function moveTowards(entity, targetX, targetY, dt)
     local dy = targetY - pos.y
     local distance = math.sqrt(dx * dx + dy * dy)
     
-    if distance > 5 then -- Only move if not already close
+    local stopDistance = tolerance
+    if not stopDistance then
+        local body = entity.components.physics and entity.components.physics.body
+        stopDistance = (body and body.radius) or 0
+    end
+
+    if distance > (stopDistance or 0) then
         local ux = dx / distance
         local uy = dy / distance
         
         local physics = entity.components.physics
         if physics and physics.body then
-            -- Use the ship's actual thruster power for movement
-            local thrustPower = physics.body.thrusterPower and physics.body.thrusterPower.main or 600000
-            local mass = physics.body.mass or 500
-            
-            -- Calculate acceleration using physics system (same as player movement)
-            local accel = (thrustPower / mass) * dt * 1.0
-            
-            -- Apply acceleration to velocity
-            local newVx = physics.body.vx + ux * accel
-            local newVy = physics.body.vy + uy * accel
-            
-            -- Apply speed cap using ship's maxSpeed
-            local maxSpeed = physics.body.maxSpeed or 300
-            local newSpeed = math.sqrt(newVx * newVx + newVy * newVy)
-            if newSpeed > maxSpeed then
-                local scale = maxSpeed / newSpeed
-                newVx, newVy = newVx * scale, newVy * scale
+            local body = physics.body
+            local thrustPower = body.thrusterPower and body.thrusterPower.main
+            local mass = body.mass or 1
+
+            if thrustPower and thrustPower > 0 then
+                local accel = (thrustPower / mass) * dt
+
+                local newVx = body.vx + ux * accel
+                local newVy = body.vy + uy * accel
+
+                local maxSpeed = body.maxSpeed
+                if maxSpeed and maxSpeed > 0 then
+                    local newSpeed = math.sqrt(newVx * newVx + newVy * newVy)
+                    if newSpeed > maxSpeed then
+                        local scale = maxSpeed / newSpeed
+                        newVx, newVy = newVx * scale, newVy * scale
+                    end
+                end
+
+                body.vx = newVx
+                body.vy = newVy
             end
-            
-            physics.body.vx = newVx
-            physics.body.vy = newVy
         end
     end
 end
 
--- Get the primary weapon module from the drone
-local function getPrimaryWeapon(drone)
-    local equipment = drone.components.equipment
-    if not equipment or not equipment.grid then return nil end
-    
-    for _, slot in ipairs(equipment.grid) do
-        if slot and slot.module and slot.type == "turret" and slot.enabled ~= false then
-            return slot.module
+local function isHealingTurret(turret)
+    return turret
+        and (turret.kind == "healing_laser" or turret.type == "healing_laser")
+end
+
+local function computePatrolRadius(drone)
+    local ai = drone.components.ai
+    if ai and ai.patrolRadius then
+        return ai.patrolRadius
+    end
+
+    local body = drone.components.physics and drone.components.physics.body
+    if body and body.radius then
+        return body.radius * 6
+    end
+
+    return 0
+end
+
+local function resetPatrol(drone, radius)
+    local pos = drone.components.position
+    if not pos then
+        return
+    end
+
+    local angle = math.random() * math.pi * 2
+    drone.patrolTarget = {
+        x = pos.x + math.cos(angle) * radius,
+        y = pos.y + math.sin(angle) * radius,
+    }
+    drone.patrolTimer = 0
+end
+
+local function getPatrolResetInterval(drone)
+    local ai = drone.components.ai
+    if ai and ai.targetMemory then
+        return ai.targetMemory
+    end
+
+    return 0
+end
+
+local function findInjuredAlly(world, healer, searchRange)
+    local healerPos = healer.components.position
+    if not (healerPos and searchRange and searchRange > 0) then
+        return nil
+    end
+
+    local bestTarget
+    local bestDistance = math.huge
+    local rangeSq = searchRange * searchRange
+    local entities = world:get_entities_with_components("hull", "position")
+
+    for _, entity in ipairs(entities) do
+        if entity ~= healer and not entity.dead then
+            local hull = entity.components.hull
+            local pos = entity.components.position
+
+            if hull and pos and hull.hp and hull.maxHP and hull.hp < hull.maxHP then
+                local dx = pos.x - healerPos.x
+                local dy = pos.y - healerPos.y
+                local distSq = dx * dx + dy * dy
+
+                if distSq <= rangeSq and distSq < bestDistance then
+                    bestTarget = entity
+                    bestDistance = distSq
+                end
+            end
         end
     end
-    
+
+    if bestTarget and bestDistance then
+        return bestTarget, math.sqrt(bestDistance)
+    end
+
     return nil
 end
 
--- Healing behavior (for healing laser equipped drones)
-local function updateHealingBehavior(drone, dt, world)
-    local target, distance = findInjuredAlly(world, drone)
-    
-    if target then
-        -- We have a target to heal
-        drone.healingTarget = target
-        
-        -- Calculate orbit position around the target at healing laser optimal range
-        local orbitRadius = 800 -- Orbit at healing laser optimal range for maximum effectiveness
-        local orbitSpeed = 1.5 -- Orbit speed
-        local orbitX, orbitY = calculateOrbitPosition(target, drone, orbitRadius, orbitSpeed)
-        
-        if orbitX and orbitY then
-            -- Check current distance to target
-            local dronePos = drone.components.position
-            local currentDistance = math.sqrt(
-                (dronePos.x - target.components.position.x)^2 + 
-                (dronePos.y - target.components.position.y)^2
-            )
-            
-            -- Move towards orbit position using physics system
-            moveTowards(drone, orbitX, orbitY, dt)
-            
-            -- Update turret to aim at the target (only if within optimal range)
-            local equipment = drone.components.equipment
-            if equipment and equipment.grid and currentDistance <= orbitRadius then
-                for _, slot in ipairs(equipment.grid) do
-                    if slot and slot.module and slot.type == "turret" and slot.enabled ~= false then
-                        local turret = slot.module
-                        if turret.kind == "healing_laser" then
-                            -- Set turret to fire at the target
-                            turret.fireMode = "automatic"
-                            turret.autoFire = true
-                            
-                            -- Update turret to aim at target
-                            local TurretSystem = require("src.systems.turret.system")
-                            TurretSystem.update(turret, dt, target, false, world)
-                        end
-                    end
-                end
-            else
-                -- Stop firing if too far away
-                if equipment and equipment.grid then
-                    for _, slot in ipairs(equipment.grid) do
-                        if slot and slot.module and slot.type == "turret" and slot.enabled ~= false then
-                            local turret = slot.module
-                            if turret.kind == "healing_laser" then
-                                turret.autoFire = false
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    else
-        -- No injured allies found, patrol around
-        drone.healingTarget = nil
-        
-        -- Simple patrol behavior
-        if not drone.patrolTarget then
-            local pos = drone.components.position
-            local angle = math.random() * math.pi * 2
-            local radius = 100
-            drone.patrolTarget = {
-                x = pos.x + math.cos(angle) * radius,
-                y = pos.y + math.sin(angle) * radius,
-            }
-            drone.patrolTimer = 0
-        end
-        
-        drone.patrolTimer = (drone.patrolTimer or 0) + dt
-        if drone.patrolTimer > 3 then
-            drone.patrolTarget = nil
-        end
-        
-        if drone.patrolTarget then
-            moveTowards(drone, drone.patrolTarget.x, drone.patrolTarget.y, dt)
-        end
-        
-        -- Stop healing turrets when no target
-        local equipment = drone.components.equipment
-        if equipment and equipment.grid then
-            for _, slot in ipairs(equipment.grid) do
-                if slot and slot.module and slot.type == "turret" and slot.enabled ~= false then
-                    local turret = slot.module
-                    if turret.kind == "healing_laser" then
-                        turret.autoFire = false
-                    end
+local function findEnemyTarget(world, attacker, searchRange)
+    local attackerPos = attacker.components.position
+    if not (attackerPos and searchRange and searchRange > 0) then
+        return nil
+    end
+
+    local bestTarget
+    local bestDistance = math.huge
+    local rangeSq = searchRange * searchRange
+    local entities = world:get_entities_with_components("ai", "position")
+
+    for _, entity in ipairs(entities) do
+        if entity ~= attacker and not entity.dead and entity.components and entity.components.ai then
+            local pos = entity.components.position
+            if pos then
+                local dx = pos.x - attackerPos.x
+                local dy = pos.y - attackerPos.y
+                local distSq = dx * dx + dy * dy
+
+                if distSq <= rangeSq and distSq < bestDistance then
+                    bestTarget = entity
+                    bestDistance = distSq
                 end
             end
         end
     end
+
+    if bestTarget and bestDistance then
+        return bestTarget, math.sqrt(bestDistance)
+    end
+
+    return nil
+end
+
+local function getRoleConfig(drone, role)
+    local ai = drone.components.ai
+    if not ai then
+        return nil
+    end
+
+    local behavior = ai.behavior or ai.behaviour or ai.roles
+    if type(behavior) == "table" then
+        local roleConfig = behavior[role]
+        if type(roleConfig) == "table" then
+            return roleConfig
+        end
+    end
+
+    local direct = ai[role]
+    if type(direct) == "table" then
+        return direct
+    end
+
+    return nil
+end
+
+local function getMaxTurretRange(drone, predicate)
+    local best = 0
+    iterateTurrets(drone, function(_, turret)
+        if not predicate or predicate(turret) then
+            local range = getTurretRange(turret)
+            if range > best then
+                best = range
+            end
+        end
+    end)
+    return best
+end
+
+local function updateTurrets(drone, dt, world, target, predicate, shouldFire)
+    iterateTurrets(drone, function(_, turret)
+        local matches = predicate(turret)
+        if matches then
+            turret.fireMode = "automatic"
+            turret.autoFire = shouldFire
+            local locked = not (shouldFire and target)
+            TurretSystem.update(turret, dt, target, locked, world)
+        else
+            turret.autoFire = false
+        end
+    end)
+end
+
+updateHealingBehavior = function(drone, dt, world)
+    local healingTurret = findTurret(drone, isHealingTurret)
+    if not healingTurret then
+        return updateCombatBehavior(drone, dt, world)
+    end
+
+    local ai = drone.components.ai
+    local roleConfig = getRoleConfig(drone, "healer") or {}
+
+    local searchRange = resolveRange(roleConfig.searchRange, getTurretRange(healingTurret))
+    searchRange = resolveRange(searchRange, ai and ai.detectionRange)
+
+    local target, distance = findInjuredAlly(world, drone, searchRange)
+    local shouldFire = false
+
+    if target then
+        drone.healingTarget = target
+
+        local orbitRadius = resolveRange(roleConfig.orbitRadius, healingTurret.optimal)
+        orbitRadius = resolveRange(orbitRadius, searchRange)
+
+        local orbitAngularSpeed = roleConfig.orbitAngularSpeed
+        if not orbitAngularSpeed then
+            local chaseSpeed = ai and ai.chaseSpeed
+            if chaseSpeed and chaseSpeed > 0 and orbitRadius and orbitRadius > 0 then
+                orbitAngularSpeed = chaseSpeed / orbitRadius
+            else
+                orbitAngularSpeed = 0
+            end
+        end
+
+        local orbitX, orbitY = calculateOrbitPosition(target, drone, orbitRadius, orbitAngularSpeed, dt)
+        if orbitX and orbitY then
+            moveTowards(drone, orbitX, orbitY, dt, roleConfig.approachTolerance)
+        end
+
+        if distance and orbitRadius and orbitRadius > 0 then
+            local fireRange = orbitRadius * (roleConfig.fireRangeMultiplier or 1.0)
+            shouldFire = distance <= fireRange
+        end
+    else
+        drone.healingTarget = nil
+
+        local patrolRadius = resolveRange(roleConfig.patrolRadius, computePatrolRadius(drone))
+        if not drone.patrolTarget and patrolRadius > 0 then
+            resetPatrol(drone, patrolRadius)
+        end
+
+        drone.patrolTimer = (drone.patrolTimer or 0) + dt
+        local resetInterval = resolveRange(roleConfig.patrolResetInterval, getPatrolResetInterval(drone))
+        if resetInterval > 0 and drone.patrolTimer >= resetInterval then
+            drone.patrolTarget = nil
+        end
+
+        if drone.patrolTarget then
+            moveTowards(drone, drone.patrolTarget.x, drone.patrolTarget.y, dt, roleConfig.approachTolerance)
+        end
+    end
+
+    local fireTarget = shouldFire and drone.healingTarget or nil
+    updateTurrets(drone, dt, world, fireTarget, isHealingTurret, shouldFire)
 end
 
 -- Combat behavior (for weapon equipped drones)
-local function updateCombatBehavior(drone, dt, world)
-    local target, distance = findEnemyTarget(world, drone)
-    
+updateCombatBehavior = function(drone, dt, world)
+    local ai = drone.components.ai
+    local roleConfig = getRoleConfig(drone, "combat") or {}
+
+    local weaponRange = getMaxTurretRange(drone, function(turret)
+        return not isHealingTurret(turret)
+    end)
+
+    local detection = resolveRange(roleConfig.searchRange, weaponRange)
+    detection = resolveRange(detection, ai and ai.detectionRange)
+
+    local target, distance = findEnemyTarget(world, drone, detection)
+    local shouldFire = false
+
     if target then
-        -- We have a target to attack
         drone.combatTarget = target
-        
-        -- Move towards target
-        local targetPos = target.components.position
-        moveTowards(drone, targetPos.x, targetPos.y, dt)
-        
-        -- Update turrets to aim at target
-        local equipment = drone.components.equipment
-        if equipment and equipment.grid then
-            for _, slot in ipairs(equipment.grid) do
-                if slot and slot.module and slot.type == "turret" and slot.enabled ~= false then
-                    local turret = slot.module
-                    if turret.kind ~= "healing_laser" then -- Don't use healing lasers for combat
-                        -- Set turret to fire at the target
-                        turret.fireMode = "automatic"
-                        turret.autoFire = true
-                        
-                        -- Update turret to aim at target
-                        local TurretSystem = require("src.systems.turret.system")
-                        TurretSystem.update(turret, dt, target, false, world)
-                    end
-                end
+
+        local engagementRange = resolveRange(roleConfig.engagementRange, ai and ai.attackRange)
+        engagementRange = resolveRange(engagementRange, weaponRange)
+
+        if engagementRange > 0 and distance then
+            if distance > engagementRange then
+                local pos = target.components.position
+                moveTowards(drone, pos.x, pos.y, dt, roleConfig.approachTolerance)
             end
+            shouldFire = distance <= engagementRange
+        else
+            local pos = target.components.position
+            moveTowards(drone, pos.x, pos.y, dt, roleConfig.approachTolerance)
+            shouldFire = true
         end
     else
-        -- No enemies found, patrol around
         drone.combatTarget = nil
-        
-        -- Simple patrol behavior
-        if not drone.patrolTarget then
-            local pos = drone.components.position
-            local angle = math.random() * math.pi * 2
-            local radius = 150
-            drone.patrolTarget = {
-                x = pos.x + math.cos(angle) * radius,
-                y = pos.y + math.sin(angle) * radius,
-            }
-            drone.patrolTimer = 0
+
+        local patrolRadius = resolveRange(roleConfig.patrolRadius, computePatrolRadius(drone))
+        if not drone.patrolTarget and patrolRadius > 0 then
+            resetPatrol(drone, patrolRadius)
         end
-        
+
         drone.patrolTimer = (drone.patrolTimer or 0) + dt
-        if drone.patrolTimer > 5 then
+        local resetInterval = resolveRange(roleConfig.patrolResetInterval, getPatrolResetInterval(drone))
+        if resetInterval > 0 and drone.patrolTimer >= resetInterval then
             drone.patrolTarget = nil
         end
-        
+
         if drone.patrolTarget then
-            moveTowards(drone, drone.patrolTarget.x, drone.patrolTarget.y, dt)
-        end
-        
-        -- Stop combat turrets when no target
-        local equipment = drone.components.equipment
-        if equipment and equipment.grid then
-            for _, slot in ipairs(equipment.grid) do
-                if slot and slot.module and slot.type == "turret" and slot.enabled ~= false then
-                    local turret = slot.module
-                    if turret.kind ~= "healing_laser" then
-                        turret.autoFire = false
-                    end
-                end
-            end
+            moveTowards(drone, drone.patrolTarget.x, drone.patrolTarget.y, dt, roleConfig.approachTolerance)
         end
     end
+
+    local fireTarget = shouldFire and drone.combatTarget or nil
+    updateTurrets(drone, dt, world, fireTarget, function(turret)
+        return not isHealingTurret(turret)
+    end, shouldFire)
 end
 
 -- Main update function - determines behavior based on weapon modules
@@ -319,21 +425,12 @@ function ModularDroneAI.update(drone, dt, world)
     local ai = drone.components.ai
     if not ai then return end
     
-    -- Get the primary weapon module
-    local primaryWeapon = getPrimaryWeapon(drone)
-    
-    if primaryWeapon then
-        if primaryWeapon.kind == "healing_laser" then
-            -- Healing behavior
-            updateHealingBehavior(drone, dt, world)
-        else
-            -- Combat behavior for all other weapons
-            updateCombatBehavior(drone, dt, world)
-        end
-    else
-        -- No weapon equipped, use default combat behavior
-        updateCombatBehavior(drone, dt, world)
+    if findTurret(drone, isHealingTurret) then
+        updateHealingBehavior(drone, dt, world)
+        return
     end
+
+    updateCombatBehavior(drone, dt, world)
 end
 
 return ModularDroneAI

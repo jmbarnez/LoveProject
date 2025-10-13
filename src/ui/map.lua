@@ -162,7 +162,7 @@ local function getMapState()
     }
 end
 
-function Map.update(dt, player)
+function Map.update(self, dt, player)
     if not player or not player.components or not player.components.position then
         return
     end

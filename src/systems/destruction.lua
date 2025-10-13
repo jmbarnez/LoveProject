@@ -203,7 +203,7 @@ function DestructionSystem.update(world, gameState, hub)
                   table.insert(equippedTurrets, {
                     id = slot.module.templateId,
                     qty = 1,
-                    meta = slot.module -- Include the full weapon module data with modifiers
+                    meta = slot.module -- Include the full turret module data with modifiers
                   })
                 end
               end

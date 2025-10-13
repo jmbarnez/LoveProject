@@ -356,7 +356,7 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
         if entity1.components and entity1.components.bullet then
             local bullet = entity1.components.bullet
             if bullet.kind then
-                if bullet.kind == "laser" or bullet.kind == "mining_laser" or bullet.kind == "salvaging_laser" then
+                if bullet.kind == "laser" or bullet.kind == "mining_laser" or bullet.kind == "salvaging_laser" or bullet.kind == "healing_laser" then
                     isLaserWeapon = true
                 end
             end
@@ -366,7 +366,7 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
         if entity1.components and entity1.components.bullet then
             local bullet = entity1.components.bullet
             if bullet.kind then
-                if bullet.kind == "mining_laser" or bullet.kind == "salvaging_laser" then
+                if bullet.kind == "mining_laser" or bullet.kind == "salvaging_laser" or bullet.kind == "healing_laser" then
                     isUtilityBeam = true
                 end
             end
@@ -434,9 +434,11 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
             -- Adjust color based on weapon type
             if isUtilityBeam then
                 if entity1.components.bullet.kind == "mining_laser" then
-                    sparkColor = {1.0, 0.7, 0.2, 0.8} -- Orange for mining
+                    sparkColor = {1.0, 0.7, 0.2, 0.8} -- Orange for mining (matches beam color)
                 elseif entity1.components.bullet.kind == "salvaging_laser" then
-                    sparkColor = {0.2, 1.0, 0.3, 0.8} -- Green for salvaging
+                    sparkColor = {1.0, 0.2, 0.6, 0.8} -- Pink for salvaging (matches beam color)
+                elseif entity1.components.bullet.kind == "healing_laser" then
+                    sparkColor = {0.0, 1.0, 0.5, 0.8} -- Lime green for healing (matches beam color)
                 end
             elseif isLaserWeapon then
                 sparkColor = {0.3, 0.7, 1.0, 0.8} -- Blue for combat lasers
@@ -508,7 +510,7 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
     if source and source.components and source.components.bullet then
         local bullet = source.components.bullet
         if bullet.kind then
-            if bullet.kind == "laser" or bullet.kind == "mining_laser" or bullet.kind == "salvaging_laser" then
+            if bullet.kind == "laser" or bullet.kind == "mining_laser" or bullet.kind == "salvaging_laser" or bullet.kind == "healing_laser" then
                 isLaserWeapon = true
             elseif bullet.kind == "bullet" then
                 isGunWeapon = true
