@@ -11,26 +11,25 @@ return {
         }
     },
 
-    collidable = {
-        shape = "polygon",
-        friendly = true,
-        vertices = {
-            -40, -20,  -- Top-left
-            -30, -30,  -- Left
-            -10, -40,  -- Bottom-left
-            10, -40,   -- Bottom
-            30, -30,   -- Right
-            40, -20,   -- Top-right
-            40, 20,    -- Right
-            -40, 20,   -- Left-top
-        }
-    },
-
     -- Station properties
     docking_radius = 80,  -- Docking allowed within this radius
     weapon_disable_radius = 120,  -- Weapons disabled within this radius
     shield_radius = 200,  -- Shield protection radius
     radius = 50,  -- Station radius for calculations
+
+    -- This component is the single source of truth for all physics properties.
+    -- The WindfieldManager reads this directly to create the physics body.
+    windfield_physics = {
+        bodyType = "static", -- Static means it is immovable.
+        mass = 0, -- In Box2D, a mass of 0 creates an object with infinite mass.
+        colliderType = "polygon",
+        vertices = {
+            -40, -20, -30, -30, -20, -30, -10, -40,
+            10, -40, 20, -30, 30, -30, 40, -20,
+            40, 20, 30, 30, 20, 30, 10, 40,
+            -10, 40, -20, 30, -30, 30, -40, 20,
+        }
+    },
 
     -- Basic orbital station
     visuals = {

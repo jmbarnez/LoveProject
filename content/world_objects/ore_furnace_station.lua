@@ -17,26 +17,25 @@ return {
         stone_cracking = true,
     },
 
-    collidable = {
-        shape = "polygon",
-        friendly = true,
-        vertices = {
-            -30, -20,  -- Top-left
-            -25, -25,  -- Left
-            -15, -30,  -- Bottom-left
-            15, -30,   -- Bottom
-            25, -25,   -- Right
-            30, -20,   -- Top-right
-            30, 20,    -- Right
-            -30, 20,   -- Left-top
-        }
-    },
-
     -- Station properties
     docking_radius = 60,  -- Docking allowed within this radius
     weapon_disable_radius = 100,  -- Weapons disabled within this radius
     shield_radius = 150,  -- Shield protection radius
     radius = 40,  -- Station radius for calculations
+
+    -- This component is the single source of truth for all physics properties.
+    -- The WindfieldManager reads this directly to create the physics body.
+    windfield_physics = {
+        bodyType = "static", -- Static means it is immovable.
+        mass = 0, -- In Box2D, a mass of 0 creates an object with infinite mass.
+        colliderType = "polygon",
+        vertices = {
+            -30, -20, -25, -25, -20, -25, -15, -30,
+            15, -30, 20, -25, 25, -25, 30, -20,
+            30, 20, 25, 25, 20, 25, 15, 30,
+            -15, 30, -20, 25, -25, 25, -30, 20,
+        }
+    },
 
     description = "A compact refinery that processes ore into refined alloys.",
 

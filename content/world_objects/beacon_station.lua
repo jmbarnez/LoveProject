@@ -11,26 +11,26 @@ return {
         }
     },
 
-    collidable = {
-        shape = "polygon",
-        friendly = true,
-        vertices = {
-            -25, -15,  -- Top-left
-            -20, -20,  -- Left
-            -10, -25,  -- Bottom-left
-            10, -25,   -- Bottom
-            20, -20,   -- Right
-            25, -15,   -- Top-right
-            25, 15,    -- Right
-            -25, 15,   -- Left-top
-        }
-    },
-
     -- Station properties
     docking_radius = 50,  -- Docking allowed within this radius
     weapon_disable_radius = 80,  -- Weapons disabled within this radius
-    shield_radius = 120,  -- Shield protection radius
-    radius = 30,  -- Station radius for calculations
+    shield_radius = 250,  -- Shield protection radius
+    radius = 60,  -- Station radius for calculations
+
+    -- This component is the single source of truth for all physics properties.
+    -- The WindfieldManager reads this directly to create the physics body.
+    windfield_physics = {
+        bodyType = "static", -- Static means it is immovable.
+        mass = 0, -- In Box2D, a mass of 0 creates an object with infinite mass.
+        colliderType = "polygon",
+        vertices = {
+            -50, -15, -40, -40, -15, -50, 15, -50,
+            40, -40, 50, -15, 50, 15, 40, 40,
+            15, 50, -15, 50, -40, 40, -50, 15,
+        }
+    },
+
+    description = "A long-range beacon that provides navigation and communication services.",
 
     -- Repair system properties
     repairable = true,

@@ -113,12 +113,6 @@ function WindfieldManager:handleCollision(entityA, entityB, contact, classA, cla
         return
     end
     
-    -- Skip friendly vs station shield collisions (allow friendlies inside station bubble)
-    local StationShields = require("src.systems.collision.station_shields")
-    if StationShields.shouldIgnoreEntityCollision(entityA, entityB) then
-        return
-    end
-    
     -- Ignore collisions between the player and warp gates (stations now have physical hulls)
     local eIsPlayer = entityA.isPlayer or (entityA.components and entityA.components.player)
     local oIsPlayer = entityB.isPlayer or (entityB.components and entityB.components.player)
@@ -272,6 +266,10 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
         options.fixedRotation = physics.fixedRotation
         options.bodyType = physics.bodyType
         options.vertices = physics.vertices
+        -- We must also get the other shape properties like radius, width, and height.
+        options.radius = physics.radius
+        options.width = physics.width
+        options.height = physics.height
     else
         -- If an entity has no physics component, it does not belong in the physics world.
         return nil
