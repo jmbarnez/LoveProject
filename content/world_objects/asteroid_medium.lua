@@ -23,12 +23,6 @@ return {
         }
     },
 
-    -- Collision shape will be derived from visual shapes automatically
-    collidable = {
-        shape = "polygon",
-        -- vertices will be auto-generated from visuals.shapes
-    },
-
     mineable = {
         resourceType = "ore_tritanium",
         resources = 30,

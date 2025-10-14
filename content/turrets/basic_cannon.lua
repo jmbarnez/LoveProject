@@ -39,7 +39,7 @@ return {
         renderable = {
             type = "bullet",
             props = {
-                kind = "bullet",
+                kind = "cannonball",
                 radius = 4.5,
                 length = 9,
                 color = {1.0, 1.0, 0.0, 1.0}
@@ -61,8 +61,23 @@ return {
         damage = {
             value = 12.0,
         },
+        bullet = {
+            kind = "cannonball"
+        },
         timed_life = {
             duration = 2.5,
+        },
+        
+        -- This component is the single source of truth for all physics properties.
+        windfield_physics = {
+            bodyType = "dynamic",
+            mass = 0.1, -- A small mass for a fast-moving projectile.
+            fixedRotation = true,
+            colliderType = "polygon",
+            vertices = {
+                -4.5, -2.4, -2.4, -4.5, 2.4, -4.5, 4.5, -2.4,
+                4.5, 2.4, 2.4, 4.5, -2.4, 4.5, -4.5, 2.4,
+            }
         }
     },
     

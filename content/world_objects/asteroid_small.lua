@@ -22,20 +22,6 @@ return {
         }
     },
 
-    collidable = {
-        shape = "polygon",
-        vertices = {
-            -20, -15,  -- Top-left
-            -15, -20,  -- Top
-            15, -20,   -- Top-right
-            20, -15,   -- Right
-            20, 15,    -- Bottom-right
-            15, 20,    -- Bottom
-            -15, 20,   -- Bottom-left
-            -20, 15,   -- Left
-        }
-    },
-
     mineable = {
         resourceType = "ore_tritanium",
         resources = 15,

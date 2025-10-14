@@ -65,17 +65,31 @@ return {
         damage = {
             value = 30.0,
         },
+        bullet = {
+            kind = "missile"
+        },
         timed_life = {
             duration = 4.0,
         },
         explosion = {
             radius = 40,
             damage = 25
+        },
+        
+        -- This component is the single source of truth for all physics properties.
+        windfield_physics = {
+            bodyType = "dynamic",
+            mass = 5.0, -- A heavy mass for a missile.
+            fixedRotation = false, -- Missiles can be deflected and tumble.
+            colliderType = "polygon",
+            vertices = {
+                -4, -8, 4, -8, 4, 8, -4, 8,
+            }
         }
     },
     
     -- Visual effects
-    tracer = { color = {1.0, 0.3, 0.1, 1.0}, width = 2, coreRadius = 3 },
+    tracer = { color = {1.0, 0.5, 0.2, 1.0}, width = 4, coreRadius = 3 },
     impact = {
         shield = { spanDeg = 80, color1 = {1.0, 0.5, 0.2, 0.6}, color2 = {1.0, 0.3, 0.1, 0.4} },
         hull = { spark = {1.0, 0.4, 0.1, 0.8}, ring = {1.0, 0.2, 0.0, 0.6} },

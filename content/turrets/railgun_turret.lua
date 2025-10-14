@@ -61,13 +61,28 @@ return {
         damage = {
             value = 25.0,
         },
+        bullet = {
+            kind = "bullet"
+        },
         timed_life = {
             duration = 3.0,
+        },
+        
+        -- This component is the single source of truth for all physics properties.
+        windfield_physics = {
+            bodyType = "dynamic",
+            mass = 2.0, -- A heavy mass for a high-impact slug.
+            fixedRotation = true,
+            colliderType = "polygon",
+            vertices = {
+                -6, -2, -2, -6, 2, -6, 6, -2,
+                6, 2, 2, 6, -2, 6, -6, 2,
+            }
         }
     },
     
     -- Visual effects
-    tracer = { color = {0.8, 0.8, 0.9, 1.0}, width = 2, coreRadius = 3 },
+    tracer = { color = {0.8, 0.2, 1.0, 1.0}, width = 6, coreRadius = 4 },
     impact = {
         shield = { spanDeg = 60, color1 = {0.8, 0.8, 0.9, 0.6}, color2 = {0.6, 0.6, 0.7, 0.4} },
         hull = { spark = {0.8, 0.8, 0.9, 0.8}, ring = {0.6, 0.6, 0.7, 0.6} },

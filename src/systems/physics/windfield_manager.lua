@@ -34,16 +34,17 @@ local PHYSICS_CONSTANTS = {
     MAX_VELOCITY = 5000,
 }
 
--- Collision classes
+-- We use a role-based system for our collision classes. Each class represents
+-- a type of object in the game, which allows for modular and clear collision rules.
 local COLLISION_CLASSES = {
-    { name = "player", options = { ignores = {} } },
+    { name = "ship", options = { ignores = {} } },
     { name = "asteroid", options = { ignores = {} } },
-    { name = "projectile", options = { ignores = { "projectile" } } },
     { name = "station", options = { ignores = {} } },
-    { name = "wreckage", options = { ignores = {} } },
-    { name = "pickup", options = { ignores = {} } },
-    { name = "reward_crate", options = { ignores = {} } },
-    { name = "sensor", options = { ignores = { "sensor" } } },
+    { name = "bullet", options = { ignores = { "bullet", "missile", "cannonball" } } },
+    { name = "missile", options = { ignores = { "bullet", "missile", "cannonball" } } },
+    { name = "cannonball", options = { ignores = { "bullet", "missile", "cannonball" } } },
+    { name = "pickup", options = { ignores = { "pickup", "bullet", "missile", "cannonball", "ship", "asteroid", "station" } } },
+    { name = "default", options = { ignores = {} } }, -- Fallback for any physics object
 }
 
 function WindfieldManager.new()
@@ -55,6 +56,7 @@ function WindfieldManager.new()
     -- Set up collision classes
     for _, class in ipairs(COLLISION_CLASSES) do
         self.world:addCollisionClass(class.name, class.options)
+        print("Registered collision class: " .. class.name)
     end
     
     -- Set up collision callbacks
@@ -84,16 +86,24 @@ function WindfieldManager:setupCollisionCallbacks()
         local classA = colliderA:getCollisionClass()
         local classB = colliderB:getCollisionClass()
         
+        -- Extensive logging to debug asteroid collisions.
+        if classA == "asteroid" or classB == "asteroid" then
+            print("--- Asteroid Collision Event ---")
+            print("Entity A: " .. tostring(entityA.id) .. " (Class: " .. classA .. ")")
+            print("Entity B: " .. tostring(entityB.id) .. " (Class: " .. classB .. ")")
+            print("------------------------------")
+        end
+
         Log.debug("physics", "Collision detected: %s vs %s (entities: %s vs %s)", 
                  classA, classB, entityA.id or "unknown", entityB.id or "unknown")
         
         -- Additional debug for projectile collisions
-        if classA == "projectile" or classB == "projectile" then
+        if classA == "bullet" or classB == "bullet" or classA == "missile" or classB == "missile" or classA == "cannonball" or classB == "cannonball" then
             local projectile = entityA.components.bullet and entityA or entityB
             local target = entityA.components.bullet and entityB or entityA
             Log.debug("physics", "Projectile collision: projectile=%s (class=%s), target=%s (class=%s)", 
-                     projectile and projectile.id or "nil", classA == "projectile" and classA or classB,
-                     target and target.id or "nil", classA == "projectile" and classB or classA)
+                     projectile and projectile.id or "nil", classA == "bullet" or classA == "missile" or classA == "cannonball" and classA or classB,
+                     target and target.id or "nil", classA == "bullet" or classA == "missile" or classA == "cannonball" and classB or classA)
         end
         
         -- Handle all collision types through unified system
@@ -123,7 +133,7 @@ function WindfieldManager:handleCollision(entityA, entityB, contact, classA, cla
     end
     
     -- Handle projectile collisions first (they have special logic)
-    if classA == "projectile" or classB == "projectile" then
+    if classA == "bullet" or classB == "bullet" or classA == "missile" or classB == "missile" or classA == "cannonball" or classB == "cannonball" then
         self:handleProjectileCollision(entityA, entityB, contact)
         return
     end
@@ -197,11 +207,17 @@ function WindfieldManager:handleProjectileCollision(entityA, entityB, contact)
         end
         
         -- Get precise hit position from contact
-        local worldManifold = contact:getWorldManifold()
-        local points = worldManifold:getPoints()
+        local points = contact:getPositions()
         local hitX, hitY = projectile.components.position.x, projectile.components.position.y
         if #points > 0 then
-            hitX, hitY = points[1].x, points[1].y
+            -- Average the contact points to get a more accurate hit position.
+            local totalX, totalY = 0, 0
+            for _, p in ipairs(points) do
+                totalX = totalX + p[1]
+                totalY = totalY + p[2]
+            end
+            hitX = totalX / #points
+            hitY = totalY / #points
         end
         
         -- Create collision effects using precise hit position
@@ -270,6 +286,26 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
         options.radius = physics.radius
         options.width = physics.width
         options.height = physics.height
+        
+        -- Extensive logging to debug asteroid properties.
+        if entity.components.mineable then
+            print("--- Asteroid Physics Data ---")
+            print("Collider Type: " .. tostring(colliderType))
+            print("Mass: " .. tostring(options.mass))
+            print("Body Type: " .. tostring(options.bodyType))
+            if options.vertices then
+                print("Vertex Count: " .. tostring(#options.vertices / 2))
+                -- To avoid spamming the console, we'll just print the first few vertices.
+                local preview = ""
+                for i = 1, math.min(8, #options.vertices) do
+                    preview = preview .. tostring(options.vertices[i]) .. ", "
+                end
+                print("Vertices (preview): " .. preview)
+            else
+                print("Vertices: nil")
+            end
+            print("---------------------------")
+        end
     else
         -- If an entity has no physics component, it does not belong in the physics world.
         return nil
@@ -284,6 +320,7 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
     
     local collider = nil
     local collisionClass = self:determineCollisionClass(entity)
+    print("Entity " .. (entity.id or "unknown") .. " assigned to collision class: " .. collisionClass)
 
     if colliderType == "circle" then
         -- Circles are defined by their radius.
@@ -383,29 +420,57 @@ end
 
 function WindfieldManager:determineCollisionClass(entity)
     if not entity or not entity.components then
+        return "default" -- Should not happen for physics objects.
+    end
+    
+    -- Ships (player and enemy)
+    if entity.isPlayer or entity.components.player or entity.components.enemy or entity.isEnemy then
+        return "ship"
+    end
+    
+    -- Projectiles - separated into specific classes for better modularity
+    if entity.components.bullet then
+        local kind = entity.components.bullet.kind
+        if kind == "missile" then
+            return "missile"
+        elseif kind == "cannonball" then
+            return "cannonball"
+        else
+            -- Default to "bullet" for any other projectile type
+            return "bullet"
+        end
+    end
+    
+    -- World objects
+    if entity.components.mineable then
+        return "asteroid"
+    end
+    if entity.components.station then
+        return "station"
+    end
+    
+    -- Pickups
+    if entity.components.item_pickup or entity.components.xp_pickup then
+        return "pickup"
+    end
+    
+    -- Reward crates and other interactable objects
+    if entity.components.interactable then
+        return "default" -- Treat as solid object
+    end
+    
+    -- Wreckage and other physics objects
+    if entity.components.wreckage then
+        return "default" -- Treat as solid object
+    end
+    
+    -- Default for any other physics object that has windfield_physics
+    if entity.components.windfield_physics then
         return "default"
     end
     
-    if entity.isPlayer or entity.components.player then
-        return "player"
-    elseif entity.components.bullet then
-        return "projectile"
-    elseif entity.components.mineable then
-        return "asteroid"
-    elseif entity.components.station then
-        return "station"
-    elseif entity.components.wreckage then
-        return "wreckage"
-    elseif entity.components.item_pickup or entity.components.xp_pickup then
-        return "pickup"
-    elseif entity.components.interactable and entity.components.interactable.requiresKey == "reward_crate_key" then
-        return "reward_crate"
-    elseif entity.subtype == "reward_crate" then
-        return "reward_crate"
-    elseif entity.components.enemy or entity.isEnemy then
-        return "player" -- Enemy ships use the same collision class as player ships
-    end
-    
+    -- This should not happen for physics objects
+    Log.warn("physics", "Entity %s has no recognizable collision class, defaulting to 'default'", entity.id or "unknown")
     return "default"
 end
 

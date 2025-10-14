@@ -23,20 +23,6 @@ return {
         }
     },
 
-    collidable = {
-        shape = "polygon",
-        vertices = {
-            -40, -25,  -- Top-left
-            -25, -40,  -- Top
-            25, -40,   -- Top-right
-            40, -25,   -- Right
-            40, 25,    -- Bottom-right
-            25, 40,    -- Bottom
-            -25, 40,   -- Bottom-left
-            -40, 25,   -- Left
-        }
-    },
-
     mineable = {
         resourceType = "ore_palladium",
         resources = 8,
