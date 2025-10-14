@@ -261,24 +261,22 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
     local y = y or pos.y
     local options = options or {}
     
-    -- If entity has windfield_physics component, use its properties
+    -- All physics properties, including the shape, are defined in the windfield_physics component.
+    -- This is the single source of truth for creating the physics body.
     if entity.components.windfield_physics then
         local physics = entity.components.windfield_physics
-        colliderType = physics.colliderType or "circle"
+        colliderType = physics.colliderType
         options.mass = physics.mass
         options.restitution = physics.restitution
         options.friction = physics.friction
         options.fixedRotation = physics.fixedRotation
         options.bodyType = physics.bodyType
-        options.radius = physics.radius
-        options.width = physics.width
-        options.height = physics.height
-        -- Only use windfield_physics vertices if no vertices were already set by the calling system
-        if not options.vertices or #options.vertices == 0 then
-            options.vertices = physics.vertices
-        end
+        options.vertices = physics.vertices
+    else
+        -- If an entity has no physics component, it does not belong in the physics world.
+        return nil
     end
-    
+
     -- Ensure we use the entity's actual position
     if not x or not y then
         x = pos.x
@@ -288,29 +286,29 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
     
     local collider = nil
     local collisionClass = self:determineCollisionClass(entity)
-    
-    -- Debug: Log collision class assignment
-    Log.debug("physics", "Entity %s assigned collision class: %s", 
-             entity.id or "unknown", collisionClass)
-    
+
     if colliderType == "circle" then
-        -- Use proper radius calculation based on visual boundaries
-        local radius = options.radius or Radius.getHullRadius(entity) or 20
+        -- Circles are defined by their radius.
+        local radius = options.radius or 20
         collider = self.world:newCircleCollider(x, y, radius, options.bodyType or "dynamic")
         
     elseif colliderType == "rectangle" then
+        -- Rectangles are defined by their width and height.
         local width = options.width or 40
         local height = options.height or 40
         collider = self.world:newRectangleCollider(x, y, width, height, options.bodyType or "dynamic")
+
     elseif colliderType == "polygon" then
         local vertices = options.vertices or {}
         if #vertices > 0 then
+            -- Polygons are created directly from the vertices.
+            -- We assume the vertex data is correct and within Box2D's 8-vertex limit.
             collider = self.world:newPolygonCollider(vertices, options.bodyType or "dynamic")
         end
     end
-    
+
     if not collider then
-        Log.warn("physics", "Failed to create collider for entity")
+        -- This will only be reached if the entity had a physics component but no valid shape data.
         return nil
     end
 

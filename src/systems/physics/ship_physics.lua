@@ -10,9 +10,8 @@
     - Braking uses direct velocity reduction to prevent oscillation
 ]]
 
-local WindfieldManager = require("src.systems.physics.windfield_manager")
+local WindfieldManager = require("src/systems.physics.windfield_manager")
 local Radius = require("src.systems.collision.radius")
-local ShapeConsistency = require("src.systems.collision.shape_consistency")
 local Log = require("src.core.log")
 
 local ShipPhysics = {}
@@ -33,9 +32,6 @@ function ShipPhysics.createShipCollider(ship, windfieldManager)
         Log.warn("physics", "Cannot create ship collider: missing position component")
         return nil
     end
-    
-    -- Ensure shape consistency before creating collider
-    ShapeConsistency.ensureConsistency(ship)
     
     local pos = ship.components.position
     local physics = ship.components.windfield_physics

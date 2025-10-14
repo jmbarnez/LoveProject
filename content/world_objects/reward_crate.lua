@@ -11,6 +11,7 @@ return {
         }
     },
     
+    -- Simple rectangle collision shape - matches visual exactly
     collidable = {
         shape = "polygon",
         vertices = {
@@ -18,27 +19,20 @@ return {
             -25, 15,   -- Bottom-left
             25, 15,    -- Bottom-right
             25, -15,   -- Top-right
-        },
-        isTrigger = false
+        }
     },
     
     interactable = {
         range = 25,
         requiresKey = "reward_crate_key"
     },
-    
+
+    -- By adding the windfield_physics component, the crate becomes part of the physics world.
+    -- We define it as a "dynamic" body, which means it can be moved and pushed.
+    -- To make it feel heavy, like a station, we give it a very high mass.
     windfield_physics = {
-        colliderType = "polygon",
-        mass = 5,
-        restitution = 0.1,
-        friction = 0.8,
-        fixedRotation = false,
         bodyType = "dynamic",
-        vertices = {
-            -25, -15,  -- Top-left
-            -25, 15,   -- Bottom-left
-            25, 15,    -- Bottom-right
-            25, -15,   -- Top-right
-        },
-    },
+        mass = 5000, -- A high mass makes it very resistant to movement.
+        fixedRotation = true -- Prevents it from spinning when hit.
+    }
 }

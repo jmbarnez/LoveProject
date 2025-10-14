@@ -7,7 +7,6 @@
 
 local WindfieldManager = require("src.systems.physics.windfield_manager")
 local Util = require("src.core.util")
-local ShapeConsistency = require("src.systems.collision.shape_consistency")
 local Log = require("src.core.log")
 
 local AsteroidPhysics = {}
@@ -28,9 +27,6 @@ function AsteroidPhysics.createAsteroidCollider(asteroid, windfieldManager)
         Log.warn("physics", "Cannot create asteroid collider: missing position component")
         return nil
     end
-    
-    -- Ensure shape consistency before creating collider
-    ShapeConsistency.ensureConsistency(asteroid)
     
     local pos = asteroid.components.position
     local renderable = asteroid.components.renderable
@@ -55,17 +51,13 @@ function AsteroidPhysics.createAsteroidCollider(asteroid, windfieldManager)
         radius = 48
     end
     
-    -- Always use polygon collision shape for asteroids
-    local colliderType = "polygon"
-    
-    -- Get polygon vertices from collidable component or windfield_physics component
-    local vertices = nil
-    if collidable and collidable.shape == "polygon" and collidable.vertices then
-        vertices = collidable.vertices
-    elseif asteroid.components.windfield_physics and asteroid.components.windfield_physics.vertices then
-        vertices = asteroid.components.windfield_physics.vertices
+    -- Ensure windfield physics component uses circle collider
+    if asteroid.components.windfield_physics then
+        asteroid.components.windfield_physics.colliderType = "circle"
+        asteroid.components.windfield_physics.radius = radius
+        asteroid.components.windfield_physics.vertices = nil
     end
-    
+
     -- Create physics options
     local options = {
         mass = mass,
@@ -73,26 +65,16 @@ function AsteroidPhysics.createAsteroidCollider(asteroid, windfieldManager)
         friction = ASTEROID_CONSTANTS.FRICTION,
         fixedRotation = false,
         bodyType = "dynamic",
-        colliderType = colliderType,
-        vertices = vertices,
+        colliderType = "circle",
+        radius = radius,
     }
-    
-    if vertices and #vertices > 0 then
-        Log.debug("physics", "Using polygon collider for asteroid with %d vertices: %s", #vertices / 2, table.concat(vertices, ", "))
-    else
-        Log.warn("physics", "No polygon vertices found for asteroid, falling back to circle with radius %.1f", radius)
-        colliderType = "circle"
-        options.colliderType = "circle"
-        options.radius = radius
-        options.vertices = nil
-    end
-    
+
     -- Create collider
-    local collider = windfieldManager:addEntity(asteroid, colliderType, pos.x, pos.y, options)
+    local collider = windfieldManager:addEntity(asteroid, "circle", pos.x, pos.y, options)
     
     if collider then
-        Log.debug("physics", "Created asteroid collider: %s (mass=%.1f, type=%s)", 
-                 size, mass, colliderType)
+        Log.debug("physics", "Created asteroid collider: %s (mass=%.1f, radius=%.1f)", 
+                 size, mass, radius)
         
         -- Add initial random velocity
         local velX = (math.random() - 0.5) * 15

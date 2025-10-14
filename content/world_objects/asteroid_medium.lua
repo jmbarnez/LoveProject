@@ -35,14 +35,17 @@ return {
         durability = 15.0,  -- Increased significantly for longer mining sessions
     },
 
+    -- This component is the single source of truth for all physics properties.
+    -- The WindfieldManager reads this directly to create the physics body.
     windfield_physics = {
+        bodyType = "dynamic", -- Dynamic means it can be moved and pushed.
+        mass = 72, -- A standard mass for a medium asteroid.
+        fixedRotation = false, -- Allows the asteroid to spin when hit.
         colliderType = "polygon",
-        mass = 72,
-        restitution = 0.3,
-        friction = 0.1,
-        fixedRotation = false,
-        bodyType = "dynamic",
-        -- vertices will be auto-generated from visuals.shapes
+        vertices = {
+            -25, -15, -15, -25, 15, -25, 25, -15,
+            25, 15, -25, 15,
+        }
     },
 
     visuals = {
