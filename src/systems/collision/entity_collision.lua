@@ -6,7 +6,7 @@ local CollisionShapes = require("src.systems.collision.shapes.collision_shapes")
 local EntityGroups = require("src.systems.collision.groups.entity_groups")
 local CollisionEvents = require("src.systems.collision.collision_events")
 local ProjectileCollision = require("src.systems.collision.handlers.projectile_collision")
-local UnifiedPhysics = require("src.systems.physics.unified_physics")
+-- Windfield handles collision resolution automatically
 local Config = require("src.content.config")
 
 -- Register built-in listeners that add bespoke behaviour (sounds, shield effects, etc.).
@@ -51,6 +51,15 @@ local function getBody(entity)
     if not entity or not entity.components then
         return nil
     end
+    
+    -- Check Windfield physics first
+    if entity.components.windfield_physics then
+        local PhysicsSystem = require("src.systems.physics")
+        local manager = PhysicsSystem.getManager()
+        return manager and manager:getCollider(entity) or nil
+    end
+    
+    -- Fallback to legacy physics
     local physics = entity.components.physics
     return physics and physics.body or nil
 end
@@ -58,13 +67,24 @@ end
 local function captureKinematics(entity)
     local body = getBody(entity)
     if body then
-        local vx = body.vx or 0
-        local vy = body.vy or 0
+        local vx, vy, mass
+        
+        -- Handle Windfield collider
+        if entity.components.windfield_physics then
+            vx, vy = body:getLinearVelocity()
+            mass = entity.components.windfield_physics.mass
+        else
+            -- Handle legacy physics body
+            vx = body.vx or 0
+            vy = body.vy or 0
+            mass = body.mass
+        end
+        
         return {
             vx = vx,
             vy = vy,
             speed = math.sqrt(vx * vx + vy * vy),
-            mass = body.mass,
+            mass = mass,
         }
     end
 
@@ -123,7 +143,8 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
     CollisionEvents.emit("pre_resolve", context)
 
     if not context.cancel then
-        UnifiedPhysics.handleCollision(entity1, entity2, collision, dt)
+        -- Windfield handles collision resolution automatically
+        -- We just need to capture the post-collision state for effects
         context.post = {
             a = captureKinematics(entity1),
             b = captureKinematics(entity2),
@@ -307,26 +328,9 @@ function EntityCollision.handleEntityCollisions(collisionSystem, entity, world, 
                     ProjectileCollision.handleProjectileCollision(entity, other, dt, nil, hitX, hitY)
                 end
             elseif other.components.bullet then
-                -- Handle projectile vs non-projectile collision (other entity is projectile)
-                if ProjectileCollision.shouldIgnoreTarget(other, entity, other.components.bullet.source) then
-                    goto continue
-                end
-                
-                local hit, hitX, hitY = ProjectileCollision.checkProjectileCollision(other, entity, dt)
-                if hit then
-                    -- Create collision effects using precise hit position
-                    local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
-                    local CollisionEffects = require("src.systems.collision.effects")
-                    if CollisionEffects.canEmitCollisionFX(other, entity, now) then
-                        local targetRadius = CollisionShapes.getEntityCollisionRadius(entity)
-                        local bulletRadius = CollisionShapes.getEntityCollisionRadius(other)
-                        
-                        -- Use the precise hit position for collision effects
-                        CollisionEffects.createCollisionEffects(other, entity, hitX, hitY, hitX, hitY, 0, 0, bulletRadius, targetRadius, nil, nil)
-                    end
-                    
-                    ProjectileCollision.handleProjectileCollision(other, entity, dt, nil, hitX, hitY)
-                end
+                -- Projectile collisions are now handled by Windfield physics system
+                -- This legacy collision detection is disabled
+                goto continue
             else
                 -- Use unified physics for all other entities
                 local collided, collisionData = CollisionDetection.checkEntityCollision(entity, other)

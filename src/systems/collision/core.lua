@@ -21,15 +21,23 @@ end
 
 local function determine_body_type(entity)
     if not entity or not entity.components then return "static" end
+    
+    -- Check Windfield physics first
+    if entity.components.windfield_physics then
+        return "dynamic"
+    end
+    
+    -- Check legacy physics
     if entity.components.physics and entity.components.physics.body then
         return "dynamic"
     end
+    
     if entity.components.bullet then
         return "kinematic"
     end
     
     -- Special case for reward crates - they should be dynamic if they have physics component
-    if entity.subtype == "reward_crate" and entity.components.physics then
+    if entity.subtype == "reward_crate" and (entity.components.windfield_physics or entity.components.physics) then
         return "dynamic"
     end
     

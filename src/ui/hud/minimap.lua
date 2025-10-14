@@ -98,10 +98,28 @@ function Minimap.draw(player, world, additionalEntities)
   love.graphics.line(cx, cy - 5, cx, cy + 5)
   
   -- Draw speed indicator below the minimap
-  if player and player.components and player.components.physics and player.components.physics.body then
-    local body = player.components.physics.body
-    local speed = math.sqrt((body.vx or 0)^2 + (body.vy or 0)^2)
-    local maxSpeed = body.maxSpeed or 500
+  if player and player.components then
+    local speed = 0
+    local maxSpeed = 500
+    
+    -- Check Windfield physics first
+    if player.components.windfield_physics then
+      local PhysicsSystem = require("src.systems.physics")
+      local manager = PhysicsSystem.getManager()
+      if manager then
+        local collider = manager:getCollider(player)
+        if collider then
+          local vx, vy = collider:getLinearVelocity()
+          speed = math.sqrt(vx * vx + vy * vy)
+        end
+      end
+    -- Check legacy physics
+    elseif player.components.physics and player.components.physics.body then
+      local body = player.components.physics.body
+      speed = math.sqrt((body.vx or 0)^2 + (body.vy or 0)^2)
+      maxSpeed = body.maxSpeed or 500
+    end
+    
     local speedPct = maxSpeed > 0 and math.min(speed / maxSpeed, 1.0) or 0
     
     -- Speed indicator dimensions

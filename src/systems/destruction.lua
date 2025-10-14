@@ -354,148 +354,37 @@ function DestructionSystem.update(world, gameState, hub)
           e.components.position.y = py
           e.components.position.angle = 0 -- Reset angle
           
-          local phys = e.components.physics
-          local needsNewBody = not phys or not phys.body
-          
-          -- Check if existing physics body is valid
-          if phys and phys.body then
-            local success, isDestroyed = pcall(function() return phys.body:isDestroyed() end)
-            if success and isDestroyed then
-              needsNewBody = true
-              phys.body = nil
-            elseif not success then
-              needsNewBody = true
-              phys.body = nil
+          -- Handle Windfield physics
+          if e.components.windfield_physics then
+            local PhysicsSystem = require("src.systems.physics")
+            local manager = PhysicsSystem.getManager()
+            if manager then
+              -- Remove existing collider
+              manager:removeEntity(e)
+              -- Recreate with new position
+              e.components.windfield_physics.x = px
+              e.components.windfield_physics.y = py
+              manager:addEntity(e)
             end
           end
           
-          -- Always recreate physics body for player respawn to ensure clean state
-          if e.isPlayer then
-            needsNewBody = true
-          end
-          
-          if needsNewBody then
-            -- Recreate physics body (with a retry path) to avoid leaving the player without a body
-            local Physics = require("src.components.physics")
-            local mass = (e.ship and e.ship.engine and e.ship.engine.mass) or 500
-
-            -- Create physics body with timeout protection to prevent freeze
-            local maxAttempts = 3
-            local attemptDelay = 0.001 -- 1ms delay between attempts
-            
-            for attempts = 1, maxAttempts do
-              phys = Physics.new({ mass = mass, x = px, y = py })
-              if phys and phys.body then
-                e.components.physics = phys
-                
-                -- Try to set initial properties with error handling
-                local success, err = pcall(function()
-                  phys.body.skipThrusterForce = true
-                  phys.body.x = px
-                  phys.body.y = py
-                  phys.body.vx = 0
-                  phys.body.vy = 0
-                  phys.body.ax = 0
-                  phys.body.ay = 0
-                  phys.body.torque = 0
-                  phys.body.angle = 0
-                  phys.body.angularVel = 0
-                end)
-                
-                if success then
-                  -- Ensure the body is active and awake
-                  local awakeSuccess, awakeErr = pcall(function()
-                    if phys.body.setAwake then phys.body:setAwake(true) end
-                    if phys.body.setActive then phys.body:setActive(true) end
-                  end)
-                  if not awakeSuccess then
-                    Log.warn("DestructionSystem - Failed to activate physics body on attempt " .. attempts .. ": " .. tostring(awakeErr))
-                  end
-                  break -- Success, exit the loop
-                else
-                  Log.warn("DestructionSystem - Failed to initialize physics body properties on attempt " .. attempts .. ": " .. tostring(err))
-                  if attempts < maxAttempts then
-                    -- Small delay before retry to prevent tight loop
-                    local startTime = love.timer.getTime()
-                    while love.timer.getTime() - startTime < attemptDelay do
-                      -- Busy wait with timeout
-                    end
-                  end
-                end
-              else
-                Log.error("DestructionSystem - Failed to create physics component on attempt " .. attempts)
-                if attempts < maxAttempts then
-                  -- Small delay before retry
-                  local startTime = love.timer.getTime()
-                  while love.timer.getTime() - startTime < attemptDelay do
-                    -- Busy wait with timeout
-                  end
-                end
-              end
-            end
-
-            if not phys or not phys.body then
-              Log.error("DestructionSystem - Unable to create a valid physics body after " .. attempts .. " attempts for entity " .. (e.id or "unknown") .. ". Player may be non-responsive.")
-              -- Create a minimal fallback physics component to prevent complete failure
-              local Physics = require("src.components.physics")
-              local fallbackPhys = Physics.new({ mass = mass, x = px, y = py })
-              if fallbackPhys then
-                e.components.physics = fallbackPhys
-                Log.warn("DestructionSystem - Created fallback physics body for entity " .. (e.id or "unknown"))
-              else
-                Log.error("DestructionSystem - Even fallback physics creation failed for entity " .. (e.id or "unknown"))
-              end
-            end
-          end
           
           -- Reset velocities and ensure the physics body matches the respawn location
-          phys = e.components.physics
-          if phys and phys.body then
-            local success, isDestroyed = pcall(function() return phys.body:isDestroyed() end)
-            if success and not isDestroyed then
-              -- Use pcall to safely call physics methods
-              local velSuccess = pcall(function()
-                phys.body:setVelocity(0, 0)
-                phys.body.angularVel = 0
-                phys.body.ax = 0
-                phys.body.ay = 0
-                phys.body.torque = 0
-                -- Explicitly set the physics body position to match component position
-                phys.body:setPosition(px, py)
-                phys.body.angle = 0
-                -- Ensure the body is not frozen or sleeping
-                if phys.body.setAwake then
-                  phys.body:setAwake(true)
-                end
-                if phys.body.setActive then
-                  phys.body:setActive(true)
-                end
-                phys.body.skipThrusterForce = true
-              end)
-              if not velSuccess then
-                -- If setting velocity fails, the body might be invalid
-                Log.warn("DestructionSystem - Failed to set physics body properties, marking for recreation")
-                phys.body = nil
-              else
-                if e.isPlayer then
-                  restorePlayerPhysicsTuning(e, phys.body)
-                  if phys.body.resetThrusters then
-                    phys.body:resetThrusters()
-                  end
-                  phys.body.boostFactor = 1.0
-                  phys.body.ax = 0
-                  phys.body.ay = 0
-                  phys.body.torque = 0
-                end
+          -- Handle Windfield physics velocity reset
+          if e.components.windfield_physics then
+            local PhysicsSystem = require("src.systems.physics")
+            local manager = PhysicsSystem.getManager()
+            if manager then
+              local collider = manager:getCollider(e)
+              if collider then
+                collider:setLinearVelocity(0, 0)
+                collider:setAngularVelocity(0)
+                collider:setPosition(px, py)
+                collider:setAngle(0)
               end
-            else
-              -- Body is destroyed or check failed, mark for recreation
-              Log.warn("DestructionSystem - Physics body is destroyed or invalid, marking for recreation")
-              phys.body = nil
             end
-          elseif not phys then
-            Log.warn("DestructionSystem - No physics component found for entity " .. (e.id or "unknown"))
           end
+          
           
           -- Restore full health and shields
           if e.components.hull then

@@ -38,8 +38,8 @@ function PlayerDebug.logStateIssue(player, state, docking, body)
         dead = player.dead,
         frozen = player.frozen,
         weaponsDisabled = state.weapons_disabled,
-        hasPhysics = player.components and player.components.physics ~= nil,
-        hasBody = player.components and player.components.physics and player.components.physics.body ~= nil
+        hasPhysics = player.components and player.components.windfield_physics ~= nil,
+        hasBody = player.components and player.components.windfield_physics ~= nil
     }
 
     -- Only log if there's an actual issue
@@ -98,12 +98,8 @@ end
 function PlayerDebug.logPhysicsComponentIssue(player)
     if not PlayerDebug.isDebugEnabled() then return end
     
-    if not player.components.physics then
-        Log.warn("PlayerSystem - Physics component missing!")
-    elseif not player.components.physics.update then
-        Log.warn("PlayerSystem - Physics component has no update method!")
-    elseif not player.components.physics.body then
-        Log.warn("PlayerSystem - Physics body is nil after update!")
+    if not player.components.windfield_physics then
+        Log.warn("PlayerSystem - Windfield physics component missing!")
     end
 end
 

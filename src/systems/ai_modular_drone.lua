@@ -99,16 +99,53 @@ local function moveTowards(entity, targetX, targetY, dt, tolerance)
     
     local stopDistance = tolerance
     if not stopDistance then
-        local body = entity.components.physics and entity.components.physics.body
-        stopDistance = (body and body.radius) or 0
+        -- Check Windfield physics first
+        if entity.components.windfield_physics then
+            stopDistance = entity.components.windfield_physics.radius or 0
+        -- Check legacy physics
+        elseif entity.components.physics and entity.components.physics.body then
+            local body = entity.components.physics.body
+            stopDistance = (body and body.radius) or 0
+        else
+            stopDistance = 0
+        end
     end
 
     if distance > (stopDistance or 0) then
         local ux = dx / distance
         local uy = dy / distance
         
-        local physics = entity.components.physics
-        if physics and physics.body then
+        -- Handle Windfield physics
+        if entity.components.windfield_physics then
+            local PhysicsSystem = require("src.systems.physics")
+            local manager = PhysicsSystem.getManager()
+            if manager then
+                local collider = manager:getCollider(entity)
+                if collider then
+                    local mass = entity.components.windfield_physics.mass or 1
+                    local thrustPower = 100000 -- Default thrust power
+                    
+                    if thrustPower > 0 then
+                        local accel = (thrustPower / mass) * dt
+                        local vx, vy = collider:getLinearVelocity()
+                        
+                        local newVx = vx + ux * accel
+                        local newVy = vy + uy * accel
+                        
+                        local maxSpeed = 500 -- Default max speed
+                        local newSpeed = math.sqrt(newVx * newVx + newVy * newVy)
+                        if newSpeed > maxSpeed then
+                            local scale = maxSpeed / newSpeed
+                            newVx, newVy = newVx * scale, newVy * scale
+                        end
+                        
+                        collider:setLinearVelocity(newVx, newVy)
+                    end
+                end
+            end
+        -- Handle legacy physics
+        elseif entity.components.physics and entity.components.physics.body then
+            local physics = entity.components.physics
             local body = physics.body
             local thrustPower = body.thrusterPower and body.thrusterPower.main
             local mass = body.mass or 1

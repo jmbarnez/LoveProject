@@ -123,8 +123,20 @@ local function applySelfNetworkStateIfAvailable(state)
         positionComponent.y = newPos.y or 0
         positionComponent.angle = newPos.angle or 0
 
-        local physics = player.components.physics
-        if physics and physics.body then
+        -- Handle Windfield physics
+        if player.components.windfield_physics then
+            local PhysicsSystem = require("src.systems.physics")
+            local manager = PhysicsSystem.getManager()
+            if manager then
+                local collider = manager:getCollider(player)
+                if collider then
+                    collider:setPosition(positionComponent.x, positionComponent.y)
+                    collider:setAngle(positionComponent.angle)
+                end
+            end
+        -- Handle legacy physics
+        elseif player.components.physics and player.components.physics.body then
+            local physics = player.components.physics
             local body = physics.body
             if body.setPosition then
                 body:setPosition(positionComponent.x, positionComponent.y)
@@ -146,8 +158,19 @@ local function applySelfNetworkStateIfAvailable(state)
         velocityComponent.x = newVel.x or 0
         velocityComponent.y = newVel.y or 0
 
-        local physics = player.components.physics
-        if physics and physics.body then
+        -- Handle Windfield physics
+        if player.components.windfield_physics then
+            local PhysicsSystem = require("src.systems.physics")
+            local manager = PhysicsSystem.getManager()
+            if manager then
+                local collider = manager:getCollider(player)
+                if collider then
+                    collider:setLinearVelocity(velocityComponent.x, velocityComponent.y)
+                end
+            end
+        -- Handle legacy physics
+        elseif player.components.physics and player.components.physics.body then
+            local physics = player.components.physics
             local body = physics.body
             if body.setLinearVelocity then
                 body:setLinearVelocity(velocityComponent.x, velocityComponent.y)

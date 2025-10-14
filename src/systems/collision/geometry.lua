@@ -179,6 +179,30 @@ function Geometry.polygonVsCircle(verts, cx, cy, radius)
   return false
 end
 
+function Geometry.segCircleHit(x1, y1, x2, y2, cx, cy, r)
+    local dx = x2 - x1
+    local dy = y2 - y1
+    local fx = x1 - cx
+    local fy = y1 - cy
+    local a = dx * dx + dy * dy
+    local b = 2 * (fx * dx + fy * dy)
+    local c = fx * fx + fy * fy - r * r
+    local discriminant = b * b - 4 * a * c
+    if discriminant < 0 then
+        return false
+    end
+    discriminant = math.sqrt(discriminant)
+    local t1 = (-b - discriminant) / (2 * a)
+    local t2 = (-b + discriminant) / (2 * a)
+    local t = nil
+    if t1 >= 0 and t1 <= 1 then t = t1 end
+    if not t and t2 >= 0 and t2 <= 1 then t = t2 end
+    if not t then return false end
+    local hx = x1 + dx * t
+    local hy = y1 + dy * t
+    return true, hx, hy
+end
+
 function Geometry.calculateShieldHitPoint(x1, y1, x2, y2, ex, ey, shieldRadius)
     -- Robust segment-circle intersection that always returns the correct entry/exit point
     local dx = x2 - x1

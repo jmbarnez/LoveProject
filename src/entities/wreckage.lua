@@ -1,5 +1,5 @@
 local Position = require("src.components.position")
-local Physics = require("src.components.physics")
+local WindfieldPhysics = require("src.components.windfield_physics")
 local Renderable = require("src.components.renderable")
 local TimedLife = require("src.components.timed_life")
 local Collidable = require("src.components.collidable")
@@ -65,20 +65,18 @@ end
 local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, sizeScale, equippedTurrets)
   local e = { components = {} }
   e.components.position = Position.new({ x = px, y = py, angle = angle or 0 })
-  e.components.physics = Physics.new({
+  e.components.windfield_physics = WindfieldPhysics.new({
     x = px, y = py,
     mass = 60, -- Light enough to be pushed around easily
+    colliderType = "circle",
+    bodyType = "dynamic",
+    restitution = 0.3,
+    friction = 0.1,
+    fixedRotation = false,
+    radius = 8
   })
-  -- Minimal drag so wreckage travels far before stopping
-  e.components.physics.body.dragCoefficient = 0.999
-  -- Minimal angular damping for natural spinning
-  e.components.physics.body.angularDamping = 0.999
-  -- Use an impulse to start movement so it respects mass/momentum
-  do
-    local body = e.components.physics.body
-    body:applyImpulse((vx or 0) * body.mass, (vy or 0) * body.mass)
-    body.angularVel = angularVel or 0
-  end
+  -- Store initial velocity for Windfield registration
+  e._initialVelocity = { x = vx or 0, y = vy or 0, angular = angularVel or 0 }
   local fragments, avgR = buildFragments(visuals, sizeScale)
   e.components.renderable = Renderable.new({
     type = "wreckage",
@@ -130,9 +128,9 @@ local function newPiece(px, py, vx, vy, angle, angularVel, lifetime, visuals, si
     radius = tightRadius
   })
   
-  -- Update physics body radius to match the tight collision radius
-  if e.components.physics and e.components.physics.body then
-    e.components.physics.body.radius = tightRadius
+  -- Update windfield physics radius to match the tight collision radius
+  if e.components.windfield_physics then
+    e.components.windfield_physics.radius = tightRadius
   end
   
   -- Delay collisions briefly so fragments emerge before pushing each other away

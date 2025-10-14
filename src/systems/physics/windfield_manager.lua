@@ -6,6 +6,7 @@
 ]]
 
 local wf = require("src.libs.windfield")
+local Radius = require("src.systems.collision.radius")
 local Log = require("src.core.log")
 
 local WindfieldManager = {}
@@ -130,6 +131,21 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
     local y = y or pos.y
     local options = options or {}
     
+    -- If entity has windfield_physics component, use its properties
+    if entity.components.windfield_physics then
+        local physics = entity.components.windfield_physics
+        colliderType = physics.colliderType or "circle"
+        options.mass = physics.mass
+        options.restitution = physics.restitution
+        options.friction = physics.friction
+        options.fixedRotation = physics.fixedRotation
+        options.bodyType = physics.bodyType
+        options.radius = physics.radius
+        options.width = physics.width
+        options.height = physics.height
+        options.vertices = physics.vertices
+    end
+    
     -- Ensure we use the entity's actual position
     if not x or not y then
         x = pos.x
@@ -141,7 +157,8 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
     local collisionClass = self:determineCollisionClass(entity)
     
     if colliderType == "circle" then
-        local radius = options.radius or 20
+        -- Use proper radius calculation based on visual boundaries
+        local radius = options.radius or Radius.getHullRadius(entity) or 20
         collider = self.world:newCircleCollider(x, y, radius, options.bodyType or "dynamic")
         
     elseif colliderType == "rectangle" then
@@ -178,9 +195,24 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
         collider:setFixedRotation(options.fixedRotation)
     end
     
+    -- Handle initial velocity for entities that have it (like wreckage)
+    if entity._initialVelocity then
+        local vx = entity._initialVelocity.x or 0
+        local vy = entity._initialVelocity.y or 0
+        local angular = entity._initialVelocity.angular or 0
+        collider:setLinearVelocity(vx, vy)
+        collider:setAngularVelocity(angular)
+        entity._initialVelocity = nil -- Clear after use
+    end
+    
     -- Track entity
     self.entities[entity] = collider
     self.colliders[collider] = entity
+    
+    -- For fixed rotation entities, ensure the angle is set correctly
+    if entity.components.windfield_physics and entity.components.windfield_physics.fixedRotation then
+        collider:setAngle(0)
+    end
     
     return collider
 end
@@ -257,10 +289,14 @@ function WindfieldManager:syncPositions()
             local x, y = collider:getPosition()
             local angle = collider:getAngle()
             
-            
             entity.components.position.x = x
             entity.components.position.y = y
-            entity.components.position.angle = angle
+            
+            -- Only sync angle if the entity is not fixed rotation
+            if entity.components.windfield_physics and not entity.components.windfield_physics.fixedRotation then
+                entity.components.position.angle = angle
+            end
+            -- For fixed rotation entities (like ships), keep their angle at 0
         end
     end
 end
@@ -308,6 +344,10 @@ function WindfieldManager:getAngle(entity)
         return collider:getAngle()
     end
     return 0
+end
+
+function WindfieldManager:getCollider(entity)
+    return self.entities[entity]
 end
 
 function WindfieldManager:destroy()

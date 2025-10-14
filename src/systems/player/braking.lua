@@ -2,7 +2,10 @@
 -- Handles active braking using RCS thrusters
 -- Extracted from main PlayerSystem.update()
 
-local CorePhysics = require("src.core.physics")
+-- Braking constants (moved from core.physics)
+local BRAKING_CONSTANTS = {
+    brakingPower = 1.5 -- Brake power multiplier
+}
 local PlayerDebug = require("src.systems.player.debug")
 
 local BrakingSystem = {}
@@ -11,6 +14,7 @@ local BrakingSystem = {}
 function BrakingSystem.processBraking(player, body, braking, baseThrust, dt, thrusterState)
     if braking then
         thrusterState.brake = 1.0
+        BrakingSystem.setThrusterBrake(body, true)
         
         -- Get physics system for applying brake forces
         local PhysicsSystem = require("src.systems.physics")
@@ -24,20 +28,21 @@ function BrakingSystem.processBraking(player, body, braking, baseThrust, dt, thr
             if currentSpeed > 0.1 then -- Only brake if moving
                 -- Apply brake force opposite to current velocity
                 local brakeForce = baseThrust * 0.8 -- Brake power
-                local brakeForceX = -(vx / currentSpeed) * brakeForce * dt
-                local brakeForceY = -(vy / currentSpeed) * brakeForce * dt
+                local brakeForceX = -(vx / currentSpeed) * brakeForce
+                local brakeForceY = -(vy / currentSpeed) * brakeForce
                 
                 physicsManager:applyForce(player, brakeForceX, brakeForceY)
             end
         end
     else
         thrusterState.brake = 0
+        BrakingSystem.setThrusterBrake(body, false)
     end
 end
 
 -- Apply brake force opposite to current velocity
 function BrakingSystem.applyBrakeForce(body, baseThrust, currentSpeed, dt)
-    local brakingThrust = baseThrust * CorePhysics.constants.brakingPower
+    local brakingThrust = baseThrust * BRAKING_CONSTANTS.brakingPower
     
     -- Get velocity from windfield physics system
     local PhysicsSystem = require("src.systems.physics")
@@ -68,7 +73,7 @@ end
 
 -- Calculate brake force magnitude
 function BrakingSystem.calculateBrakeForce(baseThrust)
-    return baseThrust * CorePhysics.constants.brakingPower
+    return baseThrust * BRAKING_CONSTANTS.brakingPower
 end
 
 -- Get brake force vector

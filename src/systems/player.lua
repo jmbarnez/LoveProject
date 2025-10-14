@@ -163,6 +163,7 @@ function PlayerSystem.update(dt, player, input, world, hub)
     -- Get movement inputs
     local inputs = MovementSystem.getMovementInputs(intent, modalActive)
     local boosting = MovementSystem.isBoosting(player, inputs.boost)
+    inputs.boosting = boosting
 
     -- Reset physics thrusters (not needed for Windfield)
     -- body:resetThrusters()

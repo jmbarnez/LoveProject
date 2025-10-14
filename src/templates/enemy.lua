@@ -2,7 +2,7 @@ local Position = require("src.components.position")
 local Collidable = require("src.components.collidable")
 local Hull = require("src.components.hull")
 local Energy = require("src.components.energy")
-local PhysicsComponent = require("src.components.physics")
+local WindfieldPhysics = require("src.components.windfield_physics")
 local Renderable = require("src.components.renderable")
 local AI = require("src.components.ai")
 local EngineTrail = require("src.components.engine_trail")
@@ -16,8 +16,17 @@ function Enemy.new(x, y, options)
     local self = setmetatable({}, Enemy)
     options = options or {}
 
-    local physics = PhysicsComponent.new({ mass = 150, x = x, y = y })
-    physics.body.radius = 10
+    local physics = WindfieldPhysics.new({ 
+        mass = 150, 
+        x = x, 
+        y = y,
+        colliderType = "circle",
+        bodyType = "dynamic",
+        restitution = 0.1,
+        friction = 0.3,
+        fixedRotation = false,
+        radius = 10
+    })
     self.sig = 80
     self.aggro = false
     self.name = "Scout Drone"
@@ -45,10 +54,10 @@ function Enemy.new(x, y, options)
 
     self.components = {
         position   = Position.new({ x = x, y = y, angle = 0 }),
-        collidable = Collidable.new({ radius = physics.body.radius, friendly = options.friendly, signature = self.sig }),
+        collidable = Collidable.new({ radius = physics.radius, friendly = options.friendly, signature = self.sig }),
         hull       = Hull.new({ hp = 5, maxHP = 5 }),
         energy     = Energy.new({ energy = 0, maxEnergy = 0 }),
-        physics    = physics,
+        windfield_physics = physics,
         renderable = Renderable.new("enemy", { visuals = self.visuals }),
         ai         = AI.new({
             spawnPos = {x = x, y = y},
@@ -83,16 +92,10 @@ end
 
 
 function Enemy:update(dt, player, shoot)
-    -- Update physics and sync position
-    if self.components.physics and self.components.physics.update then
-      self.components.physics:update(dt)
-    end
-    local b = self.components.physics.body
-    local pos = self.components.position
-    pos.x, pos.y, pos.angle = b.x, b.y, b.angle
-
+    -- Physics updates are now handled by the PhysicsSystem
+    -- Position synchronization happens automatically through Windfield
     -- AI system now handles all movement and firing logic
-    -- This template only handles basic physics updates
+    -- This template only handles basic updates
 end
 
 

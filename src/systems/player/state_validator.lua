@@ -208,11 +208,6 @@ function StateValidator.getPhysicsBody(player)
         return player.components.windfield_physics
     end
     
-    -- Fallback to legacy physics component for compatibility
-    if player.components.physics and player.components.physics.body then
-        return player.components.physics.body
-    end
-    
     return nil
 end
 

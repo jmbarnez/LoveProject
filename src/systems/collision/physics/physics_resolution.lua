@@ -17,6 +17,12 @@ end
 
 -- Helper function to get entity mass for momentum calculations
 function PhysicsResolution.getEntityMass(entity)
+    -- Check Windfield physics first
+    if entity.components.windfield_physics then
+        return entity.components.windfield_physics.mass or 1000
+    end
+    
+    -- Check legacy physics
     local physics = entity.components.physics
     if physics and physics.body then
         return physics.body.mass or 1000
@@ -36,6 +42,22 @@ end
 -- Helper function to push an entity with momentum preservation
 function PhysicsResolution.pushEntity(entity, pushX, pushY, normalX, normalY, dt, restitution)
     restitution = restitution or 0.25 -- default hull bounce if unspecified
+    
+    -- Handle Windfield physics
+    if entity.components.windfield_physics then
+        local PhysicsSystem = require("src.systems.physics")
+        local manager = PhysicsSystem.getManager()
+        if manager then
+            local collider = manager:getCollider(entity)
+            if collider then
+                local oldX, oldY = collider:getPosition()
+                collider:setPosition(oldX + pushX, oldY + pushY)
+            end
+        end
+        return
+    end
+    
+    -- Handle legacy physics
     local physics = entity.components.physics
     if physics and physics.body then
         local body = physics.body

@@ -542,21 +542,35 @@ local function updateProjectileFromSnapshot(entity, projectileData)
     end
 
     -- Update physics body
-    if entity.components and entity.components.physics and entity.components.physics.body then
-        local body = entity.components.physics.body
-        if body.setPosition then
-            body:setPosition(projectileData.position.x, projectileData.position.y)
-        else
-            body.x = projectileData.position.x
-            body.y = projectileData.position.y
+    if entity.components then
+        -- Handle Windfield physics
+        if entity.components.windfield_physics then
+            local PhysicsSystem = require("src.systems.physics")
+            local manager = PhysicsSystem.getManager()
+            if manager then
+                local collider = manager:getCollider(entity)
+                if collider then
+                    collider:setPosition(projectileData.position.x, projectileData.position.y)
+                    collider:setLinearVelocity(projectileData.velocity.x, projectileData.velocity.y)
+                end
+            end
+        -- Handle legacy physics
+        elseif entity.components.physics and entity.components.physics.body then
+            local body = entity.components.physics.body
+            if body.setPosition then
+                body:setPosition(projectileData.position.x, projectileData.position.y)
+            else
+                body.x = projectileData.position.x
+                body.y = projectileData.position.y
+            end
+            if body.setVelocity then
+                body:setVelocity(projectileData.velocity.x, projectileData.velocity.y)
+            else
+                body.vx = projectileData.velocity.x
+                body.vy = projectileData.velocity.y
+            end
+            body.angle = projectileData.position.angle
         end
-        if body.setVelocity then
-            body:setVelocity(projectileData.velocity.x, projectileData.velocity.y)
-        else
-            body.vx = projectileData.velocity.x
-            body.vy = projectileData.velocity.y
-        end
-        body.angle = projectileData.position.angle
     end
 end
 

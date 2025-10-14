@@ -30,7 +30,7 @@ return {
   -- Basic drone stats
   hull = { hp = 100, shield = 50, cap = 110 },
   -- Reduced thrust power for more tactical gameplay
-  engine = { accel = 400, maxSpeed = 300, drag = 0.98, mass = 150 }, -- accel: u/s², maxSpeed: u/s, mass: kg
+  engine = { accel = 250, maxSpeed = 200, drag = 0.98, mass = 150 }, -- accel: u/s², maxSpeed: u/s, mass: kg
   sig = 110, -- u - signature radius
   cargo = { capacity = 120, volumeLimit = 50.0 }, -- capacity: units, volumeLimit: u³
   equipmentSlots = 4,

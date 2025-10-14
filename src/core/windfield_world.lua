@@ -78,6 +78,13 @@ local function resolve_body_type(entity)
     if not entity or not entity.components then
         return "static"
     end
+    
+    -- Check Windfield physics first
+    if entity.components.windfield_physics then
+        return "dynamic"
+    end
+    
+    -- Check legacy physics
     local physics = entity.components.physics
     if physics and physics.body then
         return "dynamic"

@@ -291,8 +291,8 @@ function Hotbar.draw(player)
       drawIcon({ subject, "basic_gun" }, rx + 4, ry + 4, size - 8)
       drewIcon = true
       
-      -- Draw heat bar above the slot for the first turret
-      if turret and turret.getHeatStatus then
+      -- Draw heat bar above the slot for the first turret (laser only)
+      if turret and turret.getHeatStatus and turret.isLaserTurret then
           local heatStatus = turret:getHeatStatus()
           if heatStatus.heatPercentage > 0 then
               -- Heat bar positioned above the slot
@@ -356,8 +356,8 @@ function Hotbar.draw(player)
             end
           end
 
-          -- Draw heat bar above the slot for weapons only
-          if isTurret and t and t.getHeatStatus then
+          -- Draw heat bar above the slot for laser weapons only
+          if isTurret and t and t.getHeatStatus and t.isLaserTurret then
               local heatStatus = t:getHeatStatus()
               if heatStatus.heatPercentage > 0 then
                   -- Heat bar positioned above the slot

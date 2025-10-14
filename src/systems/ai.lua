@@ -24,12 +24,14 @@ local function getPosition(entity)
     return ZERO_POS
 end
 
-local function getPhysicsBody(entity)
+
+local function getWindfieldCollider(entity)
     if not entity or not entity.components then
         return nil
     end
-    local physics = entity.components.physics
-    return physics and physics.body or nil
+    local PhysicsSystem = require("src.systems.physics")
+    local manager = PhysicsSystem.getManager()
+    return manager and manager:getCollider(entity) or nil
 end
 
 local function applyMovement(entity, vx, vy)
@@ -37,16 +39,18 @@ local function applyMovement(entity, vx, vy)
         return
     end
 
-    local body = getPhysicsBody(entity)
-    if body then
-        body.vx = vx
-        body.vy = vy
+    -- Use Windfield physics
+    local collider = getWindfieldCollider(entity)
+    if collider then
+        collider:setLinearVelocity(vx, vy)
         if (vx ~= 0) or (vy ~= 0) then
-            body.angle = math.atan2(vy, vx)
+            local angle = math.atan2(vy, vx)
+            collider:setAngle(angle)
         end
         return
     end
 
+    -- Fallback to velocity component
     local velocity = entity.components.velocity
     if velocity then
         velocity.x = vx

@@ -1,4 +1,4 @@
-local CollisionHelpers = require("src.systems.turret.collision_helpers")
+-- Collision detection is now handled by Windfield physics
 local TurretEffects = require("src.systems.turret.effects")
 local CollisionEffects = require("src.systems.collision.effects")
 local Effects = require("src.systems.effects")
@@ -570,38 +570,38 @@ function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, w
                     goto continue -- Skip this entity, it's not the same faction
                 end
             end
-            local targetRadius = CollisionHelpers.calculateEffectiveRadius(entity)
-            local hit, hx, hy, hitSurface = CollisionHelpers.performCollisionCheck(
-                startX, startY, endX, endY, entity, targetRadius
-            )
-
-            if hit then
-                local distance = math.sqrt((hx - startX)^2 + (hy - startY)^2)
-                if distance < bestDistance then
-                    bestDistance = distance
-                    bestTarget = entity
-                    bestHitX, bestHitY = hx, hy
-                    
-                    -- Create spark effects for beam hits on hard surfaces
-                    local CollisionEffects = require("src.systems.collision.effects")
-                    local Effects = require("src.systems.effects")
-                    local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
-                    
-                    -- Check if target is a hard surface
-                    local isHardSurface = false
-                    if entity.components and entity.components.mineable then
-                        isHardSurface = true -- Asteroids are hard surfaces
-                    elseif entity.components and entity.components.station then
-                        isHardSurface = true -- Stations are hard surfaces
-                    elseif entity.tag == "station" then
-                        isHardSurface = true
-                    elseif entity.components and entity.components.interactable and entity.components.interactable.requiresKey == "reward_crate_key" then
-                        isHardSurface = true -- Reward crates are hard surfaces
-                    elseif entity.subtype == "reward_crate" then
-                        isHardSurface = true -- Reward crates are hard surfaces (fallback check)
-                    end
-                    
-                    if hitSurface ~= "shield" then
+            -- Simple distance-based collision check for utility beams
+            -- Windfield handles complex collision detection automatically
+            local entityPos = entity.components.position
+            if entityPos then
+                local targetRadius = 20 -- Default radius for utility beam targeting
+                local distance = math.sqrt((entityPos.x - startX)^2 + (entityPos.y - startY)^2)
+                if distance <= targetRadius then
+                    local hx, hy = entityPos.x, entityPos.y
+                    if distance < bestDistance then
+                        bestDistance = distance
+                        bestTarget = entity
+                        bestHitX, bestHitY = hx, hy
+                        
+                        -- Create spark effects for beam hits on hard surfaces
+                        local CollisionEffects = require("src.systems.collision.effects")
+                        local Effects = require("src.systems.effects")
+                        local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
+                        
+                        -- Check if target is a hard surface
+                        local isHardSurface = false
+                        if entity.components and entity.components.mineable then
+                            isHardSurface = true -- Asteroids are hard surfaces
+                        elseif entity.components and entity.components.station then
+                            isHardSurface = true -- Stations are hard surfaces
+                        elseif entity.tag == "station" then
+                            isHardSurface = true
+                        elseif entity.components and entity.components.interactable and entity.components.interactable.requiresKey == "reward_crate_key" then
+                            isHardSurface = true -- Reward crates are hard surfaces
+                        elseif entity.subtype == "reward_crate" then
+                            isHardSurface = true -- Reward crates are hard surfaces (fallback check)
+                        end
+                        
                         if isHardSurface and Effects.spawnLaserSparks then
                             -- Create minimal spark effects for beam hits on hard surfaces
                             local impactAngle = math.atan2(hy - startY, hx - startX)

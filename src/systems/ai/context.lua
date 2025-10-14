@@ -56,10 +56,30 @@ function AIContext.updateContext(context, entity, world, globalContext)
     end
     
     -- Update speed
-    if entity.components and entity.components.physics and entity.components.physics.body then
-        local body = entity.components.physics.body
-        context.speed = math.sqrt((body.vx or 0)^2 + (body.vy or 0)^2)
-        context.maxSpeed = body.maxSpeed or 500
+    if entity.components then
+        local vx, vy = 0, 0
+        local maxSpeed = 500
+        
+        -- Check Windfield physics first
+        if entity.components.windfield_physics then
+            local PhysicsSystem = require("src.systems.physics")
+            local manager = PhysicsSystem.getManager()
+            if manager then
+                local collider = manager:getCollider(entity)
+                if collider then
+                    vx, vy = collider:getLinearVelocity()
+                end
+            end
+        -- Check legacy physics
+        elseif entity.components.physics and entity.components.physics.body then
+            local body = entity.components.physics.body
+            vx = body.vx or 0
+            vy = body.vy or 0
+            maxSpeed = body.maxSpeed or 500
+        end
+        
+        context.speed = math.sqrt(vx * vx + vy * vy)
+        context.maxSpeed = maxSpeed
     end
     
     -- Update distances

@@ -418,7 +418,19 @@ local function applyRemotePlayerSmoothing()
                 end
 
                 -- Update physics body position smoothly
-                if entity.components.physics and entity.components.physics.body then
+                -- Handle Windfield physics
+                if entity.components.windfield_physics then
+                    local PhysicsSystem = require("src.systems.physics")
+                    local manager = PhysicsSystem.getManager()
+                    if manager then
+                        local collider = manager:getCollider(entity)
+                        if collider then
+                            collider:setPosition(newX, newY)
+                            collider:setAngle(newAngle)
+                        end
+                    end
+                -- Handle legacy physics
+                elseif entity.components.physics and entity.components.physics.body then
                     local body = entity.components.physics.body
                     if body.setPosition then
                         body:setPosition(newX, newY)

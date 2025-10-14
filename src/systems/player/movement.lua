@@ -39,9 +39,16 @@ function MovementSystem.processMovement(player, body, inputs, dt, thrusterState)
     if not physicsManager then
         return -- Physics system not initialized
     end
+    
+    -- Check if the player has a physics collider (avoid jitter on first movement)
+    local collider = physicsManager:getCollider(player)
+    if not collider then
+        return -- Physics body not ready yet
+    end
 
-    -- Get thrust power with boost multiplier
-    local baseThrust = 600000 -- Base thrust power
+    -- Get thrust power from ship configuration
+    local shipConfig = player.ship
+    local baseThrust = (shipConfig and shipConfig.engine and shipConfig.engine.accel) or 250
     local thrust = baseThrust
     
     -- Apply boost multiplier
@@ -57,21 +64,28 @@ function MovementSystem.processMovement(player, body, inputs, dt, thrusterState)
         thrust = thrust * math.max(0.1, slow)
     end
     
-    -- WASD direct input vector (screen/world axes): W=up, S=down, A=left, D=right
-    local ix, iy = 0, 0
-    if w then iy = iy - 1 end
-    if s then iy = iy + 1 end
-    if a then ix = ix - 1 end
-    if d then ix = ix + 1 end
-
-    -- Normalize input vector
-    local mag = math.sqrt(ix*ix + iy*iy)
-    if mag > 0 then
-        ix, iy = ix / mag, iy / mag
-
-        -- Apply force to Windfield physics body
-        local forceX = ix * thrust * dt
-        local forceY = iy * thrust * dt
+    -- Space physics: apply forces in the direction the ship is facing
+    -- Since ship angle is fixed at 0, we use screen-relative directions
+    local forceX, forceY = 0, 0
+    
+    -- Forward/backward thrust (W/S keys)
+    if w then
+        forceY = forceY - thrust  -- Up in screen space
+    end
+    if s then
+        forceY = forceY + thrust  -- Down in screen space
+    end
+    
+    -- Strafe left/right (A/D keys)
+    if a then
+        forceX = forceX - thrust  -- Left in screen space
+    end
+    if d then
+        forceX = forceX + thrust  -- Right in screen space
+    end
+    
+    -- Apply forces to Windfield physics body
+    if forceX ~= 0 or forceY ~= 0 then
         physicsManager:applyForce(player, forceX, forceY)
     end
     
@@ -91,6 +105,18 @@ function MovementSystem.processMovement(player, body, inputs, dt, thrusterState)
     if d then 
         thrusterState.strafeRight = 0.8
         thrusterState.isThrusting = true
+    end
+    if boosting then
+        thrusterState.boost = 1.0
+        thrusterState.isThrusting = true
+    end
+
+    if body and body.setThruster then
+        body:setThruster("forward", w)
+        body:setThruster("backward", s)
+        body:setThruster("left", a)
+        body:setThruster("right", d)
+        body:setThruster("boost", boosting)
     end
 
     -- Debug thruster state
@@ -153,12 +179,12 @@ function MovementSystem.updatePhysics(player, dt)
     if physicsManager then
         -- Get position from Windfield physics body
         local x, y = physicsManager:getPosition(player)
-        local angle = physicsManager:getAngle(player)
         
         if x and y then
             player.components.position.x = x
             player.components.position.y = y
-            player.components.position.angle = angle or 0
+            -- Keep ship angle fixed at 0 - only turrets rotate
+            player.components.position.angle = 0
         end
     end
 end

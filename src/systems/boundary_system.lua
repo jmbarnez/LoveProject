@@ -18,8 +18,18 @@ function BoundarySystem.update(world)
       if newX ~= pos.x then
         pos.x = newX
         if entity.components.velocity then entity.components.velocity.x = 0 end
-        if entity.components and entity.components.physics and entity.components.physics.body then
-          entity.components.physics.body.vx = 0
+        
+        -- Handle Windfield physics
+        if entity.components.windfield_physics then
+          local PhysicsSystem = require("src.systems.physics")
+          local manager = PhysicsSystem.getManager()
+          if manager then
+            local collider = manager:getCollider(entity)
+            if collider then
+              local vx, vy = collider:getLinearVelocity()
+              collider:setLinearVelocity(0, vy)
+            end
+          end
         end
         bounced = true
       end
@@ -27,16 +37,35 @@ function BoundarySystem.update(world)
       if newY ~= pos.y then
         pos.y = newY
         if entity.components.velocity then entity.components.velocity.y = 0 end
-        if entity.components and entity.components.physics and entity.components.physics.body then
-          entity.components.physics.body.vy = 0
+        
+        -- Handle Windfield physics
+        if entity.components.windfield_physics then
+          local PhysicsSystem = require("src.systems.physics")
+          local manager = PhysicsSystem.getManager()
+          if manager then
+            local collider = manager:getCollider(entity)
+            if collider then
+              local vx, vy = collider:getLinearVelocity()
+              collider:setLinearVelocity(vx, 0)
+            end
+          end
         end
         bounced = true
       end
       
       -- Update physics position if entity has physics system
-      if bounced and entity.components and entity.components.physics and entity.components.physics.body then
-        entity.components.physics.body.x = pos.x
-        entity.components.physics.body.y = pos.y
+      if bounced then
+        -- Handle Windfield physics
+        if entity.components.windfield_physics then
+          local PhysicsSystem = require("src.systems.physics")
+          local manager = PhysicsSystem.getManager()
+          if manager then
+            local collider = manager:getCollider(entity)
+            if collider then
+              collider:setPosition(pos.x, pos.y)
+            end
+          end
+        end
       end
     end
   end

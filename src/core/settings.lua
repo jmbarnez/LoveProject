@@ -38,6 +38,7 @@ local settings = {
         hotbar_5 = { primary = "r" },
         hotbar_6 = { primary = "t" },
         hotbar_7 = { primary = "f" },
+        hotbar_8 = { primary = "lshift" },
     },
     hotbar = {
         items = {
@@ -48,6 +49,7 @@ local settings = {
             nil,              -- R
             nil,              -- T
             nil,              -- F
+            nil,              -- LShift
         }
     },
     networking = {

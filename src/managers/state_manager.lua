@@ -375,7 +375,19 @@ local function applyGameState(state, player, world)
     player.components.position.angle = playerData.position.angle or 0
     
     -- Update physics body if it exists
-    if player.components.physics and player.components.physics.body then
+    -- Handle Windfield physics
+    if player.components.windfield_physics then
+      local PhysicsSystem = require("src.systems.physics")
+      local manager = PhysicsSystem.getManager()
+      if manager then
+        local collider = manager:getCollider(player)
+        if collider then
+          collider:setPosition(playerData.position.x, playerData.position.y)
+          collider:setAngle(playerData.position.angle or 0)
+        end
+      end
+    -- Handle legacy physics
+    elseif player.components.physics and player.components.physics.body then
       player.components.physics.body.x = playerData.position.x
       player.components.physics.body.y = playerData.position.y
       player.components.physics.body.angle = playerData.position.angle or 0

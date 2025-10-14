@@ -4,6 +4,7 @@ local Renderable = require("src.components.renderable")
 local Collidable = require("src.components.collidable")
 local StationComponent = require("src.components.station")
 local Repairable = require("src.components.repairable")
+local WindfieldPhysics = require("src.components.windfield_physics")
 local ModelUtil = require("src.core.model_util")
 
 local Station = {}
@@ -111,6 +112,32 @@ function Station.new(x, y, config)
             end
         end
     end
+
+    -- Add Windfield physics component for stations
+    -- Stations are extremely heavy and immovable
+    local stationRadius = self.radius or 50
+    self.components.windfield_physics = WindfieldPhysics.new({
+        x = x,
+        y = y,
+        mass = 1000000,  -- Extremely heavy - 1 million mass units
+        colliderType = "circle",
+        bodyType = "static",  -- Static body - cannot be moved by forces
+        restitution = 0.1,    -- Low bounce
+        friction = 0.8,       -- High friction
+        fixedRotation = true, -- Cannot rotate
+        radius = stationRadius,
+    })
+
+    -- Add station to physics system immediately
+    local PhysicsSystem = require("src.systems.physics")
+    PhysicsSystem.addEntity(self)
+    
+    -- Debug logging
+    local Log = require("src.core.log")
+    Log.info("station", "Created station with Windfield physics: mass=%.0f, radius=%.1f, bodyType=%s", 
+             self.components.windfield_physics.mass, 
+             self.components.windfield_physics.radius,
+             self.components.windfield_physics.bodyType)
 
     return self
 end

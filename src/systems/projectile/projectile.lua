@@ -8,6 +8,7 @@ local TimedLife = require("src.components.timed_life")
 local Hull = require("src.components.hull")
 local Shield = require("src.components.shield")
 local Energy = require("src.components.energy")
+local WindfieldPhysics = require("src.components.windfield_physics")
 local ProjectileComponents = require("src.components.projectile.registry")
 local EventDispatcher = require("src.systems.projectile.event_dispatcher")
 local EffectManager = require("src.systems.projectile.effect_manager")
@@ -172,7 +173,7 @@ function Projectile.new(x, y, angle, friendly, config)
             kind = config.kind, -- Store projectile kind for collision detection
         },
         position = Position.new({ x = x, y = y, angle = angle }),
-        velocity = Velocity.new({ x = vx, y = vy }),
+        -- Velocity is now handled by Windfield physics system
         collidable = (config.collidable and config.collidable.radius == 0) and nil or Collidable.new({
             radius = (config.collidable and config.collidable.radius) or (config.renderable and config.renderable.props and config.renderable.props.radius) or 2,
             friendly = friendly,
@@ -211,6 +212,23 @@ function Projectile.new(x, y, angle, friendly, config)
         timed_life = TimedLife.new(
             (config.timed_life and config.timed_life.duration) or 2.0
         ),
+        -- Add Windfield physics component for projectiles
+        windfield_physics = WindfieldPhysics.new({
+            x = x,
+            y = y,
+            mass = (function()
+                local kind = config.kind or 'bullet'
+                if kind == "missile" then return 5
+                elseif kind == "laser" or kind == "mining_laser" or kind == "salvaging_laser" then return 0.1
+                else return 1 end
+            end)(),
+            colliderType = "circle",
+            bodyType = "dynamic",
+            restitution = 0.1,
+            friction = 0.0,
+            fixedRotation = true,  -- Projectiles don't rotate
+            radius = (config.collidable and config.collidable.radius) or (config.renderable and config.renderable.props and config.renderable.props.radius) or 2,
+        }),
         -- Add health component only for rockets/missiles
         health = (function()
             local kind = config.kind or 'bullet'
@@ -331,6 +349,16 @@ function Projectile.new(x, y, angle, friendly, config)
         self._hudDamageTime = love.timer.getTime()
     else
         self._hudDamageTime = os.clock()
+    end
+
+    -- Add projectile to physics system
+    local PhysicsSystem = require("src.systems.physics")
+    PhysicsSystem.addEntity(self)
+
+    -- Set initial velocity for the projectile
+    local physicsManager = PhysicsSystem.getManager()
+    if physicsManager then
+        physicsManager:setVelocity(self, vx, vy)
     end
 
     return self

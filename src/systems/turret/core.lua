@@ -87,7 +87,7 @@ function Turret.new(owner, params)
     self.salvagePower = params.salvagePower
     self.beamDuration = params.beamDuration
 
-    -- Overheating system parameters
+    -- Overheating system parameters (only for laser turrets)
     self.heatLevel = 0                    -- Current heat (0-100)
     self.maxHeat = params.maxHeat or 100  -- Overheat threshold
     self.heatGeneration = params.heatGeneration or 5  -- Heat per second while firing
@@ -95,6 +95,12 @@ function Turret.new(owner, params)
     self.overheatPenalty = params.overheatPenalty or 10  -- Seconds of forced cooldown when overheated
     self.isOverheated = false             -- Overheated state
     self.overheatTimer = 0                -- Timer for overheat penalty
+    
+    -- Check if this is a laser turret (only laser turrets can overheat)
+    self.isLaserTurret = self.type == "laser" or 
+                        self.type == "mining_laser" or 
+                        self.type == "healing_laser" or 
+                        self.type == "salvaging_laser"
 
     -- Secondary projectile support
     self.secondaryProjectile = params.secondaryProjectile
@@ -201,34 +207,36 @@ function Turret:update(dt, target, locked, world)
         end
     end
 
-    -- Update overheating system
-    if self.isOverheated then
-        self.overheatTimer = math.max(0, self.overheatTimer - dt)
-        if self.overheatTimer <= 0 then
-            self.isOverheated = false
-            self.heatLevel = 0  -- Reset heat when coming out of overheat
-        end
-    else
-        -- Heat management when not overheated
-        if self.firing then
-            -- Generate heat while firing (per second for beam weapons)
-            self.heatLevel = math.min(self.maxHeat, self.heatLevel + self.heatGeneration * dt)
-            
-            -- Check for overheat
-            if self.heatLevel >= self.maxHeat then
-                self.isOverheated = true
-                self.overheatTimer = self.overheatPenalty
-                self.firing = false  -- Stop firing when overheated
-                self.beamActive = false
-                
-                -- Show overheat notification for player
-                if self.owner and self.owner.isPlayer then
-                    Notifications.add("Weapon overheated! Cooling down...", "warning")
-                end
+    -- Update overheating system (only for laser turrets)
+    if self.isLaserTurret then
+        if self.isOverheated then
+            self.overheatTimer = math.max(0, self.overheatTimer - dt)
+            if self.overheatTimer <= 0 then
+                self.isOverheated = false
+                self.heatLevel = 0  -- Reset heat when coming out of overheat
             end
         else
-            -- Cool down when not firing
-            self.heatLevel = math.max(0, self.heatLevel - self.coolingRate * dt)
+            -- Heat management when not overheated
+            if self.firing then
+                -- Generate heat while firing (per second for beam weapons)
+                self.heatLevel = math.min(self.maxHeat, self.heatLevel + self.heatGeneration * dt)
+                
+                -- Check for overheat
+                if self.heatLevel >= self.maxHeat then
+                    self.isOverheated = true
+                    self.overheatTimer = self.overheatPenalty
+                    self.firing = false  -- Stop firing when overheated
+                    self.beamActive = false
+                    
+                    -- Show overheat notification for player
+                    if self.owner and self.owner.isPlayer then
+                        Notifications.add("Weapon overheated! Cooling down...", "warning")
+                    end
+                end
+            else
+                -- Cool down when not firing
+                self.heatLevel = math.max(0, self.heatLevel - self.coolingRate * dt)
+            end
         end
     end
 
@@ -251,8 +259,8 @@ function Turret:update(dt, target, locked, world)
         return
     end
 
-    -- Check if weapon is overheated
-    if self.isOverheated then
+    -- Check if weapon is overheated (only for laser turrets)
+    if self.isLaserTurret and self.isOverheated then
         return
     end
 
@@ -361,9 +369,9 @@ function Turret:getClipStatus()
     }
 end
 
--- Generate heat when firing (for projectile weapons)
+-- Generate heat when firing (for laser turrets only)
 function Turret:generateHeat()
-    if not self.isOverheated then
+    if self.isLaserTurret and not self.isOverheated then
         self.heatLevel = math.min(self.maxHeat, self.heatLevel + self.heatGeneration)
         
         -- Check for overheat
@@ -381,8 +389,18 @@ function Turret:generateHeat()
     end
 end
 
--- Get heat status for UI display
+-- Get heat status for UI display (only for laser turrets)
 function Turret:getHeatStatus()
+    if not self.isLaserTurret then
+        return {
+            heatLevel = 0,
+            maxHeat = 100,
+            isOverheated = false,
+            overheatProgress = 0.0,
+            heatPercentage = 0
+        }
+    end
+    
     return {
         heatLevel = self.heatLevel,
         maxHeat = self.maxHeat,

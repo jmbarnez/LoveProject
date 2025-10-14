@@ -64,35 +64,10 @@ function ProjectileCollision.checkProjectileCollision(projectile, target, dt)
         return false
     end
 
-    -- Use the same collision detection as laser beams for consistency
-    local CollisionHelpers = require("src.systems.turret.collision_helpers")
-    
-    -- Calculate projectile trajectory
-    local pos = projectile.components.position
-    local vel = projectile.components.velocity or {x = 0, y = 0}
-    
-    -- Previous position (where projectile was last frame)
-    local x1 = pos.x - ((vel.x or 0) * dt)
-    local y1 = pos.y - ((vel.y or 0) * dt)
-    
-    -- Current position
-    local x2 = pos.x
-    local y2 = pos.y
-    
-    -- Use effective radius for all targets to include HIT_BUFFER
-    local targetRadius = Radius.calculateEffectiveRadius(target)
-    
-    -- Use the same collision detection as laser beams (line-segment detection)
-    local ProjectileUtils = require("src.systems.collision.helpers.projectile_utils")
-    
-    -- Get projectile radius from collidable component
-    local projectileRadius = 2.0 -- Default radius
-    local projectileCollidable = projectile.components.collidable
-    if projectileCollidable and projectileCollidable.radius then
-        projectileRadius = projectileCollidable.radius
-    end
-    
-    return ProjectileUtils.perform_collision_check(x1, y1, x2, y2, target, targetRadius, projectileRadius)
+    -- Windfield handles all projectile collision detection automatically
+    -- This function is kept for compatibility but always returns false
+    -- since Windfield's collision callbacks handle the actual detection
+    return false
 end
 
 -- Handle projectile-specific collision behavior

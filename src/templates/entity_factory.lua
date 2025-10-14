@@ -180,6 +180,13 @@ function EntityFactory.createEnemy(shipId, x, y)
             local baseRadius = enemy.components.collidable.radius or 10
             enemy.components.collidable.radius = baseRadius * collidableMultiplier
         end
+        -- Handle Windfield physics radius scaling
+        if enemy.components.windfield_physics and physicsMultiplier ~= 1.0 then
+            local baseRadius = enemy.components.windfield_physics.radius or 10
+            enemy.components.windfield_physics.radius = baseRadius * physicsMultiplier
+        end
+        
+        -- Handle legacy physics radius scaling
         if enemy.components.physics and enemy.components.physics.body and physicsMultiplier ~= 1.0 then
             local baseBodyRadius = enemy.components.physics.body.radius or 10
             enemy.components.physics.body.radius = baseBodyRadius * physicsMultiplier
