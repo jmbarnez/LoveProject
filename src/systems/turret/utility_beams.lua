@@ -7,6 +7,8 @@ local Notifications = require("src.ui.notifications")
 local Events = require("src.core.events")
 local Log = require("src.core.log")
 local TurretCore = require("src.systems.turret.core")
+local Radius = require("src.systems.collision.radius")
+local PhysicsSystem = require("src.systems.physics")
 
 local UtilityBeams = {}
 
@@ -553,88 +555,110 @@ end
 
 
 -- Perform hitscan collision detection for mining lasers
-function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, world)
-    if not world then return nil end
-
-    local bestTarget = nil
-    local bestDistance = math.huge
-    local bestHitX, bestHitY = endX, endY
-
-    local entities = world:get_entities_with_components("collidable", "position")
-    
-    for _, entity in ipairs(entities) do
-        if entity ~= turret.owner and not entity.dead then
-            -- For healing lasers, only target same faction entities
-            if turret.kind == "healing_laser" or turret.type == "healing_laser" then
-                if not UtilityBeams.isSameFaction(turret.owner, entity) then
-                    goto continue -- Skip this entity, it's not the same faction
-                end
-            end
-            -- Simple distance-based collision check for utility beams
-            -- Windfield handles complex collision detection automatically
-            local entityPos = entity.components.position
-            if entityPos then
-                local targetRadius = 20 -- Default radius for utility beam targeting
-                local distance = math.sqrt((entityPos.x - startX)^2 + (entityPos.y - startY)^2)
-                if distance <= targetRadius then
-                    local hx, hy = entityPos.x, entityPos.y
-                    if distance < bestDistance then
-                        bestDistance = distance
-                        bestTarget = entity
-                        bestHitX, bestHitY = hx, hy
-                        
-                        -- Create spark effects for beam hits on hard surfaces
-                        local CollisionEffects = require("src.systems.collision.effects")
-                        local Effects = require("src.systems.effects")
-                        local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
-                        
-                        -- Check if target is a hard surface
-                        local isHardSurface = false
-                        if entity.components and entity.components.mineable then
-                            isHardSurface = true -- Asteroids are hard surfaces
-                        elseif entity.components and entity.components.station then
-                            isHardSurface = true -- Stations are hard surfaces
-                        elseif entity.tag == "station" then
-                            isHardSurface = true
-                        elseif entity.components and entity.components.interactable and entity.components.interactable.requiresKey == "reward_crate_key" then
-                            isHardSurface = true -- Reward crates are hard surfaces
-                        elseif entity.subtype == "reward_crate" then
-                            isHardSurface = true -- Reward crates are hard surfaces (fallback check)
-                        end
-                        
-                        if isHardSurface and Effects.spawnLaserSparks then
-                            -- Create minimal spark effects for beam hits on hard surfaces
-                            local impactAngle = math.atan2(hy - startY, hx - startX)
-                            local sparkColor = {1.0, 0.8, 0.3, 0.8} -- Golden sparks
-
-                            -- Adjust color based on turret type
-                            if turret.type == "mining_laser" then
-                                sparkColor = {1.0, 0.7, 0.2, 0.8} -- Orange for mining (matches beam color)
-                            elseif turret.type == "salvaging_laser" then
-                                sparkColor = {1.0, 0.2, 0.6, 0.8} -- Pink for salvaging (matches beam color)
-                            elseif turret.type == "healing_laser" then
-                                sparkColor = {0.0, 1.0, 0.5, 0.8} -- Lime green for healing (matches beam color)
-                            end
-
-                            Effects.spawnLaserSparks(hx, hy, impactAngle, sparkColor)
-                        elseif CollisionEffects.canEmitCollisionFX(turret, entity, now) then
-                            -- Use regular collision effects for non-hard surfaces
-                            local beamRadius = 1 -- Beams are line segments
-
-                            -- Use the precise hit position for collision effects
-                            CollisionEffects.createCollisionEffects(turret, entity, hx, hy, hx, hy, 0, 0, beamRadius, targetRadius, nil, nil, true)
-                        end
-                    end
-                end
-            end
-        end
-        ::continue::
-    end
-
-    return bestTarget, bestHitX, bestHitY
-end
-
-
+function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, world)
+    if not world then
+        return nil, endX, endY
+    end
+
+    local physicsManager = PhysicsSystem.getManager()
+    if not physicsManager then
+        return nil, endX, endY
+    end
+
+    local isHealingLaser = turret.kind == "healing_laser" or turret.type == "healing_laser"
+
+    local result = physicsManager:raycast(startX, startY, endX, endY, {
+        ignore = { turret.owner },
+        includeDead = false,
+        filter = function(entity, collider)
+            if entity == turret.owner then
+                return false
+            end
+            if not entity or not entity.components then
+                return false
+            end
+            if entity.dead then
+                return false
+            end
+            if not entity.components.position then
+                return false
+            end
+            if not entity.components.collidable and not entity.components.windfield_physics then
+                return false
+            end
+            if isHealingLaser then
+                return UtilityBeams.isSameFaction(turret.owner, entity)
+            end
+            return true
+        end
+    })
+
+    if not result then
+        return nil, endX, endY
+    end
+
+    local entity = result.entity
+    local hitX = result.x
+    local hitY = result.y
+
+    local targetRadius = Radius.getHullRadius(entity)
+    if (not targetRadius or targetRadius <= 0) and result.collider and result.collider.getRadius then
+        targetRadius = result.collider:getRadius()
+    end
+    targetRadius = targetRadius or 20
+
+    local CollisionEffects = require("src.systems.collision.effects")
+    local Effects = require("src.systems.effects")
+    local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
+
+    local isHardSurface = false
+    if entity.components and entity.components.mineable then
+        isHardSurface = true
+    elseif entity.components and entity.components.station then
+        isHardSurface = true
+    elseif entity.tag == "station" then
+        isHardSurface = true
+    elseif entity.components and entity.components.interactable and entity.components.interactable.requiresKey == "reward_crate_key" then
+        isHardSurface = true
+    elseif entity.subtype == "reward_crate" then
+        isHardSurface = true
+    end
+
+    if isHardSurface and Effects.spawnLaserSparks then
+        local impactAngle = math.atan2(hitY - startY, hitX - startX)
+        local sparkColor = {1.0, 0.8, 0.3, 0.8}
+
+        if turret.type == "mining_laser" then
+            sparkColor = {1.0, 0.7, 0.2, 0.8}
+        elseif turret.type == "salvaging_laser" then
+            sparkColor = {1.0, 0.2, 0.6, 0.8}
+        elseif turret.type == "healing_laser" then
+            sparkColor = {0.0, 1.0, 0.5, 0.8}
+        end
+
+        Effects.spawnLaserSparks(hitX, hitY, impactAngle, sparkColor)
+    elseif CollisionEffects.canEmitCollisionFX(turret, entity, now) then
+        local beamRadius = 1
+        CollisionEffects.createCollisionEffects(
+            turret,
+            entity,
+            hitX,
+            hitY,
+            hitX,
+            hitY,
+            0,
+            0,
+            beamRadius,
+            targetRadius,
+            nil,
+            nil,
+            true
+        )
+    end
+
+    return entity, hitX, hitY
+end
+
 -- Apply salvage damage to wreckage
 function UtilityBeams.applySalvageDamage(target, damage, source, world)
     if not target.components or not target.components.wreckage then

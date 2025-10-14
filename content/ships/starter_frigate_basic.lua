@@ -88,7 +88,20 @@ return {
     }
   },
 
-  -- Optional polygon collision shape (more accurate than circle)
-  collisionShape = "polygon",
-  collisionVertices = { 0,-15,  -13,-8,  -13,8,  0,15,  13,8,  13,-8 },  -- Hexagonal drone outline
+  -- Collision shape definition
+  collidable = {
+    shape = "polygon",
+    vertices = { 0,-15,  -13,-8,  -13,8,  0,15,  13,8,  13,-8 },  -- Hexagonal drone outline
+  },
+  
+  -- Physics configuration
+  windfield_physics = {
+    colliderType = "polygon",
+    mass = 200,
+    restitution = 0.1,
+    friction = 0.3,
+    fixedRotation = true,
+    bodyType = "dynamic",
+    vertices = { 0,-15,  -13,-8,  -13,8,  0,15,  13,8,  13,-8 },
+  },
 }

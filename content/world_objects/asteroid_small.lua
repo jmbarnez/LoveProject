@@ -27,16 +27,12 @@ return {
         vertices = {
             -20, -8,   -- Top-left
             -24, 0,    -- Left
-            -20, 8,    -- Bottom-left
             -8, 20,    -- Bottom-left
             0, 24,     -- Bottom
             8, 20,     -- Bottom-right
             20, 8,     -- Right
             24, 0,     -- Right
-            20, -8,    -- Top-right
-            8, -20,    -- Top-right
             0, -24,    -- Top
-            -8, -20,   -- Top-left
         }
     },
 
@@ -47,13 +43,22 @@ return {
     },
 
     windfield_physics = {
-        colliderType = "circle",
+        colliderType = "polygon",
         mass = 48,
         restitution = 0.3,
         friction = 0.1,
         fixedRotation = false,
         bodyType = "dynamic",
-        radius = 24,
+        vertices = {
+            -20, -8,   -- Top-left
+            -24, 0,    -- Left
+            -8, 20,    -- Bottom-left
+            0, 24,     -- Bottom
+            8, 20,     -- Bottom-right
+            20, 8,     -- Right
+            24, 0,     -- Right
+            0, -24,    -- Top
+        },
     },
 
     visuals = {

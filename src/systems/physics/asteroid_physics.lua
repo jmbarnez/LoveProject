@@ -31,6 +31,7 @@ function AsteroidPhysics.createAsteroidCollider(asteroid, windfieldManager)
     local pos = asteroid.components.position
     local renderable = asteroid.components.renderable
     local mineable = asteroid.components.mineable
+    local collidable = asteroid.components.collidable
     
     if not renderable or not mineable then
         Log.warn("physics", "Cannot create asteroid collider: missing renderable or mineable component")
@@ -50,40 +51,36 @@ function AsteroidPhysics.createAsteroidCollider(asteroid, windfieldManager)
         radius = 48
     end
     
-    -- Get asteroid vertices for polygon collider
-    local vertices = {}
-    if renderable.props and renderable.props.vertices then
-        vertices = renderable.props.vertices
-    else
-        -- Generate vertices if not present
-        local geometry = Util.generateAsteroidGeometry(radius, renderable.props.chunkOptions or {})
-        vertices = geometry.vertices
-    end
+    -- Check if asteroid has polygon collision shape defined
+    local usePolygon = collidable and collidable.shape == "polygon" and collidable.vertices
+    local colliderType = usePolygon and "polygon" or "circle"
     
-    -- Flatten vertices for Windfield
-    local flatVertices = {}
-    for _, vertex in ipairs(vertices) do
-        table.insert(flatVertices, vertex[1])
-        table.insert(flatVertices, vertex[2])
-    end
-    
-    -- Create physics options - use circle collider due to Box2D polygon vertex limit
+    -- Create physics options
     local options = {
         mass = mass,
         restitution = ASTEROID_CONSTANTS.RESTITUTION,
         friction = ASTEROID_CONSTANTS.FRICTION,
         fixedRotation = false,
         bodyType = "dynamic",
-        colliderType = "circle",
-        radius = radius,
+        colliderType = colliderType,
     }
     
+    if usePolygon then
+        -- Use polygon vertices from collidable component
+        options.vertices = collidable.vertices
+        Log.debug("physics", "Using polygon collider for asteroid with %d vertices", #collidable.vertices / 2)
+    else
+        -- Fallback to circle collider
+        options.radius = radius
+        Log.debug("physics", "Using circle collider for asteroid with radius %.1f", radius)
+    end
+    
     -- Create collider
-    local collider = windfieldManager:addEntity(asteroid, "circle", pos.x, pos.y, options)
+    local collider = windfieldManager:addEntity(asteroid, colliderType, pos.x, pos.y, options)
     
     if collider then
-        Log.debug("physics", "Created asteroid collider: %s (mass=%.1f, radius=%.1f)", 
-                 size, mass, radius)
+        Log.debug("physics", "Created asteroid collider: %s (mass=%.1f, type=%s)", 
+                 size, mass, colliderType)
         
         -- Add initial random velocity
         local velX = (math.random() - 0.5) * 15

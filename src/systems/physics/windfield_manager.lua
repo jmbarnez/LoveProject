@@ -213,6 +213,17 @@ function WindfieldManager:handleProjectileCollision(entityA, entityB, contact)
         
         -- Trigger projectile hit logic with precise hit position
         ProjectileCollision.handleProjectileCollision(projectile, target, 1/60, nil, hitX, hitY)
+
+        -- Destroy projectile collider immediately to prevent post-hit bounce
+        local projectileCollider = self.entities[projectile]
+        if projectileCollider and not projectileCollider:isDestroyed() then
+            projectileCollider:setLinearVelocity(0, 0)
+            projectileCollider:destroy()
+        end
+        if projectileCollider then
+            self.colliders[projectileCollider] = nil
+        end
+        self.entities[projectile] = nil
     end
 end
 
@@ -545,6 +556,141 @@ function WindfieldManager:getAngle(entity)
         return collider:getAngle()
     end
     return 0
+end
+
+function WindfieldManager:raycast(x1, y1, x2, y2, opts)
+    opts = opts or {}
+
+    local dx = (x2 or 0) - (x1 or 0)
+    local dy = (y2 or 0) - (y1 or 0)
+    local lengthSq = dx * dx + dy * dy
+    if lengthSq <= 0 then
+        return nil
+    end
+
+    local segmentLength = math.sqrt(lengthSq)
+
+    local ignoreSet = {}
+    local function addIgnore(value)
+        if not value then
+            return
+        end
+        local valueType = type(value)
+        if valueType == "table" then
+            -- Accept both array-style and map-style tables
+            for key, v in pairs(value) do
+                if type(key) == "number" then
+                    ignoreSet[v] = true
+                else
+                    ignoreSet[key] = true
+                end
+            end
+        else
+            ignoreSet[value] = true
+        end
+    end
+
+    addIgnore(opts.ignore)
+    addIgnore(opts.ignoreEntity)
+    addIgnore(opts.ignoreEntities)
+    addIgnore(opts.exclude)
+    addIgnore(opts.excludeEntity)
+    addIgnore(opts.excludeEntities)
+
+    local includeDead = opts.includeDead == true
+    local includeSensors = opts.includeSensors == true
+
+    local bestFraction
+    local bestResult
+
+    for entity, collider in pairs(self.entities) do
+        repeat
+            if not collider or collider:isDestroyed() then
+                break
+            end
+
+            if ignoreSet[entity] then
+                break
+            end
+
+            if not includeDead and entity.dead then
+                break
+            end
+
+            if opts.filter and not opts.filter(entity, collider) then
+                break
+            end
+
+            local fixture = collider.fixture
+            if not includeSensors and fixture and fixture.isSensor and fixture:isSensor() then
+                break
+            end
+
+            local cx, cy = collider:getPosition()
+            if not cx or not cy then
+                break
+            end
+
+            local radius = nil
+            if collider.getRadius then
+                radius = collider:getRadius()
+            end
+
+            if (not radius or radius <= 0) and collider.getDimensions then
+                local width, height = collider:getDimensions()
+                if width and height then
+                    radius = math.max(width, height) * 0.5
+                end
+            end
+
+            if not radius or radius <= 0 then
+                radius = Radius.getHullRadius(entity)
+            end
+
+            if not radius or radius <= 0 then
+                break
+            end
+
+            local fx = x1 - cx
+            local fy = y1 - cy
+
+            local a = lengthSq
+            local b = 2 * (fx * dx + fy * dy)
+            local c = fx * fx + fy * fy - radius * radius
+
+            local discriminant = b * b - 4 * a * c
+            if discriminant < 0 then
+                break
+            end
+
+            local sqrtDisc = math.sqrt(discriminant)
+            local denom = 2 * a
+
+            local function consider(t)
+                if t and t >= 0 and t <= 1 then
+                    if not bestFraction or t < bestFraction then
+                        local hitX = x1 + dx * t
+                        local hitY = y1 + dy * t
+                        bestFraction = t
+                        bestResult = {
+                            entity = entity,
+                            collider = collider,
+                            x = hitX,
+                            y = hitY,
+                            fraction = t,
+                            distance = segmentLength * t,
+                            collisionClass = collider:getCollisionClass(),
+                        }
+                    end
+                end
+            end
+
+            consider((-b - sqrtDisc) / denom)
+            consider((-b + sqrtDisc) / denom)
+        until true
+    end
+
+    return bestResult
 end
 
 function WindfieldManager:getCollider(entity)

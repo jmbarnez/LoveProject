@@ -93,6 +93,23 @@ return {
     }
   },
 
+  windfield_physics = {
+    colliderType = "polygon",
+    mass = 320,
+    restitution = 0.1,
+    friction = 0.3,
+    fixedRotation = true,
+    bodyType = "dynamic",
+    vertices = {
+      0, -14,  -- Top
+      -12, -7, -- Top-left
+      -12, 7,  -- Bottom-left
+      0, 14,   -- Bottom
+      12, 7,   -- Bottom-right
+      12, -7,  -- Top-right
+    },
+  },
+
   enemy = {
     isBoss = true,
     sizeMultiplier = 5.0,

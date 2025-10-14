@@ -34,6 +34,7 @@ function ShipPhysics.createShipCollider(ship, windfieldManager)
     
     local pos = ship.components.position
     local physics = ship.components.windfield_physics
+    local collidable = ship.components.collidable
     
     if not physics then
         Log.warn("physics", "Cannot create ship collider: missing windfield_physics component")
@@ -42,8 +43,10 @@ function ShipPhysics.createShipCollider(ship, windfieldManager)
     
     -- Determine ship size and mass
     local mass = physics.mass or 1000
-    -- Use proper hull radius calculation based on visual boundaries
-    local radius = Radius.getHullRadius(ship)
+    
+    -- Check if ship has polygon collision shape defined
+    local usePolygon = collidable and collidable.shape == "polygon" and collidable.vertices
+    local colliderType = usePolygon and "polygon" or "circle"
     
     -- Create physics options
     local options = {
@@ -52,19 +55,29 @@ function ShipPhysics.createShipCollider(ship, windfieldManager)
         friction = 0.3,
         fixedRotation = true, -- Ships don't rotate - they use screen-relative movement
         bodyType = "dynamic",
-        colliderType = "circle",
-        radius = radius,
+        colliderType = colliderType,
     }
     
+    if usePolygon then
+        -- Use polygon vertices from collidable component
+        options.vertices = collidable.vertices
+        Log.debug("physics", "Using polygon collider for ship with %d vertices", #collidable.vertices / 2)
+    else
+        -- Fallback to circle collider
+        local radius = Radius.getHullRadius(ship)
+        options.radius = radius
+        Log.debug("physics", "Using circle collider for ship with radius %.1f", radius)
+    end
+    
     -- Create collider at the entity's current position
-    local collider = windfieldManager:addEntity(ship, "circle", pos.x, pos.y, options)
+    local collider = windfieldManager:addEntity(ship, colliderType, pos.x, pos.y, options)
     
     if collider then
         -- Ensure ship starts with zero velocity
         collider:setLinearVelocity(0, 0)
         collider:setAngularVelocity(0)
         
-        Log.debug("physics", "Created ship collider: mass=%.1f, radius=%.1f", mass, radius)
+        Log.debug("physics", "Created ship collider: mass=%.1f, type=%s", mass, colliderType)
         return collider
     else
         Log.error("physics", "Failed to create ship collider")
