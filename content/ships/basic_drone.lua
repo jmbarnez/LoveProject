@@ -48,9 +48,9 @@ return {
     },
 
     engine = {
-        mass = 150,
-        accel = 600,
-        maxSpeed = 350,
+        mass = 180,
+        accel = 200,
+        maxSpeed = 280,
     },
 
   hull = {

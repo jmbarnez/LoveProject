@@ -1,6 +1,6 @@
 local Log = require("src.core.log")
 local Position = require("src.components.position")
-local Velocity = require("src.components.velocity")
+-- Velocity component removed - handled by Windfield physics
 local Renderable = require("src.components.renderable")
 local Collidable = require("src.components.collidable")
 local Damage = require("src.components.damage")
@@ -154,9 +154,21 @@ function Projectile.new(x, y, angle, friendly, config)
     -- Set projectile type for network synchronization
     self.projectileType = config.id or "gun_bullet"
 
-    local speed = config.speedOverride or (config.physics and config.physics.speed) or 700
-    local vx = math.cos(angle) * speed
-    local vy = math.sin(angle) * speed
+    -- Use provided velocity if available, otherwise calculate from speed and angle
+    local vx, vy
+    if config.vx and config.vy then
+        -- Use the velocity provided by the turret system
+        vx = config.vx
+        vy = config.vy
+        Log.debug("projectile", "Using provided velocity: vx=%.2f, vy=%.2f, angle=%.2f", vx, vy, angle)
+    else
+        -- Calculate velocity from speed and angle
+        local speed = config.speedOverride or (config.physics and config.physics.speed) or 700
+        -- Ensure proper direction calculation for Windfield physics
+        vx = math.cos(angle) * speed
+        vy = math.sin(angle) * speed
+        Log.debug("projectile", "Calculated velocity: vx=%.2f, vy=%.2f, angle=%.2f, speed=%.2f", vx, vy, angle, speed)
+    end
 
     self.components = {
         bullet = {
@@ -171,6 +183,7 @@ function Projectile.new(x, y, angle, friendly, config)
             targetY = config.targetY,
             targetAngle = config.targetAngle,
             kind = config.kind, -- Store projectile kind for collision detection
+            speed = config.speedOverride or (config.physics and config.physics.speed) or 700, -- Store the calculated speed for physics system
         },
         position = Position.new({ x = x, y = y, angle = angle }),
         -- Velocity is now handled by Windfield physics system
@@ -351,15 +364,21 @@ function Projectile.new(x, y, angle, friendly, config)
         self._hudDamageTime = os.clock()
     end
 
+    -- Store initial velocity for Windfield physics system BEFORE adding to physics
+    self._initialVelocity = {
+        x = vx,
+        y = vy,
+        angular = 0
+    }
+    Log.debug("projectile", "Set _initialVelocity: vx=%.2f, vy=%.2f", vx, vy)
+
+    -- Debug: Log projectile velocity
+    local Log = require("src.core.log")
+    Log.debug("projectile", "Projectile created with velocity: vx=%.2f, vy=%.2f, angle=%.2f", vx, vy, angle)
+
     -- Add projectile to physics system
     local PhysicsSystem = require("src.systems.physics")
     PhysicsSystem.addEntity(self)
-
-    -- Set initial velocity for the projectile
-    local physicsManager = PhysicsSystem.getManager()
-    if physicsManager then
-        physicsManager:setVelocity(self, vx, vy)
-    end
 
     return self
 end

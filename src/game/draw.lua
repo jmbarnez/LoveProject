@@ -1,4 +1,5 @@
 local State = require("src.game.state")
+local Constants = require("src.core.constants")
 
 local RenderSystem = require("src.systems.render")
 local Effects = require("src.systems.effects")
@@ -30,7 +31,7 @@ function Draw.draw(Game)
     camera:apply(0, 0, zoomScale)
 
     world:drawBackground(camera)
-    if DEBUG_DRAW_BOUNDS then world:drawBounds() end
+    if Constants.DEBUG_DRAW_BOUNDS then world:drawBounds() end
 
     RenderSystem.draw(world, camera, player, State.clickMarkers, State.hoveredEntity, State.hoveredEntityType)
     Effects.draw()
@@ -69,9 +70,9 @@ function Draw.draw(Game)
 
         local currentCanvas = love.graphics.getCanvas()
         local okBlur, errBlur = xpcall(function()
-            love.graphics.setCanvas({ Game.blurCanvas, stencil = true })
+            love.graphics.setCanvas(Game.blurCanvas)
             love.graphics.setColor(1, 1, 1, 1)
-            love.graphics.draw(Viewport.getCanvas(), 0, 0)
+            love.graphics.draw(Viewport.getCanvas())
         end, debug.traceback)
         love.graphics.setCanvas(currentCanvas)
 
@@ -83,13 +84,13 @@ function Draw.draw(Game)
         else
             love.graphics.setShader(Theme.shaders.ui_blur)
             love.graphics.setColor(1, 1, 1, 0.8)
-            love.graphics.draw(Game.blurCanvas, 0, 0)
+            love.graphics.draw(Game.blurCanvas)
             love.graphics.setShader()
         end
 
-        UIManager.draw(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, {})
+        UIManager.draw(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {})
     else
-        UIManager.draw(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {}, {})
+        UIManager.draw(player, world, world:get_entities_with_components("ai"), hub, world:get_entities_with_components("wreckage"), {})
     end
 
     Theme.drawParticles()

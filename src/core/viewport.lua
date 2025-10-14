@@ -15,7 +15,7 @@ local canvas
 local function ensureCanvas()
     if not canvas or canvas:getWidth() ~= vw or canvas:getHeight() ~= vh then
         canvas = love.graphics.newCanvas(vw, vh)
-        canvas:setFilter("nearest", "nearest", 1)
+        canvas:setFilter("nearest", "nearest")
     end
 end
 

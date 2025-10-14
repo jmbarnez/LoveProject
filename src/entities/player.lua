@@ -7,6 +7,7 @@ local Log = require("src.core.log")
 local PlayerStateComponent = require("src.components.player_state")
 local DockingStatusComponent = require("src.components.docking_status")
 local PlayerHotbar = require("src.systems.player.hotbar")
+local ShieldDurability = require("src.components.shield_durability")
 
 -- Inherit from the Ship template to get shared functionality like the 'hit' method.
 local Ship = require("src.templates.ship")

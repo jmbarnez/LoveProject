@@ -49,7 +49,7 @@ function PhysicsResolution.pushEntity(entity, pushX, pushY, normalX, normalY, dt
         local manager = PhysicsSystem.getManager()
         if manager then
             local collider = manager:getCollider(entity)
-            if collider then
+            if collider and not collider:isDestroyed() then
                 local oldX, oldY = collider:getPosition()
                 collider:setPosition(oldX + pushX, oldY + pushY)
             end
@@ -99,6 +99,8 @@ function PhysicsResolution.pushEntity(entity, pushX, pushY, normalX, normalY, dt
             body.vy = body.vy or 0
         end
     else
+        -- For entities without physics components, update position directly
+        -- but this should be avoided - entities should have WindField physics
         entity.components.position.x = entity.components.position.x + pushX
         entity.components.position.y = entity.components.position.y + pushY
 

@@ -223,7 +223,7 @@ function World:resize(w, h)
     -- Create a simple nebula canvas (placeholder for now)
     self.nebulaCanvas = love.graphics.newCanvas(w, h)
     love.graphics.setCanvas(self.nebulaCanvas)
-    love.graphics.clear(0, 0, 0, 0) -- Transparent
+    love.graphics.clear() -- Transparent
     love.graphics.setCanvas()
 end
 

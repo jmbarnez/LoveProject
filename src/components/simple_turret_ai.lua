@@ -9,7 +9,11 @@ function SimpleTurretAI.new(config)
     
     -- Configuration
     self.scanRange = config.scanRange or 600
-    self.fireRange = config.fireRange or 500
+    if config.fireRange == nil then
+        self.fireRange = 500
+    else
+        self.fireRange = config.fireRange
+    end
     self.turnSpeed = config.turnSpeed or 3.0
     self.scanInterval = config.scanInterval or 0.2 -- Scan every 200ms
     self.lastScanTime = 0
@@ -25,6 +29,7 @@ function SimpleTurretAI.new(config)
     self.scanAngle = 0 -- Current scanning angle
     self.scanSpeed = 0.5 -- Radians per second when scanning
     self.scanDirection = 1 -- 1 or -1 for scanning direction
+    self.currentDistance = math.huge
     
     return self
 end
@@ -100,6 +105,7 @@ end
 function SimpleTurretAI:updateTargeting(dt, entity, world)
     if not self.currentTarget or not self.currentTarget.components or not self.currentTarget.components.position then
         self.currentTarget = nil
+        self.currentDistance = math.huge
         return
     end
     
@@ -115,7 +121,8 @@ function SimpleTurretAI:updateTargeting(dt, entity, world)
     
     -- Check if in range
     local distance = self:getDistance(turretPos, targetPos)
-    local inRange = distance <= self.fireRange
+    local inRange = (not self.fireRange) or (distance <= self.fireRange)
+    self.currentDistance = distance
     
     -- Update turret state for firing system
     if entity.components.ai then
@@ -123,6 +130,7 @@ function SimpleTurretAI:updateTargeting(dt, entity, world)
             hasTarget = true,
             isAimed = self.isAimed,
             inRange = inRange,
+            distance = distance,
             targetPosition = {x = targetPos.x, y = targetPos.y}
         }
     end
@@ -131,6 +139,7 @@ end
 function SimpleTurretAI:updateScanning(dt, entity)
     -- Slow scanning rotation when no target
     self.scanAngle = self.scanAngle + self.scanSpeed * self.scanDirection * dt
+    self.currentDistance = math.huge
     
     -- Reverse direction when reaching limits (180 degrees each way)
     if self.scanAngle > math.pi then
@@ -187,17 +196,19 @@ function SimpleTurretAI:getCurrentTarget()
 end
 
 function SimpleTurretAI:canFire()
-    return self.currentTarget ~= nil and self.isAimed and self:getDistanceToTarget() <= self.fireRange
+    if not (self.currentTarget and self.isAimed) then
+        return false
+    end
+
+    if not self.fireRange then
+        return true
+    end
+
+    return (self.currentDistance or math.huge) <= self.fireRange
 end
 
 function SimpleTurretAI:getDistanceToTarget()
-    if not self.currentTarget or not self.currentTarget.components or not self.currentTarget.components.position then
-        return math.huge
-    end
-    return self:getDistance(
-        {x = 0, y = 0}, -- This will be updated by the calling code
-        self.currentTarget.components.position
-    )
+    return self.currentDistance or math.huge
 end
 
 return SimpleTurretAI

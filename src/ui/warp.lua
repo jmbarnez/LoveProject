@@ -3,6 +3,7 @@ local Viewport = require("src.core.viewport")
 local Util = require("src.core.util")
 local Sectors = require("src.content.sectors")
 local PortfolioManager = require("src.managers.portfolio")
+local Strings = require("src.core.strings")
 
 local Warp = {}
 

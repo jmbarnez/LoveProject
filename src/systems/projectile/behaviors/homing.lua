@@ -85,10 +85,19 @@ local function factory(context, config)
 
     local function steer(dt, world)
         local position = projectile.components and projectile.components.position
-        local velocity = projectile.components and projectile.components.velocity
-        if not position or not velocity then
+        if not position then
             return
         end
+        
+        -- Get velocity from Windfield physics
+        local PhysicsSystem = require("src.systems.physics")
+        local physicsManager = PhysicsSystem.getManager()
+        if not physicsManager then
+            return
+        end
+        
+        local vx, vy = physicsManager:getVelocity(projectile)
+        local velocity = { x = vx, y = vy }
 
         -- If no target or target is invalid, maintain current velocity (fly straight)
         if not state.currentTarget or not is_target_valid(state.currentTarget) then
@@ -97,14 +106,16 @@ local function factory(context, config)
             if state.desiredSpeed and state.desiredSpeed > 0 then
                 speed = state.desiredSpeed
             elseif speed <= 0 then
-                local physics = projectile.components.physics
-                local baseSpeed = (physics and physics.speed) or 700
+            local bullet = projectile.components.bullet
+            local baseSpeed = (bullet and bullet.speed) or 700
                 speed = baseSpeed
             end
             
             local currentAngle = math.atan2(velocity.y or 0, velocity.x or 0)
-            velocity.x = math.cos(currentAngle) * speed
-            velocity.y = math.sin(currentAngle) * speed
+            -- Update velocity through Windfield physics
+            local newVx = math.cos(currentAngle) * speed
+            local newVy = math.sin(currentAngle) * speed
+            physicsManager:setVelocity(projectile, newVx, newVy)
             position.angle = currentAngle
             return
         end
@@ -121,13 +132,15 @@ local function factory(context, config)
         if state.desiredSpeed and state.desiredSpeed > 0 then
             speed = state.desiredSpeed
         elseif speed <= 0 then
-            local physics = projectile.components.physics
-            local baseSpeed = (physics and physics.speed) or 700
+            local bullet = projectile.components.bullet
+            local baseSpeed = (bullet and bullet.speed) or 700
             speed = baseSpeed
         end
 
-        velocity.x = math.cos(newAngle) * speed
-        velocity.y = math.sin(newAngle) * speed
+        -- Update velocity through Windfield physics
+        local newVx = math.cos(newAngle) * speed
+        local newVy = math.sin(newAngle) * speed
+        physicsManager:setVelocity(projectile, newVx, newVy)
         position.angle = newAngle
     end
 

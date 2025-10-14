@@ -86,7 +86,15 @@ local function factory(context, config)
 
     local function steer(dt)
         local position = projectile.components and projectile.components.position
-        local velocity = projectile.components and projectile.components.velocity
+        -- Get velocity from Windfield physics
+        local PhysicsSystem = require("src.systems.physics")
+        local physicsManager = PhysicsSystem.getManager()
+        if not physicsManager then
+            return
+        end
+        
+        local vx, vy = physicsManager:getVelocity(projectile)
+        local velocity = { x = vx, y = vy }
         if not position or not velocity then
             return
         end
@@ -102,8 +110,9 @@ local function factory(context, config)
             end
             
             local currentAngle = math.atan2(velocity.y or 0, velocity.x or 0)
-            velocity.x = math.cos(currentAngle) * speed
-            velocity.y = math.sin(currentAngle) * speed
+            local newVx = math.cos(currentAngle) * speed
+            local newVy = math.sin(currentAngle) * speed
+            physicsManager:setVelocity(projectile, newVx, newVy)
             position.angle = currentAngle
             return
         end
@@ -127,8 +136,10 @@ local function factory(context, config)
             speed = 1
         end
 
-        velocity.x = math.cos(newAngle) * speed
-        velocity.y = math.sin(newAngle) * speed
+        -- Update velocity through Windfield physics
+        local newVx = math.cos(newAngle) * speed
+        local newVy = math.sin(newAngle) * speed
+        physicsManager:setVelocity(projectile, newVx, newVy)
         position.angle = newAngle
     end
 

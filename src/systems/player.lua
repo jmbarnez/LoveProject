@@ -12,7 +12,7 @@ local PlayerDocking = require("src.systems.player.docking")
 -- Player sub-systems
 local PlayerDebug = require("src.systems.player.debug")
 local StateValidator = require("src.systems.player.state_validator")
-local MovementSystem = require("src.systems.player.movement")
+-- MovementSystem removed - handled by Ship Physics System
 local DashSystem = require("src.systems.player.dash")
 local BrakingSystem = require("src.systems.player.braking")
 local RegenSystem = require("src.systems.player.regen")
@@ -158,21 +158,69 @@ function PlayerSystem.update(dt, player, input, world, hub)
 
     -- Reset thruster state for visual effects
     local thrusterState = ensureThrusterState(state)
-    MovementSystem.resetThrusterState(thrusterState)
+    thrusterState.forward = 0
+    thrusterState.reverse = 0
+    thrusterState.strafeLeft = 0
+    thrusterState.strafeRight = 0
+    thrusterState.boost = 0
+    thrusterState.brake = 0
+    thrusterState.isThrusting = false
 
     -- Get movement inputs
-    local inputs = MovementSystem.getMovementInputs(intent, modalActive)
-    local boosting = MovementSystem.isBoosting(player, inputs.boost)
+    local inputs = {
+        w = (not modalActive) and intent.forward or false,
+        s = (not modalActive) and intent.reverse or false,
+        a = (not modalActive) and intent.strafeLeft or false,
+        d = (not modalActive) and intent.strafeRight or false,
+        boost = (not modalActive) and intent.boost or false,
+        brake = (not modalActive) and intent.brake or false,
+        modalActive = modalActive
+    }
+    
+    -- Check if player is boosting
+    local energy = player.components and player.components.energy
+    local boosting = (inputs.boost and ((not energy) or ((energy.energy or 0) > 0))) or false
     inputs.boosting = boosting
 
     -- Reset physics thrusters (not needed for Windfield)
     -- body:resetThrusters()
 
-    -- Process movement
-    MovementSystem.processMovement(player, body, inputs, dt, thrusterState)
+    -- Movement is now handled by Ship Physics System
+    -- Just update thruster state for visual effects
+    local w = inputs.w
+    local s = inputs.s
+    local a = inputs.a
+    local d = inputs.d
+    
+    -- Update thruster state for visual effects
+    thrusterState.forward = w and 1.0 or 0
+    thrusterState.reverse = s and 1.0 or 0
+    thrusterState.strafeLeft = a and 1.0 or 0
+    thrusterState.strafeRight = d and 1.0 or 0
+    thrusterState.boost = boosting and 1.0 or 0
+    thrusterState.isThrusting = w or s or a or d
+    
+    -- Update windfield physics component's thruster state
+    if player.components.windfield_physics then
+        player.components.windfield_physics.thrusterState.forward = thrusterState.forward
+        player.components.windfield_physics.thrusterState.reverse = thrusterState.reverse
+        player.components.windfield_physics.thrusterState.strafeLeft = thrusterState.strafeLeft
+        player.components.windfield_physics.thrusterState.strafeRight = thrusterState.strafeRight
+        player.components.windfield_physics.thrusterState.boost = thrusterState.boost
+        player.components.windfield_physics.thrusterState.isThrusting = thrusterState.isThrusting
+    end
 
     -- Handle boost energy drain
-    boosting = MovementSystem.handleBoostDrain(player, boosting, dt)
+    if boosting then
+        local energy = player.components and player.components.energy
+        if energy then
+            local drain = 20 -- BOOST_ENERGY_DRAIN
+            energy.energy = math.max(0, (energy.energy or 0) - drain * dt)
+            if (energy.energy or 0) <= 0 then
+                boosting = false
+            end
+        end
+    end
 
     -- Process dash
     DashSystem.processDash(player, state, input, body, dt, modalActive)
@@ -182,10 +230,11 @@ function PlayerSystem.update(dt, player, input, world, hub)
     BrakingSystem.processBraking(player, body, inputs.brake, baseThrust, dt, thrusterState)
 
     -- Update cursor position for turret aiming
-    MovementSystem.updateCursorPosition(player, input, modalActive)
-
-    -- Update physics and sync components
-    MovementSystem.updatePhysics(player, dt)
+    if not modalActive and input and input.aimx and input.aimy then
+        player.cursorWorldPos = { x = input.aimx, y = input.aimy }
+    elseif modalActive then
+        player.cursorWorldPos = nil
+    end
 
     -- Process regeneration systems
     RegenSystem.processAll(player, dt)

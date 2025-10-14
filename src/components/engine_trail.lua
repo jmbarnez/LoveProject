@@ -28,7 +28,7 @@ function EngineTrail.new(config)
     local prevCanvas = love.graphics.getCanvas()
     local okCanvas = xpcall(function()
         love.graphics.setCanvas(particleImg)
-        love.graphics.clear(1, 1, 1, 1)  -- White square that we'll tint
+        love.graphics.clear()  -- White square that we'll tint
     end, debug.traceback)
     love.graphics.setCanvas(prevCanvas)
     if not okCanvas then
@@ -140,7 +140,7 @@ function EngineTrail:update(dt)
 end
 
 function EngineTrail:draw()
-    love.graphics.setBlendMode("add", "alphamultiply")
+    love.graphics.setBlendMode("add")
     love.graphics.draw(self.particleSystem)
     love.graphics.setBlendMode("alpha")
 end

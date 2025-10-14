@@ -247,6 +247,11 @@ local function computeMissileAim(turret, target)
         local dx = cursorX - sx
         local dy = cursorY - sy
         angle = math.atan2(dy, dx)
+        
+        -- Debug: Log angle calculation
+        local Log = require("src.core.log")
+        Log.debug("turret", "Angle calculation: cursor=(%.2f,%.2f), turret=(%.2f,%.2f), dx=%.2f, dy=%.2f, angle=%.2f", 
+                 cursorX, cursorY, sx, sy, dx, dy, angle)
     elseif turret.owner and turret.owner.components and turret.owner.components.position then
         angle = turret.owner.components.position.angle
     end
@@ -396,6 +401,10 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
             local sx, sy = Turret.getTurretWorldPosition(turret)
             local vx = math.cos(finalAngle) * projSpeed
             local vy = math.sin(finalAngle) * projSpeed
+            
+            -- Debug: Log turret velocity calculation
+            local Log = require("src.core.log")
+            Log.debug("turret", "Turret firing: angle=%.2f, vx=%.2f, vy=%.2f, speed=%.2f", finalAngle, vx, vy, projSpeed)
 
             local damageConfig
             if turret.damage_range then

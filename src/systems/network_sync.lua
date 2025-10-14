@@ -235,7 +235,7 @@ local function updateEntityFromSnapshot(entity, snapshot)
                 local duration = interp.duration or POSITION_SEND_INTERVAL
                 if elapsed < duration then
                     local t = math.max(0, math.min(1, elapsed / duration))
-                    local smoothT = t < 0.5 and 4 * t * t * t or 1 - math.pow(-2 * t + 2, 3) / 2
+                    local smoothT = t < 0.5 and 4 * t * t * t or 1 - (-2 * t + 2)^3 / 2
                     currentX = interp.startPos.x + (interp.targetPos.x - interp.startPos.x) * smoothT
                     currentY = interp.startPos.y + (interp.targetPos.y - interp.startPos.y) * smoothT
                     currentAngle = interp.startPos.angle + (interp.targetPos.angle - interp.startPos.angle) * smoothT
@@ -383,7 +383,7 @@ local function applyRemotePlayerSmoothing()
                 local t = math.max(0, math.min(1, elapsed / duration))
                 
                 -- Use smoother interpolation curve (ease-in-out cubic)
-                local smoothT = t < 0.5 and 4 * t * t * t or 1 - math.pow(-2 * t + 2, 3) / 2
+                local smoothT = t < 0.5 and 4 * t * t * t or 1 - (-2 * t + 2)^3 / 2
 
                 local newX, newY, newAngle
 

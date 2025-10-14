@@ -68,7 +68,6 @@ return {
     },
     
     -- Turret properties (not a station)
-    name = "Holographic Turret",
     description = "An automated holographic defense turret",
     
     -- Collision

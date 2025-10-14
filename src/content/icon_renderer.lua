@@ -23,7 +23,7 @@ function IconRenderer.renderIcon(iconDef, size, id)
 
   local ok, err = xpcall(function()
     love.graphics.setCanvas(canvas)
-    love.graphics.clear(0, 0, 0, 0) -- Transparent background
+    love.graphics.clear() -- Transparent background
 
     -- Reset graphics state
     love.graphics.setColor(1, 1, 1, 1)

@@ -200,8 +200,18 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
         local vx = entity._initialVelocity.x or 0
         local vy = entity._initialVelocity.y or 0
         local angular = entity._initialVelocity.angular or 0
+        Log.debug("physics", "Found _initialVelocity: vx=%.2f, vy=%.2f", vx, vy)
         collider:setLinearVelocity(vx, vy)
         collider:setAngularVelocity(angular)
+        
+        -- Debug: Log velocity application
+        if entity.components and entity.components.bullet then
+            Log.debug("physics", "Applied initial velocity to projectile: vx=%.2f, vy=%.2f", vx, vy)
+            -- Also log the actual velocity after setting it
+            local actualVx, actualVy = collider:getLinearVelocity()
+            Log.debug("physics", "Actual velocity after setting: vx=%.2f, vy=%.2f", actualVx, actualVy)
+        end
+        
         entity._initialVelocity = nil -- Clear after use
     end
     
@@ -305,6 +315,9 @@ function WindfieldManager:applyForce(entity, fx, fy)
     local collider = self.entities[entity]
     if collider and not collider:isDestroyed() then
         collider:applyForce(fx, fy)
+        Log.debug("physics", "Applied force to entity: fx=%.2f, fy=%.2f", fx, fy)
+    else
+        Log.warn("physics", "Cannot apply force: collider not found or destroyed")
     end
 end
 

@@ -65,6 +65,8 @@ function Projectiles.spawn(x, y, angle, friendly, opts, world)
 
     -- Handle velocity override if provided
     if opts.vx and opts.vy then
+        extra_config.vx = opts.vx
+        extra_config.vy = opts.vy
         extra_config.speedOverride = math.sqrt(opts.vx * opts.vx + opts.vy * opts.vy)
     end
 

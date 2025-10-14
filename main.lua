@@ -116,7 +116,7 @@ local function configureInput()
     })
 end
 
-love = love or {}
+local love = love or {}
 function love.setScreen(newScreen)
     local previousScreen = screen
     if previousScreen == newScreen then
@@ -158,7 +158,7 @@ end
 ]]
 function updateFPSLimit()
   local graphicsSettings = Settings.getGraphicsSettings()
-  minFrameTime = (graphicsSettings.max_fps and graphicsSettings.max_fps > 0) and (1 / graphicsSettings.max_fps) or 0
+  local minFrameTime = (graphicsSettings.max_fps and graphicsSettings.max_fps > 0) and (1 / graphicsSettings.max_fps) or 0
 end
 
 -- =============================================================================
@@ -218,12 +218,12 @@ function love.applyGraphicsSettings()
     
     -- Use resolution from settings if available, otherwise get current window dimensions
     local desiredWidth, desiredHeight
+    local currentMode = getCurrentWindowMode()
     if graphicsSettings.resolution and graphicsSettings.resolution.width and graphicsSettings.resolution.height then
         desiredWidth = graphicsSettings.resolution.width
         desiredHeight = graphicsSettings.resolution.height
     else
         -- Get current window dimensions or use native desktop resolution
-        local currentMode = getCurrentWindowMode()
         desiredWidth = currentMode and currentMode.width
         desiredHeight = currentMode and currentMode.height
         
@@ -288,7 +288,7 @@ local function initCoreSystems()
     recordMilestone("debug init")
 
     -- 2. Logging system
-    Log.setLevel("info")
+    Log.setLevel("debug")
     Log.clearDebugWhitelist()
     Log.setInfoEnabled(true)
     Log.info("Game Identity:", love.filesystem.getIdentity())

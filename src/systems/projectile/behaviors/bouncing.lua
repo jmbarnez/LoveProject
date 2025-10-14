@@ -47,13 +47,17 @@ local function factory(context, config)
             state.immunityTimer = math.max(0, state.immunityTimer - dt)
         end
         if state.minimumSpeed and state.minimumSpeed > 0 then
-            local velocity = projectile.components and projectile.components.velocity
-            if velocity then
-                local currentSpeed = math.sqrt((velocity.x or 0) * (velocity.x or 0) + (velocity.y or 0) * (velocity.y or 0))
+            -- Get velocity from Windfield physics
+            local PhysicsSystem = require("src.systems.physics")
+            local physicsManager = PhysicsSystem.getManager()
+            if physicsManager then
+                local vx, vy = physicsManager:getVelocity(projectile)
+                local currentSpeed = math.sqrt((vx or 0) * (vx or 0) + (vy or 0) * (vy or 0))
                 if currentSpeed < state.minimumSpeed then
-                    local angle = math.atan2(velocity.y or 0, velocity.x or 0)
-                    velocity.x = math.cos(angle) * state.minimumSpeed
-                    velocity.y = math.sin(angle) * state.minimumSpeed
+                    local angle = math.atan2(vy or 0, vx or 0)
+                    local newVx = math.cos(angle) * state.minimumSpeed
+                    local newVy = math.sin(angle) * state.minimumSpeed
+                    physicsManager:setVelocity(projectile, newVx, newVy)
                 end
             end
         end
@@ -68,18 +72,25 @@ local function factory(context, config)
             return
         end
 
-        local velocity = projectile.components and projectile.components.velocity
         local position = projectile.components and projectile.components.position
-        if not velocity or not position then
+        if not position then
             return
         end
-
+        
+        -- Get velocity from Windfield physics
+        local PhysicsSystem = require("src.systems.physics")
+        local physicsManager = PhysicsSystem.getManager()
+        if not physicsManager then
+            return
+        end
+        
+        local vx, vy = physicsManager:getVelocity(projectile)
         local impactAngle = payload.impactAngle or 0
         local nx, ny = math.cos(impactAngle), math.sin(impactAngle)
-        local rx, ry = reflect_velocity(velocity.x or 0, velocity.y or 0, nx, ny)
+        local rx, ry = reflect_velocity(vx or 0, vy or 0, nx, ny)
         rx, ry = normalize(rx, ry)
 
-        local speed = math.sqrt((velocity.x or 0) * (velocity.x or 0) + (velocity.y or 0) * (velocity.y or 0))
+        local speed = math.sqrt((vx or 0) * (vx or 0) + (vy or 0) * (vy or 0))
         if state.speedMultiplier and state.speedMultiplier ~= 1.0 then
             speed = speed * state.speedMultiplier
         end
@@ -87,15 +98,23 @@ local function factory(context, config)
             speed = math.max(speed, state.minimumSpeed)
         end
 
-        velocity.x = rx * speed
-        velocity.y = ry * speed
-        position.angle = math.atan2(velocity.y, velocity.x)
+        -- Update velocity through Windfield physics
+        local newVx = rx * speed
+        local newVy = ry * speed
+        physicsManager:setVelocity(projectile, newVx, newVy)
+        position.angle = math.atan2(newVy, newVx)
 
         if payload.hitPosition then
             local offsetX = nx * ((payload.separation or 4) + 2)
             local offsetY = ny * ((payload.separation or 4) + 2)
-            position.x = payload.hitPosition.x + offsetX
-            position.y = payload.hitPosition.y + offsetY
+            local newX = payload.hitPosition.x + offsetX
+            local newY = payload.hitPosition.y + offsetY
+            
+            -- Update position through WindField physics
+            local collider = physicsManager:getCollider(projectile)
+            if collider and not collider:isDestroyed() then
+                collider:setPosition(newX, newY)
+            end
         end
 
         state.remaining = state.remaining - 1

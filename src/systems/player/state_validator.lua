@@ -78,9 +78,9 @@ function StateValidator.validateForMovement(player, state, body)
         return ValidationResult.new(false, "Player missing position component")
     end
 
-    -- Check if windfield physics component has thruster state
-    if not body or not body.getThrusterState then
-        return ValidationResult.new(false, "Player physics body missing thruster state")
+    -- Check if windfield physics component exists
+    if not body then
+        return ValidationResult.new(false, "Player missing windfield physics component")
     end
 
     return ValidationResult.new(true, "Player ready for movement")

@@ -31,20 +31,15 @@ function MovementSystem.processMovement(player, body, inputs, dt, thrusterState)
 
     -- Debug movement input
     PlayerDebug.logMovementInput(inputs)
+    
+    -- Debug: Check if we're getting input
+    if w or s or a or d then
+        local Log = require("src.core.log")
+        Log.debug("movement", "Input detected: w=%s, s=%s, a=%s, d=%s", tostring(w), tostring(s), tostring(a), tostring(d))
+    end
 
-    -- Get physics system for applying forces
-    local PhysicsSystem = require("src.systems.physics")
-    local physicsManager = PhysicsSystem.getManager()
-    
-    if not physicsManager then
-        return -- Physics system not initialized
-    end
-    
-    -- Check if the player has a physics collider (avoid jitter on first movement)
-    local collider = physicsManager:getCollider(player)
-    if not collider then
-        return -- Physics body not ready yet
-    end
+    -- Physics forces are handled by the Ship Physics System
+    -- This system only processes input and updates thruster state
 
     -- Get thrust power from ship configuration
     local shipConfig = player.ship
@@ -64,59 +59,40 @@ function MovementSystem.processMovement(player, body, inputs, dt, thrusterState)
         thrust = thrust * math.max(0.1, slow)
     end
     
-    -- Space physics: apply forces in the direction the ship is facing
-    -- Since ship angle is fixed at 0, we use screen-relative directions
-    local forceX, forceY = 0, 0
-    
-    -- Forward/backward thrust (W/S keys)
-    if w then
-        forceY = forceY - thrust  -- Up in screen space
-    end
-    if s then
-        forceY = forceY + thrust  -- Down in screen space
-    end
-    
-    -- Strafe left/right (A/D keys)
-    if a then
-        forceX = forceX - thrust  -- Left in screen space
-    end
-    if d then
-        forceX = forceX + thrust  -- Right in screen space
-    end
-    
-    -- Apply forces to Windfield physics body
-    if forceX ~= 0 or forceY ~= 0 then
-        physicsManager:applyForce(player, forceX, forceY)
-    end
+    -- Movement forces are now handled by the Ship Physics System
+    -- which reads from the thruster state we set below
     
     -- Update thruster state based on input
-    if w then 
-        thrusterState.forward = 1.0
-        thrusterState.isThrusting = true
-    end
-    if s then 
-        thrusterState.reverse = 0.7
-        thrusterState.isThrusting = true
-    end
-    if a then 
-        thrusterState.strafeLeft = 0.8
-        thrusterState.isThrusting = true
-    end
-    if d then 
-        thrusterState.strafeRight = 0.8
-        thrusterState.isThrusting = true
-    end
-    if boosting then
-        thrusterState.boost = 1.0
-        thrusterState.isThrusting = true
+    local thrustMultiplier = 1.0  -- Fixed multiplier for thruster intensity
+    local forwardIntensity = w and thrustMultiplier or 0
+    local reverseIntensity = s and thrustMultiplier or 0
+    local strafeLeftIntensity = a and thrustMultiplier or 0
+    local strafeRightIntensity = d and thrustMultiplier or 0
+    local boostIntensity = boosting and 1.0 or 0
+
+    thrusterState.forward = forwardIntensity
+    thrusterState.reverse = reverseIntensity
+    thrusterState.strafeLeft = strafeLeftIntensity
+    thrusterState.strafeRight = strafeRightIntensity
+    thrusterState.boost = boostIntensity
+    thrusterState.isThrusting = (forwardIntensity > 0) or (reverseIntensity > 0) or (strafeLeftIntensity > 0) or (strafeRightIntensity > 0) or (boostIntensity > 0)
+
+    -- Also update the windfield physics component's thruster state
+    if player.components.windfield_physics then
+        player.components.windfield_physics.thrusterState.forward = forwardIntensity
+        player.components.windfield_physics.thrusterState.reverse = reverseIntensity
+        player.components.windfield_physics.thrusterState.strafeLeft = strafeLeftIntensity
+        player.components.windfield_physics.thrusterState.strafeRight = strafeRightIntensity
+        player.components.windfield_physics.thrusterState.boost = boostIntensity
+        player.components.windfield_physics.thrusterState.isThrusting = thrusterState.isThrusting
     end
 
     if body and body.setThruster then
-        body:setThruster("forward", w)
-        body:setThruster("backward", s)
-        body:setThruster("left", a)
-        body:setThruster("right", d)
-        body:setThruster("boost", boosting)
+        body:setThruster("forward", forwardIntensity)
+        body:setThruster("backward", reverseIntensity)
+        body:setThruster("left", strafeLeftIntensity)
+        body:setThruster("right", strafeRightIntensity)
+        body:setThruster("boost", boostIntensity)
     end
 
     -- Debug thruster state
@@ -173,20 +149,8 @@ end
 
 -- Update physics and sync components
 function MovementSystem.updatePhysics(player, dt)
-    local PhysicsSystem = require("src.systems.physics")
-    local physicsManager = PhysicsSystem.getManager()
-    
-    if physicsManager then
-        -- Get position from Windfield physics body
-        local x, y = physicsManager:getPosition(player)
-        
-        if x and y then
-            player.components.position.x = x
-            player.components.position.y = y
-            -- Keep ship angle fixed at 0 - only turrets rotate
-            player.components.position.angle = 0
-        end
-    end
+    -- Position syncing is now handled by WindfieldManager:syncPositions()
+    -- This function is kept for compatibility but does nothing
 end
 
 -- Store cursor world position for turret aiming
@@ -199,3 +163,4 @@ function MovementSystem.updateCursorPosition(player, input, modalActive)
 end
 
 return MovementSystem
+

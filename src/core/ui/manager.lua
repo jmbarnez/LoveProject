@@ -7,6 +7,7 @@
 ]]
 
 local Log = require("src.core.log")
+local Warp = require("src.ui.warp")
 
 -- Import all UI modules
 local UIState = require("src.core.ui.state")
@@ -267,7 +268,7 @@ end
 
 -- Get warp instance (for external access)
 function UIManager.getWarpInstance()
-    return warpInstance
+    return Warp.getInstance()
 end
 
 return UIManager

@@ -3,6 +3,7 @@ local Viewport = require("src.core.viewport")
 local Window = require("src.ui.common.window")
 local Notifications = require("src.ui.notifications")
 local Content = require("src.content.content")
+local Game = require("src.game")
 
 local RewardWheelPanel = {}
 RewardWheelPanel.__index = RewardWheelPanel
@@ -138,7 +139,7 @@ function RewardWheelPanel.giveRewards()
                 local px, py = player.components.position.x, player.components.position.y
                 local pickup = ItemPickup.new(px, py, reward.item, reward.qty)
                 if pickup then
-                    local world = getWorld()
+                    local world = Game.world
                     if world then
                         world:addEntity(pickup)
                         end

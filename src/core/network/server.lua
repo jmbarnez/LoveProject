@@ -229,13 +229,13 @@ function NetworkServer:_handleHello(peer, message)
         local currentState = {
             position = position and { x = position.x, y = position.y, angle = position.angle or 0 } or { x = 0, y = 0, angle = 0 },
             velocity = velocity and { x = velocity.x or 0, y = velocity.y or 0 } or { x = 0, y = 0 },
-            health = health and {
-                hp = health.hp or 100,
-                maxHP = health.maxHP or 100,
-                shield = health.shield or 0,
-                maxShield = health.maxShield or 0,
-                energy = health.energy or 0,
-                maxEnergy = health.maxEnergy or 0
+            health = hull and {
+                hp = hull.hull or 100,
+                maxHP = hull.maxHull or 100,
+                shield = shield and shield.shield or 0,
+                maxShield = shield and shield.maxShield or 0,
+                energy = 0, -- Energy is handled separately
+                maxEnergy = 0
             } or { hp = 100, maxHP = 100, shield = 0, maxShield = 0, energy = 0, maxEnergy = 0 },
             shieldChannel = hostPlayer.shieldChannel or false
         }

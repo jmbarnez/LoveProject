@@ -446,7 +446,7 @@ function Strings.saveToFile(filename)
 end
 
 -- Helper function for serialization (if not available)
-function serialize(obj)
+local function serialize(obj)
     local lua = ""
     local t = type(obj)
     if t == "number" then

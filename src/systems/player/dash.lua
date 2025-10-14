@@ -74,10 +74,10 @@ function DashSystem.calculateDashDirection(player, input, body)
         end
     end
     
-    -- Fallback: dash in facing direction
+    -- Fallback: dash in facing direction (ships are fixed at 0 angle)
     if dashDirX == 0 and dashDirY == 0 then
-        dashDirX = math.cos(body.angle or 0)
-        dashDirY = math.sin(body.angle or 0)
+        dashDirX = 0  -- Ships face up by default
+        dashDirY = -1  -- Up in screen space
     end
     
     return dashDirX, dashDirY
@@ -92,12 +92,15 @@ function DashSystem.executeDash(player, state, body, dashDirX, dashDirY, health)
     local cooldown = dashConfig.COOLDOWN or 0.9
     local energyCost = dashConfig.ENERGY_COST or 0
     
-    -- Apply dash impulse
-    local impulseX = dashDirX * speed * (body.mass or 500)
-    local impulseY = dashDirY * speed * (body.mass or 500)
+    -- Apply dash impulse using Windfield physics
+    local PhysicsSystem = require("src.systems.physics")
+    local physicsManager = PhysicsSystem.getManager()
     
-    if body.applyImpulse then 
-        body:applyImpulse(impulseX, impulseY) 
+    if physicsManager then
+        local mass = body.mass or 500
+        local impulseX = dashDirX * speed * mass
+        local impulseY = dashDirY * speed * mass
+        physicsManager:applyImpulse(player, impulseX, impulseY)
     end
     
     -- Apply i-frames during dash

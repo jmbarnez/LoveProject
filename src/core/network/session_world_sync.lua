@@ -31,6 +31,7 @@ local function sanitisePlayerNetworkState(playerState)
     local velocity = playerState.velocity or {}
     local hull = playerState.hull
     local shield = playerState.shield
+    local energy = playerState.energy
 
     local sanitised = {
         position = {

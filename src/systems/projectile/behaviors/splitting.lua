@@ -9,7 +9,17 @@ local function spawnFragments(projectile, payload, config)
     if count <= 0 then return end
 
     local spread = config.spread or math.rad(35)
-    local speed = config.speed or (projectile.components.velocity and math.sqrt((projectile.components.velocity.x or 0)^2 + (projectile.components.velocity.y or 0)^2)) or 800
+    -- Get speed from Windfield physics
+    local PhysicsSystem = require("src.systems.physics")
+    local physicsManager = PhysicsSystem.getManager()
+    local speed = config.speed or 800
+    if physicsManager then
+        local vx, vy = physicsManager:getVelocity(projectile)
+        local currentSpeed = math.sqrt((vx or 0)^2 + (vy or 0)^2)
+        if currentSpeed > 0 then
+            speed = currentSpeed
+        end
+    end
     local originAngle = (payload and payload.impactAngle) or (projectile.components.position and projectile.components.position.angle) or 0
     local baseAngle = originAngle - spread * 0.5
 

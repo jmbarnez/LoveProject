@@ -13,11 +13,11 @@ local ShipPhysics = {}
 
 -- Ship physics constants
 local SHIP_CONSTANTS = {
-    THRUSTER_POWER = 500,  -- Reduced from 800
-    BRAKE_POWER = 800,     -- Reduced from 1200
-    BOOST_MULTIPLIER = 2.0,
+    THRUSTER_POWER = 300,  -- More realistic thruster power
+    BRAKE_POWER = 400,     -- Proportional brake power
+    BOOST_MULTIPLIER = 1.8,  -- Slightly reduced boost
     ANGULAR_VELOCITY = 0.0,  -- No rotation - ship body is fixed
-    MAX_VELOCITY = 200,    -- Reduced from 300 to match ship config
+    MAX_VELOCITY = 180,    -- Match ship config
     MIN_VELOCITY = 0.1,
 }
 
