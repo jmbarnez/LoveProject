@@ -71,8 +71,10 @@ return {
         -- This component is the single source of truth for all physics properties.
         windfield_physics = {
             bodyType = "dynamic",
-            mass = 2.0, -- A heavy mass for a high-impact slug.
+            mass = 300.0, -- Extremely heavy mass for a railgun slug that pushes enemies back
             fixedRotation = true,
+            restitution = 0.0,  -- No bouncing for railgun projectiles
+            friction = 0.0,
             colliderType = "polygon",
             vertices = {
                 -6, -2, -2, -6, 2, -6, 6, -2,

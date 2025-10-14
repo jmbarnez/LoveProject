@@ -414,7 +414,18 @@ function Effects.spawnImpact(kind, cx, cy, r, hx, hy, angle, style, bulletKind, 
   end
 
   if kind == 'hull' then
-    -- Simple hull impact - no additional effects
+    -- Create cannon-specific impact effects for cannonball projectiles
+    if bulletKind == 'cannonball' or bulletKind == 'cannon' then
+      local CannonImpactEffects = require("src.systems.render.cannon_impact_effects")
+      if CannonImpactEffects and CannonImpactEffects.createImpact then
+        local ok, res = pcall(function()
+          return CannonImpactEffects.createImpact(hx, hy, angle, bulletKind, entity)
+        end)
+        if not ok then
+          -- Fallback to simple hull impact if cannon effects fail
+        end
+      end
+    end
   else -- shield
     -- Create enhanced shield impact animation at precise hit point (with entity reference for tracking)
     local ripple = nil
@@ -479,6 +490,12 @@ end
 function Effects.update(dt)
   -- Update enhanced shield impact effects
   ShieldImpactEffects.update(dt)
+  
+  -- Update cannon impact effects
+  local CannonImpactEffects = require("src.systems.render.cannon_impact_effects")
+  if CannonImpactEffects and CannonImpactEffects.update then
+    CannonImpactEffects.update(dt)
+  end
   
   -- Update impacts lifetimes
   for i = #impacts, 1, -1 do

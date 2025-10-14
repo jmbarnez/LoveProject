@@ -81,6 +81,8 @@ return {
             bodyType = "dynamic",
             mass = 5.0, -- A heavy mass for a missile.
             fixedRotation = false, -- Missiles can be deflected and tumble.
+            restitution = 0.0,  -- No bouncing for missiles
+            friction = 0.0,
             colliderType = "polygon",
             vertices = {
                 -4, -8, 4, -8, 4, 8, -4, 8,

@@ -131,10 +131,13 @@ function PhysicsResolution.getRestitution(entity1, entity2)
     local STATION_REST = Constants.STATION_RESTITUTION
     local WRECKAGE_REST = Constants.WRECKAGE_RESTITUTION
     local PLANET_REST = Constants.PLANET_RESTITUTION
+    local PROJECTILE_REST = Constants.PROJECTILE_RESTITUTION
     
     -- Determine surface type for entity1
     local e1Rest = HULL_REST
-    if StationShields.hasActiveShield(entity1) then
+    if entity1.components and entity1.components.bullet then
+        e1Rest = PROJECTILE_REST  -- Projectiles don't bounce
+    elseif StationShields.hasActiveShield(entity1) then
         e1Rest = SHIELD_REST
     elseif entity1.components and entity1.components.mineable then
         e1Rest = ASTEROID_REST
@@ -148,7 +151,9 @@ function PhysicsResolution.getRestitution(entity1, entity2)
     
     -- Determine surface type for entity2
     local e2Rest = HULL_REST
-    if StationShields.hasActiveShield(entity2) then
+    if entity2.components and entity2.components.bullet then
+        e2Rest = PROJECTILE_REST  -- Projectiles don't bounce
+    elseif StationShields.hasActiveShield(entity2) then
         e2Rest = SHIELD_REST
     elseif entity2.components and entity2.components.mineable then
         e2Rest = ASTEROID_REST
@@ -158,6 +163,11 @@ function PhysicsResolution.getRestitution(entity1, entity2)
         e2Rest = WRECKAGE_REST
     elseif entity2.type == "world_object" and entity2.subtype == "planet_massive" then
         e2Rest = PLANET_REST
+    end
+    
+    -- Force zero restitution if either entity is a projectile
+    if (entity1.components and entity1.components.bullet) or (entity2.components and entity2.components.bullet) then
+        return 0.0, 0.0
     end
     
     return e1Rest, e2Rest

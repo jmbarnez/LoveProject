@@ -71,7 +71,7 @@ function WindfieldManager.new()
 end
 
 function WindfieldManager:setupCollisionCallbacks()
-    -- Unified collision handling for all entity types
+    -- Handle non-projectile collisions on beginContact
     self.world:on("beginContact", function(colliderA, colliderB, contact)
         local entityA = self.colliders[colliderA]
         local entityB = self.colliders[colliderB]
@@ -96,17 +96,34 @@ function WindfieldManager:setupCollisionCallbacks()
         Log.debug("physics", "Collision detected: %s vs %s (entities: %s vs %s)", 
                  classA, classB, entityA.id or "unknown", entityB.id or "unknown")
         
-        -- Additional debug for projectile collisions
+        -- Handle non-projectile collisions immediately
+        if not (classA == "bullet" or classB == "bullet" or classA == "missile" or classB == "missile" or classA == "cannonball" or classB == "cannonball") then
+            self:handleCollision(entityA, entityB, contact, classA, classB)
+        end
+    end)
+    
+    -- Handle projectile collisions on endContact to allow physics momentum transfer
+    self.world:on("endContact", function(colliderA, colliderB, contact)
+        local entityA = self.colliders[colliderA]
+        local entityB = self.colliders[colliderB]
+        
+        if not entityA or not entityB then 
+            return 
+        end
+        
+        local classA = colliderA:getCollisionClass()
+        local classB = colliderB:getCollisionClass()
+        
+        -- Only handle projectile collisions here
         if classA == "bullet" or classB == "bullet" or classA == "missile" or classB == "missile" or classA == "cannonball" or classB == "cannonball" then
             local projectile = entityA.components.bullet and entityA or entityB
             local target = entityA.components.bullet and entityB or entityA
             Log.debug("physics", "Projectile collision: projectile=%s (class=%s), target=%s (class=%s)", 
                      projectile and projectile.id or "nil", classA == "bullet" or classA == "missile" or classA == "cannonball" and classA or classB,
                      target and target.id or "nil", classA == "bullet" or classA == "missile" or classA == "cannonball" and classB or classA)
+            
+            self:handleCollision(entityA, entityB, contact, classA, classB)
         end
-        
-        -- Handle all collision types through unified system
-        self:handleCollision(entityA, entityB, contact, classA, classB)
     end)
 end
 
@@ -155,12 +172,16 @@ function WindfieldManager:handleEntityCollision(entityA, entityB, contact, class
     -- Windfield contact objects have getPositions() method, not getWorldManifold()
     local points = contact:getPositions()
     local hitX, hitY = posA.x, posA.y
-    if #points > 0 then
+    
+    -- Handle different return types from getPositions()
+    if points and type(points) == "table" and #points > 0 then
         -- Average the contact points for a more accurate hit position
         local totalX, totalY = 0, 0
         for _, point in ipairs(points) do
-            totalX = totalX + point[1]
-            totalY = totalY + point[2]
+            if point and type(point) == "table" and #point >= 2 then
+                totalX = totalX + point[1]
+                totalY = totalY + point[2]
+            end
         end
         hitX = totalX / #points
         hitY = totalY / #points
@@ -210,6 +231,7 @@ function WindfieldManager:handleProjectileCollision(entityA, entityB, contact)
             return -- Ignore this collision
         end
         
+        
         -- Get precise hit position from contact
         local points = contact:getPositions()
         local hitX, hitY = projectile.components.position.x, projectile.components.position.y
@@ -238,10 +260,9 @@ function WindfieldManager:handleProjectileCollision(entityA, entityB, contact)
         -- Trigger projectile hit logic with precise hit position
         ProjectileCollision.handleProjectileCollision(projectile, target, 1/60, nil, hitX, hitY)
 
-        -- Destroy projectile collider immediately to prevent post-hit bounce
+        -- Destroy projectile after physics has processed the collision
         local projectileCollider = self.entities[projectile]
         if projectileCollider and not projectileCollider:isDestroyed() then
-            projectileCollider:setLinearVelocity(0, 0)
             projectileCollider:destroy()
         end
         if projectileCollider then
@@ -250,6 +271,7 @@ function WindfieldManager:handleProjectileCollision(entityA, entityB, contact)
         self.entities[projectile] = nil
     end
 end
+
 
 function WindfieldManager:handlePlayerCollision(entityA, entityB, contact)
     -- Handle player collisions with other entities
@@ -324,6 +346,11 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
     
     local collider = nil
     local collisionClass = self:determineCollisionClass(entity)
+    
+    -- Debug: Check asteroid collision class assignment
+    if entity.components and entity.components.mineable then
+        print("ASTEROID DEBUG: Entity " .. (entity.id or "unknown") .. " assigned to collision class: " .. collisionClass)
+    end
 
     if colliderType == "circle" then
         -- Circles are defined by their radius.
@@ -339,9 +366,17 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
     elseif colliderType == "polygon" then
         local vertices = options.vertices or {}
         if #vertices > 0 then
-            -- Polygons are created directly from the vertices.
-            -- We assume the vertex data is correct and within Box2D's 8-vertex limit.
-            collider = self.world:newPolygonCollider(vertices, options.bodyType or "dynamic")
+            -- Validate polygon vertices before creating collider
+            if self:validatePolygonVertices(vertices) then
+                -- Polygons are created directly from the vertices.
+                -- We assume the vertex data is correct and within Box2D's 8-vertex limit.
+                collider = self.world:newPolygonCollider(vertices, options.bodyType or "dynamic")
+            else
+                Log.warn("physics", "Invalid polygon vertices for entity %s, falling back to circle", entity.id or "unknown")
+                -- Fallback to circle collider if polygon is invalid
+                local radius = options.radius or 20
+                collider = self.world:newCircleCollider(x, y, radius, options.bodyType or "dynamic")
+            end
         end
     end
 
@@ -778,6 +813,46 @@ end
 
 function WindfieldManager:getCollider(entity)
     return self.entities[entity]
+end
+
+-- Validates polygon vertices to ensure they form a valid convex polygon
+function WindfieldManager:validatePolygonVertices(vertices)
+    if not vertices or #vertices < 6 or #vertices % 2 ~= 0 then
+        return false -- Need at least 3 vertices (6 coordinates) and even number of coordinates
+    end
+    
+    local vertexCount = #vertices / 2
+    if vertexCount > 8 then
+        return false -- Box2D limit is 8 vertices
+    end
+    
+    -- Check for minimum area (avoid degenerate polygons)
+    local area = 0
+    for i = 1, vertexCount do
+        local j = (i % vertexCount) + 1
+        local x1, y1 = vertices[i * 2 - 1], vertices[i * 2]
+        local x2, y2 = vertices[j * 2 - 1], vertices[j * 2]
+        area = area + (x1 * y2 - x2 * y1)
+    end
+    area = area / 2
+    
+    -- Area must be positive for a valid convex polygon
+    if area <= 0 then
+        return false
+    end
+    
+    -- Check for duplicate vertices
+    for i = 1, vertexCount do
+        for j = i + 1, vertexCount do
+            local x1, y1 = vertices[i * 2 - 1], vertices[i * 2]
+            local x2, y2 = vertices[j * 2 - 1], vertices[j * 2]
+            if x1 == x2 and y1 == y2 then
+                return false -- Duplicate vertex
+            end
+        end
+    end
+    
+    return true
 end
 
 function WindfieldManager:destroy()

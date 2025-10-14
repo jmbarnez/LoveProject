@@ -3,6 +3,7 @@ local PlayerRenderer = require("src.systems.render.player_renderer")
 local EntityRendererDispatcher = require("src.systems.render.entity_renderer_dispatcher")
 local ShieldEffects = require("src.systems.render.shield_effects")
 local ShieldImpactEffects = require("src.systems.render.shield_impact_effects")
+local CannonImpactEffects = require("src.systems.render.cannon_impact_effects")
 
 local RenderSystem = {}
 
@@ -24,6 +25,9 @@ function RenderSystem.draw(world, camera, player, clickMarkers, hoveredEntity, h
     end
     if ShieldImpactEffects and ShieldImpactEffects.draw then
         ShieldImpactEffects.draw()
+    end
+    if CannonImpactEffects and CannonImpactEffects.draw then
+        CannonImpactEffects.draw()
     end
 
     -- Draw click markers

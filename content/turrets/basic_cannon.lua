@@ -71,8 +71,10 @@ return {
         -- This component is the single source of truth for all physics properties.
         windfield_physics = {
             bodyType = "dynamic",
-            mass = 0.1, -- A small mass for a fast-moving projectile.
+            mass = 200.0, -- Very heavy mass for a cannonball that pushes enemies back
             fixedRotation = true,
+            restitution = 0.0,  -- No bouncing for cannon projectiles
+            friction = 0.0,
             colliderType = "polygon",
             vertices = {
                 -4.5, -2.4, -2.4, -4.5, 2.4, -4.5, 4.5, -2.4,

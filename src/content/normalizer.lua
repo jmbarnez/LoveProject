@@ -169,6 +169,11 @@ function Normalizer.normalizeWorldObject(def)
     out.description = def.description
   end
 
+  -- Preserve windfield_physics component
+  if def.windfield_physics then
+    out.windfield_physics = copy(def.windfield_physics)
+  end
+
   return out
 end
 

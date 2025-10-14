@@ -11,6 +11,7 @@ CollisionConstants.ASTEROID_RESTITUTION = 0.12
 CollisionConstants.STATION_RESTITUTION = 0.18
 CollisionConstants.WRECKAGE_RESTITUTION = 0.10
 CollisionConstants.PLANET_RESTITUTION = 0.05
+CollisionConstants.PROJECTILE_RESTITUTION = 0.0  -- No bouncing for projectiles
 
 -- Debris Push Constants
 CollisionConstants.DEBRIS_BASE_TRANSFER = 1.2

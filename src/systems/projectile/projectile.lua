@@ -225,22 +225,36 @@ function Projectile.new(x, y, angle, friendly, config)
             (config.timed_life and config.timed_life.duration) or 2.0
         ),
         -- Add Windfield physics component for projectiles
-        windfield_physics = WindfieldPhysics.new({
-            x = x,
-            y = y,
-            mass = (function()
-                local kind = config.kind or 'bullet'
-                if kind == "missile" then return 5
-                elseif kind == "laser" or kind == "mining_laser" or kind == "salvaging_laser" then return 0.1
-                else return 1 end
-            end)(),
-            colliderType = "circle",
-            bodyType = "dynamic",
-            restitution = 0.1,
-            friction = 0.0,
-            fixedRotation = true,  -- Projectiles don't rotate
-            radius = (config.collidable and config.collidable.radius) or (config.renderable and config.renderable.props and config.renderable.props.radius) or 2,
-        }),
+        windfield_physics = (function()
+            -- Use embedded windfield_physics if available, otherwise use defaults
+            if config.windfield_physics then
+                local physicsConfig = {}
+                for k, v in pairs(config.windfield_physics) do
+                    physicsConfig[k] = v
+                end
+                physicsConfig.x = x
+                physicsConfig.y = y
+                return WindfieldPhysics.new(physicsConfig)
+            else
+                -- Default physics for projectiles without embedded config
+                return WindfieldPhysics.new({
+                    x = x,
+                    y = y,
+                    mass = (function()
+                        local kind = config.kind or 'bullet'
+                        if kind == "missile" then return 5
+                        elseif kind == "laser" or kind == "mining_laser" or kind == "salvaging_laser" then return 0.1
+                        else return 1 end
+                    end)(),
+                    colliderType = "circle",
+                    bodyType = "dynamic",
+                    restitution = 0.0,  -- No bouncing for projectiles
+                    friction = 0.0,
+                    fixedRotation = true,  -- Projectiles don't rotate
+                    radius = (config.collidable and config.collidable.radius) or (config.renderable and config.renderable.props and config.renderable.props.radius) or 2,
+                })
+            end
+        end)(),
         -- Add health component only for rockets/missiles
         health = (function()
             local kind = config.kind or 'bullet'
