@@ -239,109 +239,12 @@ function EntityCollision.handleProjectileCollision(projectile, target, dt, colli
     return ProjectileCollision.handleProjectileCollision(projectile, target, dt, collision, hitX, hitY)
 end
 
--- Handle universal entity-to-entity collisions
+-- Legacy collision detection disabled - now handled by Windfield callbacks
+-- This function is kept for compatibility but no longer processes collisions
 function EntityCollision.handleEntityCollisions(collisionSystem, entity, world, dt)
-    if not entity or not entity.components.position or not entity.components.collidable or entity.dead then
-        return
-    end
-
-    if entity._collisionGrace then
-        entity._collisionGrace = math.max(0, entity._collisionGrace - (dt or 0))
-        if entity._collisionGrace > 0 then
-            return
-        else
-            entity._collisionGrace = nil
-        end
-    end
-
-    local ex = entity.components.position.x
-    local ey = entity.components.position.y
-
-    -- Use effective radius for quadtree query (accounts for shields)
-    local radius_cache = collisionSystem and collisionSystem.radius_cache
-    local entityRadius = radius_cache and radius_cache:getEffectiveRadius(entity)
-        or CollisionShapes.getEntityCollisionRadius(entity)
-
-    -- For projectiles, expand the query area to account for their speed
-    local queryRadius = entityRadius
-    if entity.components.bullet then
-        local vel = entity.components.velocity or {x = 0, y = 0}
-        local speed = math.sqrt((vel.x or 0)^2 + (vel.y or 0)^2)
-        -- Add extra radius based on speed to catch fast-moving projectiles, with cap to prevent over-querying
-        local Constants = require("src.systems.collision.constants")
-        local speedExpansion = math.min(Constants.PROJECTILE_MAX_QUERY_EXPANSION, speed * dt * Constants.PROJECTILE_QUERY_MULTIPLIER)
-        queryRadius = entityRadius + speedExpansion
-    end
-
-    -- Get potential collision targets from quadtree
-    local candidates = collisionSystem.quadtree:query({
-        x = ex - queryRadius,
-        y = ey - queryRadius,
-        width = queryRadius * 2,
-        height = queryRadius * 2
-    })
-
-    for _, candidate in ipairs(candidates) do
-        local other = candidate.entity
-        if other ~= entity and not other.dead and other.components.collidable and other.components.position then
-            if other._collisionGrace and other._collisionGrace > 0 then
-                goto continue
-            end
-
-            -- Skip friendly vs station shield collisions (allow friendlies inside station bubble)
-            local StationShields = require("src.systems.collision.station_shields")
-            if StationShields.shouldIgnoreEntityCollision(entity, other) then
-                goto continue
-            end
-
-            -- Ignore collisions between the player and warp gates (stations now have physical hulls)
-            do
-                local eIsPlayer = entity.isPlayer or (entity.components and entity.components.player)
-                local oIsPlayer = other.isPlayer or (other.components and other.components.player)
-                local eIsWarpGate = entity.tag == "warp_gate"
-                local oIsWarpGate = other.tag == "warp_gate"
-                if (eIsPlayer and oIsWarpGate) or (oIsPlayer and eIsWarpGate) then
-                    goto continue
-                end
-            end
-
-            -- Check for collision
-            if entity.components.bullet then
-                -- Use projectile-specific collision detection for bullets
-                if ProjectileCollision.shouldIgnoreTarget(entity, other, entity.components.bullet.source) then
-                    goto continue
-                end
-                
-                local hit, hitX, hitY = ProjectileCollision.checkProjectileCollision(entity, other, dt)
-                if hit then
-                    -- Create collision effects using precise hit position
-                    local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
-                    local CollisionEffects = require("src.systems.collision.effects")
-                    if CollisionEffects.canEmitCollisionFX(entity, other, now) then
-                        local targetRadius = CollisionShapes.getEntityCollisionRadius(other)
-                        local bulletRadius = CollisionShapes.getEntityCollisionRadius(entity)
-                        
-                        -- Use the precise hit position for collision effects
-                        CollisionEffects.createCollisionEffects(entity, other, hitX, hitY, hitX, hitY, 0, 0, bulletRadius, targetRadius, nil, nil)
-                    end
-                    
-                    ProjectileCollision.handleProjectileCollision(entity, other, dt, nil, hitX, hitY)
-                end
-            elseif other.components.bullet then
-                -- Projectile collisions are now handled by Windfield physics system
-                -- This legacy collision detection is disabled
-                goto continue
-            else
-                -- Use unified physics for all other entities
-                local collided, collisionData = CollisionDetection.checkEntityCollision(entity, other)
-                if collided then
-                    EntityCollision.resolveEntityCollision(entity, other, dt, collisionData)
-                end
-            end
-
-            ::continue::
-        end
-    end
+    -- All collision detection is now handled by Windfield physics callbacks
+    -- This function is kept for compatibility but does nothing
+    return
 end
 
 -- Function to enable/disable debug logging

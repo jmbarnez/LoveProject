@@ -4,9 +4,12 @@ local RadiusCache = require("src.systems.collision.helpers.radius_cache")
 local PhysicsSystem = require("src.systems.physics")
 local Log = require("src.core.log")
 
---- CollisionSystem orchestrates broad-phase queries, delegates collision
---- resolution to specialised handlers, and keeps the physics world in sync
---- with entity state.
+--- CollisionSystem orchestrates broad-phase queries and entity lifecycle.
+--- 
+--- COLLISION DETECTION OWNERSHIP:
+--- - WindfieldManager handles ALL collision detection via physics callbacks
+--- - This system only manages entity lifecycle and broad-phase queries (quadtree)
+--- - Legacy collision detection is disabled - see EntityCollision.handleEntityCollisions()
 local CollisionSystem = {}
 CollisionSystem.__index = CollisionSystem
 
@@ -49,8 +52,8 @@ function CollisionSystem:update(world, dt)
     -- Windfield handles all physics and collision detection
     -- We only need to manage entity lifecycle and broad-phase queries
     self:refreshBroadphase(world)
-    self:processProjectiles(world, dt)
     self:processEntities(world, dt)
+    -- processProjectiles removed - handled by Windfield callbacks
 end
 
 function CollisionSystem:refreshBroadphase(world)

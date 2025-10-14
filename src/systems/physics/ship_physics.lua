@@ -45,7 +45,7 @@ function ShipPhysics.createShipCollider(ship, windfieldManager)
         mass = mass,
         restitution = 0.1, -- Ships are less bouncy
         friction = 0.3,
-        fixedRotation = false,
+        fixedRotation = true, -- Ships don't rotate - they use screen-relative movement
         bodyType = "dynamic",
         colliderType = "circle",
         radius = radius,
@@ -91,6 +91,13 @@ function ShipPhysics.updateShipPhysics(ship, windfieldManager, dt)
             if thrusterState.boost > 0 then
                 power = power * SHIP_CONSTANTS.BOOST_MULTIPLIER
             end
+            -- Apply afterburner multiplier if active
+            local afterburnerMultiplier = 1.0
+            if ship.state and ship.state.afterburner_active then
+                local AfterburnerSystem = require("src.systems.player.afterburner")
+                afterburnerMultiplier = AfterburnerSystem.getSpeedMultiplier(ship.state)
+            end
+            power = power * afterburnerMultiplier
             forceY = forceY - power  -- Up in screen space
         end
         
@@ -102,11 +109,25 @@ function ShipPhysics.updateShipPhysics(ship, windfieldManager, dt)
         -- Strafe thrust (screen-relative)
         if thrusterState.strafeLeft > 0 then
             local power = baseThrust * thrusterState.strafeLeft * 0.8
+            -- Apply afterburner multiplier if active
+            local afterburnerMultiplier = 1.0
+            if ship.state and ship.state.afterburner_active then
+                local AfterburnerSystem = require("src.systems.player.afterburner")
+                afterburnerMultiplier = AfterburnerSystem.getSpeedMultiplier(ship.state)
+            end
+            power = power * afterburnerMultiplier
             forceX = forceX - power  -- Left in screen space
         end
         
         if thrusterState.strafeRight > 0 then
             local power = baseThrust * thrusterState.strafeRight * 0.8
+            -- Apply afterburner multiplier if active
+            local afterburnerMultiplier = 1.0
+            if ship.state and ship.state.afterburner_active then
+                local AfterburnerSystem = require("src.systems.player.afterburner")
+                afterburnerMultiplier = AfterburnerSystem.getSpeedMultiplier(ship.state)
+            end
+            power = power * afterburnerMultiplier
             forceX = forceX + power  -- Right in screen space
         end
         

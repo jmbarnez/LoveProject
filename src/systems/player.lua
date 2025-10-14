@@ -225,6 +225,11 @@ function PlayerSystem.update(dt, player, input, world, hub)
     -- Process dash
     DashSystem.processDash(player, state, input, body, dt, modalActive)
 
+    -- Process afterburner
+    local AfterburnerSystem = require("src.systems.player.afterburner")
+    AfterburnerSystem.processAfterburner(player, state, input, body, dt, modalActive)
+    AfterburnerSystem.updateAfterburner(player, state, body, dt)
+
     -- Process braking
     local baseThrust = 600000 -- Base thrust power
     BrakingSystem.processBraking(player, body, inputs.brake, baseThrust, dt, thrusterState)

@@ -6,4 +6,6 @@ return {
     require("content.items.scraps"),
     require("content.items.node_wallet"),
     require("content.items.shield_module_basic"),
+    require("content.items.dash_module_basic"),
+    require("content.items.afterburner_module_basic"),
 }

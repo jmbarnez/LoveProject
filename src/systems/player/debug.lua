@@ -194,6 +194,18 @@ function PlayerDebug.logDash(dashQueued, cooldown, canEnergy, energy)
     )
 end
 
+-- Log afterburner system
+function PlayerDebug.logAfterburner(queued, charge, active, cooldown)
+    if not PlayerDebug.isDebugEnabled(DEBUG_LEVELS.VERBOSE) then return end
+    
+    Log.debug("PlayerSystem - Afterburner:",
+        "queued=", queued,
+        "charge=", charge,
+        "active=", active,
+        "cooldown=", cooldown
+    )
+end
+
 -- Log wreckage pushing
 function PlayerDebug.logWreckagePush(wreckageCount, playerSpeed, pushCount)
     if not PlayerDebug.isDebugEnabled(DEBUG_LEVELS.ALL) then return end

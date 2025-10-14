@@ -135,62 +135,16 @@ local COLLISION_FX_COOLDOWN = (Config and Config.EFFECTS and Config.EFFECTS.COLL
 function CollisionEffects.canEmitCollisionFX(a, b, now)
   if not a or not b or not a.id or not b.id then return true end
   
-  -- Check if entities belong to the same logical group
-  local areInSameGroup = false
-  if a.station_id and b.station_id and a.station_id == b.station_id then
-    areInSameGroup = true
-  elseif a.parent_station and b.parent_station and a.parent_station == b.parent_station then
-    areInSameGroup = true
-  elseif a.tag == "station" and b.parent_station == a then
-    areInSameGroup = true
-  elseif b.tag == "station" and a.parent_station == b then
-    areInSameGroup = true
-  elseif a.components and a.components.station and b.components and b.components.station and a.station == b.station then
-    areInSameGroup = true
-  elseif a.ship_id and b.ship_id and a.ship_id == b.ship_id then
-    areInSameGroup = true
-  elseif a.asteroid_id and b.asteroid_id and a.asteroid_id == b.asteroid_id then
-    areInSameGroup = true
-  elseif a.wreckage_id and b.wreckage_id and a.wreckage_id == b.wreckage_id then
-    areInSameGroup = true
-  elseif a.enemy_id and b.enemy_id and a.enemy_id == b.enemy_id then
-    areInSameGroup = true
-  elseif a.hub_id and b.hub_id and a.hub_id == b.hub_id then
-    areInSameGroup = true
-  elseif a.warp_gate_id and b.warp_gate_id and a.warp_gate_id == b.warp_gate_id then
-    areInSameGroup = true
-  elseif a.beacon_id and b.beacon_id and a.beacon_id == b.beacon_id then
-    areInSameGroup = true
-  elseif a.ore_furnace_id and b.ore_furnace_id and a.ore_furnace_id == b.ore_furnace_id then
-    areInSameGroup = true
-  elseif a.holographic_turret_id and b.holographic_turret_id and a.holographic_turret_id == b.holographic_turret_id then
-    areInSameGroup = true
-  elseif a.reward_crate_id and b.reward_crate_id and a.reward_crate_id == b.reward_crate_id then
-    areInSameGroup = true
-  elseif a.planet_id and b.planet_id and a.planet_id == b.planet_id then
-    areInSameGroup = true
-  end
+  -- Simplified deduplication using unified entity IDs
+  -- Create a consistent key for this entity pair
+  local pairKey = math.min(a.id, b.id) .. "_" .. math.max(a.id, b.id)
   
-  -- For entities in the same group, use group-based cooldown
-  if areInSameGroup then
-    local groupKey = math.min(a.id, b.id) .. "_" .. math.max(a.id, b.id)
-    a._groupCollisionFX = a._groupCollisionFX or {}
-    local lastGroupCollision = a._groupCollisionFX[groupKey] or 0
-    
-    if (now - lastGroupCollision) >= COLLISION_FX_COOLDOWN then
-      a._groupCollisionFX[groupKey] = now
-      return true
-    end
-    return false
-  end
-  
-  -- For entities not in the same group, use individual entity cooldown
+  -- Use a single cooldown table per entity
   a._collisionFx = a._collisionFx or {}
-  b._collisionFx = b._collisionFx or {}
-  local t = a._collisionFx[b.id] or 0
-  if (now - t) >= COLLISION_FX_COOLDOWN then
-    a._collisionFx[b.id] = now
-    b._collisionFx[a.id] = now
+  local lastCollision = a._collisionFx[pairKey] or 0
+  
+  if (now - lastCollision) >= COLLISION_FX_COOLDOWN then
+    a._collisionFx[pairKey] = now
     return true
   end
   return false

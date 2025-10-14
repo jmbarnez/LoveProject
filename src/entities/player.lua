@@ -527,7 +527,8 @@ function Player:updateAbilityModules()
 
     -- Reset ability modules - just track which abilities are available
     self.abilityModules = {
-        dash_available = false
+        dash_available = false,
+        afterburner_available = false
     }
 
     -- Check which abilities are equipped
@@ -536,6 +537,8 @@ function Player:updateAbilityModules()
             local moduleData = gridData.module.module
             if moduleData.ability_type == "dash" then
                 self.abilityModules.dash_available = true
+            elseif moduleData.ability_type == "afterburner" then
+                self.abilityModules.afterburner_available = true
             end
         end
     end

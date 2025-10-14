@@ -222,6 +222,10 @@ function Hotbar.keypressed(key, player)
                                     -- Trigger dash
                                     local DashSystem = require("src.systems.player.dash")
                                     DashSystem.queueDash(player)
+                                elseif moduleData.ability_type == "afterburner" then
+                                    -- Trigger afterburner toggle
+                                    local AfterburnerSystem = require("src.systems.player.afterburner")
+                                    AfterburnerSystem.queueAfterburner(player)
                                 end
                             end
                         end

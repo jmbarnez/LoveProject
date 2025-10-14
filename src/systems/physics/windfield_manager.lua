@@ -3,6 +3,18 @@
     
     Centralized physics system using Windfield for all physics simulation.
     Handles collision classes, world management, and entity synchronization.
+    
+    COLLISION DETECTION OWNERSHIP:
+    - This system owns ALL collision detection via Windfield callbacks
+    - Legacy quadtree collision detection is disabled
+    - All collision effects are triggered from here
+    - Entity lifecycle managed by CollisionSystem (quadtree for broad-phase only)
+    
+    FIXED ROTATION PROTECTION:
+    - Ships have fixedRotation = true and never rotate
+    - Angular velocity is blocked for fixed rotation entities
+    - Position syncing ensures ships maintain angle = 0
+    - Safety checks prevent any accidental rotation
 ]]
 
 local wf = require("src.libs.windfield")
@@ -57,7 +69,7 @@ function WindfieldManager.new()
 end
 
 function WindfieldManager:setupCollisionCallbacks()
-    -- Asteroid vs Asteroid collisions
+    -- Unified collision handling for all entity types
     self.world:on("beginContact", function(colliderA, colliderB, contact)
         local entityA = self.colliders[colliderA]
         local entityB = self.colliders[colliderB]
@@ -74,21 +86,87 @@ function WindfieldManager:setupCollisionCallbacks()
         Log.debug("physics", "Collision detected: %s vs %s (entities: %s vs %s)", 
                  classA, classB, entityA.id or "unknown", entityB.id or "unknown")
         
-        -- Handle asteroid collisions
-        if classA == "asteroid" and classB == "asteroid" then
-            self:handleAsteroidCollision(entityA, entityB, contact)
-        end
-        
-        -- Handle projectile collisions
-        if classA == "projectile" or classB == "projectile" then
-            self:handleProjectileCollision(entityA, entityB, contact)
-        end
-        
-        -- Handle player collisions
-        if classA == "player" or classB == "player" then
-            self:handlePlayerCollision(entityA, entityB, contact)
-        end
+        -- Handle all collision types through unified system
+        self:handleCollision(entityA, entityB, contact, classA, classB)
     end)
+end
+
+function WindfieldManager:handleCollision(entityA, entityB, contact, classA, classB)
+    -- Unified collision handling for all entity types
+    -- Windfield handles physics resolution automatically, we handle game logic
+    
+    -- Check for collision grace periods
+    if entityA._collisionGrace and entityA._collisionGrace > 0 then
+        return
+    end
+    if entityB._collisionGrace and entityB._collisionGrace > 0 then
+        return
+    end
+    
+    -- Skip friendly vs station shield collisions (allow friendlies inside station bubble)
+    local StationShields = require("src.systems.collision.station_shields")
+    if StationShields.shouldIgnoreEntityCollision(entityA, entityB) then
+        return
+    end
+    
+    -- Ignore collisions between the player and warp gates (stations now have physical hulls)
+    local eIsPlayer = entityA.isPlayer or (entityA.components and entityA.components.player)
+    local oIsPlayer = entityB.isPlayer or (entityB.components and entityB.components.player)
+    local eIsWarpGate = entityA.tag == "warp_gate"
+    local oIsWarpGate = entityB.tag == "warp_gate"
+    if (eIsPlayer and oIsWarpGate) or (oIsPlayer and eIsWarpGate) then
+        return
+    end
+    
+    -- Handle projectile collisions first (they have special logic)
+    if classA == "projectile" or classB == "projectile" then
+        self:handleProjectileCollision(entityA, entityB, contact)
+        return
+    end
+    
+    -- Handle all other entity collisions
+    self:handleEntityCollision(entityA, entityB, contact, classA, classB)
+end
+
+function WindfieldManager:handleEntityCollision(entityA, entityB, contact, classA, classB)
+    -- Handle non-projectile entity collisions
+    -- Get collision points for effects
+    local posA = entityA.components.position
+    local posB = entityB.components.position
+    
+    if not posA or not posB then
+        return
+    end
+    
+    -- Calculate collision normal from contact
+    local worldManifold = contact:getWorldManifold()
+    local points = worldManifold:getPoints()
+    local normal = worldManifold:getNormal()
+    
+    local hitX, hitY = posA.x, posA.y
+    if #points > 0 then
+        hitX, hitY = points[1].x, points[1].y
+    end
+    
+    -- Create collision effects
+    local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
+    local CollisionEffects = require("src.systems.collision.effects")
+    if CollisionEffects.canEmitCollisionFX(entityA, entityB, now) then
+        local Radius = require("src.systems.collision.radius")
+        local radiusA = Radius.getHullRadius(entityA) or 20
+        local radiusB = Radius.getHullRadius(entityB) or 20
+        
+        CollisionEffects.createCollisionEffects(entityA, entityB, 
+                                               posA.x, posA.y, posB.x, posB.y,
+                                               normal.x, normal.y, radiusA, radiusB, nil, nil)
+    end
+    
+    -- Handle specific collision types
+    if classA == "asteroid" and classB == "asteroid" then
+        self:handleAsteroidCollision(entityA, entityB, contact)
+    elseif classA == "player" or classB == "player" then
+        self:handlePlayerCollision(entityA, entityB, contact)
+    end
 end
 
 function WindfieldManager:handleAsteroidCollision(entityA, entityB, contact)
@@ -114,8 +192,27 @@ function WindfieldManager:handleProjectileCollision(entityA, entityB, contact)
             return -- Ignore this collision
         end
         
-        -- Trigger projectile hit logic
-        ProjectileCollision.handleProjectileCollision(projectile, target, 1/60, nil)
+        -- Get precise hit position from contact
+        local worldManifold = contact:getWorldManifold()
+        local points = worldManifold:getPoints()
+        local hitX, hitY = projectile.components.position.x, projectile.components.position.y
+        if #points > 0 then
+            hitX, hitY = points[1].x, points[1].y
+        end
+        
+        -- Create collision effects using precise hit position
+        local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
+        local CollisionEffects = require("src.systems.collision.effects")
+        if CollisionEffects.canEmitCollisionFX(projectile, target, now) then
+            local Radius = require("src.systems.collision.radius")
+            local targetRadius = Radius.getHullRadius(target) or 20
+            local bulletRadius = Radius.getHullRadius(projectile) or 2
+            
+            CollisionEffects.createCollisionEffects(projectile, target, hitX, hitY, hitX, hitY, 0, 0, bulletRadius, targetRadius, nil, nil)
+        end
+        
+        -- Trigger projectile hit logic with precise hit position
+        ProjectileCollision.handleProjectileCollision(projectile, target, 1/60, nil, hitX, hitY)
     end
 end
 
@@ -214,7 +311,14 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
         local angular = entity._initialVelocity.angular or 0
         Log.debug("physics", "Found _initialVelocity: vx=%.2f, vy=%.2f", vx, vy)
         collider:setLinearVelocity(vx, vy)
-        collider:setAngularVelocity(angular)
+        
+        -- Only apply angular velocity if the entity is not fixed rotation
+        if not options.fixedRotation then
+            collider:setAngularVelocity(angular)
+        else
+            -- Ships and other fixed rotation entities never rotate
+            collider:setAngularVelocity(0)
+        end
         
         -- Debug: Log velocity application
         if entity.components and entity.components.bullet then
@@ -237,7 +341,7 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
     self.colliders[collider] = entity
     
     -- For fixed rotation entities, ensure the angle is set correctly
-    if entity.components.windfield_physics and entity.components.windfield_physics.fixedRotation then
+    if options.fixedRotation then
         collider:setAngle(0)
     end
     
@@ -300,6 +404,15 @@ function WindfieldManager:update(dt)
                 
                 collider:setLinearVelocity(vx, vy)
             end
+            
+            -- Ensure fixed rotation entities never have angular velocity
+            if entity.components.windfield_physics and entity.components.windfield_physics.fixedRotation then
+                local angularVel = collider:getAngularVelocity()
+                if angularVel ~= 0 then
+                    collider:setAngularVelocity(0)
+                    Log.debug("physics", "Reset angular velocity to 0 for fixed rotation entity")
+                end
+            end
         end
     end
     
@@ -320,10 +433,18 @@ function WindfieldManager:syncPositions()
             entity.components.position.y = y
             
             -- Only sync angle if the entity is not fixed rotation
-            if entity.components.windfield_physics and not entity.components.windfield_physics.fixedRotation then
-                entity.components.position.angle = angle
+            -- Check if the entity has fixed rotation by looking at the physics component
+            local isFixedRotation = false
+            if entity.components.windfield_physics and entity.components.windfield_physics.fixedRotation then
+                isFixedRotation = true
             end
-            -- For fixed rotation entities (like ships), keep their angle at 0
+            
+            if not isFixedRotation then
+                entity.components.position.angle = angle
+            else
+                -- For fixed rotation entities (like ships), keep their angle at 0
+                entity.components.position.angle = 0
+            end
         end
     end
 end
@@ -335,6 +456,38 @@ function WindfieldManager:applyForce(entity, fx, fy)
         Log.debug("physics", "Applied force to entity: fx=%.2f, fy=%.2f", fx, fy)
     else
         Log.warn("physics", "Cannot apply force: collider not found or destroyed")
+    end
+end
+
+function WindfieldManager:applyAngularImpulse(entity, impulse)
+    -- Prevent angular impulse on fixed rotation entities (like ships)
+    if entity.components.windfield_physics and entity.components.windfield_physics.fixedRotation then
+        Log.debug("physics", "Blocked angular impulse on fixed rotation entity")
+        return
+    end
+    
+    local collider = self.entities[entity]
+    if collider and not collider:isDestroyed() then
+        collider:applyAngularImpulse(impulse)
+        Log.debug("physics", "Applied angular impulse to entity: %.2f", impulse)
+    else
+        Log.warn("physics", "Cannot apply angular impulse: collider not found or destroyed")
+    end
+end
+
+function WindfieldManager:setAngularVelocity(entity, velocity)
+    -- Prevent angular velocity on fixed rotation entities (like ships)
+    if entity.components.windfield_physics and entity.components.windfield_physics.fixedRotation then
+        Log.debug("physics", "Blocked angular velocity on fixed rotation entity")
+        return
+    end
+    
+    local collider = self.entities[entity]
+    if collider and not collider:isDestroyed() then
+        collider:setAngularVelocity(velocity)
+        Log.debug("physics", "Set angular velocity for entity: %.2f", velocity)
+    else
+        Log.warn("physics", "Cannot set angular velocity: collider not found or destroyed")
     end
 end
 

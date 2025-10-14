@@ -3,6 +3,12 @@
 
     Handles physics simulation using Windfield as the primary physics engine.
     Manages entity physics bodies and provides integration with the ECS system.
+    
+    PHYSICS OWNERSHIP:
+    - WindfieldManager: Owns all physics bodies and collision detection
+    - PhysicsSystem: Orchestrates entity-specific physics (ships, asteroids, projectiles)
+    - CollisionSystem: Manages entity lifecycle and broad-phase queries (quadtree)
+    - Projectiles: Created by Projectiles.spawn() -> added to world -> physics body created by PhysicsSystem
 ]]
 
 local WindfieldManager = require("src.systems.physics.windfield_manager")

@@ -64,4 +64,14 @@ Config.DASH = {
     IFRAMES = 0.15,        -- Base invincibility frames duration (s) - shorter
 }
 
+-- Afterburner system configuration
+Config.AFTERBURNER = {
+    MAX_CHARGE = 100,      -- Maximum charge percentage
+    CHARGE_RATE = 25,      -- Charge per second when not active
+    DRAIN_RATE = 50,       -- Drain per second when active
+    SPEED_MULTIPLIER = 2.0, -- Speed boost multiplier when active
+    COOLDOWN = 1.0,        -- Cooldown after depletion (seconds)
+    ENERGY_COST = 0,       -- Energy cost per second (0 = no energy cost)
+}
+
 return Config
