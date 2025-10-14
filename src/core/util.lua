@@ -2,6 +2,16 @@ local Log = require("src.core.log")
 
 local util = {}
 
+-- Helper function to replace deprecated math.atan2
+function util.atan2(y, x)
+  if x == 0 then
+    return y >= 0 and math.pi/2 or -math.pi/2
+  end
+  local a = math.atan(y / x)
+  if x < 0 then a = a + math.pi end
+  return a
+end
+
 function util.clamp(x, a, b)
   if x < a then return a end
   if x > b then return b end
@@ -33,15 +43,7 @@ end
 
 function util.angleTo(x1, y1, x2, y2)
   local dy, dx = (y2 - y1), (x2 - x1)
-  if math.atan2 then
-    return math.atan2(dy, dx)
-  end
-  if dx == 0 then
-    return dy >= 0 and math.pi/2 or -math.pi/2
-  end
-  local a = math.atan(dy / dx)
-  if dx < 0 then a = a + math.pi end
-  return a
+  return util.atan2(dy, dx)
 end
 
 function util.approach(a, b, s)

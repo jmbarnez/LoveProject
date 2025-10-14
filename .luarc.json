@@ -1,0 +1,35 @@
+{
+  "globals": [
+    "love",
+    "world",
+    "Constants",
+    "serialize",
+    "sx",
+    "sy",
+    "health",
+    "damage",
+    "Geometry",
+    "enet",
+    "drawShieldIcon"
+  ],
+  "workspace": {
+    "library": [
+      "lua"
+    ]
+  },
+  "diagnostics": {
+    "globals": [
+      "love",
+      "world", 
+      "Constants",
+      "serialize",
+      "sx",
+      "sy",
+      "health",
+      "damage",
+      "Geometry",
+      "enet",
+      "drawShieldIcon"
+    ]
+  }
+}

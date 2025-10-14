@@ -124,9 +124,9 @@ function ShieldEffects.drawShieldBubble(entity)
     local weaponsDisabled = (playerState and playerState.weapons_disabled) or entity.weaponsDisabled
     
     -- Check if shields are actually active and if ship has shield capacity
-    local hasActiveShield = h and h.shield and h.shield > 0
-    local hasShieldCapacity = h and h.maxShield and h.maxShield > 0
-    local isAtFullShield = h and h.shield and h.maxShield and h.shield >= h.maxShield
+    local hasActiveShield = hull and hull.shield and hull.shield > 0
+    local hasShieldCapacity = hull and hull.maxShield and hull.maxShield > 0
+    local isAtFullShield = hull and hull.shield and hull.maxShield and hull.shield >= hull.maxShield
     
     -- Only draw if ship has shield capacity AND (recent impact, shields are active, or in station with full shields)
     local shouldDraw = hasShieldCapacity and (hasRecentImpact or (hasActiveShield and entity.shieldChannel) or (weaponsDisabled and isAtFullShield))

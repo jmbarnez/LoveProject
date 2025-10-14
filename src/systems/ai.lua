@@ -11,6 +11,7 @@ local SimpleTurretAI = require("src.components.simple_turret_ai")
 local Settings = require("src.core.settings")
 local NetworkSession = require("src.core.network.session")
 local Log = require("src.core.log")
+local util = require("src.core.util")
 
 local AISystem = {}
 
@@ -44,7 +45,7 @@ local function applyMovement(entity, vx, vy)
     if collider then
         collider:setLinearVelocity(vx, vy)
         if (vx ~= 0) or (vy ~= 0) then
-            local angle = math.atan2(vy, vx)
+            local angle = util.atan2(vy, vx)
             collider:setAngle(angle)
         end
         return
@@ -59,7 +60,7 @@ local function applyMovement(entity, vx, vy)
 
     local pos = entity.components.position
     if pos and ((vx ~= 0) or (vy ~= 0)) then
-        pos.angle = math.atan2(vy, vx)
+        pos.angle = util.atan2(vy, vx)
     end
 end
 

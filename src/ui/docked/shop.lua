@@ -102,6 +102,7 @@ function Shop.drawBuybackItems(DockedUI, x, y, w, h, player)
   local startX = x
   local startY = y
   local mx, my = Viewport.getMousePosition()
+  local btnW, btnH = 80, 28
   DockedUI._buybackButtons = {}
   local currentHoveredItem = nil
   love.graphics.push()

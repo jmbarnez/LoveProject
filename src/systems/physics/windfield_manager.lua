@@ -20,6 +20,7 @@
 local wf = require("src.libs.windfield")
 local Radius = require("src.systems.collision.radius")
 local Log = require("src.core.log")
+local util = require("src.core.util")
 
 local WindfieldManager = {}
 WindfieldManager.__index = WindfieldManager
@@ -77,24 +78,12 @@ function WindfieldManager:setupCollisionCallbacks()
         local entityB = self.colliders[colliderB]
         
         if not entityA or not entityB then 
-            Log.debug("physics", "Collision detected but missing entities: entityA=%s, entityB=%s", 
-                     entityA and "present" or "nil", entityB and "present" or "nil")
             return 
         end
         
         local classA = colliderA:getCollisionClass()
         local classB = colliderB:getCollisionClass()
         
-        -- Extensive logging to debug asteroid collisions.
-        if classA == "asteroid" or classB == "asteroid" then
-            print("--- Asteroid Collision Event ---")
-            print("Entity A: " .. tostring(entityA.id) .. " (Class: " .. classA .. ")")
-            print("Entity B: " .. tostring(entityB.id) .. " (Class: " .. classB .. ")")
-            print("------------------------------")
-        end
-
-        Log.debug("physics", "Collision detected: %s vs %s (entities: %s vs %s)", 
-                 classA, classB, entityA.id or "unknown", entityB.id or "unknown")
         
         -- Handle non-projectile collisions immediately
         if not (classA == "bullet" or classB == "bullet" or classA == "missile" or classB == "missile" or classA == "cannonball" or classB == "cannonball") then
@@ -102,29 +91,6 @@ function WindfieldManager:setupCollisionCallbacks()
         end
     end)
     
-    -- Handle projectile collisions on endContact to allow physics momentum transfer
-    self.world:on("endContact", function(colliderA, colliderB, contact)
-        local entityA = self.colliders[colliderA]
-        local entityB = self.colliders[colliderB]
-        
-        if not entityA or not entityB then 
-            return 
-        end
-        
-        local classA = colliderA:getCollisionClass()
-        local classB = colliderB:getCollisionClass()
-        
-        -- Only handle projectile collisions here
-        if classA == "bullet" or classB == "bullet" or classA == "missile" or classB == "missile" or classA == "cannonball" or classB == "cannonball" then
-            local projectile = entityA.components.bullet and entityA or entityB
-            local target = entityA.components.bullet and entityB or entityA
-            Log.debug("physics", "Projectile collision: projectile=%s (class=%s), target=%s (class=%s)", 
-                     projectile and projectile.id or "nil", classA == "bullet" or classA == "missile" or classA == "cannonball" and classA or classB,
-                     target and target.id or "nil", classA == "bullet" or classA == "missile" or classA == "cannonball" and classB or classA)
-            
-            self:handleCollision(entityA, entityB, contact, classA, classB)
-        end
-    end)
 end
 
 function WindfieldManager:handleCollision(entityA, entityB, contact, classA, classB)
@@ -220,7 +186,6 @@ end
 function WindfieldManager:handleAsteroidCollision(entityA, entityB, contact)
     -- Asteroids will bounce naturally with Windfield physics
     -- We can add custom effects here if needed
-    Log.debug("physics", "Asteroid collision: %s vs %s", entityA.subtype or "unknown", entityB.subtype or "unknown")
 end
 
 function WindfieldManager:handleProjectileCollision(entityA, entityB, contact)
@@ -228,57 +193,55 @@ function WindfieldManager:handleProjectileCollision(entityA, entityB, contact)
     local projectile = entityA.components.bullet and entityA or entityB
     local target = entityA.components.bullet and entityB or entityA
     
-    Log.debug("physics", "Projectile collision detected: projectile=%s, target=%s", 
-             projectile and projectile.id or "nil", target and target.id or "nil")
-    
-    if projectile and target then
-        -- Check if this collision should be ignored (e.g., projectile hitting its source)
-        local ProjectileCollision = require("src.systems.collision.handlers.projectile_collision")
-        local source = projectile.components.bullet and projectile.components.bullet.source
-        
-        if ProjectileCollision.shouldIgnoreTarget(projectile, target, source) then
-            return -- Ignore this collision
-        end
-        
-        
-        -- Get precise hit position from contact
-        local points = contact:getPositions()
-        local hitX, hitY = projectile.components.position.x, projectile.components.position.y
-        if #points > 0 then
-            -- Average the contact points to get a more accurate hit position.
-            local totalX, totalY = 0, 0
-            for _, p in ipairs(points) do
-                totalX = totalX + p[1]
-                totalY = totalY + p[2]
-            end
-            hitX = totalX / #points
-            hitY = totalY / #points
-        end
-        
-        -- Create collision effects using precise hit position
-        local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
-        local CollisionEffects = require("src.systems.collision.effects")
-        if CollisionEffects.canEmitCollisionFX(projectile, target, now) then
-            local Radius = require("src.systems.collision.radius")
-            local targetRadius = Radius.getHullRadius(target) or 20
-            local bulletRadius = Radius.getHullRadius(projectile) or 2
-            
-            CollisionEffects.createCollisionEffects(projectile, target, hitX, hitY, hitX, hitY, 0, 0, bulletRadius, targetRadius, nil, nil)
-        end
-        
-        -- Trigger projectile hit logic with precise hit position
-        ProjectileCollision.handleProjectileCollision(projectile, target, 1/60, nil, hitX, hitY)
-
-        -- Destroy projectile after physics has processed the collision
-        local projectileCollider = self.entities[projectile]
-        if projectileCollider and not projectileCollider:isDestroyed() then
-            projectileCollider:destroy()
-        end
-        if projectileCollider then
-            self.colliders[projectileCollider] = nil
-        end
-        self.entities[projectile] = nil
+    if not projectile or not target then
+        return
     end
+    
+    -- Check if this collision should be ignored (e.g., projectile hitting its source)
+    local ProjectileCollision = require("src.systems.collision.handlers.projectile_collision")
+    local source = projectile.components.bullet and projectile.components.bullet.source
+    
+    if ProjectileCollision.shouldIgnoreTarget(projectile, target, source) then
+        return -- Ignore this collision
+    end
+    
+    -- Get precise hit position from contact
+    local points = contact:getPositions()
+    local hitX, hitY = projectile.components.position.x, projectile.components.position.y
+    if points and #points > 0 then
+        -- Average the contact points to get a more accurate hit position
+        local totalX, totalY = 0, 0
+        for _, p in ipairs(points) do
+            totalX = totalX + p[1]
+            totalY = totalY + p[2]
+        end
+        hitX = totalX / #points
+        hitY = totalY / #points
+    end
+    
+    -- Create collision effects using precise hit position
+    local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
+    local CollisionEffects = require("src.systems.collision.effects")
+    if CollisionEffects.canEmitCollisionFX(projectile, target, now) then
+        local Radius = require("src.systems.collision.radius")
+        local targetRadius = Radius.getHullRadius(target) or 20
+        local bulletRadius = Radius.getHullRadius(projectile) or 2
+        
+        CollisionEffects.createCollisionEffects(projectile, target, hitX, hitY, hitX, hitY, 0, 0, bulletRadius, targetRadius, nil, nil)
+    end
+    
+    -- Trigger projectile hit logic with precise hit position
+    ProjectileCollision.handleProjectileCollision(projectile, target, 1/60, nil, hitX, hitY)
+
+    -- Destroy projectile after physics has processed the collision
+    local projectileCollider = self.entities[projectile]
+    if projectileCollider and not projectileCollider:isDestroyed() then
+        projectileCollider:destroy()
+    end
+    if projectileCollider then
+        self.colliders[projectileCollider] = nil
+    end
+    self.entities[projectile] = nil
 end
 
 
@@ -288,16 +251,12 @@ function WindfieldManager:handlePlayerCollision(entityA, entityB, contact)
     local other = entityA.isPlayer and entityB or entityA
     
     if player and other then
-        Log.debug("physics", "Player collision with %s", other.subtype or "unknown")
         -- Add custom player collision logic here
     end
 end
 
 function WindfieldManager:addEntity(entity, colliderType, x, y, options)
-    Log.debug("physics", "WindfieldManager:addEntity called for entity type: %s", entity.components and entity.components.bullet and "projectile" or "other")
-    
     if not entity or not entity.components or not entity.components.position then
-        Log.warn("physics", "Cannot add entity without position component")
         return nil
     end
     
@@ -322,25 +281,6 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
         options.width = physics.width
         options.height = physics.height
         
-        -- Extensive logging to debug asteroid properties.
-        if entity.components.mineable then
-            print("--- Asteroid Physics Data ---")
-            print("Collider Type: " .. tostring(colliderType))
-            print("Mass: " .. tostring(options.mass))
-            print("Body Type: " .. tostring(options.bodyType))
-            if options.vertices then
-                print("Vertex Count: " .. tostring(#options.vertices / 2))
-                -- To avoid spamming the console, we'll just print the first few vertices.
-                local preview = ""
-                for i = 1, math.min(8, #options.vertices) do
-                    preview = preview .. tostring(options.vertices[i]) .. ", "
-                end
-                print("Vertices (preview): " .. preview)
-            else
-                print("Vertices: nil")
-            end
-            print("---------------------------")
-        end
     else
         -- If an entity has no physics component, it does not belong in the physics world.
         return nil
@@ -356,10 +296,6 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
     local collider = nil
     local collisionClass = self:determineCollisionClass(entity)
     
-    -- Debug: Check asteroid collision class assignment
-    if entity.components and entity.components.mineable then
-        print("ASTEROID DEBUG: Entity " .. (entity.id or "unknown") .. " assigned to collision class: " .. collisionClass)
-    end
 
     if colliderType == "circle" then
         -- Circles are defined by their radius.
@@ -440,9 +376,9 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
             Log.debug("physics", "Actual velocity after setting: vx=%.2f, vy=%.2f", actualVx, actualVy)
             
             -- Additional debug for left/right firing issue
-            local angleDegrees = math.deg(math.atan2(vy, vx))
+            local angleDegrees = math.deg(util.atan2(vy, vx))
             local direction = vx > 0 and "RIGHT" or "LEFT"
-            Log.debug("physics", "Physics direction: %s, Angle: %.2f° (%.2f rad), vx: %.2f, vy: %.2f", direction, angleDegrees, math.atan2(vy, vx), vx, vy)
+            Log.debug("physics", "Physics direction: %s, Angle: %.2f° (%.2f rad), vx: %.2f, vy: %.2f", direction, angleDegrees, util.atan2(vy, vx), vx, vy)
         end
         
         entity._initialVelocity = nil -- Clear after use
@@ -517,7 +453,6 @@ function WindfieldManager:determineCollisionClass(entity)
     end
     
     -- This should not happen for physics objects
-    Log.warn("physics", "Entity %s has no recognizable collision class, defaulting to 'default'", entity.id or "unknown")
     return "default"
 end
 

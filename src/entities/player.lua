@@ -32,18 +32,8 @@ function Player.new(x, y, shipId)
     self.components.physics = nil
   end
   
-  -- Create windfield physics component
-  self.components.windfield_physics = require("src.components.windfield_physics").new({
-    mass = (shipConfig.engine and shipConfig.engine.mass) or 150,
-    x = x,
-    y = y,
-    colliderType = "circle",
-    bodyType = "dynamic",
-    restitution = 0.1,
-    friction = 0.3,
-    fixedRotation = true,  -- Ship body cannot rotate - only turrets rotate
-    radius = 20, -- Will be overridden by proper radius calculation in WindfieldManager
-  })
+  -- Windfield physics component is already created by the ship template
+  -- No need to override it here
   
   -- Set ship angle to 0 (fixed orientation)
   self.components.position.angle = 0

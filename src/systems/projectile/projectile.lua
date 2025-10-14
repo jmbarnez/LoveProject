@@ -216,8 +216,12 @@ function Projectile.new(x, y, angle, friendly, config)
         damage = (function()
             local hasDamage = config.damage ~= nil
             if hasDamage then
-                local dmgValue = config.damage or 1
-                return Damage.new(dmgValue)
+                local dmgValue = config.damage
+                -- Handle damage as table with value property
+                if type(dmgValue) == "table" and dmgValue.value then
+                    dmgValue = dmgValue.value
+                end
+                return Damage.new(dmgValue or 1)
             end
             return nil
         end)(),

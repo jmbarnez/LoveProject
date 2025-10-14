@@ -86,7 +86,7 @@ function Pipeline.build()
             update_listener_position(ctx.player)
         end,
         function(ctx)
-            AISystem.update(ctx.dt, ctx.world, Projectiles.spawn)
+            AISystem.update(ctx.dt, ctx.world)
         end,
         function(ctx)
             -- Update physics world and process entities

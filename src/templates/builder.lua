@@ -31,7 +31,7 @@ function Builder.buildProjectile(def, x, y, angle, friendly, opts, world)
       end
     end
   end
-  return ProjectileTemplate.new(x, y, angle, friendly, def, world)
+  return ProjectileTemplate.new(x, y, angle, friendly, def)
 end
 
 function Builder.buildStation(def, x, y, opts)

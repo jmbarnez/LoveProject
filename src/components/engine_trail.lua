@@ -16,10 +16,12 @@ function EngineTrail.new(config)
     self.intensity = 0
     self.isThrusting = false
     
-    -- Create particle texture
+    -- Create particle texture with a simple white circle
     local particleImg = love.graphics.newCanvas(8, 8)
     love.graphics.setCanvas(particleImg)
     love.graphics.clear()
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.circle("fill", 4, 4, 3)
     love.graphics.setCanvas()
     
     -- Create particle system

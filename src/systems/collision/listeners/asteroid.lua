@@ -60,7 +60,7 @@ CollisionEvents.on("post_resolve", function(context)
         math.max(Constants.ASTEROID_SOUND_VOLUME_MIN, relativeSpeed / Constants.ASTEROID_SOUND_SCALE)
     )
 
-    Sound.triggerEventAt("impact_rock", impactX, impactY, volumeScale)
+    Sound.triggerEventAt("impact_rock", impactX, impactY)
 
     entityA._lastAsteroidCollision = currentTime
     entityB._lastAsteroidCollision = currentTime

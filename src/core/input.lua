@@ -54,7 +54,7 @@ local function getCargoModule()
       mousereleased = function() return false, false end,
       mousemoved = function() return false end,
       keypressed = function() return false end,
-      textinput = function() return false end,
+      textinput = function(text) return false end,
       getRect = function() return nil end,
     }
   end

@@ -1,0 +1,18 @@
+{
+  "Lua.workspace.library": [
+    "lua"
+  ],
+  "Lua.diagnostics.globals": [
+    "love",
+    "world",
+    "Constants", 
+    "serialize",
+    "sx",
+    "sy",
+    "health",
+    "damage",
+    "Geometry",
+    "enet",
+    "drawShieldIcon"
+  ]
+}

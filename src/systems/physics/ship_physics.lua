@@ -10,7 +10,7 @@
     - Braking uses direct velocity reduction to prevent oscillation
 ]]
 
-local WindfieldManager = require("src/systems.physics.windfield_manager")
+local WindfieldManager = require("src.systems.physics.windfield_manager")
 local Radius = require("src.systems.collision.radius")
 local Log = require("src.core.log")
 
