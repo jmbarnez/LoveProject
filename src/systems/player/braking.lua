@@ -17,8 +17,8 @@ function BrakingSystem.processBraking(player, body, braking, baseThrust, dt, thr
         BrakingSystem.setThrusterBrake(body, true)
         
         -- Get physics system for applying brake forces
-        local PhysicsSystem = require("src.systems.physics")
-        local physicsManager = PhysicsSystem.getManager()
+        local EntityPhysics = require("src.systems.entity_physics")
+        local physicsManager = EntityPhysics.getManager()
         
         if physicsManager then
             -- Get current velocity
@@ -45,30 +45,50 @@ function BrakingSystem.applyBrakeForce(body, baseThrust, currentSpeed, dt)
     local brakingThrust = baseThrust * BRAKING_CONSTANTS.brakingPower
     
     -- Get velocity from windfield physics system
-    local PhysicsSystem = require("src.systems.physics")
-    local vx, vy = PhysicsSystem.getVelocity(body)
-    
-    -- Apply force opposite to current velocity vector
-    local brakeForceX = -(vx / currentSpeed) * brakingThrust
-    local brakeForceY = -(vy / currentSpeed) * brakingThrust
-    
-    PhysicsSystem.applyForce(body, brakeForceX, brakeForceY)
+    local EntityPhysics = require("src.systems.entity_physics")
+    local manager = EntityPhysics.getManager()
+    if manager then
+        local collider = manager:getCollider(body)
+        if collider then
+            local vx, vy = collider:getLinearVelocity()
+            
+            -- Apply force opposite to current velocity vector
+            local brakeForceX = -(vx / currentSpeed) * brakingThrust
+            local brakeForceY = -(vy / currentSpeed) * brakingThrust
+            
+            collider:applyForce(brakeForceX, brakeForceY)
+        end
+    end
 end
 
 -- Check if player is moving fast enough to brake
 function BrakingSystem.shouldBrake(body, minSpeed)
     minSpeed = minSpeed or 0.1
-    local PhysicsSystem = require("src.systems.physics")
-    local vx, vy = PhysicsSystem.getVelocity(body)
-    local currentSpeed = math.sqrt(vx * vx + vy * vy)
-    return currentSpeed > minSpeed
+    local EntityPhysics = require("src.systems.entity_physics")
+    local manager = EntityPhysics.getManager()
+    if manager then
+        local collider = manager:getCollider(body)
+        if collider then
+            local vx, vy = collider:getLinearVelocity()
+            local currentSpeed = math.sqrt(vx * vx + vy * vy)
+            return currentSpeed > minSpeed
+        end
+    end
+    return false
 end
 
 -- Get current speed
 function BrakingSystem.getCurrentSpeed(body)
-    local PhysicsSystem = require("src.systems.physics")
-    local vx, vy = PhysicsSystem.getVelocity(body)
-    return math.sqrt(vx * vx + vy * vy)
+    local EntityPhysics = require("src.systems.entity_physics")
+    local manager = EntityPhysics.getManager()
+    if manager then
+        local collider = manager:getCollider(body)
+        if collider then
+            local vx, vy = collider:getLinearVelocity()
+            return math.sqrt(vx * vx + vy * vy)
+        end
+    end
+    return 0
 end
 
 -- Calculate brake force magnitude
@@ -83,9 +103,16 @@ function BrakingSystem.getBrakeForceVector(body, brakeForce)
         return 0, 0
     end
     
-    local PhysicsSystem = require("src.systems.physics")
-    local vx, vy = PhysicsSystem.getVelocity(body)
-    return -(vx / currentSpeed) * brakeForce, -(vy / currentSpeed) * brakeForce
+    local EntityPhysics = require("src.systems.entity_physics")
+    local manager = EntityPhysics.getManager()
+    if manager then
+        local collider = manager:getCollider(body)
+        if collider then
+            local vx, vy = collider:getLinearVelocity()
+            return -(vx / currentSpeed) * brakeForce, -(vy / currentSpeed) * brakeForce
+        end
+    end
+    return 0, 0
 end
 
 -- Set thruster brake state

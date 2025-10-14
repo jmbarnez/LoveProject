@@ -8,7 +8,6 @@ local Events = require("src.core.events")
 local Log = require("src.core.log")
 local TurretCore = require("src.systems.turret.core")
 local Radius = require("src.systems.collision.radius")
-local PhysicsSystem = require("src.systems.physics")
 
 local UtilityBeams = {}
 
@@ -560,7 +559,8 @@ function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, w
         return nil, endX, endY
     end
 
-    local physicsManager = PhysicsSystem.getManager()
+    local EntityPhysics = require("src.systems.entity_physics")
+    local physicsManager = EntityPhysics.getManager()
     if not physicsManager then
         return nil, endX, endY
     end

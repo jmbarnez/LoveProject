@@ -93,8 +93,8 @@ function DashSystem.executeDash(player, state, body, dashDirX, dashDirY, health)
     local energyCost = dashConfig.ENERGY_COST or 0
     
     -- Apply dash impulse using Windfield physics
-    local PhysicsSystem = require("src.systems.physics")
-    local physicsManager = PhysicsSystem.getManager()
+    local EntityPhysics = require("src.systems.entity_physics")
+    local physicsManager = EntityPhysics.getManager()
     
     if physicsManager then
         local mass = body.mass or 500

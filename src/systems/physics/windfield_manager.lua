@@ -56,7 +56,6 @@ function WindfieldManager.new()
     -- Set up collision classes
     for _, class in ipairs(COLLISION_CLASSES) do
         self.world:addCollisionClass(class.name, class.options)
-        print("Registered collision class: " .. class.name)
     end
     
     -- Set up collision callbacks
@@ -152,14 +151,19 @@ function WindfieldManager:handleEntityCollision(entityA, entityB, contact, class
         return
     end
     
-    -- Calculate collision normal from contact
-    local worldManifold = contact:getWorldManifold()
-    local points = worldManifold:getPoints()
-    local normal = worldManifold:getNormal()
-    
+    -- Calculate collision points from contact
+    -- Windfield contact objects have getPositions() method, not getWorldManifold()
+    local points = contact:getPositions()
     local hitX, hitY = posA.x, posA.y
     if #points > 0 then
-        hitX, hitY = points[1].x, points[1].y
+        -- Average the contact points for a more accurate hit position
+        local totalX, totalY = 0, 0
+        for _, point in ipairs(points) do
+            totalX = totalX + point[1]
+            totalY = totalY + point[2]
+        end
+        hitX = totalX / #points
+        hitY = totalY / #points
     end
     
     -- Create collision effects
@@ -320,7 +324,6 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
     
     local collider = nil
     local collisionClass = self:determineCollisionClass(entity)
-    print("Entity " .. (entity.id or "unknown") .. " assigned to collision class: " .. collisionClass)
 
     if colliderType == "circle" then
         -- Circles are defined by their radius.

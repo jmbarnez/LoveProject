@@ -21,8 +21,8 @@ function BoundarySystem.update(world)
         
         -- Handle Windfield physics
         if entity.components.windfield_physics then
-          local PhysicsSystem = require("src.systems.physics")
-          local manager = PhysicsSystem.getManager()
+          local EntityPhysics = require("src.systems.entity_physics")
+          local manager = EntityPhysics.getManager()
           if manager then
             local collider = manager:getCollider(entity)
             if collider then
@@ -40,8 +40,8 @@ function BoundarySystem.update(world)
         
         -- Handle Windfield physics
         if entity.components.windfield_physics then
-          local PhysicsSystem = require("src.systems.physics")
-          local manager = PhysicsSystem.getManager()
+          local EntityPhysics = require("src.systems.entity_physics")
+          local manager = EntityPhysics.getManager()
           if manager then
             local collider = manager:getCollider(entity)
             if collider then
@@ -57,8 +57,8 @@ function BoundarySystem.update(world)
       if bounced then
         -- Handle Windfield physics
         if entity.components.windfield_physics then
-          local PhysicsSystem = require("src.systems.physics")
-          local manager = PhysicsSystem.getManager()
+          local EntityPhysics = require("src.systems.entity_physics")
+          local manager = EntityPhysics.getManager()
           if manager then
             local collider = manager:getCollider(entity)
             if collider then

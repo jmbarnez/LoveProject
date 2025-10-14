@@ -1,4 +1,5 @@
 local Util = require("src.core.util")
+local EntityPhysics = require("src.systems.entity_physics")
 
 local EngineTrailSystem = {}
 
@@ -38,7 +39,8 @@ function EngineTrailSystem.update(dt, world)
 
 			-- Calculate movement direction for engine trail positioning
 			local PhysicsSystem = require("src.systems.physics")
-			local manager = PhysicsSystem.getManager()
+			local EntityPhysics = require("src.systems.entity_physics")
+			local manager = EntityPhysics.getManager()
 			local collider = manager and manager:getCollider(player)
 			local movementAngle = 0
 			
@@ -78,7 +80,8 @@ function EngineTrailSystem.update(dt, world)
 				else
 					-- For non-remote entities, use Windfield physics for movement detection
 					local PhysicsSystem = require("src.systems.physics")
-					local manager = PhysicsSystem.getManager()
+					local EntityPhysics = require("src.systems.entity_physics")
+			local manager = EntityPhysics.getManager()
 					local collider = manager and manager:getCollider(entity)
 					
 					if collider then

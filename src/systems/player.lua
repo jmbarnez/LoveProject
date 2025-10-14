@@ -252,8 +252,8 @@ function PlayerSystem.update(dt, player, input, world, hub)
 
     -- Apply ship physics forces
     local ShipPhysics = require("src.systems.physics.ship_physics")
-    local PhysicsSystem = require("src.systems.physics")
-    local physicsManager = PhysicsSystem.getManager()
+    local EntityPhysics = require("src.systems.entity_physics")
+    local physicsManager = EntityPhysics.getManager()
     if physicsManager then
         ShipPhysics.updateShipPhysics(player, physicsManager, dt)
     end

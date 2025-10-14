@@ -356,8 +356,8 @@ function DestructionSystem.update(world, gameState, hub)
           
           -- Handle Windfield physics
           if e.components.windfield_physics then
-            local PhysicsSystem = require("src.systems.physics")
-            local manager = PhysicsSystem.getManager()
+            local EntityPhysics = require("src.systems.entity_physics")
+            local manager = EntityPhysics.getManager()
             if manager then
               -- Remove existing collider
               manager:removeEntity(e)
@@ -372,8 +372,8 @@ function DestructionSystem.update(world, gameState, hub)
           -- Reset velocities and ensure the physics body matches the respawn location
           -- Handle Windfield physics velocity reset
           if e.components.windfield_physics then
-            local PhysicsSystem = require("src.systems.physics")
-            local manager = PhysicsSystem.getManager()
+            local EntityPhysics = require("src.systems.entity_physics")
+            local manager = EntityPhysics.getManager()
             if manager then
               local collider = manager:getCollider(e)
               if collider then

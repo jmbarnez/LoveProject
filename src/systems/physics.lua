@@ -26,10 +26,14 @@ local PhysicsSystem = {}
 local physicsManager = nil
 
 function PhysicsSystem.init()
-    if not physicsManager then
-        physicsManager = WindfieldManager.new()
-        Log.info("physics", "Physics system initialized with Windfield")
+    -- Always destroy the old manager first to prevent reinitialization issues
+    if physicsManager then
+        physicsManager:destroy()
+        physicsManager = nil
     end
+    
+    physicsManager = WindfieldManager.new()
+    Log.info("physics", "Physics system initialized with Windfield")
     return physicsManager
 end
 
@@ -57,20 +61,15 @@ function PhysicsSystem.update(dt, entities, world)
 end
 
 function PhysicsSystem.addEntity(entity)
-    Log.debug("physics", "PhysicsSystem.addEntity called for entity: %s", entity and entity.id or "nil")
-    
     if not physicsManager then
-        Log.debug("physics", "Physics manager not initialized, calling init()")
         PhysicsSystem.init()
     end
     
     if not physicsManager then
-        Log.error("physics", "Physics manager still not initialized after init() call!")
         return nil
     end
     
     if not entity or not entity.components or not entity.components.position then
-        Log.warn("physics", "Cannot add entity: missing entity, components, or position")
         return nil
     end
     

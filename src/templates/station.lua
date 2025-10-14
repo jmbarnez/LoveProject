@@ -129,8 +129,8 @@ function Station.new(x, y, config)
     })
 
     -- Add station to physics system immediately
-    local PhysicsSystem = require("src.systems.physics")
-    PhysicsSystem.addEntity(self)
+    local EntityPhysics = require("src.systems.entity_physics")
+    EntityPhysics.addEntity(self)
     
     -- Debug logging
     local Log = require("src.core.log")

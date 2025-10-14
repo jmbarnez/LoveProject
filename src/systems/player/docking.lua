@@ -27,8 +27,14 @@ function Docking.dock(player, station)
   end
 
   -- Stop player movement using windfield physics
-  local PhysicsSystem = require("src.systems.physics")
-  PhysicsSystem.setVelocity(player, 0, 0)
+  local EntityPhysics = require("src.systems.entity_physics")
+  local manager = EntityPhysics.getManager()
+  if manager then
+    local collider = manager:getCollider(player)
+    if collider then
+      collider:setLinearVelocity(0, 0)
+    end
+  end
 
   -- Instant shield recharge when docking
   if player.components and player.components.hull then

@@ -391,7 +391,8 @@ function Projectile.new(x, y, angle, friendly, config)
     
     -- Try to add to physics system with error handling
     local success, result = pcall(function()
-        return PhysicsSystem.addEntity(self)
+        local EntityPhysics = require("src.systems.entity_physics")
+        return EntityPhysics.addEntity(self)
     end)
     
     if not success then

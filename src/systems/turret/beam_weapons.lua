@@ -4,7 +4,6 @@ local Log = require("src.core.log")
 local TargetUtils = require("src.core.target_utils")
 local Radius = require("src.systems.collision.radius")
 local Geometry = require("src.systems.collision.geometry")
-local PhysicsSystem = require("src.systems.physics")
 
 local BeamWeapons = {}
 
@@ -335,7 +334,8 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
         return nil, endX, endY, nil
     end
 
-    local physicsManager = PhysicsSystem.getManager()
+    local EntityPhysics = require("src.systems.entity_physics")
+    local physicsManager = EntityPhysics.getManager()
     if not physicsManager then
         return nil, endX, endY, nil
     end

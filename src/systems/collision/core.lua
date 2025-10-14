@@ -58,7 +58,8 @@ end
 function CollisionSystem:refreshBroadphase(world)
     self.quadtree:clear()
 
-    for _, entity in pairs(world:get_entities_with_components("collidable", "position")) do
+    -- Process all entities with windfield_physics components
+    for _, entity in pairs(world:get_entities_with_components("windfield_physics", "position")) do
         local radius = self.radius_cache:getEffectiveRadius(entity)
         self.quadtree:insert({
             x = entity.components.position.x - radius,
@@ -69,8 +70,9 @@ function CollisionSystem:refreshBroadphase(world)
         })
     end
 
+    -- Process entities with renderable but no windfield_physics (for visual-only broadphase)
     for _, entity in pairs(world:get_entities_with_components("renderable", "position")) do
-        if not entity.components.collidable then
+        if not entity.components.windfield_physics then
             local visualRadius = self.radius_cache:getVisualRadius(entity)
             if visualRadius > 0 then
                 self.quadtree:insert({
@@ -94,7 +96,7 @@ end
 function CollisionSystem:processEntities(world, dt)
     -- Windfield handles collision detection automatically
     -- We only need to handle special cases and entity lifecycle
-    for _, entity in ipairs(world:get_entities_with_components("collidable", "position")) do
+    for _, entity in ipairs(world:get_entities_with_components("windfield_physics", "position")) do
         if not entity.components.item_pickup and not entity.components.bullet then
             -- Store world reference on entity for projectile collision handling
             entity._world = world
@@ -102,10 +104,8 @@ function CollisionSystem:processEntities(world, dt)
             -- Add entity to physics system if not already added
             -- Skip projectiles as they are handled by the projectile system
             if not entity._physicsAdded then
-                Log.debug("collision", "Adding entity to physics system via collision system: %s", entity.id or "unknown")
                 local result = PhysicsSystem.addEntity(entity)
                 entity._physicsAdded = true
-                Log.debug("collision", "Physics system result: %s", result and "success" or "failed")
             end
         end
     end

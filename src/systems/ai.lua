@@ -29,8 +29,8 @@ local function getWindfieldCollider(entity)
     if not entity or not entity.components then
         return nil
     end
-    local PhysicsSystem = require("src.systems.physics")
-    local manager = PhysicsSystem.getManager()
+    local EntityPhysics = require("src.systems.entity_physics")
+    local manager = EntityPhysics.getManager()
     return manager and manager:getCollider(entity) or nil
 end
 

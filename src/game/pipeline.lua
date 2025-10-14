@@ -2,7 +2,7 @@ local InputIntentSystem = require("src.systems.input_intents")
 local PlayerSystem = require("src.systems.player")
 local Sound = require("src.core.sound")
 local AISystem = require("src.systems.ai")
-local PhysicsSystem = require("src.systems.physics")
+local EntityPhysics = require("src.systems.entity_physics")
 local BoundarySystem = require("src.systems.boundary_system")
 local DestructionSystem = require("src.systems.destruction")
 local SpawningSystem = require("src.systems.spawning")
@@ -89,7 +89,8 @@ function Pipeline.build()
             AISystem.update(ctx.dt, ctx.world, Projectiles.spawn)
         end,
         function(ctx)
-            PhysicsSystem.update(ctx.dt, ctx.world:getEntities(), ctx.world)
+            -- Update physics world and process entities
+            EntityPhysics.update(ctx.dt, ctx.world:getEntities(), ctx.world)
         end,
         function(ctx)
             update_lifetime_system(ctx.dt, ctx.world)
@@ -174,7 +175,12 @@ function Pipeline.build()
         end,
     }
 
-    return SystemPipeline.new(steps)
+    local pipeline = SystemPipeline.new(steps)
+    
+    -- Expose physics manager access
+    pipeline.getPhysicsManager = EntityPhysics.getManager
+    
+    return pipeline
 end
 
 return Pipeline

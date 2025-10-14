@@ -103,8 +103,8 @@ function Minimap.draw(player, world, additionalEntities)
     
     -- Use Windfield collider data for speed tracking
     if player.components.windfield_physics then
-      local PhysicsSystem = require("src.systems.physics")
-      local manager = PhysicsSystem.getManager()
+      local EntityPhysics = require("src.systems.entity_physics")
+      local manager = EntityPhysics.getManager()
       if manager then
         local collider = manager:getCollider(player)
         if collider then

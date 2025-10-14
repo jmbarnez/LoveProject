@@ -15,7 +15,6 @@ local Log = require("src.core.log")
 local Sound = require("src.core.sound")
 local PlayerRef = require("src.core.player_ref")
 local SpawningSystem = require("src.systems.spawning")
-local CollisionSystem = require("src.systems.collision.core")
 local Input = require("src.core.input")
 local UIManager = require("src.core.ui_manager")
 local QuestLogHUD = require("src.ui.hud.quest_log")
@@ -117,11 +116,8 @@ function Load.load(Game, fromSave, saveSlot, loadingScreen, multiplayer, isHost)
 
   updateProgress(0.8, "Creating warp gate...")
 
-  -- Initialize physics system first
-  local PhysicsSystem = require("src.systems.physics")
-  PhysicsSystem.init()
-  windfieldManager = PhysicsSystem.getManager()
-  Game.windfield = windfieldManager
+  -- Physics system is now initialized in the pipeline
+  -- No need to initialize here
 
   updateProgress(0.9, "Spawning player...")
   local spawnedPlayer, playerError = PlayerSpawn.spawn(fromSave, saveSlot, world, hub)
@@ -144,8 +140,7 @@ function Load.load(Game, fromSave, saveSlot, loadingScreen, multiplayer, isHost)
     SpawningSystem.init(player, hub, world)
   end
 
-  collisionSystem = CollisionSystem:new({x = 0, y = 0, width = world.width, height = world.height})
-  world:setQuadtree(collisionSystem.quadtree)
+  -- Collision system removed - entities add themselves directly to physics world
 
   if not fromSave then
     local Notifications = require("src.ui.notifications")
