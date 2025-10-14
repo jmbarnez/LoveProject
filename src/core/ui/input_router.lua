@@ -50,9 +50,9 @@ local function callComponentMethod(componentId, methodName, ...)
     local args = {...}
     local ok, result = pcall(function()
         if record.useSelf then
-            return fn(module, table.unpack(args))
+            return fn(module, unpack(args))
         else
-            return fn(table.unpack(args))
+            return fn(unpack(args))
         end
     end)
 
