@@ -256,6 +256,10 @@ local function computeMissileAim(turret, target)
         angle = turret.owner.components.position.angle
     end
 
+    -- Update turret aim angle and recalculate position
+    turret.currentAimAngle = angle
+    sx, sy = getTurretWorldPosition(turret)
+
     return sx, sy, angle
 end
 
@@ -326,15 +330,18 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
         local dy = targetY - sy
         angle = math.atan2(dy, dx)
 
-        -- Update the turret orientation before re-evaluating the muzzle
-        turret.currentAimAngle = angle
-        sx, sy = Turret.getTurretWorldPosition(turret)
+        -- Debug: Log angle calculation details
+        local Log = require("src.core.log")
+        Log.debug("turret", "Angle calc: target=(%.2f,%.2f), turret=(%.2f,%.2f), dx=%.2f, dy=%.2f, angle=%.2f", 
+                 targetX, targetY, sx, sy, dx, dy, angle)
 
-        -- Recalculate the angle using the updated muzzle position. This keeps the
-        -- direction vector aligned with the actual shot origin.
-        dx = targetX - sx
-        dy = targetY - sy
-        angle = math.atan2(dy, dx)
+        -- Update the turret orientation to match the calculated angle
+        turret.currentAimAngle = angle
+        -- Recalculate the muzzle position with the new orientation
+        sx, sy = Turret.getTurretWorldPosition(turret)
+        
+        -- Use the calculated angle directly - no need to recalculate
+        -- The angle is already correct from turret position to target
     else
         -- Fallback to ship facing if no target or cursor available
         angle = turret.owner.components.position.angle
@@ -405,6 +412,11 @@ function ProjectileWeapons.updateGunTurret(turret, dt, target, locked, world)
             -- Debug: Log turret velocity calculation
             local Log = require("src.core.log")
             Log.debug("turret", "Turret firing: angle=%.2f, vx=%.2f, vy=%.2f, speed=%.2f", finalAngle, vx, vy, projSpeed)
+            
+            -- Additional debug for left/right firing issue
+            local angleDegrees = math.deg(finalAngle)
+            local direction = vx > 0 and "RIGHT" or "LEFT"
+            Log.debug("turret", "Direction: %s, Angle: %.2f° (%.2f rad), vx: %.2f, vy: %.2f", direction, angleDegrees, finalAngle, vx, vy)
 
             local damageConfig
             if turret.damage_range then

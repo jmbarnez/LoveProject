@@ -62,10 +62,17 @@ function WindfieldManager:setupCollisionCallbacks()
         local entityA = self.colliders[colliderA]
         local entityB = self.colliders[colliderB]
         
-        if not entityA or not entityB then return end
+        if not entityA or not entityB then 
+            Log.debug("physics", "Collision detected but missing entities: entityA=%s, entityB=%s", 
+                     entityA and "present" or "nil", entityB and "present" or "nil")
+            return 
+        end
         
         local classA = colliderA:getCollisionClass()
         local classB = colliderB:getCollisionClass()
+        
+        Log.debug("physics", "Collision detected: %s vs %s (entities: %s vs %s)", 
+                 classA, classB, entityA.id or "unknown", entityB.id or "unknown")
         
         -- Handle asteroid collisions
         if classA == "asteroid" and classB == "asteroid" then
@@ -95,6 +102,9 @@ function WindfieldManager:handleProjectileCollision(entityA, entityB, contact)
     local projectile = entityA.components.bullet and entityA or entityB
     local target = entityA.components.bullet and entityB or entityA
     
+    Log.debug("physics", "Projectile collision detected: projectile=%s, target=%s", 
+             projectile and projectile.id or "nil", target and target.id or "nil")
+    
     if projectile and target then
         -- Check if this collision should be ignored (e.g., projectile hitting its source)
         local ProjectileCollision = require("src.systems.collision.handlers.projectile_collision")
@@ -121,6 +131,8 @@ function WindfieldManager:handlePlayerCollision(entityA, entityB, contact)
 end
 
 function WindfieldManager:addEntity(entity, colliderType, x, y, options)
+    Log.debug("physics", "WindfieldManager:addEntity called for entity type: %s", entity.components and entity.components.bullet and "projectile" or "other")
+    
     if not entity or not entity.components or not entity.components.position then
         Log.warn("physics", "Cannot add entity without position component")
         return nil
@@ -210,6 +222,11 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
             -- Also log the actual velocity after setting it
             local actualVx, actualVy = collider:getLinearVelocity()
             Log.debug("physics", "Actual velocity after setting: vx=%.2f, vy=%.2f", actualVx, actualVy)
+            
+            -- Additional debug for left/right firing issue
+            local angleDegrees = math.deg(math.atan2(vy, vx))
+            local direction = vx > 0 and "RIGHT" or "LEFT"
+            Log.debug("physics", "Physics direction: %s, Angle: %.2f° (%.2f rad), vx: %.2f, vy: %.2f", direction, angleDegrees, math.atan2(vy, vx), vx, vy)
         end
         
         entity._initialVelocity = nil -- Clear after use

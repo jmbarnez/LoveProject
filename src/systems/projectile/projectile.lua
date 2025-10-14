@@ -375,10 +375,31 @@ function Projectile.new(x, y, angle, friendly, config)
     -- Debug: Log projectile velocity
     local Log = require("src.core.log")
     Log.debug("projectile", "Projectile created with velocity: vx=%.2f, vy=%.2f, angle=%.2f", vx, vy, angle)
+    
+    -- Additional debug for left/right firing issue
+    local angleDegrees = math.deg(angle)
+    local direction = vx > 0 and "RIGHT" or "LEFT"
+    Log.debug("projectile", "Projectile direction: %s, Angle: %.2f° (%.2f rad), vx: %.2f, vy: %.2f", direction, angleDegrees, angle, vx, vy)
 
     -- Add projectile to physics system
     local PhysicsSystem = require("src.systems.physics")
-    PhysicsSystem.addEntity(self)
+    
+    -- Debug: Log projectile components before adding to physics
+    Log.debug("projectile", "Projectile components: bullet=%s, position=%s, renderable=%s", 
+             self.components.bullet and "yes" or "no",
+             self.components.position and "yes" or "no", 
+             self.components.renderable and "yes" or "no")
+    
+    -- Try to add to physics system with error handling
+    local success, result = pcall(function()
+        return PhysicsSystem.addEntity(self)
+    end)
+    
+    if not success then
+        Log.error("projectile", "Failed to add projectile to physics system: %s", result)
+    else
+        Log.debug("projectile", "Successfully added projectile to physics system: %s", result and "collider created" or "no collider")
+    end
 
     return self
 end

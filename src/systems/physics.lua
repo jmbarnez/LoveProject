@@ -65,11 +65,20 @@ function PhysicsSystem.update(dt, entities, world)
 end
 
 function PhysicsSystem.addEntity(entity)
+    Log.debug("physics", "PhysicsSystem.addEntity called for entity: %s", entity and entity.id or "nil")
+    
     if not physicsManager then
+        Log.debug("physics", "Physics manager not initialized, calling init()")
         PhysicsSystem.init()
     end
     
+    if not physicsManager then
+        Log.error("physics", "Physics manager still not initialized after init() call!")
+        return nil
+    end
+    
     if not entity or not entity.components or not entity.components.position then
+        Log.warn("physics", "Cannot add entity: missing entity, components, or position")
         return nil
     end
     
@@ -81,19 +90,23 @@ function PhysicsSystem.addEntity(entity)
     
     -- Handle asteroids
     if entity.components.mineable then
+        Log.debug("physics", "Adding asteroid to physics system")
         return AsteroidPhysics.createAsteroidCollider(entity, physicsManager)
     end
     
     -- Handle ships
     if entity.isPlayer or entity.components.player then
+        Log.debug("physics", "Adding ship to physics system")
         return ShipPhysics.createShipCollider(entity, physicsManager)
     end
     
     -- Handle projectiles
     if entity.components.bullet then
+        Log.debug("physics", "Adding projectile to physics system")
         return PhysicsSystem.createProjectileCollider(entity, physicsManager)
     end
     
+    Log.debug("physics", "Entity does not match any physics category - no physics collider created")
     return nil
 end
 
@@ -184,6 +197,14 @@ function PhysicsSystem.createProjectileCollider(projectile, windfieldManager)
     if collider then
         Log.debug("physics", "Created projectile collider: %s (mass=%.1f, radius=%.1f)", 
                  projectileType, mass, radius)
+        
+        -- Check if initial velocity was applied
+        if projectile._initialVelocity then
+            Log.debug("physics", "Projectile has _initialVelocity: vx=%.2f, vy=%.2f", 
+                     projectile._initialVelocity.x, projectile._initialVelocity.y)
+        else
+            Log.warn("physics", "Projectile missing _initialVelocity!")
+        end
         
         -- Initial velocity is already set by WindfieldManager:addEntity()
         -- No need to set it again here

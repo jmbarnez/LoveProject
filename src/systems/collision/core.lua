@@ -2,6 +2,7 @@ local Quadtree = require("src.core.quadtree")
 local EntityCollision = require("src.systems.collision.entity_collision")
 local RadiusCache = require("src.systems.collision.helpers.radius_cache")
 local PhysicsSystem = require("src.systems.physics")
+local Log = require("src.core.log")
 
 --- CollisionSystem orchestrates broad-phase queries, delegates collision
 --- resolution to specialised handlers, and keeps the physics world in sync
@@ -92,14 +93,17 @@ function CollisionSystem:processEntities(world, dt)
     -- Windfield handles collision detection automatically
     -- We only need to handle special cases and entity lifecycle
     for _, entity in ipairs(world:get_entities_with_components("collidable", "position")) do
-        if not entity.components.item_pickup then
+        if not entity.components.item_pickup and not entity.components.bullet then
             -- Store world reference on entity for projectile collision handling
             entity._world = world
             
             -- Add entity to physics system if not already added
+            -- Skip projectiles as they are handled by the projectile system
             if not entity._physicsAdded then
-                PhysicsSystem.addEntity(entity)
+                Log.debug("collision", "Adding entity to physics system via collision system: %s", entity.id or "unknown")
+                local result = PhysicsSystem.addEntity(entity)
                 entity._physicsAdded = true
+                Log.debug("collision", "Physics system result: %s", result and "success" or "failed")
             end
         end
     end
