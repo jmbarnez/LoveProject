@@ -37,7 +37,6 @@ function PhysicsResolution.getEntityMass(entity)
     end
 end
 
--- Surface friction functionality has been removed
 
 -- Helper function to push an entity with momentum preservation
 function PhysicsResolution.pushEntity(entity, pushX, pushY, normalX, normalY, dt, restitution)
@@ -119,7 +118,6 @@ function PhysicsResolution.pushEntity(entity, pushX, pushY, normalX, normalY, dt
     end
 end
 
--- Collision damage system has been removed for simplified physics
 
 -- Get restitution values for entities based on surface type
 function PhysicsResolution.getRestitution(entity1, entity2)

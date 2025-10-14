@@ -10,7 +10,6 @@ local Energy = require("src.components.energy")
 local Equipment = require("src.components.equipment")
 local Renderable = require("src.components.renderable")
 local WindfieldPhysics = require("src.components.windfield_physics")
--- PhysicsComponent removed - using windfield_physics instead
 local Collidable = require("src.components.collidable")
 local Velocity = require("src.components.velocity")
 local Lootable = require("src.components.lootable")

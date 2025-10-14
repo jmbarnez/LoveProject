@@ -137,7 +137,11 @@ function CollisionEffects.canEmitCollisionFX(a, b, now)
   
   -- Simplified deduplication using unified entity IDs
   -- Create a consistent key for this entity pair
-  local pairKey = math.min(a.id, b.id) .. "_" .. math.max(a.id, b.id)
+  local id1, id2 = tostring(a.id), tostring(b.id)
+  if id1 > id2 then
+    id1, id2 = id2, id1
+  end
+  local pairKey = id1 .. "_" .. id2
   
   -- Use a single cooldown table per entity
   a._collisionFx = a._collisionFx or {}

@@ -30,7 +30,7 @@ return {
   -- Basic drone stats
   hull = { hp = 100, shield = 50, cap = 110 },
   -- More realistic physics values for gradual acceleration
-  engine = { accel = 120, maxSpeed = 180, drag = 0.995, mass = 200 }, -- accel: u/s², maxSpeed: u/s, mass: kg
+  engine = { accel = 120, maxSpeed = 800, drag = 0.995, mass = 200 }, -- accel: u/s², maxSpeed: u/s, mass: kg
   sig = 110, -- u - signature radius
   cargo = { capacity = 120, volumeLimit = 50.0 }, -- capacity: units, volumeLimit: u³
   equipmentSlots = 4,

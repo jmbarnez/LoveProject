@@ -555,110 +555,133 @@ end
 
 
 -- Perform hitscan collision detection for mining lasers
-function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, world)
-    if not world then
-        return nil, endX, endY
-    end
-
-    local physicsManager = PhysicsSystem.getManager()
-    if not physicsManager then
-        return nil, endX, endY
-    end
-
-    local isHealingLaser = turret.kind == "healing_laser" or turret.type == "healing_laser"
-
-    local result = physicsManager:raycast(startX, startY, endX, endY, {
-        ignore = { turret.owner },
-        includeDead = false,
-        filter = function(entity, collider)
-            if entity == turret.owner then
-                return false
-            end
-            if not entity or not entity.components then
-                return false
-            end
-            if entity.dead then
-                return false
-            end
-            if not entity.components.position then
-                return false
-            end
-            if not entity.components.collidable and not entity.components.windfield_physics then
-                return false
-            end
-            if isHealingLaser then
-                return UtilityBeams.isSameFaction(turret.owner, entity)
-            end
-            return true
-        end
-    })
-
-    if not result then
-        return nil, endX, endY
-    end
-
-    local entity = result.entity
-    local hitX = result.x
-    local hitY = result.y
-
-    local targetRadius = Radius.getHullRadius(entity)
-    if (not targetRadius or targetRadius <= 0) and result.collider and result.collider.getRadius then
-        targetRadius = result.collider:getRadius()
-    end
-    targetRadius = targetRadius or 20
-
-    local CollisionEffects = require("src.systems.collision.effects")
-    local Effects = require("src.systems.effects")
-    local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
-
-    local isHardSurface = false
-    if entity.components and entity.components.mineable then
-        isHardSurface = true
-    elseif entity.components and entity.components.station then
-        isHardSurface = true
-    elseif entity.tag == "station" then
-        isHardSurface = true
-    elseif entity.components and entity.components.interactable and entity.components.interactable.requiresKey == "reward_crate_key" then
-        isHardSurface = true
-    elseif entity.subtype == "reward_crate" then
-        isHardSurface = true
-    end
-
-    if isHardSurface and Effects.spawnLaserSparks then
-        local impactAngle = math.atan2(hitY - startY, hitX - startX)
-        local sparkColor = {1.0, 0.8, 0.3, 0.8}
-
-        if turret.type == "mining_laser" then
-            sparkColor = {1.0, 0.7, 0.2, 0.8}
-        elseif turret.type == "salvaging_laser" then
-            sparkColor = {1.0, 0.2, 0.6, 0.8}
-        elseif turret.type == "healing_laser" then
-            sparkColor = {0.0, 1.0, 0.5, 0.8}
-        end
-
-        Effects.spawnLaserSparks(hitX, hitY, impactAngle, sparkColor)
-    elseif CollisionEffects.canEmitCollisionFX(turret, entity, now) then
-        local beamRadius = 1
-        CollisionEffects.createCollisionEffects(
-            turret,
-            entity,
-            hitX,
-            hitY,
-            hitX,
-            hitY,
-            0,
-            0,
-            beamRadius,
-            targetRadius,
-            nil,
-            nil,
-            true
-        )
-    end
-
-    return entity, hitX, hitY
-end
-
+function UtilityBeams.performMiningHitscan(startX, startY, endX, endY, turret, world)
+    if not world then
+        return nil, endX, endY
+    end
+
+    local physicsManager = PhysicsSystem.getManager()
+    if not physicsManager then
+        return nil, endX, endY
+    end
+
+    local isHealingLaser = turret.kind == "healing_laser" or turret.type == "healing_laser"
+
+    local result = physicsManager:raycast(startX, startY, endX, endY, {
+        ignore = { turret.owner },
+        includeDead = false,
+        filter = function(entity, collider)
+            if entity == turret.owner then
+                return false
+            end
+            if not entity or not entity.components then
+                return false
+            end
+            if entity.dead then
+                return false
+            end
+            if not entity.components.position then
+                return false
+            end
+            if not entity.components.collidable and not entity.components.windfield_physics then
+                return false
+            end
+            if isHealingLaser then
+                return UtilityBeams.isSameFaction(turret.owner, entity)
+            end
+            return true
+        end
+    })
+
+    if not result then
+        return nil, endX, endY
+    end
+
+    local entity = result.entity
+    local hitX = result.x
+    local hitY = result.y
+
+    local targetHasShield = CollisionEffects.hasShield and CollisionEffects.hasShield(entity)
+    local targetRadius
+    if targetHasShield then
+        targetRadius = Radius.getShieldRadius(entity) or Radius.getHullRadius(entity) or 20
+        if entity.components and entity.components.position then
+            local ex = entity.components.position.x or 0
+            local ey = entity.components.position.y or 0
+            local success, shieldX, shieldY = Geometry.calculateShieldHitPoint(startX, startY, hitX, hitY, ex, ey, targetRadius)
+            if success then
+                hitX, hitY = shieldX, shieldY
+            else
+                local dirX = hitX - ex
+                local dirY = hitY - ey
+                local dist = math.sqrt(dirX * dirX + dirY * dirY)
+                if dist > 1e-4 then
+                    local scale = targetRadius / dist
+                    hitX = ex + dirX * scale
+                    hitY = ey + dirY * scale
+                end
+            end
+        end
+    else
+        targetRadius = Radius.getHullRadius(entity)
+        if (not targetRadius or targetRadius <= 0) and result.collider and result.collider.getRadius then
+            targetRadius = result.collider:getRadius()
+        end
+        targetRadius = targetRadius or 20
+    end
+
+    local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
+
+    local isHardSurface = false
+    if entity.components and entity.components.mineable then
+        isHardSurface = true
+    elseif entity.components and entity.components.station then
+        isHardSurface = true
+    elseif entity.tag == "station" then
+        isHardSurface = true
+    elseif entity.components and entity.components.interactable and entity.components.interactable.requiresKey == "reward_crate_key" then
+        isHardSurface = true
+    elseif entity.subtype == "reward_crate" then
+        isHardSurface = true
+    end
+
+    if (not targetHasShield) and isHardSurface and Effects.spawnLaserSparks then
+        local impactAngle = math.atan2(hitY - startY, hitX - startX)
+        local sparkColor = {1.0, 0.8, 0.3, 0.8}
+
+        if turret.type == "mining_laser" then
+            sparkColor = {1.0, 0.7, 0.2, 0.8}
+        elseif turret.type == "salvaging_laser" then
+            sparkColor = {1.0, 0.2, 0.6, 0.8}
+        elseif turret.type == "healing_laser" then
+            sparkColor = {0.0, 1.0, 0.5, 0.8}
+        end
+
+        Effects.spawnLaserSparks(hitX, hitY, impactAngle, sparkColor)
+    elseif CollisionEffects.canEmitCollisionFX(turret, entity, now) then
+        local beamRadius = 1
+        CollisionEffects.createCollisionEffects(
+            turret,
+            entity,
+            hitX,
+            hitY,
+            hitX,
+            hitY,
+            0,
+            0,
+            beamRadius,
+            targetRadius,
+            nil,
+            nil,
+            true
+        )
+    end
+
+    return entity, hitX, hitY
+end
+
+
+
 -- Apply salvage damage to wreckage
 function UtilityBeams.applySalvageDamage(target, damage, source, world)
     if not target.components or not target.components.wreckage then

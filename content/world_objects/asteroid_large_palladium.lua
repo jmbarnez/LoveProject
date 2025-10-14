@@ -26,14 +26,14 @@ return {
     collidable = {
         shape = "polygon",
         vertices = {
-            -44, -18,  -- Top-left
-            -52, 0,    -- Left
-            -18, 44,   -- Bottom-left
-            0, 52,     -- Bottom
-            18, 44,    -- Bottom-right
-            44, 18,    -- Right
-            52, 0,     -- Right
-            0, -52,    -- Top
+            -40, -25,  -- Top-left
+            -25, -40,  -- Top
+            25, -40,   -- Top-right
+            40, -25,   -- Right
+            40, 25,    -- Bottom-right
+            25, 40,    -- Bottom
+            -25, 40,   -- Bottom-left
+            -40, 25,   -- Left
         }
     },
 
@@ -51,14 +51,14 @@ return {
         fixedRotation = false,
         bodyType = "dynamic",
         vertices = {
-            -44, -18,  -- Top-left
-            -52, 0,    -- Left
-            -18, 44,   -- Bottom-left
-            0, 52,     -- Bottom
-            18, 44,    -- Bottom-right
-            44, 18,    -- Right
-            52, 0,     -- Right
-            0, -52,    -- Top
+            -40, -25,  -- Top-left
+            -25, -40,  -- Top
+            25, -40,   -- Top-right
+            40, -25,   -- Right
+            40, 25,    -- Bottom-right
+            25, 40,    -- Bottom
+            -25, 40,   -- Bottom-left
+            -40, 25,   -- Left
         },
     },
 

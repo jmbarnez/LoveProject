@@ -42,6 +42,7 @@ local COLLISION_CLASSES = {
     { name = "station", options = { ignores = {} } },
     { name = "wreckage", options = { ignores = {} } },
     { name = "pickup", options = { ignores = {} } },
+    { name = "reward_crate", options = { ignores = {} } },
     { name = "sensor", options = { ignores = { "sensor" } } },
 }
 
@@ -85,6 +86,15 @@ function WindfieldManager:setupCollisionCallbacks()
         
         Log.debug("physics", "Collision detected: %s vs %s (entities: %s vs %s)", 
                  classA, classB, entityA.id or "unknown", entityB.id or "unknown")
+        
+        -- Additional debug for projectile collisions
+        if classA == "projectile" or classB == "projectile" then
+            local projectile = entityA.components.bullet and entityA or entityB
+            local target = entityA.components.bullet and entityB or entityA
+            Log.debug("physics", "Projectile collision: projectile=%s (class=%s), target=%s (class=%s)", 
+                     projectile and projectile.id or "nil", classA == "projectile" and classA or classB,
+                     target and target.id or "nil", classA == "projectile" and classB or classA)
+        end
         
         -- Handle all collision types through unified system
         self:handleCollision(entityA, entityB, contact, classA, classB)
@@ -263,7 +273,10 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
         options.radius = physics.radius
         options.width = physics.width
         options.height = physics.height
-        options.vertices = physics.vertices
+        -- Only use windfield_physics vertices if no vertices were already set by the calling system
+        if not options.vertices or #options.vertices == 0 then
+            options.vertices = physics.vertices
+        end
     end
     
     -- Ensure we use the entity's actual position
@@ -275,6 +288,10 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
     
     local collider = nil
     local collisionClass = self:determineCollisionClass(entity)
+    
+    -- Debug: Log collision class assignment
+    Log.debug("physics", "Entity %s assigned collision class: %s", 
+             entity.id or "unknown", collisionClass)
     
     if colliderType == "circle" then
         -- Use proper radius calculation based on visual boundaries
@@ -295,6 +312,10 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
     if not collider then
         Log.warn("physics", "Failed to create collider for entity")
         return nil
+    end
+
+    if collider.setPosition then
+        collider:setPosition(x, y)
     end
     
     -- Configure collider
@@ -345,6 +366,11 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
         end
         
         entity._initialVelocity = nil -- Clear after use
+    else
+        -- For entities without initial velocity (like player ships), ensure they start with zero velocity
+        -- This prevents any default velocity from Windfield from causing movement hitches
+        collider:setLinearVelocity(0, 0)
+        collider:setAngularVelocity(0)
     end
     
     -- Track entity
@@ -376,6 +402,12 @@ function WindfieldManager:determineCollisionClass(entity)
         return "wreckage"
     elseif entity.components.item_pickup or entity.components.xp_pickup then
         return "pickup"
+    elseif entity.components.interactable and entity.components.interactable.requiresKey == "reward_crate_key" then
+        return "reward_crate"
+    elseif entity.subtype == "reward_crate" then
+        return "reward_crate"
+    elseif entity.components.enemy or entity.isEnemy then
+        return "player" -- Enemy ships use the same collision class as player ships
     end
     
     return "default"
@@ -621,9 +653,11 @@ function WindfieldManager:raycast(x1, y1, x2, y2, opts)
                 break
             end
 
-            local fixture = collider.fixture
-            if not includeSensors and fixture and fixture.isSensor and fixture:isSensor() then
-                break
+            if not includeSensors then
+                local fixture = collider.fixture
+                if fixture and fixture.isSensor and fixture:isSensor() then
+                    break
+                end
             end
 
             local cx, cy = collider:getPosition()
@@ -631,22 +665,7 @@ function WindfieldManager:raycast(x1, y1, x2, y2, opts)
                 break
             end
 
-            local radius = nil
-            if collider.getRadius then
-                radius = collider:getRadius()
-            end
-
-            if (not radius or radius <= 0) and collider.getDimensions then
-                local width, height = collider:getDimensions()
-                if width and height then
-                    radius = math.max(width, height) * 0.5
-                end
-            end
-
-            if not radius or radius <= 0 then
-                radius = Radius.getHullRadius(entity)
-            end
-
+            local radius = Radius.getHullRadius(entity) or 20
             if not radius or radius <= 0 then
                 break
             end

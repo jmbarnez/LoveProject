@@ -307,6 +307,13 @@ function Input.keypressed(key)
     end
 
     Hotbar.keypressed(key, gameState.player)
+    
+    -- Debug collision visualization toggle (F1 key)
+    if key == "f1" then
+        local DebugCollision = require("src.systems.render.debug_collision")
+        DebugCollision.toggle()
+        return
+    end
 end
 
 -- This is the new LÖVE callback handler

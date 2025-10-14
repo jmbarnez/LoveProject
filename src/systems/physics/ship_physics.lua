@@ -12,6 +12,7 @@
 
 local WindfieldManager = require("src.systems.physics.windfield_manager")
 local Radius = require("src.systems.collision.radius")
+local ShapeConsistency = require("src.systems.collision.shape_consistency")
 local Log = require("src.core.log")
 
 local ShipPhysics = {}
@@ -22,8 +23,9 @@ local SHIP_CONSTANTS = {
     BRAKE_POWER = 400,     -- Proportional brake power
     BOOST_MULTIPLIER = 1.8,  -- Slightly reduced boost
     ANGULAR_VELOCITY = 0.0,  -- No rotation - ship body is fixed
-    MAX_VELOCITY = 180,    -- Match ship config
     MIN_VELOCITY = 0.1,
+    VELOCITY_SMOOTHING = 0.95,  -- Smoothing factor for velocity changes
+    DIRECTION_CHANGE_DAMPING = 0.85,  -- Damping for direction changes
 }
 
 function ShipPhysics.createShipCollider(ship, windfieldManager)
@@ -31,6 +33,9 @@ function ShipPhysics.createShipCollider(ship, windfieldManager)
         Log.warn("physics", "Cannot create ship collider: missing position component")
         return nil
     end
+    
+    -- Ensure shape consistency before creating collider
+    ShapeConsistency.ensureConsistency(ship)
     
     local pos = ship.components.position
     local physics = ship.components.windfield_physics
@@ -44,9 +49,16 @@ function ShipPhysics.createShipCollider(ship, windfieldManager)
     -- Determine ship size and mass
     local mass = physics.mass or 1000
     
-    -- Check if ship has polygon collision shape defined
-    local usePolygon = collidable and collidable.shape == "polygon" and collidable.vertices
-    local colliderType = usePolygon and "polygon" or "circle"
+    -- Always use polygon collision shape for ships
+    local colliderType = "polygon"
+    
+    -- Get polygon vertices from collidable component or windfield_physics component
+    local vertices = nil
+    if collidable and collidable.shape == "polygon" and collidable.vertices then
+        vertices = collidable.vertices
+    elseif physics.vertices then
+        vertices = physics.vertices
+    end
     
     -- Create physics options
     local options = {
@@ -56,16 +68,18 @@ function ShipPhysics.createShipCollider(ship, windfieldManager)
         fixedRotation = true, -- Ships don't rotate - they use screen-relative movement
         bodyType = "dynamic",
         colliderType = colliderType,
+        vertices = vertices,
     }
     
-    if usePolygon then
-        -- Use polygon vertices from collidable component
-        options.vertices = collidable.vertices
-        Log.debug("physics", "Using polygon collider for ship with %d vertices", #collidable.vertices / 2)
+    if vertices and #vertices > 0 then
+        Log.debug("physics", "Using polygon collider for ship with %d vertices", #vertices / 2)
     else
-        -- Fallback to circle collider
+        Log.warn("physics", "No polygon vertices found for ship, falling back to circle")
+        colliderType = "circle"
+        options.colliderType = "circle"
         local radius = Radius.getHullRadius(ship)
         options.radius = radius
+        options.vertices = nil
         Log.debug("physics", "Using circle collider for ship with radius %.1f", radius)
     end
     
@@ -73,9 +87,16 @@ function ShipPhysics.createShipCollider(ship, windfieldManager)
     local collider = windfieldManager:addEntity(ship, colliderType, pos.x, pos.y, options)
     
     if collider then
-        -- Ensure ship starts with zero velocity
+        -- Ensure ship starts with zero velocity (double-check to prevent hitches)
         collider:setLinearVelocity(0, 0)
         collider:setAngularVelocity(0)
+        
+        -- Additional safeguard: verify velocity is actually zero
+        local vx, vy = collider:getLinearVelocity()
+        if vx ~= 0 or vy ~= 0 then
+            Log.warn("physics", "Ship collider had non-zero initial velocity: vx=%.2f, vy=%.2f, forcing to zero", vx, vy)
+            collider:setLinearVelocity(0, 0)
+        end
         
         Log.debug("physics", "Created ship collider: mass=%.1f, type=%s", mass, colliderType)
         return collider
@@ -98,8 +119,18 @@ function ShipPhysics.updateShipPhysics(ship, windfieldManager, dt)
     local vx, vy = windfieldManager:getVelocity(ship)
     local speed = math.sqrt(vx * vx + vy * vy)
     
+    -- Initialize velocity tracking if not exists
+    if not ship._lastVelocity then
+        ship._lastVelocity = { x = 0, y = 0 }
+    end
+    
     -- Get thruster state
     local thrusterState = physics:getThrusterState()
+    
+    -- Always use raw velocity for immediate response to input
+    -- No smoothing to prevent input lag or hitches
+    ship._lastVelocity.x = vx
+    ship._lastVelocity.y = vy
     
     -- Apply thruster forces (screen-relative since ship angle is fixed)
     if thrusterState.isThrusting then
@@ -155,6 +186,9 @@ function ShipPhysics.updateShipPhysics(ship, windfieldManager, dt)
                 forceX = forceX + power  -- Right in screen space
             end
             
+            -- Simple approach: just apply forces directly without complex direction change detection
+            -- This ensures immediate response to input changes
+            
         -- Apply forces
         if forceX ~= 0 or forceY ~= 0 then
             local Log = require("src.core.log")
@@ -179,7 +213,17 @@ function ShipPhysics.updateShipPhysics(ship, windfieldManager, dt)
     -- Enforce ship-specific speed limits using ship configuration
     local currentVx, currentVy = windfieldManager:getVelocity(ship)
     local currentSpeed = math.sqrt(currentVx * currentVx + currentVy * currentVy)
+    
+    -- Get ship configuration
+    local shipConfig = ship.ship
     local maxSpeed = (shipConfig and shipConfig.engine and shipConfig.engine.maxSpeed) or 200
+    
+    -- Debug logging for speed limits
+    if currentSpeed > maxSpeed * 0.9 then  -- Log when approaching max speed
+        Log.debug("physics", "Ship speed: %.1f/%.1f (max from config: %s)", 
+                 currentSpeed, maxSpeed, 
+                 shipConfig and shipConfig.engine and shipConfig.engine.maxSpeed or "default")
+    end
     
     if currentSpeed < SHIP_CONSTANTS.MIN_VELOCITY then
         windfieldManager:setVelocity(ship, 0, 0)

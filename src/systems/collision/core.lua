@@ -53,7 +53,6 @@ function CollisionSystem:update(world, dt)
     -- We only need to manage entity lifecycle and broad-phase queries
     self:refreshBroadphase(world)
     self:processEntities(world, dt)
-    -- processProjectiles removed - handled by Windfield callbacks
 end
 
 function CollisionSystem:refreshBroadphase(world)

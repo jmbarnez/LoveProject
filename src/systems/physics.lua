@@ -42,16 +42,8 @@ function PhysicsSystem.update(dt, entities, world)
         PhysicsSystem.init()
     end
 
-    -- Pre-step: apply ship forces so they affect the current simulation step
-    for id, entity in pairs(entities) do
-        if entity.components and entity.components.position then
-            if entity.isPlayer or entity.components.player then
-                ShipPhysics.updateShipPhysics(entity, physicsManager, dt)
-            end
-        end
-    end
-
     -- Step the Windfield world (applies drag, syncs positions)
+    -- Note: Ship forces are applied by PlayerSystem, not here to avoid double-updating
     physicsManager:update(dt)
 
     -- Post-step adjustments for other physics-driven entities

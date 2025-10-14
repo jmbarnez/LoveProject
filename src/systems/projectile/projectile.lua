@@ -1,6 +1,5 @@
 local Log = require("src.core.log")
 local Position = require("src.components.position")
--- Velocity component removed - handled by Windfield physics
 local Renderable = require("src.components.renderable")
 local Collidable = require("src.components.collidable")
 local Damage = require("src.components.damage")

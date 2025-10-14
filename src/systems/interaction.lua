@@ -11,7 +11,6 @@ local REWARD_ITEM_POOL = {
   "ore_tritanium",
   "ore_palladium",
   "scraps",
-  -- reward_crate_key removed - only obtainable from MILA
 }
 
 local function getCargo(player)

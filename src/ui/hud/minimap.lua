@@ -7,7 +7,6 @@
 
 local Theme = require("src.core.theme")
 local Viewport = require("src.core.viewport")
--- Discovery system removed - no fog of war
 local MapEntities = require("src.systems.map_entities")
 local MapRenderer = require("src.systems.map_renderer")
 local Sound = require("src.core.sound")
@@ -228,7 +227,6 @@ function Minimap.keypressed(key)
   return false
 end
 
--- Discovery functions removed - no fog of war
 function Minimap.ensureDiscovery(world)
   -- No-op: fog of war disabled
 end

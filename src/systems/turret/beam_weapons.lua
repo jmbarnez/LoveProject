@@ -3,6 +3,7 @@ local TurretEffects = require("src.systems.turret.effects")
 local Log = require("src.core.log")
 local TargetUtils = require("src.core.target_utils")
 local Radius = require("src.systems.collision.radius")
+local Geometry = require("src.systems.collision.geometry")
 local PhysicsSystem = require("src.systems.physics")
 
 local BeamWeapons = {}
@@ -361,6 +362,15 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
             return true
         end
     })
+    
+    -- Debug logging for laser hitscan
+    if result then
+        Log.debug("beam_weapons", "Laser hitscan hit: %s (class: %s) at (%.1f, %.1f)", 
+                 result.entity.id or "unknown", result.collisionClass or "unknown", 
+                 result.x or 0, result.y or 0)
+    else
+        Log.debug("beam_weapons", "Laser hitscan missed - no targets in range")
+    end
 
     if not result then
         return nil, endX, endY, nil
@@ -370,16 +380,39 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
     local hitX = result.x
     local hitY = result.y
 
-    local targetRadius = Radius.getHullRadius(entity)
-    if (not targetRadius or targetRadius <= 0) and result.collider and result.collider.getRadius then
-        targetRadius = result.collider:getRadius()
-    end
-    targetRadius = targetRadius or 20
-
     local CollisionEffects = require("src.systems.collision.effects")
+    local targetHasShield = CollisionEffects.hasShield and CollisionEffects.hasShield(entity)
+
+    local targetRadius
+    if targetHasShield then
+        targetRadius = Radius.getShieldRadius(entity) or Radius.getHullRadius(entity) or 20
+        if entity.components and entity.components.position then
+            local ex = entity.components.position.x or 0
+            local ey = entity.components.position.y or 0
+            local success, shieldX, shieldY = Geometry.calculateShieldHitPoint(startX, startY, hitX, hitY, ex, ey, targetRadius)
+            if success then
+                hitX, hitY = shieldX, shieldY
+            else
+                local dirX = hitX - ex
+                local dirY = hitY - ey
+                local dist = math.sqrt(dirX * dirX + dirY * dirY)
+                if dist > 1e-4 then
+                    local scale = targetRadius / dist
+                    hitX = ex + dirX * scale
+                    hitY = ey + dirY * scale
+                end
+            end
+        end
+    else
+        targetRadius = Radius.getHullRadius(entity)
+        if (not targetRadius or targetRadius <= 0) and result.collider and result.collider.getRadius then
+            targetRadius = result.collider:getRadius()
+        end
+        targetRadius = targetRadius or 20
+    end
+
     local Effects = require("src.systems.effects")
     local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
-
     local isHardSurface = false
     if entity.components and entity.components.mineable then
         isHardSurface = true
@@ -395,7 +428,9 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
 
     local isHullSurface = entity.components and entity.components.hull ~= nil
 
-    if (isHardSurface or isHullSurface) and Effects.spawnLaserSparks then
+    local hitSurface = targetHasShield and "shield" or (isHullSurface and "hull" or "surface")
+
+    if (not targetHasShield) and (isHardSurface or isHullSurface) and Effects.spawnLaserSparks then
         local impactAngle = math.atan2(hitY - startY, hitX - startX)
         local sparkColor = {1.0, 0.8, 0.3, 0.8}
 
@@ -428,8 +463,6 @@ function BeamWeapons.performLaserHitscan(startX, startY, endX, endY, turret, wor
             true
         )
     end
-
-    local hitSurface = isHullSurface and "hull" or "surface"
 
     return entity, hitX, hitY, hitSurface
 end

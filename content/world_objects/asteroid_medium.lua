@@ -23,18 +23,10 @@ return {
         }
     },
 
+    -- Collision shape will be derived from visual shapes automatically
     collidable = {
         shape = "polygon",
-        vertices = {
-            -30, -12,  -- Top-left
-            -36, 0,    -- Left
-            -12, 30,   -- Bottom-left
-            0, 36,     -- Bottom
-            12, 30,    -- Bottom-right
-            30, 12,    -- Right
-            36, 0,     -- Right
-            0, -36,    -- Top
-        }
+        -- vertices will be auto-generated from visuals.shapes
     },
 
     mineable = {
@@ -50,16 +42,7 @@ return {
         friction = 0.1,
         fixedRotation = false,
         bodyType = "dynamic",
-        vertices = {
-            -30, -12,  -- Top-left
-            -36, 0,    -- Left
-            -12, 30,   -- Bottom-left
-            0, 36,     -- Bottom
-            12, 30,    -- Bottom-right
-            30, 12,    -- Right
-            36, 0,     -- Right
-            0, -36,    -- Top
-        },
+        -- vertices will be auto-generated from visuals.shapes
     },
 
     visuals = {
@@ -74,6 +57,36 @@ return {
                 {0.6, 0.65, 0.7, 1.0},
             },
             chunkOutline = {0.3, 0.35, 0.4, 1.0},
+        },
+        -- Single source of truth for both visual and collision shapes
+        -- Using 6 vertices (hexagon) to stay well within Box2D's 8-vertex limit
+        shapes = {
+            {
+                type = "polygon",
+                mode = "fill",
+                color = {0.45, 0.5, 0.55, 1.0},
+                points = {
+                    {-25, -15},  -- Top-left
+                    {-15, -25},  -- Top
+                    {15, -25},   -- Top-right
+                    {25, -15},   -- Right
+                    {25, 15},    -- Bottom-right
+                    {-25, 15},   -- Bottom-left
+                }
+            },
+            {
+                type = "polygon",
+                mode = "line",
+                color = {0.3, 0.35, 0.4, 1.0},
+                points = {
+                    {-25, -15},  -- Top-left
+                    {-15, -25},  -- Top
+                    {15, -25},   -- Top-right
+                    {25, -15},   -- Right
+                    {25, 15},    -- Bottom-right
+                    {-25, 15},   -- Bottom-left
+                }
+            }
         }
     }
 }

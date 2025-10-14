@@ -12,12 +12,10 @@ local PlayerDocking = require("src.systems.player.docking")
 -- Player sub-systems
 local PlayerDebug = require("src.systems.player.debug")
 local StateValidator = require("src.systems.player.state_validator")
--- MovementSystem removed - handled by Ship Physics System
 local DashSystem = require("src.systems.player.dash")
 local BrakingSystem = require("src.systems.player.braking")
 local RegenSystem = require("src.systems.player.regen")
 local TurretSystem = require("src.systems.player.turrets")
--- WreckagePushSystem removed - windfield physics handles wreckage interactions automatically
 local WeaponsSystem = require("src.systems.player.weapons")
 
 local PlayerSystem = {}
@@ -251,6 +249,14 @@ function PlayerSystem.update(dt, player, input, world, hub)
     -- Process turrets
     local canFire = WeaponsSystem.canFireWeapons(state)
     TurretSystem.processTurrets(player, state, modalActive, canFire, dt, world)
+
+    -- Apply ship physics forces
+    local ShipPhysics = require("src.systems.physics.ship_physics")
+    local PhysicsSystem = require("src.systems.physics")
+    local physicsManager = PhysicsSystem.getManager()
+    if physicsManager then
+        ShipPhysics.updateShipPhysics(player, physicsManager, dt)
+    end
 
     -- Process wreckage pushing
     -- Wreckage push handled automatically by windfield physics

@@ -17,19 +17,11 @@ return {
         vertices = {
             -25, -15,  -- Top-left
             -20, -20,  -- Left
-            -15, -20,  -- Left-bottom
             -10, -25,  -- Bottom-left
             10, -25,   -- Bottom
-            15, -20,   -- Bottom-right
             20, -20,   -- Right
             25, -15,   -- Top-right
             25, 15,    -- Right
-            20, 20,    -- Right-bottom
-            15, 20,    -- Bottom-right
-            10, 25,    -- Bottom
-            -10, 25,   -- Bottom-left
-            -15, 20,   -- Bottom-left
-            -20, 20,   -- Left
             -25, 15,   -- Left-top
         }
     },

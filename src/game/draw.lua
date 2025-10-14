@@ -12,6 +12,7 @@ local QuestLogHUD = require("src.ui.hud.quest_log")
 local Viewport = require("src.core.viewport")
 local Indicators = require("src.systems.render.indicators")
 local PostProcessing = require("src.systems.post_processing")
+local DebugCollision = require("src.systems.render.debug_collision")
 
 local Draw = {}
 
@@ -35,6 +36,9 @@ function Draw.draw(Game)
 
     RenderSystem.draw(world, camera, player, State.clickMarkers, State.hoveredEntity, State.hoveredEntityType)
     Effects.draw()
+    
+    -- Draw debug collision shapes if enabled
+    DebugCollision.renderWorldCollisions(world)
     
     -- Draw construction system
     local ConstructionSystem = require("src.systems.construction")

@@ -67,10 +67,21 @@ local function shapeExtent(shape, size)
         return m
     elseif shape.type == "polygon" and shape.points then
         local m = 0
-        for i = 1, #shape.points, 2 do
-            local px = shape.points[i] or 0
-            local py = shape.points[i + 1] or 0
-            m = math.max(m, math.sqrt(px * px + py * py) * size)
+        -- Handle both old format (flat array) and new format (coordinate pairs)
+        if #shape.points > 0 and type(shape.points[1]) == "table" then
+            -- New format: array of coordinate pairs {x, y}
+            for _, point in ipairs(shape.points) do
+                local px = point[1] or 0
+                local py = point[2] or 0
+                m = math.max(m, math.sqrt(px * px + py * py) * size)
+            end
+        else
+            -- Old format: flat array of numbers
+            for i = 1, #shape.points, 2 do
+                local px = shape.points[i] or 0
+                local py = shape.points[i + 1] or 0
+                m = math.max(m, math.sqrt(px * px + py * py) * size)
+            end
         end
         return m
     elseif shape.type == "circle" then
