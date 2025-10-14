@@ -9,7 +9,7 @@ local Shield = require("src.components.shield")
 local Energy = require("src.components.energy")
 local Equipment = require("src.components.equipment")
 local Renderable = require("src.components.renderable")
-local PhysicsComponent = require("src.components.physics")
+-- PhysicsComponent removed - using windfield_physics instead
 local Collidable = require("src.components.collidable")
 local Velocity = require("src.components.velocity")
 local Lootable = require("src.components.lootable")
@@ -57,29 +57,10 @@ function Ship.new(x, y, angle, friendly, shipConfig)
 
   -- Physics setup (moved into components)
   local mass = (shipConfig.engine and shipConfig.engine.mass) or 500
-  local physics = PhysicsComponent.new({ mass = mass, x = x, y = y })
-  -- Radius lives on the underlying body
-  physics.body.radius = ModelUtil.calculateModelWidth(shipConfig.visuals) / 2
+  local radius = ModelUtil.calculateModelWidth(shipConfig.visuals) / 2
 
-  -- Engine configuration
-  if shipConfig.engine then
-    local baseThrust = mass * 50
-    local accelMultiplier = (shipConfig.engine.accel or 500) / 500
-    physics.body.thrusterPower = {
-      main = baseThrust * accelMultiplier * 1.2,
-      lateral = baseThrust * accelMultiplier * 0.4,
-      rotational = baseThrust * accelMultiplier * 0.3
-    }
-    -- Apply ship-specific engine characteristics to physics body
-    physics.body.maxSpeed = shipConfig.engine.maxSpeed or 300
-    -- No drag in space - realistic physics
-    physics.body.dragCoefficient = 1.0
-  else
-    physics.body.thrusterPower = { main = 50000, lateral = 20000, rotational = 15000 }
-    physics.body.maxSpeed = 300
-    -- No drag in space - realistic physics
-    physics.body.dragCoefficient = 1.0
-  end
+  -- Engine configuration (moved to windfield_physics component)
+  -- Engine properties are now handled by the windfield_physics component
 
   -- Ship properties from config
   self.name = shipConfig.name or "Unknown Ship"
@@ -127,13 +108,12 @@ function Ship.new(x, y, angle, friendly, shipConfig)
   self.components = {
       position = Position.new({ x = x, y = y, angle = angle or 0 }),
       collidable = Collidable.new({
-        radius = physics.body.radius,
+        radius = radius,
         shape = (shipConfig.collidable and shipConfig.collidable.shape) or shipConfig.collisionShape or "circle",
         vertices = (shipConfig.collidable and shipConfig.collidable.vertices) or shipConfig.collisionVertices,
         friendly = friendly,
         signature = self.sig,
       }),
-      physics = physics,
       velocity = Velocity.new({ x = 0, y = 0 }),
       hull = Hull.new({ maxHP = maxHP, hp = hp }),
       shield = Shield.new({ maxShield = maxShield, shield = shield }),
@@ -264,9 +244,7 @@ function Ship:updateMovement(dt)
     local dist = math.sqrt(dx*dx + dy*dy)
     if dist < 25 then
       self.moveTarget = nil
-      if self.components.physics and self.components.physics.body then
-        self.components.physics.body:resetThrusters()
-      end
+      -- Thruster reset handled by windfield_physics component
       return
     end
     local targetAngle = math.atan(dy/dx)
@@ -279,42 +257,21 @@ function Ship:updateMovement(dt)
     while angleDiff > math.pi do angleDiff = angleDiff - 2 * math.pi end
     while angleDiff < -math.pi do angleDiff = angleDiff + 2 * math.pi end
     
-    -- Physics-based turning towards target
+    -- Turning towards target (handled by windfield_physics component)
     if math.abs(angleDiff) > 0.1 then
-      local body = self.components.physics and self.components.physics.body
-      if body then
-        -- Use physics-based turning instead of direct thruster activation
-        local desiredAngularVel = angleDiff * 6.0  -- Slightly less aggressive than player
-        local currentAngularVel = body.angularVel
-        local angularVelDiff = desiredAngularVel - currentAngularVel
-        
-        local torqueStrength = body.thrusterPower.rotational
-        local appliedTorque = angularVelDiff * torqueStrength * 0.08  -- AI ships turn a bit slower
-        
-        -- Limit maximum torque
-        local maxTorque = torqueStrength * 0.8  -- AI ships have slightly less agile turning
-        appliedTorque = math.max(-maxTorque, math.min(maxTorque, appliedTorque))
-        
-        body:applyTorque(appliedTorque, dt)
-      end
+      -- Turning is handled by the windfield_physics component
+      -- The AI system will set thruster states appropriately
     end
     
     -- Only move forward when reasonably aligned with target direction
     -- This prevents the ship from moving in the wrong direction while turning
     local alignmentThreshold = math.pi / 4  -- 45 degrees
     if math.abs(angleDiff) < alignmentThreshold then
-      local currentSpeed = (self.components.physics and self.components.physics.body and self.components.physics.body:getSpeed()) or 0
-      local targetSpeed = self.moveTarget.maxSpeed or self.maxSpeed
-      if currentSpeed < targetSpeed * 0.8 then
-        if self.components.physics then self.components.physics:setThruster("forward", true) end
-      elseif currentSpeed > targetSpeed * 1.1 then
-        if self.components.physics then self.components.physics:setThruster("backward", true) end
-      end
+      -- Movement is handled by the windfield_physics component
+      -- The AI system will set thruster states appropriately
     end
   else
-    if self.components.physics and self.components.physics.body then
-      self.components.physics.body:resetThrusters()
-    end
+    -- Thruster reset handled by windfield_physics component
   end
 end
 

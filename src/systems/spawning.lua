@@ -118,10 +118,16 @@ local function applyAsteroidScaleVariance(asteroid)
     for _, v in ipairs(geometry.vertices) do
       table.insert(flat, v[1])
       table.insert(flat, v[2])
-    end
-    collidable.shape = "polygon"
-    collidable.vertices = flat
   end
+  collidable.shape = "polygon"
+  collidable.vertices = flat
+
+  local windfieldPhysics = asteroid.components.windfield_physics
+  if windfieldPhysics then
+    windfieldPhysics.radius = newRadius
+    windfieldPhysics.mass = math.max(10, newRadius * 2)
+  end
+end
 end
 
 -- Create an asteroid cluster at a given center point
@@ -203,23 +209,11 @@ local function createAsteroidCluster(centerX, centerY, hub, world)
             asteroid.visuals.colors.outline = {grayShade[1] * 0.6, grayShade[2] * 0.6, grayShade[3] * 0.6, grayShade[4]}
           end
           
-          -- Apply size variance before physics so mass reflects new size
+          -- Apply size variance before assigning initial velocity
           applyAsteroidScaleVariance(asteroid)
 
-          -- Add physics body for collision detection and bouncing
-          local Physics = require("src.components.physics")
-          local radius = asteroid.components.collidable and asteroid.components.collidable.radius or 30
-          local mass = radius * 2  -- Mass based on size
-          asteroid.components.physics = Physics.new({
-            mass = mass,
-            x = x,
-            y = y
-          })
-          
-          -- Add small random velocity for natural movement
-          local velX = (math.random() - 0.5) * 20  -- Random velocity between -10 and 10
-          local velY = (math.random() - 0.5) * 20
-          asteroid.components.physics.body:setVelocity(velX, velY)
+          -- Physics will be handled by Windfield when the entity is added to the world
+          -- Initial velocity will be set by the AsteroidPhysics factory
           
           world:addEntity(asteroid)
           createdAsteroids = createdAsteroids + 1
@@ -539,23 +533,11 @@ local function spawnAsteroid(hub, world)
         asteroid.visuals.colors.outline = {grayShade[1] * 0.6, grayShade[2] * 0.6, grayShade[3] * 0.6, grayShade[4]}
       end
       
-      -- Apply size variance before physics so mass reflects new size
+      -- Apply size variance before assigning initial velocity
       applyAsteroidScaleVariance(asteroid)
 
-      -- Add physics body for collision detection and bouncing
-      local Physics = require("src.components.physics")
-      local radius = asteroid.components.collidable and asteroid.components.collidable.radius or 30
-      local mass = radius * 2  -- Mass based on size
-      asteroid.components.physics = Physics.new({
-        mass = mass,
-        x = x,
-        y = y
-      })
-      
-      -- Add small random velocity for natural movement
-      local velX = (math.random() - 0.5) * 20  -- Random velocity between -10 and 10
-      local velY = (math.random() - 0.5) * 20
-      asteroid.components.physics.body:setVelocity(velX, velY)
+      -- Physics will be handled by Windfield when the entity is added to the world
+      -- Initial velocity will be set by the AsteroidPhysics factory
       
       world:addEntity(asteroid)
   end

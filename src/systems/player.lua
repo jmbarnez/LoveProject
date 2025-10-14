@@ -17,7 +17,7 @@ local DashSystem = require("src.systems.player.dash")
 local BrakingSystem = require("src.systems.player.braking")
 local RegenSystem = require("src.systems.player.regen")
 local TurretSystem = require("src.systems.player.turrets")
-local WreckagePushSystem = require("src.systems.player.wreckage_push")
+-- WreckagePushSystem removed - windfield physics handles wreckage interactions automatically
 local WeaponsSystem = require("src.systems.player.weapons")
 
 local PlayerSystem = {}
@@ -164,8 +164,8 @@ function PlayerSystem.update(dt, player, input, world, hub)
     local inputs = MovementSystem.getMovementInputs(intent, modalActive)
     local boosting = MovementSystem.isBoosting(player, inputs.boost)
 
-    -- Reset physics thrusters
-    body:resetThrusters()
+    -- Reset physics thrusters (not needed for Windfield)
+    -- body:resetThrusters()
 
     -- Process movement
     MovementSystem.processMovement(player, body, inputs, dt, thrusterState)
@@ -177,7 +177,7 @@ function PlayerSystem.update(dt, player, input, world, hub)
     DashSystem.processDash(player, state, input, body, dt, modalActive)
 
     -- Process braking
-    local baseThrust = (body.thrusterPower and body.thrusterPower.main) or 600000
+    local baseThrust = 600000 -- Base thrust power
     BrakingSystem.processBraking(player, body, inputs.brake, baseThrust, dt, thrusterState)
 
     -- Update cursor position for turret aiming
@@ -198,7 +198,7 @@ function PlayerSystem.update(dt, player, input, world, hub)
     TurretSystem.processTurrets(player, state, modalActive, canFire, dt, world)
 
     -- Process wreckage pushing
-    WreckagePushSystem.processWreckagePush(player, body, inputs, world, dt)
+    -- Wreckage push handled automatically by windfield physics
 end
 
 

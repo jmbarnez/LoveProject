@@ -36,7 +36,7 @@ return {
     },
     
     physics = {
-        mass = 200,
+        mass = 5,
         radius = 25
     }
 }

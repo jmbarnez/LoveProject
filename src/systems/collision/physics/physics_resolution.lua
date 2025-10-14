@@ -39,8 +39,18 @@ function PhysicsResolution.pushEntity(entity, pushX, pushY, normalX, normalY, dt
     local physics = entity.components.physics
     if physics and physics.body then
         local body = physics.body
-        body.x = (body.x or entity.components.position.x) + pushX
-        body.y = (body.y or entity.components.position.y) + pushY
+        local oldX = body.x or entity.components.position.x
+        local oldY = body.y or entity.components.position.y
+        
+        body.x = oldX + pushX
+        body.y = oldY + pushY
+        
+        -- Sync physics body position with entity position
+        if entity.components.position then
+            entity.components.position.x = body.x
+            entity.components.position.y = body.y
+        end
+        
 
         local vx = body.vx or 0
         local vy = body.vy or 0
@@ -50,6 +60,21 @@ function PhysicsResolution.pushEntity(entity, pushX, pushY, normalX, normalY, dt
             local delta = -(1 + restitution) * vn
             body.vx = vx + delta * normalX
             body.vy = vy + delta * normalY
+        end
+        
+        -- Sync velocity with entity velocity component if it exists
+        if entity.components.velocity then
+            entity.components.velocity.x = body.vx
+            entity.components.velocity.y = body.vy
+        end
+        
+        -- Ensure physics body velocity is properly maintained
+        -- This is critical for entities that only have physics bodies (like asteroids)
+        if not entity.components.velocity then
+            -- For entities without velocity components, ensure the physics body
+            -- maintains its velocity for proper movement
+            body.vx = body.vx or 0
+            body.vy = body.vy or 0
         end
     else
         entity.components.position.x = entity.components.position.x + pushX

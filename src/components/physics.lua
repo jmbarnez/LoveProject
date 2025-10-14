@@ -30,6 +30,13 @@ end
 -- Delegate physics methods to the newton body
 function Physics:update(dt)
     if self.body and self.body.update then
+        -- Debug: Log physics body update for asteroids
+            -- Debug logging disabled for performance
+            -- if self.body.vx and self.body.vy and (math.abs(self.body.vx) > 0.1 or math.abs(self.body.vy) > 0.1) then
+            --     print(string.format("Physics:update asteroid body vx=%.2f vy=%.2f pos=(%.1f,%.1f)", 
+            --         self.body.vx, self.body.vy, self.body.x or 0, self.body.y or 0))
+            -- end
+        
         self.body:update(dt)
         -- Sync legacy properties
         self.rotation = self.body.angle

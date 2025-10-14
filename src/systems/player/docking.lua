@@ -26,10 +26,9 @@ function Docking.dock(player, station)
     state.move_target = nil
   end
 
-  if player.components and player.components.physics and player.components.physics.body then
-    player.components.physics.body.vx = 0
-    player.components.physics.body.vy = 0
-  end
+  -- Stop player movement using windfield physics
+  local PhysicsSystem = require("src.systems.physics")
+  PhysicsSystem.setVelocity(player, 0, 0)
 
   -- Instant shield recharge when docking
   if player.components and player.components.hull then

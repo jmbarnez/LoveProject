@@ -25,21 +25,28 @@ function Player.new(x, y, shipId)
   self.shipId = shipId or "starter_frigate_basic"
   self.isPlayer = true -- Ensure this flag is set.
   self.tag = "ship" -- Ensure the ship tag is set for collision detection
-    if not self.components.physics then
-        self.components.physics = require("src.components.physics").new({
-            mass = (shipConfig.engine and shipConfig.engine.mass) or 500,
-            x = x,
-            y = y
-        })
-    end
-
-  -- Set direct control mode for player physics (visual thrusters only, no force)
-  if self.components.physics and self.components.physics.body then
-    self.components.physics.body.skipThrusterForce = true
-    -- Set drag coefficient for space drag (uses constant from physics system)
-    local CorePhysics = require("src.core.physics")
-    self.components.physics.body.dragCoefficient = CorePhysics.constants.SPACE_DRAG_COEFFICIENT
+  
+  -- Remove legacy physics component if it exists
+  if self.components.physics then
+    self.components.physics = nil
   end
+  
+  -- Create windfield physics component
+  self.components.windfield_physics = require("src.components.windfield_physics").new({
+    mass = (shipConfig.engine and shipConfig.engine.mass) or 500,
+    x = x,
+    y = y,
+    colliderType = "circle",
+    bodyType = "dynamic",
+    restitution = 0.1,
+    friction = 0.3,
+    fixedRotation = false,
+    radius = 20,
+  })
+  
+  -- Add player to physics system immediately
+  local PhysicsSystem = require("src.systems.physics")
+  PhysicsSystem.addEntity(self)
 
   -- Player-specific defaults now live in dedicated components
   self.components.player_state = self.components.player_state or PlayerStateComponent.new({

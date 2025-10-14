@@ -65,11 +65,15 @@ function PlayerDebug.logPhysicsIssue(player, body, inputs)
     end
     
     -- Log detailed physics state only if there's an issue
-    if body.vx == 0 and body.vy == 0 and (inputs.w or inputs.s or inputs.a or inputs.d) then
+    local PhysicsSystem = require("src.systems.physics")
+    local vx, vy = PhysicsSystem.getVelocity(player)
+    local pos = player.components.position
+    
+    if vx == 0 and vy == 0 and (inputs.w or inputs.s or inputs.a or inputs.d) then
         Log.warn("PlayerSystem - Input detected but no movement:",
-            "x=", body.x, "y=", body.y,
-            "vx=", body.vx, "vy=", body.vy,
-            "angle=", body.angle
+            "x=", pos.x, "y=", pos.y,
+            "vx=", vx, "vy=", vy,
+            "angle=", pos.angle
         )
     end
 end

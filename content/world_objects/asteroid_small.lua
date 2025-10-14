@@ -46,6 +46,16 @@ return {
         durability = 8.0,  -- Increased significantly for longer mining sessions
     },
 
+    windfield_physics = {
+        colliderType = "circle",
+        mass = 48,
+        restitution = 0.3,
+        friction = 0.1,
+        fixedRotation = false,
+        bodyType = "dynamic",
+        radius = 24,
+    },
+
     visuals = {
         colors = {
             small = {0.5, 0.55, 0.6, 1.0},    -- Tritanium blue-gray

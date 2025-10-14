@@ -263,6 +263,7 @@ function PhysicsBody:update(dt)
 
     -- Update linear motion
     -- v = v + a * dt (Newton's Second Law: acceleration changes velocity)
+    local oldVx, oldVy = self.vx, self.vy
     self.vx = self.vx + self.ax * dt
     self.vy = self.vy + self.ay * dt
     
@@ -329,6 +330,8 @@ end
 function PhysicsBody:setVelocity(vx, vy)
     self.vx = vx
     self.vy = vy
+    -- Debug logging disabled for performance
+    -- print(string.format("PhysicsBody:setVelocity called with vx=%.2f vy=%.2f", vx, vy))
 end
 
 -- Explicitly set position (for compatibility with systems that reposition bodies directly)
@@ -386,7 +389,10 @@ function PhysicsBody:collideWith(other, restitution)
     other.vy = other.vy + impulseY / other.mass
 
     -- Separate objects to prevent sticking
-    local overlap = self.radius + other.radius - distance
+    -- Use actual collision radii instead of fixed radius
+    local selfRadius = self.radius or 20
+    local otherRadius = other.radius or 20
+    local overlap = selfRadius + otherRadius - distance
     if overlap > 0 then
         local separationX = nx * overlap * 0.5
         local separationY = ny * overlap * 0.5
@@ -500,7 +506,10 @@ end
 
 -- Factory function
 function Physics.createBody(mass, x, y)
-    return PhysicsBody.new(mass, x, y)
+    local body = PhysicsBody.new(mass, x, y)
+    -- Debug logging disabled for performance
+    -- print(string.format("Physics.createBody created with mass=%.2f pos=(%.2f,%.2f)", mass or 0, x or 0, y or 0))
+    return body
 end
 
 return Physics

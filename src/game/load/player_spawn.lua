@@ -119,6 +119,15 @@ local function chooseSpawnPosition(world, hub)
         end
     end
 
+    -- Ensure player spawns within world bounds
+    local worldWidth = Constants.WORLD.WIDTH
+    local worldHeight = Constants.WORLD.HEIGHT
+    local margin = Constants.SPAWNING.MARGIN
+    
+    -- Clamp position to world bounds with margin
+    px = math.max(margin, math.min(px, worldWidth - margin))
+    py = math.max(margin, math.min(py, worldHeight - margin))
+
     return px, py
 end
 

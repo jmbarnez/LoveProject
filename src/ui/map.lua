@@ -85,12 +85,17 @@ function Map.isVisible()
     return Map.visible == true
 end
 
-function Map.show()
+function Map.show(player)
     local window = ensureWindow()
     Map.visible = true
     window:show()
 
-    if not Map._hasCenteredOnPlayer then
+    -- Always center on player when map is opened
+    if player and player.components and player.components.position then
+        Map.centerX = player.components.position.x
+        Map.centerY = player.components.position.y
+        Map._hasCenteredOnPlayer = true
+    elseif not Map._hasCenteredOnPlayer then
         Map.centerX = Map.lastPlayerPos.x or Map.centerX
         Map.centerY = Map.lastPlayerPos.y or Map.centerY
         Map._hasCenteredOnPlayer = true
@@ -106,11 +111,11 @@ function Map.hide()
     end
 end
 
-function Map.toggle()
+function Map.toggle(player)
     if Map.visible then
         Map.hide()
     else
-        Map.show()
+        Map.show(player)
     end
 end
 
@@ -455,6 +460,15 @@ function Map.keypressed(key)
     elseif key == "w" then
         Map.filterWrecks = not Map.filterWrecks
         Sound.playSFX("ui_click")
+        return true
+    elseif key == "c" then
+        -- Center map on player
+        local player = Map._drawPlayer
+        if player and player.components and player.components.position then
+            Map.centerX = player.components.position.x
+            Map.centerY = player.components.position.y
+            Sound.playSFX("ui_click")
+        end
         return true
     end
 

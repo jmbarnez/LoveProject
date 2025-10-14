@@ -19,7 +19,10 @@ PanelRegistry.register({
     onOpen = function(panel)
         panel.visible = true
         if panel.show then
-            panel.show()
+            -- Get player reference from UIManager
+            local UIManager = require("src.core.ui_manager")
+            local player = UIManager._player
+            panel.show(player)
         end
     end,
     onClose = function(panel)

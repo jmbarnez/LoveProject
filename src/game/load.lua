@@ -117,6 +117,12 @@ function Load.load(Game, fromSave, saveSlot, loadingScreen, multiplayer, isHost)
 
   updateProgress(0.8, "Creating warp gate...")
 
+  -- Initialize physics system first
+  local PhysicsSystem = require("src.systems.physics")
+  PhysicsSystem.init()
+  windfieldManager = PhysicsSystem.getManager()
+  Game.windfield = windfieldManager
+
   updateProgress(0.9, "Spawning player...")
   local spawnedPlayer, playerError = PlayerSpawn.spawn(fromSave, saveSlot, world, hub)
   if not spawnedPlayer then
@@ -139,8 +145,6 @@ function Load.load(Game, fromSave, saveSlot, loadingScreen, multiplayer, isHost)
   end
 
   collisionSystem = CollisionSystem:new({x = 0, y = 0, width = world.width, height = world.height})
-  windfieldManager = collisionSystem and collisionSystem:getWindfield()
-  Game.windfield = windfieldManager
   world:setQuadtree(collisionSystem.quadtree)
 
   if not fromSave then

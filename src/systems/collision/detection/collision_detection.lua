@@ -33,6 +33,8 @@ function CollisionDetection.checkEntityCollision(entity1, entity2)
         if not collided then
             return false
         end
+        -- Normal should point from entity1 (circle) to entity2 (polygon)
+        -- Since polygonCircleMTV returns normal from polygon to circle, we need to flip it
         return true, { overlap = overlap, normalX = -nx, normalY = -ny, shape1 = shape1, shape2 = shape2 }
     else
         local dx = shape2.x - shape1.x

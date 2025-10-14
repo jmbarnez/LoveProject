@@ -199,20 +199,8 @@ local function createAsteroidBelt(world)
                 asteroid.visuals.colors.outline = {grayShade[1] * 0.6, grayShade[2] * 0.6, grayShade[3] * 0.6, grayShade[4]}
             end
             
-            -- Add physics body
-            local Physics = require("src.components.physics")
-            local radius = asteroid.components.collidable and asteroid.components.collidable.radius or 30
-            local mass = radius * 2
-            asteroid.components.physics = Physics.new({
-                mass = mass,
-                x = pos.x,
-                y = pos.y
-            })
-            
-            -- Add small random velocity
-            local velX = (math.random() - 0.5) * 15
-            local velY = (math.random() - 0.5) * 15
-            asteroid.components.physics.body:setVelocity(velX, velY)
+            -- Physics will be handled by Windfield when the entity is added to the world
+            -- Initial velocity will be set by the AsteroidPhysics factory
             
             world:addEntity(asteroid)
         end

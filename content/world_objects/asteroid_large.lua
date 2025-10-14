@@ -47,6 +47,16 @@ return {
         durability = 20.0,  -- Increased significantly for longer mining sessions
     },
 
+    windfield_physics = {
+        colliderType = "circle",
+        mass = 104,
+        restitution = 0.3,
+        friction = 0.1,
+        fixedRotation = false,
+        bodyType = "dynamic",
+        radius = 52,
+    },
+
     visuals = {
         colors = {
             small = {0.8, 0.8, 0.9, 1.0},    -- Palladium silvery-white

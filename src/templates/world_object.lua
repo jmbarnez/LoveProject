@@ -4,7 +4,7 @@ local Renderable = require("src.components.renderable")
 local Collidable = require("src.components.collidable")
 local Mineable = require("src.components.mineable")
 local Interactable = require("src.components.interactable")
-local Physics = require("src.components.physics")
+local WindfieldPhysics = require("src.components.windfield_physics")
 local Util = require("src.core.util")
 
 local WorldObject = {}
@@ -59,17 +59,43 @@ function WorldObject.new(x, y, angle, friendly, config)
         end
     end
 
-    if config.physics then
-        local physicsConfig = {
-            mass = config.physics.mass or 50,
-            x = x,
-            y = y
-        }
-        self.components.physics = Physics.new(physicsConfig)
-        -- Set the physics body radius if specified
-        if config.physics.radius and self.components.physics.body then
-            self.components.physics.body.radius = config.physics.radius
+    if config.windfield_physics then
+        local collidableRadius = self.components.collidable and self.components.collidable.radius
+        local physicsConfig = {}
+
+        for k, v in pairs(config.windfield_physics) do
+            physicsConfig[k] = v
         end
+
+        local derivedRadius = config.windfield_physics.radius or collidableRadius or 20
+        physicsConfig.radius = derivedRadius
+        physicsConfig.x = x
+        physicsConfig.y = y
+
+        self.components.windfield_physics = WindfieldPhysics.new(physicsConfig)
+    elseif config.physics then
+        -- Legacy support for old physics component
+        local collidableRadius = self.components.collidable and self.components.collidable.radius
+        local physicsConfig = {}
+
+        for k, v in pairs(config.physics) do
+            if k ~= "radius" and k ~= "dragCoefficient" and k ~= "angularDamping" then
+                physicsConfig[k] = v
+            end
+        end
+
+        local derivedRadius = config.physics.radius or collidableRadius or 20
+        physicsConfig.mass = physicsConfig.mass or (derivedRadius * 2)
+        physicsConfig.x = x
+        physicsConfig.y = y
+        physicsConfig.colliderType = "circle"
+        physicsConfig.bodyType = "dynamic"
+        physicsConfig.restitution = 0.3
+        physicsConfig.friction = 0.1
+        physicsConfig.fixedRotation = false
+        physicsConfig.radius = derivedRadius
+
+        self.components.windfield_physics = WindfieldPhysics.new(physicsConfig)
     end
 
     -- Special procedural generation for asteroid vertices

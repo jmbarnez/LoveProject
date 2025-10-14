@@ -308,10 +308,14 @@ local function selectDirection(axisX, axisY, centerA, centerB)
     return axisX, axisY
   end
 
+  -- MTV should point from the collision point towards the entity that should be pushed away
+  -- For collision response, the normal should point from entity1 to entity2
+  -- This means if B is to the right of A along the axis, the normal should point right (positive axisX)
+  -- If B is to the left of A along the axis, the normal should point left (negative axisX)
   if centerB > centerA then
-    return axisX, axisY
+    return axisX, axisY  -- B is to the right/above of A, normal points from A to B
   else
-    return -axisX, -axisY
+    return -axisX, -axisY  -- B is to the left/below of A, normal points from A to B
   end
 end
 

@@ -1,17 +1,129 @@
 --[[
     PhysicsSystem
 
-    Handles simple integration for entities with velocity components and keeps
-    physics-body driven entities synchronised with their component data. The
-    project mixes "pure" ECS entities with love.physics bodies, so this system
-    bridges the gap without forcing every entity into the physics engine.
+    Handles physics simulation using Windfield as the primary physics engine.
+    Manages entity physics bodies and provides integration with the ECS system.
 ]]
 
-local ProjectileEvents = require("src.systems.projectile.event_dispatcher").EVENTS
+local WindfieldManager = require("src.systems.physics.windfield_manager")
+local AsteroidPhysics = require("src.systems.physics.asteroid_physics")
+local ShipPhysics = require("src.systems.physics.ship_physics")
+local ProjectilePhysics = require("src.systems.physics.projectile_physics")
+local Log = require("src.core.log")
 
 local PhysicsSystem = {}
 
+-- Global physics manager instance
+local physicsManager = nil
+
+function PhysicsSystem.init()
+    if not physicsManager then
+        physicsManager = WindfieldManager.new()
+        Log.info("physics", "Physics system initialized with Windfield")
+    end
+    return physicsManager
+end
+
+function PhysicsSystem.getManager()
+    return physicsManager
+end
+
 function PhysicsSystem.update(dt, entities, world)
+    if not physicsManager then
+        PhysicsSystem.init()
+    end
+    
+    -- Update all physics bodies
+    physicsManager:update(dt)
+    
+    -- Handle specific entity types
+    for id, entity in pairs(entities) do
+        if entity.components and entity.components.position then
+            -- Handle asteroids
+            if entity.components.mineable then
+                AsteroidPhysics.updateAsteroidPhysics(entity, physicsManager, dt)
+            end
+            
+            -- Handle ships (players and AI)
+            if entity.isPlayer or entity.components.player then
+                ShipPhysics.updateShipPhysics(entity, physicsManager, dt)
+            end
+            
+            -- Handle projectiles
+            if entity.components.bullet then
+                ProjectilePhysics.updateProjectilePhysics(entity, physicsManager, dt)
+            end
+        end
+    end
+end
+
+function PhysicsSystem.addEntity(entity)
+    if not physicsManager then
+        PhysicsSystem.init()
+    end
+    
+    if not entity or not entity.components or not entity.components.position then
+        return nil
+    end
+    
+    -- Handle asteroids
+    if entity.components.mineable then
+        return AsteroidPhysics.createAsteroidCollider(entity, physicsManager)
+    end
+    
+    -- Handle ships
+    if entity.isPlayer or entity.components.player then
+        return ShipPhysics.createShipCollider(entity, physicsManager)
+    end
+    
+    -- Handle projectiles
+    if entity.components.bullet then
+        return ProjectilePhysics.createProjectileCollider(entity, physicsManager)
+    end
+    
+    return nil
+end
+
+function PhysicsSystem.removeEntity(entity)
+    if physicsManager then
+        physicsManager:removeEntity(entity)
+    end
+end
+
+function PhysicsSystem.applyForce(entity, fx, fy)
+    if physicsManager then
+        physicsManager:applyForce(entity, fx, fy)
+    end
+end
+
+function PhysicsSystem.applyImpulse(entity, ix, iy)
+    if physicsManager then
+        physicsManager:applyImpulse(entity, ix, iy)
+    end
+end
+
+function PhysicsSystem.setVelocity(entity, vx, vy)
+    if physicsManager then
+        physicsManager:setVelocity(entity, vx, vy)
+    end
+end
+
+function PhysicsSystem.getVelocity(entity)
+    if physicsManager then
+        return physicsManager:getVelocity(entity)
+    end
+    return 0, 0
+end
+
+function PhysicsSystem.destroy()
+    if physicsManager then
+        physicsManager:destroy()
+        physicsManager = nil
+    end
+end
+
+-- Legacy compatibility function
+function PhysicsSystem.updateLegacy(dt, entities, world)
     for id, entity in pairs(entities) do
         -- Skip anything that does not follow the component schema; legacy
         -- objects occasionally sneak in during development tools.
@@ -49,9 +161,21 @@ function PhysicsSystem.update(dt, entities, world)
                     -- laser bullets because some templates attach minimal
                     -- bodies for collision tests only.
                     if not isLaserBullet then
-                        entity.components.position.x = entity.components.physics.body.x or entity.components.position.x or 0
-                        entity.components.position.y = entity.components.physics.body.y or entity.components.position.y or 0
-                        entity.components.position.angle = entity.components.physics.body.angle or entity.components.position.angle or 0
+                        -- Always sync physics body position to entity position
+                        -- This ensures collision-induced movements are properly reflected
+                        local bodyX = entity.components.physics.body.x
+                        local bodyY = entity.components.physics.body.y
+                        local bodyAngle = entity.components.physics.body.angle
+                        
+                        if bodyX then
+                            entity.components.position.x = bodyX
+                        end
+                        if bodyY then
+                            entity.components.position.y = bodyY
+                        end
+                        if bodyAngle then
+                            entity.components.position.angle = bodyAngle
+                        end
                     end
                 end
             end

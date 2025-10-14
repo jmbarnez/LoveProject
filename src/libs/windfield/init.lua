@@ -1,5 +1,8 @@
 local wf = {}
 
+-- Lua 5.1 compatibility: unpack is global, not table.unpack
+local unpack = unpack or table.unpack
+
 local has_love_physics = type(love) == "table" and love.physics and love.physics.newWorld
 
 local Collider = {}
@@ -74,7 +77,7 @@ local function new_stub_shape(kind, ...)
         function shape:getHeight() return self._height end
     elseif kind == "polygon" then
         shape._points = args
-        function shape:getPoints() return table.unpack(self._points) end
+        function shape:getPoints() return unpack(self._points) end
     end
     return shape
 end
@@ -423,14 +426,14 @@ function World:newPolygonCollider(vertices, body_type)
 
     local shape
     if has_love_physics then
-        shape = love.physics.newPolygonShape(table.unpack(vertices))
+        shape = love.physics.newPolygonShape(unpack(vertices))
     else
-        shape = new_stub_shape("polygon", table.unpack(vertices))
+        shape = new_stub_shape("polygon", unpack(vertices))
     end
 
     local fixture = create_fixture(self, body, shape, 1)
     local collider = collider_new(self, body, shape, fixture, "polygon")
-    collider._vertices = { table.unpack(vertices) }
+    collider._vertices = { unpack(vertices) }
     self:_trackCollider(collider, fixture)
     return collider
 end

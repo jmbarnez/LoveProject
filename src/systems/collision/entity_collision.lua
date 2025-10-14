@@ -1,24 +1,87 @@
 -- Entity Collision System - Modular Orchestrator
--- Coordinates collision detection and resolution using specialized handlers
+-- Coordinates collision detection and resolution using unified physics plus event hooks
 
 local CollisionDetection = require("src.systems.collision.detection.collision_detection")
 local CollisionShapes = require("src.systems.collision.shapes.collision_shapes")
 local EntityGroups = require("src.systems.collision.groups.entity_groups")
-local ShipCollision = require("src.systems.collision.handlers.ship_collision")
-local AsteroidCollision = require("src.systems.collision.handlers.asteroid_collision")
+local CollisionEvents = require("src.systems.collision.collision_events")
 local ProjectileCollision = require("src.systems.collision.handlers.projectile_collision")
-local StationCollision = require("src.systems.collision.handlers.station_collision")
+local UnifiedPhysics = require("src.systems.physics.unified_physics")
 local Config = require("src.content.config")
+
+-- Register built-in listeners that add bespoke behaviour (sounds, shield effects, etc.).
+require("src.systems.collision.listeners.asteroid")
+require("src.systems.collision.listeners.station")
 
 local EntityCollision = {}
 
+local function ensureNormal(entity1, entity2, collision)
+    local nx = collision.normalX or 0
+    local ny = collision.normalY or 0
+
+    if nx == 0 and ny == 0 then
+        local e1x = entity1.components.position.x
+        local e1y = entity1.components.position.y
+        local e2x = entity2.components.position.x
+        local e2y = entity2.components.position.y
+
+        local dx = e2x - e1x
+        local dy = e2y - e1y
+        local distance = math.sqrt(dx * dx + dy * dy)
+
+        local Constants = require("src.systems.collision.constants")
+        if distance < Constants.MIN_NORMAL_MAGNITUDE then
+            nx = Constants.DEFAULT_NORMAL_X
+            ny = Constants.DEFAULT_NORMAL_Y
+        elseif distance > 0 then
+            nx = dx / distance
+            ny = dy / distance
+        else
+            nx, ny = 1, 0
+        end
+
+        collision.normalX = nx
+        collision.normalY = ny
+    end
+
+    return collision.normalX, collision.normalY
+end
+
+local function getBody(entity)
+    if not entity or not entity.components then
+        return nil
+    end
+    local physics = entity.components.physics
+    return physics and physics.body or nil
+end
+
+local function captureKinematics(entity)
+    local body = getBody(entity)
+    if body then
+        local vx = body.vx or 0
+        local vy = body.vy or 0
+        return {
+            vx = vx,
+            vy = vy,
+            speed = math.sqrt(vx * vx + vy * vy),
+            mass = body.mass,
+        }
+    end
+
+    local velocity = entity.components and entity.components.velocity
+    local vx = velocity and velocity.x or 0
+    local vy = velocity and velocity.y or 0
+
+    return {
+        vx = vx,
+        vy = vy,
+        speed = math.sqrt(vx * vx + vy * vy),
+        mass = nil,
+    }
+end
+
 -- Resolve collision between two entities
 function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
-    local e1x = entity1.components.position.x
-    local e1y = entity1.components.position.y
-    local e2x = entity2.components.position.x
-    local e2y = entity2.components.position.y
-
     if not collision then
         return
     end
@@ -28,115 +91,100 @@ function EntityCollision.resolveEntityCollision(entity1, entity2, dt, collision)
         return
     end
 
-    local nx = collision.normalX or 0
-    local ny = collision.normalY or 0
-    if nx == 0 and ny == 0 then
-        local dx = e1x - e2x
-        local dy = e1y - e2y
-        local d = math.sqrt(dx * dx + dy * dy)
+    -- Projectiles are handled through their dedicated module.
+    if ProjectileCollision.isProjectile(entity1) then
+        ProjectileCollision.handleProjectileCollision(entity1, entity2, dt, collision)
+        return
+    elseif ProjectileCollision.isProjectile(entity2) then
+        ProjectileCollision.handleProjectileCollision(entity2, entity1, dt, collision)
+        return
+    end
+
+    local nx, ny = ensureNormal(entity1, entity2, collision)
+
+    local context = {
+        entityA = entity1,
+        entityB = entity2,
+        bodyA = getBody(entity1),
+        bodyB = getBody(entity2),
+        collision = collision,
+        dt = dt,
+        overlap = overlap,
+        normalX = nx,
+        normalY = ny,
+        world = entity1._world or entity2._world,
+        pre = {
+            a = captureKinematics(entity1),
+            b = captureKinematics(entity2),
+        },
+        cancel = false,
+    }
+
+    CollisionEvents.emit("pre_resolve", context)
+
+    if not context.cancel then
+        UnifiedPhysics.handleCollision(entity1, entity2, collision, dt)
+        context.post = {
+            a = captureKinematics(entity1),
+            b = captureKinematics(entity2),
+        }
+        context.resolved = true
+        CollisionEvents.emit("post_resolve", context)
+    else
+        context.resolved = false
+    end
+
+    if context.resolved then
+        EntityCollision._emitCollisionEffects(context)
+    end
+end
+
+function EntityCollision._emitCollisionEffects(context)
+    local entity1 = context.entityA
+    local entity2 = context.entityB
+    if not entity1 or not entity2 then
+        return
+    end
+
+    local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
+
+    local inSameGroup = EntityGroups.areInSameGroup(entity1, entity2)
+    local shouldCreateEffects = not entity2.id or (entity1.id and entity1.id < entity2.id)
+
+    if inSameGroup then
+        local lastGroupEffectTime = entity1._lastGroupEffectTime or 0
         local Constants = require("src.systems.collision.constants")
-        if d < Constants.MIN_NORMAL_MAGNITUDE then
-            nx, ny = Constants.DEFAULT_NORMAL_X, Constants.DEFAULT_NORMAL_Y
+        if now - lastGroupEffectTime < Constants.COLLISION_EFFECT_COOLDOWN then
+            shouldCreateEffects = false
         else
-            nx, ny = dx / d, dy / d
+            entity1._lastGroupEffectTime = now
         end
     end
 
-    if overlap > 0 then
-        -- Handle station shield collisions first
-        if StationCollision.handleStationShieldCollision(entity1, entity2) then
-            return -- Skip normal collision resolution
-        end
+    if shouldCreateEffects and not inSameGroup then
+        local CollisionEffects = require("src.systems.collision.effects")
+        local e1x = entity1.components.position.x
+        local e1y = entity1.components.position.y
+        local e2x = entity2.components.position.x
+        local e2y = entity2.components.position.y
 
-        -- Handle asteroid-to-asteroid collisions
-        if AsteroidCollision.isAsteroid(entity1) and AsteroidCollision.isAsteroid(entity2) then
-            AsteroidCollision.handleAsteroidToAsteroid(entity1, entity2, collision, dt)
-            return -- Skip normal collision resolution
-        end
+        local radius1 = CollisionShapes.getEntityCollisionRadius(entity1)
+        local radius2 = CollisionShapes.getEntityCollisionRadius(entity2)
 
-        -- Handle projectile collisions
-        if ProjectileCollision.isProjectile(entity1) then
-            ProjectileCollision.handleProjectileCollision(entity1, entity2, dt, collision)
-            return -- Skip normal collision resolution
-        elseif ProjectileCollision.isProjectile(entity2) then
-            ProjectileCollision.handleProjectileCollision(entity2, entity1, dt, collision)
-            return -- Skip normal collision resolution
-        end
-
-        -- Handle station collisions
-        if StationCollision.isStation(entity1) then
-            if StationCollision.handleStationCollision(entity1, entity2, collision, dt) then
-                return -- Skip normal collision resolution
-            end
-        elseif StationCollision.isStation(entity2) then
-            if StationCollision.handleStationCollision(entity2, entity1, collision, dt) then
-                return -- Skip normal collision resolution
-            end
-        end
-
-        -- Handle asteroid collisions with other entities
-        if AsteroidCollision.isAsteroid(entity1) then
-            AsteroidCollision.handleAsteroidCollision(entity1, entity2, collision, dt)
-            return
-        elseif AsteroidCollision.isAsteroid(entity2) then
-            AsteroidCollision.handleAsteroidCollision(entity2, entity1, collision, dt)
-            return
-        end
-
-        -- Default ship-to-ship collision handling
-        ShipCollision.handleShipToShip(entity1, entity2, collision, dt)
-
-        -- Handle ship pushing debris
-        local player, debris = nil, nil
-        if entity1.isPlayer and ShipCollision.canMove(entity2) then
-            player, debris = entity1, entity2
-        elseif entity2.isPlayer and ShipCollision.canMove(entity1) then
-            player, debris = entity2, entity1
-        end
-
-        if player and debris then
-            ShipCollision.handleShipDebrisPush(player, debris, collision, nx, ny, overlap)
-        end
-
-        -- Throttle collision FX to avoid spamming when resting against geometry
-        local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
-        
-        -- Check if entities belong to the same logical group (e.g., same station)
-        local inSameGroup = EntityGroups.areInSameGroup(entity1, entity2)
-        
-        -- Only create effects if this entity has a lower ID to prevent duplicate effects
-        local shouldCreateEffects = not entity2.id or (entity1.id and entity1.id < entity2.id)
-        
-        -- For entities in the same group, only create effects once per group collision
-        if inSameGroup then
-            local groupId = EntityGroups.getGroupId(entity1)
-            local lastGroupEffectTime = entity1._lastGroupEffectTime or 0
-            local Constants = require("src.systems.collision.constants")
-            if now - lastGroupEffectTime < Constants.COLLISION_EFFECT_COOLDOWN then
-                shouldCreateEffects = false
-            else
-                entity1._lastGroupEffectTime = now
-            end
-        end
-
-        -- Create collision effects if appropriate
-        if shouldCreateEffects and not inSameGroup then
-            local CollisionEffects = require("src.systems.collision.effects")
-            local CollisionShapes = require("src.systems.collision.shapes.collision_shapes")
-            
-            local e1x = entity1.components.position.x
-            local e1y = entity1.components.position.y
-            local e2x = entity2.components.position.x
-            local e2y = entity2.components.position.y
-            
-            local e1Radius = CollisionShapes.getEntityCollisionRadius(entity1)
-            local e2Radius = CollisionShapes.getEntityCollisionRadius(entity2)
-            
-            local shape1 = collision.shape1
-            local shape2 = collision.shape2
-            
-            CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x, e2y, nx, ny, e1Radius, e2Radius, shape1, shape2)
-        end
+        CollisionEffects.createCollisionEffects(
+            entity1,
+            entity2,
+            e1x,
+            e1y,
+            e2x,
+            e2y,
+            context.normalX,
+            context.normalY,
+            radius1,
+            radius2,
+            context.collision.shape1,
+            context.collision.shape2
+        )
     end
 end
 
@@ -280,10 +328,10 @@ function EntityCollision.handleEntityCollisions(collisionSystem, entity, world, 
                     ProjectileCollision.handleProjectileCollision(other, entity, dt, nil, hitX, hitY)
                 end
             else
-                -- Use standard collision detection for other entities
-                local collided, collision = CollisionDetection.checkEntityCollision(entity, other)
+                -- Use unified physics for all other entities
+                local collided, collisionData = CollisionDetection.checkEntityCollision(entity, other)
                 if collided then
-                    EntityCollision.resolveEntityCollision(entity, other, dt, collision)
+                    EntityCollision.resolveEntityCollision(entity, other, dt, collisionData)
                 end
             end
 

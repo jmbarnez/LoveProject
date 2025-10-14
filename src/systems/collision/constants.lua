@@ -37,11 +37,11 @@ CollisionConstants.ASTEROID_SOUND_VOLUME_MIN = 0.1
 CollisionConstants.ASTEROID_SOUND_SCALE = 200.0
 
 -- Push Distance Constants
-CollisionConstants.POLYGON_PUSH_STATION = 0.3
-CollisionConstants.POLYGON_PUSH_NORMAL = 0.2
-CollisionConstants.CIRCLE_PUSH_STATION = 0.25
-CollisionConstants.CIRCLE_PUSH_NORMAL = 0.15
-CollisionConstants.MIN_STATION_PUSH = 1.0
+CollisionConstants.POLYGON_PUSH_STATION = 1.5
+CollisionConstants.POLYGON_PUSH_NORMAL = 1.0
+CollisionConstants.CIRCLE_PUSH_STATION = 1.2
+CollisionConstants.CIRCLE_PUSH_NORMAL = 0.8
+CollisionConstants.MIN_STATION_PUSH = 2.0
 
 -- Validation Constants
 CollisionConstants.MIN_COLLISION_DISTANCE_FACTOR = 0.8

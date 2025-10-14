@@ -32,8 +32,16 @@ function MovementSystem.processMovement(player, body, inputs, dt, thrusterState)
     -- Debug movement input
     PlayerDebug.logMovementInput(inputs)
 
+    -- Get physics system for applying forces
+    local PhysicsSystem = require("src.systems.physics")
+    local physicsManager = PhysicsSystem.getManager()
+    
+    if not physicsManager then
+        return -- Physics system not initialized
+    end
+
     -- Get thrust power with boost multiplier
-    local baseThrust = (body.thrusterPower and body.thrusterPower.main) or 600000
+    local baseThrust = 600000 -- Base thrust power
     local thrust = baseThrust
     
     -- Apply boost multiplier
@@ -61,32 +69,11 @@ function MovementSystem.processMovement(player, body, inputs, dt, thrusterState)
     if mag > 0 then
         ix, iy = ix / mag, iy / mag
 
-        -- Acceleration-based movement with speed cap, independent of facing
-        local accel = (thrust / ((body.mass or 500))) * dt * 1.0
-        local maxSpeed = (player.maxSpeed or 450)
-        if boosting then
-            maxSpeed = maxSpeed * (getCombatValue("BOOST_THRUST_MULT") or 1.5)
-        end
-
-        -- Apply acceleration
-        local newVx = body.vx + ix * accel
-        local newVy = body.vy + iy * accel
-
-        -- Cap speed
-        local newSpeed = math.sqrt(newVx*newVx + newVy*newVy)
-        if newSpeed > maxSpeed then
-            local scale = maxSpeed / newSpeed
-            newVx, newVy = newVx * scale, newVy * scale
-        end
-        body.vx = newVx
-        body.vy = newVy
+        -- Apply force to Windfield physics body
+        local forceX = ix * thrust * dt
+        local forceY = iy * thrust * dt
+        physicsManager:applyForce(player, forceX, forceY)
     end
-    
-    -- Apply space drag every frame (regardless of thrusting)
-    local CorePhysics = require("src.core.physics")
-    local dragCoeff = body.dragCoefficient or CorePhysics.constants.SPACE_DRAG_COEFFICIENT
-    body.vx = body.vx * dragCoeff
-    body.vy = body.vy * dragCoeff
     
     -- Update thruster state based on input
     if w then 
@@ -160,18 +147,19 @@ end
 
 -- Update physics and sync components
 function MovementSystem.updatePhysics(player, dt)
-    if player.components.physics and player.components.physics.update then
-        player.components.physics:update(dt)
-        local b = player.components.physics.body
-        if b then
-            player.components.position.x = b.x
-            player.components.position.y = b.y
-            player.components.position.angle = b.angle
-        else
-            PlayerDebug.logPhysicsComponentIssue(player)
+    local PhysicsSystem = require("src.systems.physics")
+    local physicsManager = PhysicsSystem.getManager()
+    
+    if physicsManager then
+        -- Get position from Windfield physics body
+        local x, y = physicsManager:getPosition(player)
+        local angle = physicsManager:getAngle(player)
+        
+        if x and y then
+            player.components.position.x = x
+            player.components.position.y = y
+            player.components.position.angle = angle or 0
         end
-    else
-        PlayerDebug.logPhysicsComponentIssue(player)
     end
 end
 
