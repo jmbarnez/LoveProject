@@ -124,7 +124,7 @@ local function applySelfNetworkStateIfAvailable(state)
         positionComponent.y = newPos.y or 0
         positionComponent.angle = newPos.angle or 0
 
-        -- Handle Windfield physics
+        -- Sync Windfield collider if present
         if player.components.windfield_physics then
             local PhysicsSystem = require("src.systems.physics")
             local manager = PhysicsSystem.getManager()
@@ -135,21 +135,6 @@ local function applySelfNetworkStateIfAvailable(state)
                     collider:setAngle(positionComponent.angle)
                 end
             end
-        -- Handle legacy physics
-        elseif player.components.physics and player.components.physics.body then
-            local physics = player.components.physics
-            local body = physics.body
-            if body.setPosition then
-                body:setPosition(positionComponent.x, positionComponent.y)
-            else
-                body.x = positionComponent.x
-                body.y = positionComponent.y
-            end
-            if body.setAngle then
-                body:setAngle(positionComponent.angle)
-            else
-                body.angle = positionComponent.angle
-            end
         end
     end
 
@@ -159,7 +144,7 @@ local function applySelfNetworkStateIfAvailable(state)
         velocityComponent.x = newVel.x or 0
         velocityComponent.y = newVel.y or 0
 
-        -- Handle Windfield physics
+        -- Sync Windfield collider velocity if present
         if player.components.windfield_physics then
             local PhysicsSystem = require("src.systems.physics")
             local manager = PhysicsSystem.getManager()
@@ -168,18 +153,6 @@ local function applySelfNetworkStateIfAvailable(state)
                 if collider then
                     collider:setLinearVelocity(velocityComponent.x, velocityComponent.y)
                 end
-            end
-        -- Handle legacy physics
-        elseif player.components.physics and player.components.physics.body then
-            local physics = player.components.physics
-            local body = physics.body
-            if body.setLinearVelocity then
-                body:setLinearVelocity(velocityComponent.x, velocityComponent.y)
-            elseif body.setVelocity then
-                body:setVelocity(velocityComponent.x, velocityComponent.y)
-            else
-                body.vx = velocityComponent.x
-                body.vy = velocityComponent.y
             end
         end
     end
@@ -655,4 +628,3 @@ function SessionWorldSync.registerEventHandlers(state, callbacks)
 end
 
 return SessionWorldSync
-

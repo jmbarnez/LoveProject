@@ -186,12 +186,6 @@ function EntityFactory.createEnemy(shipId, x, y)
             enemy.components.windfield_physics.radius = baseRadius * physicsMultiplier
         end
         
-        -- Handle legacy physics radius scaling
-        if enemy.components.physics and enemy.components.physics.body and physicsMultiplier ~= 1.0 then
-            local baseBodyRadius = enemy.components.physics.body.radius or 10
-            enemy.components.physics.body.radius = baseBodyRadius * physicsMultiplier
-        end
-
         enemy.shieldRadius = nil
         enemy._shieldRadiusVisualSize = nil
 

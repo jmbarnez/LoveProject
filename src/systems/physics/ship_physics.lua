@@ -3,6 +3,11 @@
     
     Handles creation and management of ship physics bodies using Windfield.
     Provides thruster system integration and ship-specific physics behavior.
+    
+    SHIP VELOCITY CONTROL:
+    - Ships only get velocity from their own thruster forces
+    - Global physics system skips ships to prevent unwanted velocity
+    - Braking uses direct velocity reduction to prevent oscillation
 ]]
 
 local WindfieldManager = require("src.systems.physics.windfield_manager")
@@ -55,6 +60,10 @@ function ShipPhysics.createShipCollider(ship, windfieldManager)
     local collider = windfieldManager:addEntity(ship, "circle", pos.x, pos.y, options)
     
     if collider then
+        -- Ensure ship starts with zero velocity
+        collider:setLinearVelocity(0, 0)
+        collider:setAngularVelocity(0)
+        
         Log.debug("physics", "Created ship collider: mass=%.1f, radius=%.1f", mass, radius)
         return collider
     else
@@ -76,73 +85,82 @@ function ShipPhysics.updateShipPhysics(ship, windfieldManager, dt)
     local vx, vy = windfieldManager:getVelocity(ship)
     local speed = math.sqrt(vx * vx + vy * vy)
     
-    -- Apply thruster forces (screen-relative since ship angle is fixed)
+    -- Get thruster state
     local thrusterState = physics:getThrusterState()
+    
+    -- Apply thruster forces (screen-relative since ship angle is fixed)
     if thrusterState.isThrusting then
-        local forceX, forceY = 0, 0
-        
-        -- Get thrust power from ship configuration
-        local shipConfig = ship.ship
-        local baseThrust = (shipConfig and shipConfig.engine and shipConfig.engine.accel) or 250
-        
-        -- Forward/backward thrust (screen-relative)
-        if thrusterState.forward > 0 then
-            local power = baseThrust * thrusterState.forward
-            if thrusterState.boost > 0 then
-                power = power * SHIP_CONSTANTS.BOOST_MULTIPLIER
+            local forceX, forceY = 0, 0
+            
+            -- Get thrust power from ship configuration
+            local shipConfig = ship.ship
+            local baseThrust = (shipConfig and shipConfig.engine and shipConfig.engine.accel) or 250
+            
+            -- Forward/backward thrust (screen-relative)
+            if thrusterState.forward > 0 then
+                local power = baseThrust * thrusterState.forward
+                if thrusterState.boost > 0 then
+                    power = power * SHIP_CONSTANTS.BOOST_MULTIPLIER
+                end
+                -- Apply afterburner multiplier if active
+                local afterburnerMultiplier = 1.0
+                if ship.state and ship.state.afterburner_active then
+                    local AfterburnerSystem = require("src.systems.player.afterburner")
+                    afterburnerMultiplier = AfterburnerSystem.getSpeedMultiplier(ship.state)
+                end
+                power = power * afterburnerMultiplier
+                forceY = forceY - power  -- Up in screen space
             end
-            -- Apply afterburner multiplier if active
-            local afterburnerMultiplier = 1.0
-            if ship.state and ship.state.afterburner_active then
-                local AfterburnerSystem = require("src.systems.player.afterburner")
-                afterburnerMultiplier = AfterburnerSystem.getSpeedMultiplier(ship.state)
+            
+            if thrusterState.reverse > 0 then
+                local power = baseThrust * thrusterState.reverse * 0.7
+                forceY = forceY + power  -- Down in screen space
             end
-            power = power * afterburnerMultiplier
-            forceY = forceY - power  -- Up in screen space
-        end
-        
-        if thrusterState.reverse > 0 then
-            local power = baseThrust * thrusterState.reverse * 0.7
-            forceY = forceY + power  -- Down in screen space
-        end
-        
-        -- Strafe thrust (screen-relative)
-        if thrusterState.strafeLeft > 0 then
-            local power = baseThrust * thrusterState.strafeLeft * 0.8
-            -- Apply afterburner multiplier if active
-            local afterburnerMultiplier = 1.0
-            if ship.state and ship.state.afterburner_active then
-                local AfterburnerSystem = require("src.systems.player.afterburner")
-                afterburnerMultiplier = AfterburnerSystem.getSpeedMultiplier(ship.state)
+            
+            -- Strafe thrust (screen-relative)
+            if thrusterState.strafeLeft > 0 then
+                local power = baseThrust * thrusterState.strafeLeft * 0.8
+                -- Apply afterburner multiplier if active
+                local afterburnerMultiplier = 1.0
+                if ship.state and ship.state.afterburner_active then
+                    local AfterburnerSystem = require("src.systems.player.afterburner")
+                    afterburnerMultiplier = AfterburnerSystem.getSpeedMultiplier(ship.state)
+                end
+                power = power * afterburnerMultiplier
+                forceX = forceX - power  -- Left in screen space
             end
-            power = power * afterburnerMultiplier
-            forceX = forceX - power  -- Left in screen space
-        end
-        
-        if thrusterState.strafeRight > 0 then
-            local power = baseThrust * thrusterState.strafeRight * 0.8
-            -- Apply afterburner multiplier if active
-            local afterburnerMultiplier = 1.0
-            if ship.state and ship.state.afterburner_active then
-                local AfterburnerSystem = require("src.systems.player.afterburner")
-                afterburnerMultiplier = AfterburnerSystem.getSpeedMultiplier(ship.state)
+            
+            if thrusterState.strafeRight > 0 then
+                local power = baseThrust * thrusterState.strafeRight * 0.8
+                -- Apply afterburner multiplier if active
+                local afterburnerMultiplier = 1.0
+                if ship.state and ship.state.afterburner_active then
+                    local AfterburnerSystem = require("src.systems.player.afterburner")
+                    afterburnerMultiplier = AfterburnerSystem.getSpeedMultiplier(ship.state)
+                end
+                power = power * afterburnerMultiplier
+                forceX = forceX + power  -- Right in screen space
             end
-            power = power * afterburnerMultiplier
-            forceX = forceX + power  -- Right in screen space
-        end
-        
+            
         -- Apply forces
         if forceX ~= 0 or forceY ~= 0 then
+            local Log = require("src.core.log")
+            Log.debug("physics", "Applying force: fx=%.2f, fy=%.2f", forceX, forceY)
             windfieldManager:applyForce(ship, forceX, forceY)
         end
-        
-        -- Braking
-        if thrusterState.brake > 0 and speed > 0 then
-            local brakeForce = SHIP_CONSTANTS.BRAKE_POWER * thrusterState.brake
-            local brakeX = -vx * brakeForce
-            local brakeY = -vy * brakeForce
-            windfieldManager:applyForce(ship, brakeX, brakeY)
-        end
+    end
+    
+    -- Simple braking - directly reduce velocity instead of applying opposing force
+    if thrusterState.brake > 0 and speed > 0 then
+        local Log = require("src.core.log")
+        Log.debug("physics", "Applying braking: brake=%.2f, speed=%.2f", thrusterState.brake, speed)
+        local brakePower = SHIP_CONSTANTS.BRAKE_POWER * thrusterState.brake
+        local brakeFactor = 1.0 - (brakePower * dt)
+        brakeFactor = math.max(0.1, brakeFactor) -- Don't let it go to 0 to prevent oscillation
+
+        local newVx = vx * brakeFactor
+        local newVy = vy * brakeFactor
+        windfieldManager:setVelocity(ship, newVx, newVy)
     end
 
     -- Enforce ship-specific speed limits using ship configuration

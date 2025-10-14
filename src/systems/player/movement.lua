@@ -36,6 +36,7 @@ function MovementSystem.processMovement(player, body, inputs, dt, thrusterState)
     if w or s or a or d then
         local Log = require("src.core.log")
         Log.debug("movement", "Input detected: w=%s, s=%s, a=%s, d=%s", tostring(w), tostring(s), tostring(a), tostring(d))
+        Log.debug("movement", "Physics activated status: %s", tostring(player._physicsActivated))
     end
 
     -- Physics forces are handled by the Ship Physics System
@@ -97,6 +98,11 @@ function MovementSystem.processMovement(player, body, inputs, dt, thrusterState)
 
     -- Debug thruster state
     PlayerDebug.logThrusterState(thrusterState)
+
+    -- Debug physics activation timing
+    local Log = require("src.core.log")
+    Log.debug("movement", "Thruster state updated: forward=%.2f, reverse=%.2f, strafeL=%.2f, strafeR=%.2f, boost=%.2f, isThrusting=%s",
+        thrusterState.forward, thrusterState.reverse, thrusterState.strafeLeft, thrusterState.strafeRight, thrusterState.boost, tostring(thrusterState.isThrusting))
 end
 
 -- Handle boost energy drain

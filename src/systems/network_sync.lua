@@ -417,8 +417,7 @@ local function applyRemotePlayerSmoothing()
                     entity.components.velocity.y = interp.lastVelocity.y
                 end
 
-                -- Update physics body position smoothly
-                -- Handle Windfield physics
+                -- Update Windfield collider position smoothly
                 if entity.components.windfield_physics then
                     local PhysicsSystem = require("src.systems.physics")
                     local manager = PhysicsSystem.getManager()
@@ -427,26 +426,9 @@ local function applyRemotePlayerSmoothing()
                         if collider then
                             collider:setPosition(newX, newY)
                             collider:setAngle(newAngle)
-                        end
-                    end
-                -- Handle legacy physics
-                elseif entity.components.physics and entity.components.physics.body then
-                    local body = entity.components.physics.body
-                    if body.setPosition then
-                        body:setPosition(newX, newY)
-                    else
-                        body.x = newX
-                        body.y = newY
-                    end
-                    body.angle = newAngle
-
-                    -- Only update physics velocity during extrapolation to avoid jitter
-                    if elapsed > duration then
-                        if body.setVelocity then
-                            body:setVelocity(interp.lastVelocity.x, interp.lastVelocity.y)
-                        else
-                            body.vx = interp.lastVelocity.x
-                            body.vy = interp.lastVelocity.y
+                            if elapsed > duration then
+                                collider:setLinearVelocity(interp.lastVelocity.x, interp.lastVelocity.y)
+                            end
                         end
                     end
                 end

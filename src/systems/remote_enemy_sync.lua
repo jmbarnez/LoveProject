@@ -388,7 +388,6 @@ local function updateEnemyFromSnapshot(entity, enemyData)
 
     -- Ensure the physics body matches the initial snapshot immediately
     if entity.components and not entity._physicsInitialised and enemyData.position then
-        -- Handle Windfield physics
         if entity.components.windfield_physics then
             local PhysicsSystem = require("src.systems.physics")
             local manager = PhysicsSystem.getManager()
@@ -399,27 +398,12 @@ local function updateEnemyFromSnapshot(entity, enemyData)
                     if enemyData.velocity then
                         collider:setLinearVelocity(enemyData.velocity.x or 0, enemyData.velocity.y or 0)
                     end
+                    if enemyData.position and enemyData.position.angle then
+                        collider:setAngle(enemyData.position.angle)
+                    end
+                    entity._physicsInitialised = true
                 end
             end
-        -- Handle legacy physics
-        elseif entity.components.physics and entity.components.physics.body then
-            local body = entity.components.physics.body
-            if body.setPosition then
-                body:setPosition(enemyData.position.x, enemyData.position.y)
-            else
-                body.x = enemyData.position.x
-                body.y = enemyData.position.y
-            end
-            if enemyData.velocity then
-                if body.setVelocity then
-                    body:setVelocity(enemyData.velocity.x, enemyData.velocity.y)
-                else
-                    body.vx = enemyData.velocity.x
-                    body.vy = enemyData.velocity.y
-                end
-            end
-            body.angle = enemyData.position.angle or 0
-            entity._physicsInitialised = true
         end
     end
 end
@@ -502,7 +486,6 @@ function RemoteEnemySync.updateClient(dt, world, networkManager)
                 pos.y = newY
                 pos.angle = newAngle
 
-                -- Handle Windfield physics
                 if entity.components.windfield_physics then
                     local PhysicsSystem = require("src.systems.physics")
                     local manager = PhysicsSystem.getManager()
@@ -511,26 +494,10 @@ function RemoteEnemySync.updateClient(dt, world, networkManager)
                         if collider then
                             collider:setPosition(newX, newY)
                             collider:setAngle(newAngle)
-                        end
-                    end
-                -- Handle legacy physics
-                elseif entity.components.physics and entity.components.physics.body then
-                    local body = entity.components.physics.body
-                    if body.setPosition then
-                        body:setPosition(newX, newY)
-                    else
-                        body.x = newX
-                        body.y = newY
-                    end
-                    body.angle = newAngle
-
-                    local targetVelocity = entity._targetVelocity
-                    if targetVelocity then
-                        if body.setVelocity then
-                            body:setVelocity(targetVelocity.x, targetVelocity.y)
-                        else
-                            body.vx = targetVelocity.x
-                            body.vy = targetVelocity.y
+                            local targetVelocity = entity._targetVelocity
+                            if targetVelocity then
+                                collider:setLinearVelocity(targetVelocity.x, targetVelocity.y)
+                            end
                         end
                     end
                 end

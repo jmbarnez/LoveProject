@@ -102,7 +102,7 @@ function Minimap.draw(player, world, additionalEntities)
     local speed = 0
     local maxSpeed = 500
     
-    -- Check Windfield physics first
+    -- Use Windfield collider data for speed tracking
     if player.components.windfield_physics then
       local PhysicsSystem = require("src.systems.physics")
       local manager = PhysicsSystem.getManager()
@@ -113,11 +113,10 @@ function Minimap.draw(player, world, additionalEntities)
           speed = math.sqrt(vx * vx + vy * vy)
         end
       end
-    -- Check legacy physics
-    elseif player.components.physics and player.components.physics.body then
-      local body = player.components.physics.body
-      speed = math.sqrt((body.vx or 0)^2 + (body.vy or 0)^2)
-      maxSpeed = body.maxSpeed or 500
+    end
+
+    if player.ship and player.ship.engine and player.ship.engine.maxSpeed then
+      maxSpeed = player.ship.engine.maxSpeed
     end
     
     local speedPct = maxSpeed > 0 and math.min(speed / maxSpeed, 1.0) or 0

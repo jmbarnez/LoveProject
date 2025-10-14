@@ -99,13 +99,8 @@ local function moveTowards(entity, targetX, targetY, dt, tolerance)
     
     local stopDistance = tolerance
     if not stopDistance then
-        -- Check Windfield physics first
         if entity.components.windfield_physics then
             stopDistance = entity.components.windfield_physics.radius or 0
-        -- Check legacy physics
-        elseif entity.components.physics and entity.components.physics.body then
-            local body = entity.components.physics.body
-            stopDistance = (body and body.radius) or 0
         else
             stopDistance = 0
         end
@@ -115,7 +110,7 @@ local function moveTowards(entity, targetX, targetY, dt, tolerance)
         local ux = dx / distance
         local uy = dy / distance
         
-        -- Handle Windfield physics
+        -- Apply Windfield forces
         if entity.components.windfield_physics then
             local PhysicsSystem = require("src.systems.physics")
             local manager = PhysicsSystem.getManager()
@@ -143,31 +138,6 @@ local function moveTowards(entity, targetX, targetY, dt, tolerance)
                     end
                 end
             end
-        -- Handle legacy physics
-        elseif entity.components.physics and entity.components.physics.body then
-            local physics = entity.components.physics
-            local body = physics.body
-            local thrustPower = body.thrusterPower and body.thrusterPower.main
-            local mass = body.mass or 1
-
-            if thrustPower and thrustPower > 0 then
-                local accel = (thrustPower / mass) * dt
-
-                local newVx = body.vx + ux * accel
-                local newVy = body.vy + uy * accel
-
-                local maxSpeed = body.maxSpeed
-                if maxSpeed and maxSpeed > 0 then
-                    local newSpeed = math.sqrt(newVx * newVx + newVy * newVy)
-                    if newSpeed > maxSpeed then
-                        local scale = maxSpeed / newSpeed
-                        newVx, newVy = newVx * scale, newVy * scale
-                    end
-                end
-
-                body.vx = newVx
-                body.vy = newVy
-            end
         end
     end
 end
@@ -183,9 +153,9 @@ local function computePatrolRadius(drone)
         return ai.patrolRadius
     end
 
-    local body = drone.components.physics and drone.components.physics.body
-    if body and body.radius then
-        return body.radius * 6
+    local physics = drone.components.windfield_physics
+    if physics and physics.radius then
+        return physics.radius * 6
     end
 
     return 0

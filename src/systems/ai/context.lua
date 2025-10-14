@@ -60,7 +60,7 @@ function AIContext.updateContext(context, entity, world, globalContext)
         local vx, vy = 0, 0
         local maxSpeed = 500
         
-        -- Check Windfield physics first
+        -- Use Windfield collider for velocity estimates
         if entity.components.windfield_physics then
             local PhysicsSystem = require("src.systems.physics")
             local manager = PhysicsSystem.getManager()
@@ -70,12 +70,10 @@ function AIContext.updateContext(context, entity, world, globalContext)
                     vx, vy = collider:getLinearVelocity()
                 end
             end
-        -- Check legacy physics
-        elseif entity.components.physics and entity.components.physics.body then
-            local body = entity.components.physics.body
-            vx = body.vx or 0
-            vy = body.vy or 0
-            maxSpeed = body.maxSpeed or 500
+        end
+
+        if entity.ship and entity.ship.engine and entity.ship.engine.maxSpeed then
+            maxSpeed = entity.ship.engine.maxSpeed
         end
         
         context.speed = math.sqrt(vx * vx + vy * vy)

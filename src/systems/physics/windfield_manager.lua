@@ -380,29 +380,33 @@ function WindfieldManager:removeEntity(entity)
 end
 
 function WindfieldManager:update(dt)
-    -- Apply space drag to all dynamic bodies
+    -- Apply space drag to all dynamic bodies EXCEPT ships
     for entity, collider in pairs(self.entities) do
         if not collider:isDestroyed() then
-            local vx, vy = collider:getLinearVelocity()
-            if vx ~= 0 or vy ~= 0 then
-                -- Apply space drag
-                vx = vx * PHYSICS_CONSTANTS.SPACE_DRAG
-                vy = vy * PHYSICS_CONSTANTS.SPACE_DRAG
-                
-                -- Stop very slow movement
-                local speed = math.sqrt(vx * vx + vy * vy)
-                if speed < PHYSICS_CONSTANTS.MIN_VELOCITY then
-                    vx, vy = 0, 0
+            -- Skip ships - they handle their own velocity through thruster forces
+            local isShip = entity.isPlayer or (entity.components and entity.components.player)
+            if not isShip then
+                local vx, vy = collider:getLinearVelocity()
+                if vx ~= 0 or vy ~= 0 then
+                    -- Apply space drag
+                    vx = vx * PHYSICS_CONSTANTS.SPACE_DRAG
+                    vy = vy * PHYSICS_CONSTANTS.SPACE_DRAG
+                    
+                    -- Stop very slow movement
+                    local speed = math.sqrt(vx * vx + vy * vy)
+                    if speed < PHYSICS_CONSTANTS.MIN_VELOCITY then
+                        vx, vy = 0, 0
+                    end
+                    
+                    -- Cap maximum velocity
+                    if speed > PHYSICS_CONSTANTS.MAX_VELOCITY then
+                        local ratio = PHYSICS_CONSTANTS.MAX_VELOCITY / speed
+                        vx = vx * ratio
+                        vy = vy * ratio
+                    end
+                    
+                    collider:setLinearVelocity(vx, vy)
                 end
-                
-                -- Cap maximum velocity
-                if speed > PHYSICS_CONSTANTS.MAX_VELOCITY then
-                    local ratio = PHYSICS_CONSTANTS.MAX_VELOCITY / speed
-                    vx = vx * ratio
-                    vy = vy * ratio
-                end
-                
-                collider:setLinearVelocity(vx, vy)
             end
             
             -- Ensure fixed rotation entities never have angular velocity
@@ -410,7 +414,6 @@ function WindfieldManager:update(dt)
                 local angularVel = collider:getAngularVelocity()
                 if angularVel ~= 0 then
                     collider:setAngularVelocity(0)
-                    Log.debug("physics", "Reset angular velocity to 0 for fixed rotation entity")
                 end
             end
         end
@@ -429,21 +432,36 @@ function WindfieldManager:syncPositions()
             local x, y = collider:getPosition()
             local angle = collider:getAngle()
             
-            entity.components.position.x = x
-            entity.components.position.y = y
+            -- Check if this is a ship (player or AI)
+            local isShip = entity.isPlayer or (entity.components and entity.components.player)
             
-            -- Only sync angle if the entity is not fixed rotation
-            -- Check if the entity has fixed rotation by looking at the physics component
-            local isFixedRotation = false
-            if entity.components.windfield_physics and entity.components.windfield_physics.fixedRotation then
-                isFixedRotation = true
-            end
-            
-            if not isFixedRotation then
-                entity.components.position.angle = angle
-            else
-                -- For fixed rotation entities (like ships), keep their angle at 0
+            if isShip then
+                -- For ships, only sync position if they have velocity (are actually moving)
+                local vx, vy = collider:getLinearVelocity()
+                local speed = math.sqrt(vx * vx + vy * vy)
+                
+                if speed > 0.1 then
+                    entity.components.position.x = x
+                    entity.components.position.y = y
+                end
+                -- Ships always have angle 0 (fixed rotation)
                 entity.components.position.angle = 0
+            else
+                -- For non-ships, always sync position
+                entity.components.position.x = x
+                entity.components.position.y = y
+                
+                -- Only sync angle if the entity is not fixed rotation
+                local isFixedRotation = false
+                if entity.components.windfield_physics and entity.components.windfield_physics.fixedRotation then
+                    isFixedRotation = true
+                end
+                
+                if not isFixedRotation then
+                    entity.components.position.angle = angle
+                else
+                    entity.components.position.angle = 0
+                end
             end
         end
     end

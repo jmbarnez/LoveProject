@@ -9,6 +9,7 @@ local Shield = require("src.components.shield")
 local Energy = require("src.components.energy")
 local Equipment = require("src.components.equipment")
 local Renderable = require("src.components.renderable")
+local WindfieldPhysics = require("src.components.windfield_physics")
 -- PhysicsComponent removed - using windfield_physics instead
 local Collidable = require("src.components.collidable")
 local Velocity = require("src.components.velocity")
@@ -57,7 +58,11 @@ function Ship.new(x, y, angle, friendly, shipConfig)
 
   -- Physics setup (moved into components)
   local mass = (shipConfig.engine and shipConfig.engine.mass) or 500
-  local radius = ModelUtil.calculateModelWidth(shipConfig.visuals) / 2
+  local visualWidth = ModelUtil.calculateModelWidth(shipConfig.visuals)
+  local radius = visualWidth and visualWidth > 0 and (visualWidth / 2) or nil
+  if not radius or radius <= 0 then
+    radius = (shipConfig.collidable and shipConfig.collidable.radius) or 20
+  end
 
   -- Engine configuration (moved to windfield_physics component)
   -- Engine properties are now handled by the windfield_physics component
@@ -115,6 +120,17 @@ function Ship.new(x, y, angle, friendly, shipConfig)
         signature = self.sig,
       }),
       velocity = Velocity.new({ x = 0, y = 0 }),
+      windfield_physics = WindfieldPhysics.new({
+        mass = mass,
+        radius = radius,
+        x = x,
+        y = y,
+        colliderType = "circle",
+        bodyType = "dynamic",
+        restitution = 0.1,
+        friction = 0.3,
+        fixedRotation = shipConfig.fixedRotation == false and false or true,
+      }),
       hull = Hull.new({ maxHP = maxHP, hp = hp }),
       shield = Shield.new({ maxShield = maxShield, shield = shield }),
       energy = Energy.new({ maxEnergy = maxEnergy, energy = energy }),
