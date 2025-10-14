@@ -1,123 +1,67 @@
-local Util = require("src.core.util")
-local EntityPhysics = require("src.systems.entity_physics")
-
 local EngineTrailSystem = {}
 
 function EngineTrailSystem.update(dt, world)
-	if not world then return end
-
-	-- Update player engine trails
-	local player
-	if world.getPlayer then
-		player = world:getPlayer()
-	else
-		player = nil
-	end
-	if player and player.components then
+	-- Update player engine trail
+	local player = world:getPlayer()
+	if player and player.components.engine_trail then
 		local trail = player.components.engine_trail
 		local pos = player.components.position
-		if trail and pos then
-			-- Prefer player-controlled thruster state (set by PlayerSystem), fall back to physics body
-                        local playerState = player.components and player.components.player_state
-                        local thrusterState = (playerState and playerState.thruster_state)
-                                or (player.components.windfield_physics and player.components.windfield_physics:getThrusterState())
-				or { isThrusting = false }
-			-- Combine inputs into an overall intensity
-			local intensity = (thrusterState.forward or 0)
-				+ (thrusterState.boost or 0)
-				+ ((thrusterState.strafeLeft or 0) + (thrusterState.strafeRight or 0)) * 0.5
-				+ (thrusterState.reverse or 0) * 0.5
-			local isThrusting = thrusterState.isThrusting or (intensity > 0)
-
-			-- Only show trails if there's actual thrust input or significant movement
-                        local normalizedIntensity = Util.clamp01(intensity)
-			if isThrusting and normalizedIntensity > 0.05 then
-				trail:updateThrustState(true, normalizedIntensity)
-			else
-				trail:updateThrustState(false, 0)
-			end
-
-			-- Calculate movement direction for engine trail positioning
-			local PhysicsSystem = require("src.systems.physics")
-			local EntityPhysics = require("src.systems.entity_physics")
-			local manager = EntityPhysics.getManager()
-			local collider = manager and manager:getCollider(player)
-			local movementAngle = 0
-			
-			if collider then
-				local vx, vy = collider:getLinearVelocity()
-				local speed = math.sqrt(vx * vx + vy * vy)
-				if speed > 1 then
-					-- Use movement direction for trail positioning
-					movementAngle = math.atan2(vy, vx)
-				else
-					-- Default to downward direction (rear of ship) when not moving
-					movementAngle = math.pi / 2  -- 90 degrees = downward
-				end
-			else
-				-- Fallback to downward direction
-				movementAngle = math.pi / 2
-			end
-			
-			trail:updatePosition(pos.x, pos.y, movementAngle)
-			trail:update(dt)
+		local thrusterState = player.components.player_state.thruster_state
+		
+		-- Calculate thrust intensity
+		local intensity = thrusterState.forward + thrusterState.boost + 
+			(thrusterState.strafeLeft + thrusterState.strafeRight) * 0.5 + 
+			thrusterState.reverse * 0.5
+		
+		-- Update trail based on thrust
+		if thrusterState.isThrusting and intensity > 0 then
+			trail:updateThrustState(true, intensity)
+		else
+			trail:updateThrustState(false, 0)
 		end
+		
+		-- Update position and angle
+		trail:updatePosition(pos.x, pos.y, pos.angle)
+		trail:update(dt)
 	end
-
-	-- Update all entity engine trails
-	local entitiesWithTrails = world:get_entities_with_components("position")
-	for _, entity in ipairs(entitiesWithTrails) do
-		local trail = entity.components.engine_trail
-		if trail then
+	
+	-- Update enemy engine trails
+	for _, entity in ipairs(world:getEntities()) do
+		if entity.components.engine_trail and entity.components.position then
+			local trail = entity.components.engine_trail
 			local pos = entity.components.position
-
-			if pos then
-				-- Skip remote players - their engine trails are controlled by network sync
-				if entity.isRemotePlayer then
-					-- Just update position and particle system, thruster state is handled by network sync
-					trail:updatePosition(pos.x, pos.y, pos.angle or 0)
-					trail:update(dt)
-				else
-					-- For non-remote entities, use Windfield physics for movement detection
-					local PhysicsSystem = require("src.systems.physics")
-					local EntityPhysics = require("src.systems.entity_physics")
-			local manager = EntityPhysics.getManager()
-					local collider = manager and manager:getCollider(entity)
+			
+			-- Skip remote players
+			if entity.isRemotePlayer then
+				trail:updatePosition(pos.x, pos.y, pos.angle or 0)
+				trail:update(dt)
+			else
+				-- Use physics velocity for movement detection
+				local manager = require("src.systems.entity_physics").getManager()
+				local collider = manager:getCollider(entity)
+				
+				if collider then
+					local vx, vy = collider:getLinearVelocity()
+					local speed = math.sqrt(vx * vx + vy * vy)
 					
-					if collider then
-						local vx, vy = collider:getLinearVelocity()
-						local speed = math.sqrt(vx * vx + vy * vy)
-						-- Only show trails if ship is actually moving at a reasonable speed
-						local isThrusting = speed > 10  -- Threshold to prevent idle trails
-
-						-- Update thruster state based on movement - only if actively moving
-						if isThrusting then
-							local intensity = Util.clamp01(speed / 180)
-							trail:updateThrustState(true, intensity)
-						else
-							trail:updateThrustState(false, 0)  -- Explicitly turn off trails when not moving
-						end
+					-- Show trails when moving
+					if speed > 10 then
+						local intensity = speed / 180
+						trail:updateThrustState(true, intensity)
+						
+						-- Use movement direction for trail angle
+						local angle = math.atan2(vy, vx)
+						trail:updatePosition(pos.x, pos.y, angle)
 					else
-						-- No physics body, turn off trails
 						trail:updateThrustState(false, 0)
+						trail:updatePosition(pos.x, pos.y, pos.angle or 0)
 					end
-
-					-- Use movement direction for trail positioning
-					if collider then
-						local vx, vy = collider:getLinearVelocity()
-						local speed = math.sqrt(vx * vx + vy * vy)
-						local movementAngle = 0
-						if speed > 1 then
-							movementAngle = math.atan2(vy, vx)
-						else
-							movementAngle = math.pi / 2  -- Default to downward
-						end
-						trail:updatePosition(pos.x, pos.y, movementAngle)
-					else
-						trail:updatePosition(pos.x, pos.y, math.pi / 2)  -- Default to downward
-					end
-					trail:update(dt)
+				else
+					trail:updateThrustState(false, 0)
+					trail:updatePosition(pos.x, pos.y, pos.angle or 0)
 				end
+				
+				trail:update(dt)
 			end
 		end
 	end

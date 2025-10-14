@@ -236,7 +236,10 @@ function EnemyStatusBars.drawMiniBars(entity)
     local hpPct = (h.hp or 0) / math.max(1, h.maxHP or 100)
     local isLowHull = hpPct < 0.8  -- Show if below 80% hull
     
-    if not recentlyDamaged and not isLowHull then
+    -- Always show health bars for enemies (for better visibility)
+    local isEnemy = entity.components.ai ~= nil
+    
+    if not recentlyDamaged and not isLowHull and not isEnemy then
       return
     end
   end

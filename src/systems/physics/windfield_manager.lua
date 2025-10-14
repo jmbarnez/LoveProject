@@ -169,7 +169,6 @@ function WindfieldManager:handleEntityCollision(entityA, entityB, contact, class
     end
     
     -- Calculate collision points from contact
-    -- Windfield contact objects have getPositions() method, not getWorldManifold()
     local points = contact:getPositions()
     local hitX, hitY = posA.x, posA.y
     
@@ -187,6 +186,16 @@ function WindfieldManager:handleEntityCollision(entityA, entityB, contact, class
         hitY = totalY / #points
     end
     
+    -- Calculate normal vector from collision direction
+    local dx = posB.x - posA.x
+    local dy = posB.y - posA.y
+    local length = math.sqrt(dx * dx + dy * dy)
+    local normalX, normalY = 0, 0
+    if length > 0 then
+        normalX = dx / length
+        normalY = dy / length
+    end
+    
     -- Create collision effects
     local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
     local CollisionEffects = require("src.systems.collision.effects")
@@ -197,7 +206,7 @@ function WindfieldManager:handleEntityCollision(entityA, entityB, contact, class
         
         CollisionEffects.createCollisionEffects(entityA, entityB, 
                                                posA.x, posA.y, posB.x, posB.y,
-                                               normal.x, normal.y, radiusA, radiusB, nil, nil)
+                                               normalX, normalY, radiusA, radiusB, nil, nil)
     end
     
     -- Handle specific collision types
