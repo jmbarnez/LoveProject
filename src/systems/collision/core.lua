@@ -36,7 +36,7 @@ local function determine_body_type(entity)
         return "dynamic"
     end
     
-    if entity.components.bullet then
+    if entity.components.projectile then
         return "kinematic"
     end
     
@@ -97,7 +97,7 @@ function CollisionSystem:processEntities(world, dt)
     -- Windfield handles collision detection automatically
     -- We only need to handle special cases and entity lifecycle
     for _, entity in ipairs(world:get_entities_with_components("windfield_physics", "position")) do
-        if not entity.components.item_pickup and not entity.components.bullet then
+        if not entity.components.item_pickup and not entity.components.projectile then
             -- Store world reference on entity for projectile collision handling
             entity._world = world
             

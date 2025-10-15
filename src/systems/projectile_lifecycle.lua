@@ -19,7 +19,7 @@ function ProjectileLifecycle.update(dt, world)
     
     for id, entity in pairs(entities) do
         -- Only process projectiles (entities with bullet component)
-        if entity.components and entity.components.bullet and not entity.dead then
+        if entity.components and entity.components.projectile and not entity.dead then
             local timedLife = entity.components.timed_life
             local maxRange = entity.components.max_range
             

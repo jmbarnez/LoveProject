@@ -42,6 +42,23 @@ end
 function PhysicsResolution.pushEntity(entity, pushX, pushY, normalX, normalY, dt, restitution)
     restitution = restitution or 0.25 -- default hull bounce if unspecified
     
+    -- CRITICAL FIX: Skip bouncing physics for projectiles
+    if entity.components and entity.components.projectile then
+        -- Projectiles should not bounce - just apply position change
+        if entity.components.windfield_physics then
+            local PhysicsSystem = require("src.systems.physics")
+            local manager = PhysicsSystem.getManager()
+            if manager then
+                local collider = manager:getCollider(entity)
+                if collider and not collider:isDestroyed() then
+                    local oldX, oldY = collider:getPosition()
+                    collider:setPosition(oldX + pushX, oldY + pushY)
+                end
+            end
+        end
+        return
+    end
+    
     -- Handle Windfield physics
     if entity.components.windfield_physics then
         local PhysicsSystem = require("src.systems.physics")
@@ -77,10 +94,12 @@ function PhysicsResolution.pushEntity(entity, pushX, pushY, normalX, normalY, dt
         local vy = body.vy or 0
         local vn = vx * normalX + vy * normalY
         if vn < 0 then
-            -- Apply restitution for natural bouncing
-            local delta = -(1 + restitution) * vn
-            body.vx = vx + delta * normalX
-            body.vy = vy + delta * normalY
+            -- Apply restitution for natural bouncing (skip for projectiles)
+            if not (entity.components and entity.components.projectile) then
+                local delta = -(1 + restitution) * vn
+                body.vx = vx + delta * normalX
+                body.vy = vy + delta * normalY
+            end
         end
         
         -- Sync velocity with entity velocity component if it exists
@@ -109,10 +128,12 @@ function PhysicsResolution.pushEntity(entity, pushX, pushY, normalX, normalY, dt
             local vy = vel.y or 0
             local vn = vx * normalX + vy * normalY
             if vn < 0 then
-                -- Apply restitution for natural bouncing
-                local delta = -(1 + restitution) * vn
-                vel.x = vx + delta * normalX
-                vel.y = vy + delta * normalY
+                -- Apply restitution for natural bouncing (skip for projectiles)
+                if not (entity.components and entity.components.projectile) then
+                    local delta = -(1 + restitution) * vn
+                    vel.x = vx + delta * normalX
+                    vel.y = vy + delta * normalY
+                end
             end
         end
     end
@@ -135,7 +156,7 @@ function PhysicsResolution.getRestitution(entity1, entity2)
     
     -- Determine surface type for entity1
     local e1Rest = HULL_REST
-    if entity1.components and entity1.components.bullet then
+    if entity1.components and entity1.components.projectile then
         e1Rest = PROJECTILE_REST  -- Projectiles don't bounce
     elseif StationShields.hasActiveShield(entity1) then
         e1Rest = SHIELD_REST
@@ -151,7 +172,7 @@ function PhysicsResolution.getRestitution(entity1, entity2)
     
     -- Determine surface type for entity2
     local e2Rest = HULL_REST
-    if entity2.components and entity2.components.bullet then
+    if entity2.components and entity2.components.projectile then
         e2Rest = PROJECTILE_REST  -- Projectiles don't bounce
     elseif StationShields.hasActiveShield(entity2) then
         e2Rest = SHIELD_REST
@@ -166,7 +187,7 @@ function PhysicsResolution.getRestitution(entity1, entity2)
     end
     
     -- Force zero restitution if either entity is a projectile
-    if (entity1.components and entity1.components.bullet) or (entity2.components and entity2.components.bullet) then
+    if (entity1.components and entity1.components.projectile) or (entity2.components and entity2.components.projectile) then
         return 0.0, 0.0
     end
     

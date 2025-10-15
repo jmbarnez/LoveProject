@@ -56,9 +56,9 @@ function UpgradeSystem.detach(turret)
 end
 
 function UpgradeSystem.onProjectileHit(bullet, damage)
-    local bulletData = bullet and bullet.components and bullet.components.bullet
-    if not bulletData then return end
-    local turretId = bulletData.turretId
+    local projectileData = bullet and bullet.components and bullet.components.projectile
+    if not projectileData then return end
+    local turretId = projectileData.turretId
     if not turretId then return end
 
     local entry = registry[turretId]

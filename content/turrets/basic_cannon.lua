@@ -61,7 +61,7 @@ return {
         damage = {
             value = 12.0,
         },
-        bullet = {
+        projectile = {
             kind = "cannonball"
         },
         timed_life = {
@@ -70,8 +70,8 @@ return {
         
         -- This component is the single source of truth for all physics properties.
         windfield_physics = {
-            bodyType = "dynamic",
-            mass = 200.0, -- Very heavy mass for a cannonball that pushes enemies back
+            bodyType = "kinematic", -- Kinematic bodies don't bounce
+            mass = 1.0, -- Mass doesn't matter for kinematic bodies
             fixedRotation = true,
             restitution = 0.0,  -- No bouncing for cannon projectiles
             friction = 0.0,

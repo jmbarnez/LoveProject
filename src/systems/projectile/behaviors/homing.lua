@@ -26,8 +26,8 @@ local function acquire_target(projectile, world, maxRangeSq, preferNearest)
         return nil
     end
 
-    local bulletComponent = projectile.components and projectile.components.bullet
-    local source = bulletComponent and bulletComponent.source
+    local projectileComponent = projectile.components and projectile.components.projectile
+    local source = projectileComponent and projectileComponent.source
 
     local bestTarget
     local bestScore = math.huge
@@ -106,7 +106,7 @@ local function factory(context, config)
             if state.desiredSpeed and state.desiredSpeed > 0 then
                 speed = state.desiredSpeed
             elseif speed <= 0 then
-            local bullet = projectile.components.bullet
+            local projectile = projectile.components.projectile
             local baseSpeed = (bullet and bullet.speed) or 700
                 speed = baseSpeed
             end
@@ -132,7 +132,7 @@ local function factory(context, config)
         if state.desiredSpeed and state.desiredSpeed > 0 then
             speed = state.desiredSpeed
         elseif speed <= 0 then
-            local bullet = projectile.components.bullet
+            local projectile = projectile.components.projectile
             local baseSpeed = (bullet and bullet.speed) or 700
             speed = baseSpeed
         end

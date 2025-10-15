@@ -85,7 +85,7 @@ local registry = {
     -- Projectile checks (with special wave projectile handling)
     {
         check = function(entity)
-            if entity.components and entity.components.bullet then
+            if entity.components and entity.components.projectile then
                 local renderable = entity.components.renderable
                 return renderable and renderable.type == "wave"
             end
@@ -97,7 +97,7 @@ local registry = {
     
     {
         check = function(entity)
-            return entity.components and entity.components.bullet ~= nil
+            return entity.components and entity.components.projectile ~= nil
         end,
         type = "bullet",
         priority = 9

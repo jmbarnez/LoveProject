@@ -214,7 +214,7 @@ local function buildProjectileSnapshotFromWorld(world)
 
     for _, entity in ipairs(entities) do
         -- Only include projectile entities
-        if entity.components and entity.components.bullet then
+        if entity.components and entity.components.projectile then
             local position = entity.components.position
             local velocity = entity.components.velocity
             local damage = entity.components.damage
@@ -222,7 +222,7 @@ local function buildProjectileSnapshotFromWorld(world)
 
             -- Convert source entity to player ID for network transmission
             local sourceId = nil
-            local source = entity.components.bullet.source
+            local source = entity.components.projectile.source
             if source then
                 if source.isPlayer and source.id then
                     sourceId = source.id
@@ -264,15 +264,15 @@ local function buildProjectileSnapshotFromWorld(world)
                 end
             end
 
-            local impact = entity.components.bullet and entity.components.bullet.impact
-            local bulletMeta = entity.components.bullet or {}
+            local impact = entity.components.projectile and entity.components.projectile.impact
+            local projectileMeta = entity.components.projectile or {}
 
-            local sourcePlayerId = bulletMeta.sourcePlayerId
+            local sourcePlayerId = projectileMeta.sourcePlayerId
             if not sourcePlayerId and source then
                 sourcePlayerId = source.remotePlayerId or source.playerId or source.id
             end
 
-            local sourceShipId = bulletMeta.sourceShipId or (source and (source.shipId or (source.ship and source.ship.id)))
+            local sourceShipId = projectileMeta.sourceShipId or (source and (source.shipId or (source.ship and source.ship.id)))
 
             local projectileData = {
                 id = entity.id or tostring(entity),
@@ -489,20 +489,20 @@ local function updateProjectileFromSnapshot(entity, projectileData)
     end
 
     -- Update impact configuration for consistent collision FX
-    if entity.components and entity.components.bullet and projectileData.impact then
-        entity.components.bullet.impact = Util.deepCopy(projectileData.impact)
+    if entity.components and entity.components.projectile and projectileData.impact then
+        entity.components.projectile.impact = Util.deepCopy(projectileData.impact)
     end
-
-    if entity.components and entity.components.bullet then
-        local bullet = entity.components.bullet
+    
+    if entity.components and entity.components.projectile then
+        local projectile = entity.components.projectile
         if projectileData.sourceTurretSlot ~= nil then
-            bullet.slot = projectileData.sourceTurretSlot
+            projectile.slot = projectileData.sourceTurretSlot
         end
         if projectileData.sourceTurretId ~= nil then
-            bullet.turretId = projectileData.sourceTurretId
+            projectile.turretId = projectileData.sourceTurretId
         end
         if projectileData.sourceTurretType ~= nil then
-            bullet.turretType = projectileData.sourceTurretType
+            projectile.turretType = projectileData.sourceTurretType
         end
         if projectileData.sourcePlayerId ~= nil then
             bullet.sourcePlayerId = projectileData.sourcePlayerId

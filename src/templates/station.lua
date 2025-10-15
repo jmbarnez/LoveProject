@@ -114,19 +114,31 @@ function Station.new(x, y, config)
     end
 
     -- Add Windfield physics component for stations
-    -- Stations are extremely heavy and immovable
-    local stationRadius = self.radius or 50
-    self.components.windfield_physics = WindfieldPhysics.new({
-        x = x,
-        y = y,
-        mass = 1000000,  -- Extremely heavy - 1 million mass units
-        colliderType = "circle",
-        bodyType = "static",  -- Static body - cannot be moved by forces
-        restitution = 0.1,    -- Low bounce
-        friction = 0.8,       -- High friction
-        fixedRotation = true, -- Cannot rotate
-        radius = stationRadius,
-    })
+    -- Use the physics configuration from the content definition if available
+    if config.windfield_physics then
+        -- Use the exact physics configuration from the content definition
+        local physicsConfig = {}
+        for k, v in pairs(config.windfield_physics) do
+            physicsConfig[k] = v
+        end
+        physicsConfig.x = x
+        physicsConfig.y = y
+        self.components.windfield_physics = WindfieldPhysics.new(physicsConfig)
+    else
+        -- Fallback to default circle collider
+        local stationRadius = self.radius or 50
+        self.components.windfield_physics = WindfieldPhysics.new({
+            x = x,
+            y = y,
+            mass = 1000000,  -- Extremely heavy - 1 million mass units
+            colliderType = "circle",
+            bodyType = "static",  -- Static body - cannot be moved by forces
+            restitution = 0.1,    -- Low bounce
+            friction = 0.8,       -- High friction
+            fixedRotation = true, -- Cannot rotate
+            radius = stationRadius,
+        })
+    end
 
     -- Add station to physics system immediately
     local EntityPhysics = require("src.systems.entity_physics")

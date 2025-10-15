@@ -13,7 +13,7 @@ local function isTargetValid(target, projectile)
         return false
     end
 
-    local bulletComponent = projectile.components and projectile.components.bullet
+    local projectileComponent = projectile.components and projectile.components.projectile
     local source = bulletComponent and bulletComponent.source
     return TargetUtils.isEnemyTarget(target, source)
 end
@@ -28,7 +28,7 @@ local function findNearestTarget(projectile, world, maxRangeSq)
         return nil
     end
 
-    local bulletComponent = projectile.components and projectile.components.bullet
+    local projectileComponent = projectile.components and projectile.components.projectile
     local source = bulletComponent and bulletComponent.source
 
     local nearest

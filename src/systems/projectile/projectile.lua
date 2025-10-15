@@ -148,7 +148,7 @@ end
 
 function Projectile.new(x, y, angle, friendly, config)
     local self = setmetatable({}, Projectile)
-    self.tag = "bullet" -- Keep tag for compatibility with some legacy checks
+    self.tag = "projectile" -- Projectile tag for compatibility
 
     -- Set projectile type for network synchronization
     self.projectileType = config.id or "gun_bullet"
@@ -170,7 +170,7 @@ function Projectile.new(x, y, angle, friendly, config)
     end
 
     self.components = {
-        bullet = {
+        projectile = {
             source = config.source, -- Track shooter to avoid self-hit
             impact = config.impact,  -- Pass impact effects for collision visuals
             slot = config.sourceTurretSlot,
@@ -244,14 +244,9 @@ function Projectile.new(x, y, angle, friendly, config)
                 return WindfieldPhysics.new({
                     x = x,
                     y = y,
-                    mass = (function()
-                        local kind = config.kind or 'bullet'
-                        if kind == "missile" then return 5
-                        elseif kind == "laser" or kind == "mining_laser" or kind == "salvaging_laser" then return 0.1
-                        else return 1 end
-                    end)(),
+                    mass = 1, -- Mass doesn't matter for kinematic bodies
                     colliderType = "circle",
-                    bodyType = "dynamic",
+                    bodyType = "kinematic", -- Kinematic bodies don't bounce
                     restitution = 0.0,  -- No bouncing for projectiles
                     friction = 0.0,
                     fixedRotation = true,  -- Projectiles don't rotate
@@ -398,26 +393,9 @@ function Projectile.new(x, y, angle, friendly, config)
     local direction = vx > 0 and "RIGHT" or "LEFT"
     Log.debug("projectile", "Projectile direction: %s, Angle: %.2f° (%.2f rad), vx: %.2f, vy: %.2f", direction, angleDegrees, angle, vx, vy)
 
-    -- Add projectile to physics system
-    local PhysicsSystem = require("src.systems.physics")
-    
-    -- Debug: Log projectile components before adding to physics
-    Log.debug("projectile", "Projectile components: bullet=%s, position=%s, renderable=%s", 
-             self.components.bullet and "yes" or "no",
-             self.components.position and "yes" or "no", 
-             self.components.renderable and "yes" or "no")
-    
-    -- Try to add to physics system with error handling
-    local success, result = pcall(function()
-        local EntityPhysics = require("src.systems.entity_physics")
-        return EntityPhysics.addEntity(self)
-    end)
-    
-    if not success then
-        Log.error("projectile", "Failed to add projectile to physics system: %s", result)
-    else
-        Log.debug("projectile", "Successfully added projectile to physics system: %s", result and "collider created" or "no collider")
-    end
+    -- Add projectile to physics system using dedicated projectile physics
+    local EntityPhysics = require("src.systems.entity_physics")
+    EntityPhysics.addEntity(self)
 
     return self
 end

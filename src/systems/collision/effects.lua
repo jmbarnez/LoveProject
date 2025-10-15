@@ -276,7 +276,7 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
     -- Determine which entity is the target (non-projectile)
     local targetEntity, targetX, targetY, targetRadius, targetCollisionX, targetCollisionY, targetHasShield
     
-    if entity1.components and entity1.components.bullet then
+    if entity1.components and entity1.components.projectile then
         -- Entity1 is a projectile, create effects for entity2
         targetEntity = entity2
         targetX = e2x
@@ -311,8 +311,8 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
         local isUtilityBeam = false
         
         -- Check if entity1 is a laser weapon
-        if entity1.components and entity1.components.bullet then
-            local bullet = entity1.components.bullet
+        if entity1.components and entity1.components.projectile then
+            local projectile = entity1.components.projectile
             if bullet.kind then
                 if bullet.kind == "laser" or bullet.kind == "mining_laser" or bullet.kind == "salvaging_laser" or bullet.kind == "healing_laser" then
                     isLaserWeapon = true
@@ -321,8 +321,8 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
         end
         
         -- Check if entity1 is a utility beam (mining/salvaging)
-        if entity1.components and entity1.components.bullet then
-            local bullet = entity1.components.bullet
+        if entity1.components and entity1.components.projectile then
+            local projectile = entity1.components.projectile
             if bullet.kind then
                 if bullet.kind == "mining_laser" or bullet.kind == "salvaging_laser" or bullet.kind == "healing_laser" then
                     isUtilityBeam = true
@@ -364,8 +364,8 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
         local isBulletWeapon = false
         local bulletType = "cannon"
         
-        if entity1.components and entity1.components.bullet then
-            local bullet = entity1.components.bullet
+        if entity1.components and entity1.components.projectile then
+            local projectile = entity1.components.projectile
             if bullet.kind then
                 if bullet.kind == "bullet" then
                     isBulletWeapon = true
@@ -378,7 +378,7 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
         end
         
         -- Force bullet detection for testing - remove this after testing
-        if entity1.components and entity1.components.bullet then
+        if entity1.components and entity1.components.projectile then
             isBulletWeapon = true
             bulletType = "cannon"
         end
@@ -391,11 +391,11 @@ function CollisionEffects.createCollisionEffects(entity1, entity2, e1x, e1y, e2x
             
             -- Adjust color based on weapon type
             if isUtilityBeam then
-                if entity1.components.bullet.kind == "mining_laser" then
+                if entity1.components.projectile.kind == "mining_laser" then
                     sparkColor = {1.0, 0.7, 0.2, 0.8} -- Orange for mining (matches beam color)
-                elseif entity1.components.bullet.kind == "salvaging_laser" then
+                elseif entity1.components.projectile.kind == "salvaging_laser" then
                     sparkColor = {1.0, 0.2, 0.6, 0.8} -- Pink for salvaging (matches beam color)
-                elseif entity1.components.bullet.kind == "healing_laser" then
+                elseif entity1.components.projectile.kind == "healing_laser" then
                     sparkColor = {0.0, 1.0, 0.5, 0.8} -- Lime green for healing (matches beam color)
                 end
             elseif isLaserWeapon then
@@ -462,44 +462,60 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         incoming = incoming * 2
     end
 
-    -- Check weapon type for damage modifiers
-    local isLaserWeapon = false
-    local isGunWeapon = false
-    if source and source.components and source.components.bullet then
-        local bullet = source.components.bullet
-        if bullet.kind then
-            if bullet.kind == "laser" or bullet.kind == "mining_laser" or bullet.kind == "salvaging_laser" or bullet.kind == "healing_laser" then
-                isLaserWeapon = true
-            elseif bullet.kind == "bullet" then
-                isGunWeapon = true
+    -- Determine weapon type and category dynamically from source
+    local weaponType = "unknown"
+    local weaponCategory = "kinetic" -- default category
+    
+    if source and source.components then
+        -- Check if this is damage from a turret/weapon system
+        if source.components.equipment and source.components.equipment.turrets then
+            local equipment = source.components.equipment
+            for _, turret in ipairs(equipment.turrets) do
+                if turret.type then
+                    weaponType = turret.type
+                    break
+                end
             end
+        -- Check if this is direct damage from a turret entity
+        elseif source.type then
+            weaponType = source.type
         end
     end
+    
+    -- Use modular weapon category system
+    local WeaponCategories = require("src.systems.collision.weapon_categories")
+    weaponCategory = WeaponCategories.getCategory(weaponType)
+    local categoryData = WeaponCategories.getCategoryData(weaponCategory)
+
+    -- Debug logging
+    local Log = require("src.core.log")
+    Log.debug("collision", "Applying damage: entity=%s, damageValue=%s, source=%s, weaponType=%s, weaponCategory=%s", 
+              entity.id or "unknown", tostring(damageValue), source and (source.id or "unknown") or "nil", weaponType, weaponCategory)
 
     local hadShield = shield and (shield.shield or 0) > 0
     local shieldBefore = shield and (shield.shield or 0) or 0
     
-    -- Apply weapon-specific damage modifiers
+    -- Apply weapon-specific damage modifiers based on category
     local shieldDamage, remainingDamage
     if shield and hadShield then
-        if isLaserWeapon then
-            -- Laser weapons: 15% more damage to shields, half damage to hulls
-            shieldDamage = math.min(shieldBefore, incoming * 1.15) -- 15% more damage to shields
-            remainingDamage = incoming - (shieldDamage / 1.15) -- Convert back to original damage for hull calculation
-            if remainingDamage > 0 then
-                remainingDamage = remainingDamage * 0.5 -- Half damage to hull
-            end
-        elseif isGunWeapon then
-            -- Gun weapons: half damage to shields, 15% more damage to hulls
-            shieldDamage = math.min(shieldBefore, incoming * 0.5) -- Half damage to shields
-            remainingDamage = incoming - (shieldDamage * 2) -- Convert back to original damage for hull calculation
-            if remainingDamage > 0 then
-                remainingDamage = remainingDamage * 1.15 -- 15% more damage to hull
-            end
+        -- Use category data for damage calculations
+        local shieldMultiplier = categoryData.shieldMultiplier or 1.0
+        local hullMultiplier = categoryData.hullMultiplier or 1.0
+        
+        -- Calculate shield damage
+        shieldDamage = math.min(shieldBefore, incoming * shieldMultiplier)
+        
+        -- Calculate remaining damage for hull
+        if shieldMultiplier ~= 1.0 then
+            -- Convert back to original damage for hull calculation
+            remainingDamage = incoming - (shieldDamage / shieldMultiplier)
         else
-            -- Normal damage calculation for other weapons
-            shieldDamage = math.min(shieldBefore, incoming)
             remainingDamage = incoming - shieldDamage
+        end
+        
+        -- Apply hull damage multiplier
+        if remainingDamage > 0 then
+            remainingDamage = remainingDamage * hullMultiplier
         end
     else
         -- No shield component - all damage goes to hull
@@ -552,7 +568,7 @@ function CollisionEffects.applyDamage(entity, damageValue, source)
         -- Track weapon type for XP rewards
         if source and source.components and source.components.equipment then
             -- Find the turret that fired this projectile
-            local bullet = source.components.bullet
+            local projectile = source.components.projectile
             if bullet and bullet.slot then
                 local turret = source:getTurretInSlot(bullet.slot)
                 if turret and turret.type then

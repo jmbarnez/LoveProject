@@ -35,13 +35,13 @@ local function spawnFragments(projectile, payload, config)
         damage = baseDamage * damageScale,
         speedOverride = speed,
         kind = projectile.components.renderable and projectile.components.renderable.props and projectile.components.renderable.props.kind,
-        impact = projectile.components.bullet and projectile.components.bullet.impact,
-        source = projectile.components.bullet and projectile.components.bullet.source,
-        sourcePlayerId = projectile.components.bullet and projectile.components.bullet.sourcePlayerId,
-        sourceShipId = projectile.components.bullet and projectile.components.bullet.sourceShipId,
-        sourceTurretSlot = projectile.components.bullet and projectile.components.bullet.slot,
-        sourceTurretId = projectile.components.bullet and projectile.components.bullet.turretId,
-        sourceTurretType = projectile.components.bullet and projectile.components.bullet.turretType,
+        impact = projectile.components.projectile and projectile.components.projectile.impact,
+        source = projectile.components.projectile and projectile.components.projectile.source,
+        sourcePlayerId = projectile.components.projectile and projectile.components.projectile.sourcePlayerId,
+        sourceShipId = projectile.components.projectile and projectile.components.projectile.sourceShipId,
+        sourceTurretSlot = projectile.components.projectile and projectile.components.projectile.slot,
+        sourceTurretId = projectile.components.projectile and projectile.components.projectile.turretId,
+        sourceTurretType = projectile.components.projectile and projectile.components.projectile.turretType,
     }
 
     -- Use delayed require to avoid circular dependency

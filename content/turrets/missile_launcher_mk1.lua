@@ -65,7 +65,7 @@ return {
         damage = {
             value = 30.0,
         },
-        bullet = {
+        projectile = {
             kind = "missile"
         },
         timed_life = {
@@ -78,9 +78,9 @@ return {
         
         -- This component is the single source of truth for all physics properties.
         windfield_physics = {
-            bodyType = "dynamic",
-            mass = 5.0, -- A heavy mass for a missile.
-            fixedRotation = false, -- Missiles can be deflected and tumble.
+            bodyType = "kinematic", -- Kinematic bodies don't bounce
+            mass = 1.0, -- Mass doesn't matter for kinematic bodies
+            fixedRotation = true, -- Keep missiles from tumbling for now
             restitution = 0.0,  -- No bouncing for missiles
             friction = 0.0,
             colliderType = "polygon",

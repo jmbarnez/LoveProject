@@ -207,7 +207,7 @@ function EnemyStatusBars.drawMiniBars(entity)
   local isPlayer = entity.isPlayer or (entity.components and entity.components.player ~= nil) or entity.isRemotePlayer
   
   -- Check if this is a projectile
-  local isProjectile = entity.components.bullet ~= nil
+  local isProjectile = entity.components.projectile ~= nil
   
 -- For players, always show durability bars
   if isPlayer then

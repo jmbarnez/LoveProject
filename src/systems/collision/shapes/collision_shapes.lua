@@ -89,7 +89,7 @@ function CollisionShapes.getCollisionShape(entity)
     end
 
     -- Only allow circular collision for projectiles and items that are explicitly circular
-    if entity.components and entity.components.bullet then
+    if entity.components and entity.components.projectile then
         -- Projectiles can use circular collision
         return {
             type = "circle",

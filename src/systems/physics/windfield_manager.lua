@@ -41,10 +41,12 @@ local COLLISION_CLASSES = {
     { name = "ship", options = { ignores = {} } },
     { name = "asteroid", options = { ignores = {} } },
     { name = "station", options = { ignores = {} } },
-    { name = "bullet", options = { ignores = { "bullet", "missile", "cannonball" } } },
-    { name = "missile", options = { ignores = { "bullet", "missile", "cannonball" } } },
-    { name = "cannonball", options = { ignores = { "bullet", "missile", "cannonball" } } },
-    { name = "pickup", options = { ignores = { "pickup", "bullet", "missile", "cannonball", "ship", "asteroid", "station" } } },
+    -- Projectile categories - projectiles don't collide with other projectiles
+    { name = "kinetic_projectile", options = { ignores = { "kinetic_projectile", "explosive_projectile", "energy_projectile", "utility_projectile" } } },
+    { name = "explosive_projectile", options = { ignores = { "kinetic_projectile", "explosive_projectile", "energy_projectile", "utility_projectile" } } },
+    { name = "energy_projectile", options = { ignores = { "kinetic_projectile", "explosive_projectile", "energy_projectile", "utility_projectile" } } },
+    { name = "utility_projectile", options = { ignores = { "kinetic_projectile", "explosive_projectile", "energy_projectile", "utility_projectile" } } },
+    { name = "pickup", options = { ignores = { "pickup", "kinetic_projectile", "explosive_projectile", "energy_projectile", "utility_projectile", "ship", "asteroid", "station" } } },
     { name = "default", options = { ignores = {} } }, -- Fallback for any physics object
 }
 
@@ -72,7 +74,27 @@ function WindfieldManager.new()
 end
 
 function WindfieldManager:setupCollisionCallbacks()
-    -- Handle non-projectile collisions on beginContact
+    local ProjectileCollisionHandler = require("src.systems.collision.projectile_collision_handler")
+    local ProjectileCategories = require("src.systems.projectile.categories")
+    
+    -- Use preSolve to prevent bouncing BEFORE physics resolution
+    self.world:on("preSolve", function(colliderA, colliderB, contact)
+        local entityA = self.colliders[colliderA]
+        local entityB = self.colliders[colliderB]
+        
+        if not entityA or not entityB then 
+            return 
+        end
+        
+        -- Force zero restitution for projectiles BEFORE physics resolution
+        if ProjectileCategories.isProjectile(entityA) or ProjectileCategories.isProjectile(entityB) then
+            contact:setRestitution(0)
+            contact:setFriction(0)
+            -- Don't disable the contact - we still need collision detection
+        end
+    end)
+    
+    -- Handle ALL collisions on beginContact
     self.world:on("beginContact", function(colliderA, colliderB, contact)
         local entityA = self.colliders[colliderA]
         local entityB = self.colliders[colliderB]
@@ -84,13 +106,33 @@ function WindfieldManager:setupCollisionCallbacks()
         local classA = colliderA:getCollisionClass()
         local classB = colliderB:getCollisionClass()
         
-        
-        -- Handle non-projectile collisions immediately
-        if not (classA == "bullet" or classB == "bullet" or classA == "missile" or classB == "missile" or classA == "cannonball" or classB == "cannonball") then
-            self:handleCollision(entityA, entityB, contact, classA, classB)
+        -- Handle projectile collisions first
+        if ProjectileCategories.isProjectile(entityA) or ProjectileCategories.isProjectile(entityB) then
+            local projectile = ProjectileCategories.isProjectile(entityA) and entityA or entityB
+            local target = ProjectileCategories.isProjectile(entityA) and entityB or entityA
+            
+            if not ProjectileCollisionHandler.shouldIgnore(projectile, target) then
+                -- Get precise hit position
+                local points = contact:getPositions()
+                local hitX, hitY = projectile.components.position.x, projectile.components.position.y
+                if points and #points > 0 then
+                    local totalX, totalY = 0, 0
+                    for _, p in ipairs(points) do
+                        totalX = totalX + p[1]
+                        totalY = totalY + p[2]
+                    end
+                    hitX = totalX / #points
+                    hitY = totalY / #points
+                end
+                
+                ProjectileCollisionHandler.handle(projectile, target, contact, hitX, hitY)
+            end
+            return
         end
+        
+        -- Handle non-projectile collisions
+        self:handleCollision(entityA, entityB, contact, classA, classB)
     end)
-    
 end
 
 function WindfieldManager:handleCollision(entityA, entityB, contact, classA, classB)
@@ -114,11 +156,7 @@ function WindfieldManager:handleCollision(entityA, entityB, contact, classA, cla
         return
     end
     
-    -- Handle projectile collisions first (they have special logic)
-    if classA == "bullet" or classB == "bullet" or classA == "missile" or classB == "missile" or classA == "cannonball" or classB == "cannonball" then
-        self:handleProjectileCollision(entityA, entityB, contact)
-        return
-    end
+    -- Projectile collisions are now handled in setupCollisionCallbacks
     
     -- Handle all other entity collisions
     self:handleEntityCollision(entityA, entityB, contact, classA, classB)
@@ -188,61 +226,7 @@ function WindfieldManager:handleAsteroidCollision(entityA, entityB, contact)
     -- We can add custom effects here if needed
 end
 
-function WindfieldManager:handleProjectileCollision(entityA, entityB, contact)
-    -- Handle projectile hits
-    local projectile = entityA.components.bullet and entityA or entityB
-    local target = entityA.components.bullet and entityB or entityA
-    
-    if not projectile or not target then
-        return
-    end
-    
-    -- Check if this collision should be ignored (e.g., projectile hitting its source)
-    local ProjectileCollision = require("src.systems.collision.handlers.projectile_collision")
-    local source = projectile.components.bullet and projectile.components.bullet.source
-    
-    if ProjectileCollision.shouldIgnoreTarget(projectile, target, source) then
-        return -- Ignore this collision
-    end
-    
-    -- Get precise hit position from contact
-    local points = contact:getPositions()
-    local hitX, hitY = projectile.components.position.x, projectile.components.position.y
-    if points and #points > 0 then
-        -- Average the contact points to get a more accurate hit position
-        local totalX, totalY = 0, 0
-        for _, p in ipairs(points) do
-            totalX = totalX + p[1]
-            totalY = totalY + p[2]
-        end
-        hitX = totalX / #points
-        hitY = totalY / #points
-    end
-    
-    -- Create collision effects using precise hit position
-    local now = (love and love.timer and love.timer.getTime and love.timer.getTime()) or 0
-    local CollisionEffects = require("src.systems.collision.effects")
-    if CollisionEffects.canEmitCollisionFX(projectile, target, now) then
-        local Radius = require("src.systems.collision.radius")
-        local targetRadius = Radius.getHullRadius(target) or 20
-        local bulletRadius = Radius.getHullRadius(projectile) or 2
-        
-        CollisionEffects.createCollisionEffects(projectile, target, hitX, hitY, hitX, hitY, 0, 0, bulletRadius, targetRadius, nil, nil)
-    end
-    
-    -- Trigger projectile hit logic with precise hit position
-    ProjectileCollision.handleProjectileCollision(projectile, target, 1/60, nil, hitX, hitY)
-
-    -- Destroy projectile after physics has processed the collision
-    local projectileCollider = self.entities[projectile]
-    if projectileCollider and not projectileCollider:isDestroyed() then
-        projectileCollider:destroy()
-    end
-    if projectileCollider then
-        self.colliders[projectileCollider] = nil
-    end
-    self.entities[projectile] = nil
-end
+-- Projectile collision handling moved to dedicated ProjectileCollisionHandler
 
 
 function WindfieldManager:handlePlayerCollision(entityA, entityB, contact)
@@ -342,14 +326,30 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
     if options.mass then
         collider:getBody():setMass(options.mass)
     end
-    if options.restitution then
+    if options.restitution ~= nil then
         collider:setRestitution(options.restitution)
     end
-    if options.friction then
+    if options.friction ~= nil then
         collider:setFriction(options.friction)
     end
     if options.fixedRotation ~= nil then
         collider:setFixedRotation(options.fixedRotation)
+    end
+    
+    -- Force zero restitution for projectiles immediately
+    if entity.components and entity.components.projectile then
+        collider:setRestitution(0)
+        collider:setFriction(0)
+        
+        -- Additional safety: Force zero restitution on the underlying fixture
+        if collider.fixture then
+            if collider.fixture.setRestitution then
+                collider.fixture:setRestitution(0)
+            end
+            if collider.fixture.setFriction then
+                collider.fixture:setFriction(0)
+            end
+        end
     end
     
     -- Handle initial velocity for entities that have it (like wreckage)
@@ -369,7 +369,7 @@ function WindfieldManager:addEntity(entity, colliderType, x, y, options)
         end
         
         -- Debug: Log velocity application
-        if entity.components and entity.components.bullet then
+        if entity.components and entity.components.projectile then
             Log.debug("physics", "Applied initial velocity to projectile: vx=%.2f, vy=%.2f", vx, vy)
             -- Also log the actual velocity after setting it
             local actualVx, actualVy = collider:getLinearVelocity()
@@ -411,17 +411,11 @@ function WindfieldManager:determineCollisionClass(entity)
         return "ship"
     end
     
-    -- Projectiles - separated into specific classes for better modularity
-    if entity.components.bullet then
-        local kind = entity.components.bullet.kind
-        if kind == "missile" then
-            return "missile"
-        elseif kind == "cannonball" then
-            return "cannonball"
-        else
-            -- Default to "bullet" for any other projectile type
-            return "bullet"
-        end
+    -- Projectiles - use category-based collision classes
+    if entity.components.projectile then
+        local ProjectileCategories = require("src.systems.projectile.categories")
+        local projectileKind = ProjectileCategories.getProjectileKind(entity)
+        return ProjectileCategories.getCollisionClass(projectileKind)
     end
     
     -- World objects
@@ -500,6 +494,23 @@ function WindfieldManager:update(dt)
                 local angularVel = collider:getAngularVelocity()
                 if angularVel ~= 0 then
                     collider:setAngularVelocity(0)
+                end
+            end
+            
+            -- CRITICAL: Continuously ensure projectiles never bounce
+            if entity.components and entity.components.projectile then
+                collider:setRestitution(0)
+                collider:setFriction(0)
+                collider:setFixedRotation(true)
+                
+                -- Additional safety: Force zero restitution on the underlying fixture
+                if collider.fixture then
+                    if collider.fixture.setRestitution then
+                        collider.fixture:setRestitution(0)
+                    end
+                    if collider.fixture.setFriction then
+                        collider.fixture:setFriction(0)
+                    end
                 end
             end
         end

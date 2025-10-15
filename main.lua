@@ -158,7 +158,7 @@ end
 ]]
 function updateFPSLimit()
   local graphicsSettings = Settings.getGraphicsSettings()
-  local minFrameTime = (graphicsSettings.max_fps and graphicsSettings.max_fps > 0) and (1 / graphicsSettings.max_fps) or 0
+  minFrameTime = (graphicsSettings.max_fps and graphicsSettings.max_fps > 0) and (1 / graphicsSettings.max_fps) or 0
 end
 
 -- =============================================================================

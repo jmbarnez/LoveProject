@@ -13,17 +13,17 @@ function WindfieldPhysics.new(values)
     local instance = setmetatable({}, WindfieldPhysics)
     
     -- Store physics properties
-    instance.mass = values.mass or 1000
-    instance.restitution = values.restitution or 0.25
-    instance.friction = values.friction or 0.2
+    instance.mass = values.mass ~= nil and values.mass or 1000
+    instance.restitution = values.restitution ~= nil and values.restitution or 0.25
+    instance.friction = values.friction ~= nil and values.friction or 0.2
     instance.fixedRotation = values.fixedRotation or false
     instance.bodyType = values.bodyType or "dynamic"
     
     -- Collider type and dimensions
     instance.colliderType = values.colliderType or "circle"
-    instance.radius = values.radius or 20
-    instance.width = values.width or 40
-    instance.height = values.height or 40
+    instance.radius = values.radius ~= nil and values.radius or 20
+    instance.width = values.width ~= nil and values.width or 40
+    instance.height = values.height ~= nil and values.height or 40
     instance.vertices = values.vertices or {}
     
     -- Position

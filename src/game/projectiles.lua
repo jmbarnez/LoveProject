@@ -44,13 +44,14 @@ function Projectiles.spawn(x, y, angle, friendly, opts, world)
     extra_config.angle = angle
     extra_config.friendly = friendly
     extra_config.damage = opts.damage or base_config.damage
-    extra_config.kind = opts.kind or base_config.kind
+    extra_config.kind = opts.kind or base_config.kind or (base_config.projectile and base_config.projectile.kind)
     extra_config.speedOverride = opts.speedOverride or opts.projectileSpeed or opts.vx or opts.vy
     extra_config.tracerWidth = opts.tracerWidth
     extra_config.coreRadius = opts.coreRadius
-    extra_config.color = opts.color
+    extra_config.color = opts.color or (base_config.renderable and base_config.renderable.props and base_config.renderable.props.color)
     extra_config.impact = opts.impact
-    extra_config.length = opts.length
+    extra_config.length = opts.length or (base_config.renderable and base_config.renderable.props and base_config.renderable.props.length)
+    extra_config.radius = opts.radius or (base_config.renderable and base_config.renderable.props and base_config.renderable.props.radius)
     extra_config.timed_life = opts.timed_life
     extra_config.additionalEffects = opts.additionalEffects
     extra_config.sourcePlayerId = opts.sourcePlayerId

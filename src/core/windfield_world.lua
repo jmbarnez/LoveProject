@@ -99,7 +99,7 @@ local function resolve_collision_class(entity, opts)
     if not entity or not entity.components then
         return "default"
     end
-    if entity.components.bullet then
+    if entity.components.projectile then
         return "projectile"
     end
     local collidable = entity.components.collidable
