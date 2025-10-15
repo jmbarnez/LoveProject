@@ -1,0 +1,62 @@
+Can you please make sure to first understand how everything works within the are of context you are working in? I want no fallbacks, no validation, no debug, no testing, lots of comments. Modular, small files, lots of separation is our flow.
+
+Critical Issues Found
+1. Projectile Tunneling Risk ⚠️
+Issue: Fast-moving projectiles may pass through objects without collision detection
+Location: src/systems/collision/geometry.lua:69 mentions tunneling prevention, but the implementation may not be sufficient
+Problem: The current collision detection relies on discrete frame-by-frame checks, which can miss collisions for high-speed projectiles
+Impact: Projectiles could pass through thin objects or miss targets entirely
+2. Inconsistent Physics System Architecture 🔄
+Issue: Mixed physics systems causing potential conflicts
+WindfieldManager handles all collision detection via callbacks
+Legacy quadtree system still exists but is disabled
+EntityCollision system has conflicting logic with Windfield
+Problem: Multiple collision systems could lead to duplicate processing or missed collisions
+3. Projectile Bouncing Prevention Over-Engineering 🎯
+Issue: Excessive anti-bouncing measures may cause performance overhead
+Location: src/systems/physics/windfield_manager.lua:500-520
+Problem: Projectiles have multiple layers of bouncing prevention:
+restitution = 0.0 in physics config
+Continuous setRestitution(0) calls every frame
+setFriction(0) calls every frame
+Manual velocity zeroing on collision
+Impact: Unnecessary CPU cycles and potential frame drops
+4. Collision Shape Inconsistencies 📐
+Issue: Mixed collision shape handling between systems
+Location: src/systems/collision/shapes/collision_shapes.lua
+Problem:
+Some entities use polygon shapes
+Others use circular shapes
+Fallback logic is complex and may miss edge cases
+Ships and stations require polygon shapes but may fall back to circular
+5. Velocity Synchronization Issues ⚡
+Issue: Potential desync between different velocity tracking systems
+Location: src/systems/projectile/behaviors/homing.lua:99-118
+Problem: Homing projectiles get velocity from Windfield but also maintain their own velocity tracking
+Impact: Projectiles may not behave consistently, especially with network synchronization
+6. Performance Bottlenecks 🐌
+Issue: Several performance concerns identified
+Location: src/systems/physics/windfield_manager.lua:462-565
+Problems:
+Every frame, all entities with windfield_physics are processed
+Space drag applied to all non-ship entities every frame
+Continuous restitution/friction setting for projectiles
+Quadtree refresh every frame even though Windfield handles collision detection
+7. Collision Class Redundancy 🔄
+Issue: Multiple collision classification systems
+WeaponCategories vs ProjectileCategories have overlapping functionality
+Problem: Different systems may categorize the same projectile differently
+Impact: Inconsistent damage calculations and collision handling
+Specific Code Issues
+WindfieldManager Update Loop
+Homing Behavior Velocity Management
+Collision Shape Fallback Logic
+Recommendations
+Implement Continuous Collision Detection (CCD) for projectiles
+Consolidate collision systems - choose either Windfield or custom system
+Optimize projectile physics - remove redundant anti-bouncing measures
+Standardize collision shapes - ensure all entities have proper shape definitions
+Simplify velocity management - use single source of truth for projectile velocity
+Optimize update loops - reduce per-frame processing overhead
+Unify categorization systems - merge WeaponCategories and ProjectileCategories
+These issues could lead to inconsistent physics behavior, performance problems, and potential gameplay bugs. The most critical issues are the projectile tunneling risk and the over-engineered bouncing prevention system.
